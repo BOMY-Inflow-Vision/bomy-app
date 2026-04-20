@@ -1,0 +1,30 @@
+{
+  "name": "@bomy/config",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Shared ESLint, Prettier, and Tailwind configs for BOMY",
+  "exports": {
+    "./eslint": "./src/eslint/index.js",
+    "./eslint/base": "./src/eslint/base.js",
+    "./eslint/next": "./src/eslint/next.js",
+    "./eslint/node": "./src/eslint/node.js",
+    "./prettier": "./src/prettier/index.js",
+    "./tailwind": "./src/tailwind/index.js"
+  },
+  "dependencies": {
+    "@eslint/js": "^9.27.0",
+    "eslint-config-prettier": "^10.1.5",
+    "typescript-eslint": "^8.32.1"
+  },
+  "peerDependencies": {
+    "eslint": "^9.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.0.0"
+  },
+  "devDependencies": {
+    "eslint": "^9.27.0",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.3"
+  }
+}
