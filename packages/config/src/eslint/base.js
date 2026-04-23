@@ -17,7 +17,7 @@ export const base = tseslint.config(
           // Allow config files (eslint.config.js, postcss.config.mjs, etc.)
           // that are not part of any tsconfig project to be linted with defaults.
           // Patterns are relative to the workspace root.
-          allowDefaultProject: ["apps/api/eslint.config.js"],
+          allowDefaultProject: ["apps/*/eslint.config.js", "packages/*/eslint.config.js"],
         },
       },
     },
