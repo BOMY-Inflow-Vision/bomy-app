@@ -1,0 +1,70 @@
+/**
+ * Applies pending database migrations.
+ * Run with: node packages/db/scripts/migrate.mjs
+ *           or: pnpm --filter @bomy/db migrate
+ *
+ * Requires DATABASE_URL in the environment.
+ * Tracks applied migrations in a _bomy_migrations table so re-runs are safe.
+ *
+ * Written as plain ESM (no TypeScript) so it runs without a build step —
+ * all imports are from compiled npm packages already in node_modules.
+ */
+
+import { readFile } from "node:fs/promises"
+import { dirname, join } from "node:path"
+import { fileURLToPath } from "node:url"
+
+import postgres from "postgres"
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+
+const url = process.env["DATABASE_URL"]
+if (!url) throw new Error("migrate: DATABASE_URL is required")
+
+const sql = postgres(url, { max: 1 })
+
+async function applySqlFile(filePath) {
+  const content = await readFile(filePath, "utf8")
+  const statements = content
+    .split("--> statement-breakpoint")
+    .map((s) => s.trim())
+    .filter(Boolean)
+
+  for (const stmt of statements) {
+    await sql.unsafe(stmt)
+  }
+}
+
+const MIGRATIONS = [
+  {
+    name: "0000_initial_schema",
+    file: join(__dirname, "../drizzle/0000_initial_schema.sql"),
+  },
+]
+
+try {
+  await sql`
+    CREATE TABLE IF NOT EXISTS _bomy_migrations (
+      id        serial      PRIMARY KEY,
+      name      text        UNIQUE NOT NULL,
+      applied_at timestamptz DEFAULT now() NOT NULL
+    )
+  `
+
+  for (const { name, file } of MIGRATIONS) {
+    const [row] = await sql`SELECT 1 FROM _bomy_migrations WHERE name = ${name}`
+    if (row) {
+      console.log(`  skip  ${name}`)
+      continue
+    }
+
+    process.stdout.write(`  apply ${name} ... `)
+    await applySqlFile(file)
+    await sql`INSERT INTO _bomy_migrations (name) VALUES (${name})`
+    console.log("done")
+  }
+
+  console.log("Migrations complete.")
+} finally {
+  await sql.end()
+}

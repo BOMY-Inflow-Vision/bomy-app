@@ -46,9 +46,9 @@ function assertRole(role: string): asserts role is UserRole {
  * as a superuser — trigger `app.assert_tenant_context()` which emits
  * `WARNING rls.missing_context` (guardrail #6).
  *
- * On commit or rollback, we run `DISCARD ALL` as defence-in-depth
- * against any pg-level session state that might have leaked outside
- * the `SET LOCAL` scope (guardrail #8).
+ * `set_config(key, value, true)` is equivalent to `SET LOCAL` — all
+ * settings are transaction-scoped and cleared automatically on commit
+ * or rollback (guardrail #8). No extra cleanup is needed.
  *
  * Injection safety: `set_config(text, text, bool)` is a regular
  * function call with bound parameters — user-supplied ids never
@@ -68,13 +68,7 @@ export async function withTenant<T>(
     await tx.execute(sql`SELECT set_config('app.current_user_id', ${ctx.userId}, true)`)
     await tx.execute(sql`SELECT set_config('app.current_user_role', ${ctx.userRole}, true)`)
     await tx.execute(sql`SELECT set_config('app.current_seller_id', ${ctx.sellerId ?? ""}, true)`)
-    try {
-      return await fn(tx as Database)
-    } finally {
-      // Best-effort session-state hygiene. Runs inside the active
-      // transaction; if that rolled back, the DISCARD is a no-op.
-      await tx.execute(sql`DISCARD ALL`).catch(() => undefined)
-    }
+    return fn(tx as Database)
   })
 }
 
@@ -108,10 +102,6 @@ export async function withAdmin<T>(
     await tx.execute(sql`SELECT set_config('app.current_user_id', ${adminCtx.userId}, true)`)
     await tx.execute(sql`SELECT set_config('app.current_user_role', 'bomy_admin', true)`)
     await tx.execute(sql`SELECT set_config('app.bypass_rls', 'true', true)`)
-    try {
-      return await fn(tx as Database)
-    } finally {
-      await tx.execute(sql`DISCARD ALL`).catch(() => undefined)
-    }
+    return fn(tx as Database)
   })
 }

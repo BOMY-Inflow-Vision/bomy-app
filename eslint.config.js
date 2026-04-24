@@ -22,6 +22,8 @@ export default tseslint.config(
       ".turbo/**",
       "infra/**",
       "**/next-env.d.ts",
+      // Plain-JS runtime scripts — not part of any TypeScript project
+      "packages/*/scripts/**",
     ],
   },
 )
