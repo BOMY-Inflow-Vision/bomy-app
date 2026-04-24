@@ -12,6 +12,7 @@ export const stores = pgTable(
       .references(() => users.id, { onDelete: "restrict" }),
     name: text("name").notNull(),
     slug: text("slug").notNull(),
+    description: text("description"),
     status: storeStatusEnum("status").notNull().default("pending"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

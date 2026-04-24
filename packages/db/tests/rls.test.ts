@@ -20,7 +20,7 @@ import { sql } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 
 import { makeDb, type Db } from "../src/client.js"
-import { stores, users } from "../src/schema/index.js"
+import { sellerInquiries, stores, users } from "../src/schema/index.js"
 import { withAdmin, withTenant } from "../src/tenant.js"
 
 // RLS tests MUST run as a non-superuser so policies are enforced.
@@ -161,5 +161,191 @@ describe("withTenant argument validation", () => {
         () => Promise.resolve(undefined),
       ),
     ).rejects.toThrow(/userRole must be one of/)
+  })
+})
+
+describe.skipIf(!shouldRun)("Stage 3 schema", () => {
+  let handle: Db
+
+  beforeAll(() => {
+    handle = makeDb({ url: DATABASE_URL as string })
+  })
+
+  afterAll(async () => {
+    await handle.close()
+  })
+
+  it("inserts a seller inquiry and reads it back via withAdmin", async () => {
+    const adminId = randomUUID()
+    await withAdmin(handle.db, { userId: adminId, reason: "test seed user" }, async (tx) => {
+      await tx
+        .insert(users)
+        .values({ id: adminId, email: `${adminId}@test.bomy`, role: "bomy_admin" })
+    })
+
+    const inquiryId = randomUUID()
+    await withAdmin(handle.db, { userId: adminId, reason: "test insert inquiry" }, async (tx) => {
+      await tx.insert(sellerInquiries).values({
+        id: inquiryId,
+        name: "Test Seller",
+        email: "seller@test.bomy",
+        contactNumber: "+60123456789",
+        companyName: "Test Sdn Bhd",
+        storeName: "Test Store",
+      })
+    })
+
+    const rows = await withAdmin(
+      handle.db,
+      { userId: adminId, reason: "test read inquiry" },
+      async (tx) =>
+        tx
+          .select()
+          .from(sellerInquiries)
+          .where(sql`${sellerInquiries.id} = ${inquiryId}`),
+    )
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.storeName).toBe("Test Store")
+    expect(rows[0]!.message).toBeNull()
+  })
+
+  it("creates a store with description and approves it, updating user role atomically", async () => {
+    const adminId = randomUUID()
+    const buyerId = randomUUID()
+    const storeId = randomUUID()
+
+    await withAdmin(handle.db, { userId: adminId, reason: "test seed" }, async (tx) => {
+      await tx.insert(users).values([
+        { id: adminId, email: `admin-${adminId}@test.bomy`, role: "bomy_admin" },
+        { id: buyerId, email: `buyer-${buyerId}@test.bomy`, role: "buyer" },
+      ])
+      await tx.insert(stores).values({
+        id: storeId,
+        ownerId: buyerId,
+        name: "Desc Store",
+        slug: `desc-${storeId}`,
+        description: "A store with a description",
+        status: "pending",
+      })
+    })
+
+    const [before] = await withAdmin(
+      handle.db,
+      { userId: adminId, reason: "test read" },
+      async (tx) =>
+        tx
+          .select({ description: stores.description, status: stores.status })
+          .from(stores)
+          .where(sql`${stores.id} = ${storeId}`),
+    )
+    expect(before!.description).toBe("A store with a description")
+    expect(before!.status).toBe("pending")
+
+    await withAdmin(handle.db, { userId: adminId, reason: "test approve store" }, async (tx) => {
+      await tx
+        .update(stores)
+        .set({ status: "active", updatedAt: new Date() })
+        .where(sql`${stores.id} = ${storeId}`)
+      await tx
+        .update(users)
+        .set({ role: "seller_owner", updatedAt: new Date() })
+        .where(sql`${users.id} = ${buyerId}`)
+    })
+
+    const [afterStore] = await withAdmin(
+      handle.db,
+      { userId: adminId, reason: "test read after approve" },
+      async (tx) =>
+        tx
+          .select({ status: stores.status })
+          .from(stores)
+          .where(sql`${stores.id} = ${storeId}`),
+    )
+    const [afterUser] = await withAdmin(
+      handle.db,
+      { userId: adminId, reason: "test read user after approve" },
+      async (tx) =>
+        tx
+          .select({ role: users.role })
+          .from(users)
+          .where(sql`${users.id} = ${buyerId}`),
+    )
+    expect(afterStore!.status).toBe("active")
+    expect(afterUser!.role).toBe("seller_owner")
+  })
+
+  it("suspending a store does not change the user role", async () => {
+    const adminId = randomUUID()
+    const sellerId = randomUUID()
+    const storeId = randomUUID()
+
+    await withAdmin(handle.db, { userId: adminId, reason: "test seed" }, async (tx) => {
+      await tx.insert(users).values([
+        { id: adminId, email: `admin2-${adminId}@test.bomy`, role: "bomy_admin" },
+        { id: sellerId, email: `seller-${sellerId}@test.bomy`, role: "seller_owner" },
+      ])
+      await tx.insert(stores).values({
+        id: storeId,
+        ownerId: sellerId,
+        name: "Suspend Store",
+        slug: `susp-${storeId}`,
+        status: "active",
+      })
+    })
+
+    await withAdmin(handle.db, { userId: adminId, reason: "test suspend" }, async (tx) => {
+      await tx
+        .update(stores)
+        .set({ status: "suspended", updatedAt: new Date() })
+        .where(sql`${stores.id} = ${storeId}`)
+    })
+
+    const [afterUser] = await withAdmin(
+      handle.db,
+      { userId: adminId, reason: "test read after suspend" },
+      async (tx) =>
+        tx
+          .select({ role: users.role })
+          .from(users)
+          .where(sql`${users.id} = ${sellerId}`),
+    )
+    expect(afterUser!.role).toBe("seller_owner")
+  })
+
+  it("hard-deletes a seller inquiry", async () => {
+    const adminId = randomUUID()
+    const inquiryId = randomUUID()
+
+    await withAdmin(handle.db, { userId: adminId, reason: "test seed admin" }, async (tx) => {
+      await tx
+        .insert(users)
+        .values({ id: adminId, email: `admin3-${adminId}@test.bomy`, role: "bomy_admin" })
+    })
+
+    await withAdmin(handle.db, { userId: adminId, reason: "test insert" }, async (tx) => {
+      await tx.insert(sellerInquiries).values({
+        id: inquiryId,
+        name: "Del Seller",
+        email: "del@test.bomy",
+        contactNumber: "+601",
+        companyName: "Del Co",
+        storeName: "Del Store",
+      })
+    })
+
+    await withAdmin(handle.db, { userId: adminId, reason: "test delete" }, async (tx) => {
+      await tx.delete(sellerInquiries).where(sql`${sellerInquiries.id} = ${inquiryId}`)
+    })
+
+    const rows = await withAdmin(
+      handle.db,
+      { userId: adminId, reason: "test confirm deleted" },
+      async (tx) =>
+        tx
+          .select()
+          .from(sellerInquiries)
+          .where(sql`${sellerInquiries.id} = ${inquiryId}`),
+    )
+    expect(rows).toHaveLength(0)
   })
 })
