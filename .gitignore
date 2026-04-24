@@ -52,6 +52,9 @@ minio-data/
 # Session logs
 log/
 
+# Superpowers brainstorm sessions
+.superpowers/
+
 # Misc
 .cache/
 .parcel-cache/
