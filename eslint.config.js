@@ -11,5 +11,6 @@ export default tseslint.config(...base, {
     "**/build/**",
     ".turbo/**",
     "infra/**",
+    "**/next-env.d.ts",
   ],
 })

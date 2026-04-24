@@ -29,6 +29,11 @@
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.32.1"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "sharp"
+    ]
+  },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,mjs,cjs}": [
       "eslint --fix",
