@@ -44,6 +44,10 @@ const MIGRATIONS = [
     name: "0001_auth_tables",
     file: join(__dirname, "../drizzle/0001_auth_tables.sql"),
   },
+  {
+    name: "0002_store_and_inquiries",
+    file: join(__dirname, "../drizzle/0002_store_and_inquiries.sql"),
+  },
 ]
 
 try {
