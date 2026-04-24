@@ -11,24 +11,60 @@ BOMY is a curated Consortium platform (Collective + Media + Resource Hub) for Ma
 
 ## Local Development
 
-_Quickstart lands in PR #2 (root tooling) and PR #3 (Docker Compose). Placeholder below._
-
 ### Requirements
 
-- **Node.js 20 LTS** — pinned via `.nvmrc`. Run `nvm use` at the repo root.
-- **pnpm** — enable via `corepack enable` (pnpm version is pinned in `package.json` once PR #2 lands).
-- **Docker Desktop** — required for local Postgres + Redis + MinIO + Mailhog (arrives in PR #3).
+- **Node.js 20 LTS** — version pinned in `.nvmrc`. Install via [nvm](https://github.com/nvm-sh/nvm).
+- **pnpm 10** — enabled via [Corepack](https://nodejs.org/api/corepack.html) (ships with Node 20).
+- **Docker Desktop** — runs Postgres 16, Redis 7, MinIO, and Mailhog locally.
 
-### Quickstart (coming soon)
+### Quickstart
 
 ```sh
+# 1. Pin Node version
 nvm use
+
+# 2. Enable the correct pnpm version (pinned in package.json)
 corepack enable
+
+# 3. Install all workspace dependencies
 pnpm install
-docker compose up -d
+
+# 4. Configure local secrets (edit the file after copying)
+cp infra/docker/.env.example infra/docker/.env
+
+# 5. Configure app runtimes (edit each file after copying)
+cp apps/api/.env.local.example apps/api/.env.local
+cp apps/web/.env.local.example apps/web/.env.local
+
+# 6. Start infrastructure services (Postgres, Redis, MinIO, Mailhog)
+docker compose -f infra/docker/compose.yml --env-file infra/docker/.env up -d
+
+# 7. Start all apps in watch mode
 pnpm dev
 ```
 
+| Service       | Local URL             |
+| ------------- | --------------------- |
+| Web (Next.js) | http://localhost:3000 |
+| API (Fastify) | http://localhost:3001 |
+| MinIO console | http://localhost:9001 |
+| Mailhog inbox | http://localhost:8025 |
+
+> **MinIO first-time setup:** after step 6, open http://localhost:9001 and log in with the credentials from `infra/docker/.env`. Create a bucket named `bomy-local`.
+
+### Other commands
+
+```sh
+pnpm typecheck   # TypeScript type checking across all packages
+pnpm lint        # ESLint across all packages
+pnpm test        # Run all test suites
+pnpm build       # Production build
+```
+
+### Environment variable reference
+
+See `.env.example` at the repo root for a full listing of every variable used across all apps and services.
+
 ## Status
 
-Stage 1 — Platform Foundation. The 9-PR Stage 1 plan is tracked in the proposal (Section 19).
+Stage 1 — Platform Foundation complete. All scaffold PRs merged. Next: PR #8 (CI) and PR #9 (E2E verification).
