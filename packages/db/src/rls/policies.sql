@@ -222,7 +222,26 @@ CREATE POLICY platform_config_audit_insert ON platform_config_audit
   FOR INSERT
   WITH CHECK (app.is_bomy_staff() OR app.is_admin_bypass());
 
--- ─── 6. Notes on what is intentionally NOT here ──────────────────
+-- ─── 6. bomy_app role grants ─────────────────────────────────────
+-- bomy_app is the non-superuser application role used by the app and
+-- tests. It is subject to RLS (no BYPASSRLS). The POSTGRES_USER (bomy)
+-- is a superuser used only for migrations and schema setup.
+-- Role creation lives in infra/docker/postgres-init/01_app_role.sql.
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'bomy_app') THEN
+    EXECUTE 'GRANT USAGE ON SCHEMA public TO bomy_app';
+    EXECUTE 'GRANT USAGE ON SCHEMA app TO bomy_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO bomy_app';
+    EXECUTE 'GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO bomy_app';
+    EXECUTE 'GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA app TO bomy_app';
+    EXECUTE 'GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO bomy_app';
+  END IF;
+END
+$$;
+
+-- ─── 7. Notes on what is intentionally NOT here ──────────────────
 --   * Per-seller row visibility on ledger_entries by (reference_type,
 --     reference_id) — wires in with the orders table (future PR).
 --   * Public / anonymous read paths — apps/web does not hit the DB

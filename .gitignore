@@ -46,11 +46,17 @@ postgres-data/
 redis-data/
 minio-data/
 
+# Git worktrees (local)
+.worktrees/
+
 # Andy's handoff scratch — not repo content
 .andy/
 
 # Session logs
 log/
+
+# Superpowers brainstorm sessions
+.superpowers/
 
 # Misc
 .cache/

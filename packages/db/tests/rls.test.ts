@@ -3,13 +3,16 @@
  *
  * These hit a real Postgres — running these requires:
  *   1. `docker compose up postgres` (infra/docker/compose.yml)
- *   2. `DATABASE_URL` set to that instance
- *   3. Schema + policies applied (not wired in this PR — see README)
+ *   2. `DATABASE_APP_URL` pointed at the bomy_app non-superuser role,
+ *      OR `DATABASE_URL` as fallback (but superuser connections bypass
+ *      RLS — the RLS tests will fail if only superuser URL is provided)
+ *   3. Schema + policies applied via `pnpm --filter @bomy/db migrate`
  *
- * Until migrations are wired (PR #9) these tests auto-skip with a
- * readable hint. That's intentional — we want the test code checked
- * in now, next to the thing it protects, so the moment migrations
- * land these tests run in CI.
+ * bomy_app is created by infra/docker/postgres-init/01_app_role.sql on
+ * fresh Docker volumes. For existing volumes apply it manually:
+ *   docker exec -i bomy_postgres psql -U bomy -d bomy \
+ *     < infra/docker/postgres-init/01_app_role.sql
+ * Then re-run policies.sql to grant bomy_app table access.
  */
 import { randomUUID } from "node:crypto"
 
@@ -20,7 +23,9 @@ import { makeDb, type Db } from "../src/client.js"
 import { stores, users } from "../src/schema/index.js"
 import { withAdmin, withTenant } from "../src/tenant.js"
 
-const DATABASE_URL = process.env["DATABASE_URL"]
+// RLS tests MUST run as a non-superuser so policies are enforced.
+// DATABASE_APP_URL should point to the bomy_app role (no BYPASSRLS).
+const DATABASE_URL = process.env["DATABASE_APP_URL"] ?? process.env["DATABASE_URL"]
 const RLS_READY = process.env["BOMY_RLS_READY"] === "1"
 const shouldRun = Boolean(DATABASE_URL) && RLS_READY
 
