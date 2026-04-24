@@ -67,3 +67,43 @@ export function makeDb(opts: MakeDbOptions = {}): Db {
     close: () => sql.end({ timeout: 5 }),
   }
 }
+
+/**
+ * DB client for the NextAuth.js Drizzle adapter.
+ *
+ * Sets `app.bypass_rls = 'true'` at the session level so the adapter
+ * can INSERT/SELECT across the users, accounts, sessions, and
+ * verification_tokens tables without hitting the tenant-scoped RLS
+ * policies. This connection is used exclusively for auth infrastructure
+ * — never for application queries that should be tenant-isolated.
+ *
+ * Pool is intentionally small (max 3) since auth operations are
+ * infrequent and short-lived.
+ */
+export function makeAuthDb(opts: MakeDbOptions = {}): Db {
+  const url = opts.url ?? process.env["DATABASE_URL"]
+  if (!url) {
+    throw new Error("makeAuthDb: DATABASE_URL is required. Pass opts.url or set DATABASE_URL.")
+  }
+
+  const sql = postgres(url, {
+    max: opts.max ?? 3,
+    idle_timeout: opts.idleTimeout ?? 30,
+    connection: {
+      statement_timeout: 30_000,
+      idle_in_transaction_session_timeout: 10_000,
+      application_name: "bomy-auth",
+      // Session-level RLS bypass — safe because this pool is only used
+      // by the NextAuth adapter (server-side, never user-controlled code).
+      "app.bypass_rls": "true",
+    },
+    ...opts.extra,
+  })
+
+  const db = drizzle(sql, { schema })
+  return {
+    db,
+    sql,
+    close: () => sql.end({ timeout: 5 }),
+  }
+}
