@@ -7,6 +7,8 @@ import tseslint from "typescript-eslint"
 export const node = tseslint.config(...base, {
   rules: {
     "@typescript-eslint/no-misused-promises": "error",
-    "@typescript-eslint/require-await": "error",
+    // Fastify plugin/route functions are typed as async (FastifyPluginAsync) even
+    // when they only register hooks synchronously — require-await fires constantly.
+    "@typescript-eslint/require-await": "off",
   },
 })

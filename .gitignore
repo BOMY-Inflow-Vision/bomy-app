@@ -49,6 +49,9 @@ minio-data/
 # Andy's handoff scratch — not repo content
 .andy/
 
+# Session logs
+log/
+
 # Misc
 .cache/
 .parcel-cache/

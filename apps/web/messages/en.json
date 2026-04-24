@@ -1,0 +1,82 @@
+{
+  "common": {
+    "appName": "BOMY",
+    "loading": "Loading...",
+    "error": "Something went wrong",
+    "retry": "Try again",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "edit": "Edit",
+    "delete": "Delete",
+    "back": "Back",
+    "next": "Next",
+    "close": "Close",
+    "search": "Search",
+    "learnMore": "Learn more"
+  },
+  "nav": {
+    "brands": "Brands",
+    "products": "Products",
+    "events": "Events",
+    "stories": "Stories",
+    "membership": "Membership",
+    "goodieBox": "Goodie Box",
+    "account": "Account",
+    "signIn": "Sign in",
+    "signOut": "Sign out"
+  },
+  "home": {
+    "headline": "A curated collective of Malaysian brands",
+    "subheadline": "Discover, subscribe, and belong."
+  },
+  "membership": {
+    "eggTier": {
+      "name": "Egg Tier",
+      "tagline": "Hatch your membership. Unlock BOMY.",
+      "price": "RM75/year",
+      "cta": "Join Egg Tier"
+    },
+    "free": {
+      "name": "Browse",
+      "tagline": "Explore all brands at no cost",
+      "cta": "Start browsing"
+    }
+  },
+  "account": {
+    "orders": "Orders",
+    "subscriptions": "Subscriptions",
+    "wallet": "Wallet",
+    "addresses": "Addresses",
+    "paymentMethods": "Payment methods",
+    "referrals": "Referrals",
+    "vouchers": "Vouchers",
+    "avatar": "My Avatar",
+    "community": "Community",
+    "notifications": "Notifications"
+  },
+  "checkout": {
+    "title": "Checkout",
+    "orderSummary": "Order summary",
+    "placeOrder": "Place order",
+    "total": "Total",
+    "subtotal": "Subtotal",
+    "shipping": "Shipping",
+    "discount": "Discount"
+  },
+  "seller": {
+    "dashboard": "Dashboard",
+    "listings": "Listings",
+    "orders": "Orders",
+    "analytics": "Analytics",
+    "payouts": "Payouts"
+  },
+  "admin": {
+    "dashboard": "Dashboard",
+    "users": "Users",
+    "brands": "Brands",
+    "listings": "Listings",
+    "finance": "Finance",
+    "config": "Configuration"
+  }
+}
