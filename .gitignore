@@ -55,6 +55,9 @@ minio-data/
 # Session logs
 log/
 
+# Visual brainstorming companion
+.superpowers/
+
 # Superpowers brainstorm sessions
 .superpowers/
 

@@ -33,8 +33,25 @@ export const REVENUE_SOURCES = [
   "voucher_fund",
   "refund",
   "referral_grant",
+  "processing_fee",
 ] as const
 export type RevenueSource = (typeof REVENUE_SOURCES)[number]
 
 export const LEDGER_DIRECTIONS = ["debit", "credit"] as const
 export type LedgerDirection = (typeof LEDGER_DIRECTIONS)[number]
+
+// Stage 4 membership & subscription enums.
+export const SUBSCRIPTION_STATUSES = [
+  "pending",
+  "active",
+  "expired",
+  "cancelled",
+  "payment_failed",
+] as const
+export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number]
+
+export const VOUCHER_TYPES = ["fixed_myr", "percentage", "random_myr"] as const
+export type VoucherType = (typeof VOUCHER_TYPES)[number]
+
+export const DISPATCH_STATUSES = ["pending", "dispatched", "delivered"] as const
+export type DispatchStatus = (typeof DISPATCH_STATUSES)[number]

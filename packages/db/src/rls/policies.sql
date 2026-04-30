@@ -103,6 +103,22 @@ ALTER TABLE platform_config FORCE ROW LEVEL SECURITY;
 ALTER TABLE platform_config_audit ENABLE ROW LEVEL SECURITY;
 ALTER TABLE platform_config_audit FORCE ROW LEVEL SECURITY;
 
+-- Stage 4 membership tables.
+ALTER TABLE member_subscriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE member_subscriptions FORCE ROW LEVEL SECURITY;
+
+ALTER TABLE brand_subscription_plans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE brand_subscription_plans FORCE ROW LEVEL SECURITY;
+
+ALTER TABLE brand_subscriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE brand_subscriptions FORCE ROW LEVEL SECURITY;
+
+ALTER TABLE vouchers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vouchers FORCE ROW LEVEL SECURITY;
+
+ALTER TABLE goodie_box_dispatches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE goodie_box_dispatches FORCE ROW LEVEL SECURITY;
+
 -- ─── 4. Default-deny policies (RESTRICTIVE) ──────────────────────
 -- RESTRICTIVE policies are AND'd with PERMISSIVE ones, so this makes
 -- "no tenant context AND no admin bypass" = "nothing visible".
@@ -128,6 +144,26 @@ CREATE POLICY platform_config_default_deny ON platform_config
   USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
 
 CREATE POLICY platform_config_audit_default_deny ON platform_config_audit
+  AS RESTRICTIVE
+  USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
+
+CREATE POLICY member_subscriptions_default_deny ON member_subscriptions
+  AS RESTRICTIVE
+  USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
+
+CREATE POLICY brand_subscription_plans_default_deny ON brand_subscription_plans
+  AS RESTRICTIVE
+  USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
+
+CREATE POLICY brand_subscriptions_default_deny ON brand_subscriptions
+  AS RESTRICTIVE
+  USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
+
+CREATE POLICY vouchers_default_deny ON vouchers
+  AS RESTRICTIVE
+  USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
+
+CREATE POLICY goodie_box_dispatches_default_deny ON goodie_box_dispatches
   AS RESTRICTIVE
   USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
 
@@ -220,6 +256,127 @@ CREATE POLICY platform_config_audit_staff_read ON platform_config_audit
 
 CREATE POLICY platform_config_audit_insert ON platform_config_audit
   FOR INSERT
+  WITH CHECK (app.is_bomy_staff() OR app.is_admin_bypass());
+
+-- Stage 4: membership & subscriptions.
+-- member_subscriptions: user reads own; staff sees + writes all.
+-- All inserts/updates flow through the apps/api webhook handler under
+-- withAdmin (audited bypass), so no buyer-level write policy.
+
+CREATE POLICY member_subscriptions_self_read ON member_subscriptions
+  FOR SELECT
+  USING (
+    user_id = app.current_user_id()
+    OR app.is_bomy_staff()
+    OR app.is_admin_bypass()
+  );
+
+CREATE POLICY member_subscriptions_staff_write ON member_subscriptions
+  FOR ALL
+  USING (app.is_bomy_staff() OR app.is_admin_bypass())
+  WITH CHECK (app.is_bomy_staff() OR app.is_admin_bypass());
+
+-- brand_subscription_plans: any authenticated session reads is_active
+-- plans (buyers shopping); the seller_owner of the parent store sees
+-- and edits their plans in any state; staff approves (sets is_active).
+
+CREATE POLICY brand_subscription_plans_active_read ON brand_subscription_plans
+  FOR SELECT
+  USING (
+    is_active = true
+    OR EXISTS (
+      SELECT 1 FROM stores
+      WHERE stores.id = brand_subscription_plans.store_id
+        AND stores.owner_id = app.current_user_id()
+    )
+    OR app.is_bomy_staff()
+    OR app.is_admin_bypass()
+  );
+
+CREATE POLICY brand_subscription_plans_owner_insert ON brand_subscription_plans
+  FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM stores
+      WHERE stores.id = brand_subscription_plans.store_id
+        AND stores.owner_id = app.current_user_id()
+    )
+    OR app.is_bomy_staff()
+    OR app.is_admin_bypass()
+  );
+
+CREATE POLICY brand_subscription_plans_owner_update ON brand_subscription_plans
+  FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM stores
+      WHERE stores.id = brand_subscription_plans.store_id
+        AND stores.owner_id = app.current_user_id()
+    )
+    OR app.is_bomy_staff()
+    OR app.is_admin_bypass()
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM stores
+      WHERE stores.id = brand_subscription_plans.store_id
+        AND stores.owner_id = app.current_user_id()
+    )
+    OR app.is_bomy_staff()
+    OR app.is_admin_bypass()
+  );
+
+-- brand_subscriptions: buyer reads own; seller_owner of the store
+-- sees subs to their store (no buyer PII beyond user_id); staff
+-- writes via the webhook handler.
+
+CREATE POLICY brand_subscriptions_self_read ON brand_subscriptions
+  FOR SELECT
+  USING (
+    user_id = app.current_user_id()
+    OR EXISTS (
+      SELECT 1 FROM stores
+      WHERE stores.id = brand_subscriptions.store_id
+        AND stores.owner_id = app.current_user_id()
+    )
+    OR app.is_bomy_staff()
+    OR app.is_admin_bypass()
+  );
+
+CREATE POLICY brand_subscriptions_staff_write ON brand_subscriptions
+  FOR ALL
+  USING (app.is_bomy_staff() OR app.is_admin_bypass())
+  WITH CHECK (app.is_bomy_staff() OR app.is_admin_bypass());
+
+-- vouchers: member reads own; staff issues + redeems.
+
+CREATE POLICY vouchers_self_read ON vouchers
+  FOR SELECT
+  USING (
+    user_id = app.current_user_id()
+    OR app.is_bomy_staff()
+    OR app.is_admin_bypass()
+  );
+
+CREATE POLICY vouchers_staff_write ON vouchers
+  FOR ALL
+  USING (app.is_bomy_staff() OR app.is_admin_bypass())
+  WITH CHECK (app.is_bomy_staff() OR app.is_admin_bypass());
+
+-- goodie_box_dispatches: member reads own (sees tracking once admin
+-- enters it); staff manages all.
+
+CREATE POLICY goodie_box_dispatches_self_read ON goodie_box_dispatches
+  FOR SELECT
+  USING (
+    user_id = app.current_user_id()
+    OR app.is_bomy_staff()
+    OR app.is_admin_bypass()
+  );
+
+CREATE POLICY goodie_box_dispatches_staff_write ON goodie_box_dispatches
+  FOR ALL
+  USING (app.is_bomy_staff() OR app.is_admin_bypass())
   WITH CHECK (app.is_bomy_staff() OR app.is_admin_bypass());
 
 -- ─── 6. bomy_app role grants ─────────────────────────────────────
