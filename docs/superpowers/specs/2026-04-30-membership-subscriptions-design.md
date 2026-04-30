@@ -1,6 +1,6 @@
 # Stage 4 — Membership & Subscriptions Design
 
-**Date:** 2026-04-30
+**Date:** 2026-04-30 (rev. 2026-05-01: commission is net-of-fees)
 **Author:** Andy (AI technical lead)
 **Status:** Approved by Charlie
 **Builds on:** Proposal v2, project_membership_model.md memory
@@ -26,18 +26,18 @@ All 8 subsystems are in scope for Stage 4:
 
 ## 2. Locked Decisions
 
-| Decision                  | Value                                                                                                                              |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| PSP                       | HitPay only. All transactions in MYR. USD is display-only (FX estimate).                                                           |
-| Commission basis          | 25% of gross sold amount. PSP fees are a separate BOMY cost layer, not deducted before commission.                                 |
-| Platform membership price | RM75/yr (7500 sen). Stored in `platform_config.platform_membership_price_myr_sen`.                                                 |
-| Brand subscription split  | 90% brand / 10% BOMY. Snapshotted on `brand_subscriptions` row at purchase.                                                        |
-| Architecture              | Option A — Server-Actions-First. `packages/hitpay` client, server actions in `packages/db`, single webhook endpoint in `apps/api`. |
-| Recurring billing         | HitPay native recurring billing (`/v1/recurring-billing`, `cycle=yearly`) for #1. One-time payment requests for #2.                |
-| Brand payouts             | Manual for Stage 4. Admin triggers HitPay Transfers API to pay brand's bank account. Records `brand_payout_at`.                    |
-| Voucher expiry            | End of issuance month. No rollover.                                                                                                |
-| No stacking               | Platform #1 voucher and #2 brand discount are mutually exclusive at checkout. Buyer picks one.                                     |
-| Future PSP                | HitPay for MYR stays. Stripe and HitPay (second gateway) to be added later for international expansion.                            |
+| Decision                  | Value                                                                                                                                         |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| PSP                       | HitPay only. All transactions in MYR. USD is display-only (FX estimate).                                                                      |
+| Commission basis          | Net-of-fees. `net = gross − hitpay_fee`. Regular orders: BOMY = `net × 25 %`. Brand subscriptions: BOMY = `net × 10 %`. (Updated 2026-05-01.) |
+| Platform membership price | RM75/yr (7500 sen). Stored in `platform_config.platform_membership_price_myr_sen`.                                                            |
+| Brand subscription split  | Fee taken off the top, then 90 % brand / 10 % BOMY. `brand_payout + bomy_commission + hitpay_fee = price`. Snapshotted at purchase.           |
+| Architecture              | Option A — Server-Actions-First. `packages/hitpay` client, server actions in `packages/db`, single webhook endpoint in `apps/api`.            |
+| Recurring billing         | HitPay native recurring billing (`/v1/recurring-billing`, `cycle=yearly`) for #1. One-time payment requests for #2.                           |
+| Brand payouts             | Manual for Stage 4. Admin triggers HitPay Transfers API to pay brand's bank account. Records `brand_payout_at`.                               |
+| Voucher expiry            | End of issuance month. No rollover.                                                                                                           |
+| No stacking               | Platform #1 voucher and #2 brand discount are mutually exclusive at checkout. Buyer picks one.                                                |
+| Future PSP                | HitPay for MYR stays. Stripe and HitPay (second gateway) to be added later for international expansion.                                       |
 
 ---
 
@@ -100,24 +100,25 @@ Brand-configured subscription tiers, approved by admin before going live.
 
 Per-buyer brand subscription instance.
 
-| Column              | Type                            | Notes                                |
-| ------------------- | ------------------------------- | ------------------------------------ |
-| id                  | uuid PK                         |                                      |
-| user_id             | uuid → users                    |                                      |
-| store_id            | uuid → stores                   |                                      |
-| plan_id             | uuid → brand_subscription_plans |                                      |
-| status              | subscription_status             |                                      |
-| price_myr_sen       | bigint                          | Snapshot at purchase                 |
-| discount_pct        | smallint                        | Snapshot at purchase                 |
-| period_start        | timestamptz                     |                                      |
-| period_end          | timestamptz                     | Computed: period_start + term_months |
-| hitpay_payment_id   | text nullable                   |                                      |
-| bomy_commission_sen | bigint                          | 10% of price_myr_sen                 |
-| brand_payout_sen    | bigint                          | 90% of price_myr_sen                 |
-| brand_payout_at     | timestamptz nullable            | Set when admin triggers payout       |
-| cancelled_at        | timestamptz nullable            |                                      |
-| created_at          | timestamptz                     |                                      |
-| updated_at          | timestamptz                     |                                      |
+| Column              | Type                            | Notes                                   |
+| ------------------- | ------------------------------- | --------------------------------------- |
+| id                  | uuid PK                         |                                         |
+| user_id             | uuid → users                    |                                         |
+| store_id            | uuid → stores                   |                                         |
+| plan_id             | uuid → brand_subscription_plans |                                         |
+| status              | subscription_status             |                                         |
+| price_myr_sen       | bigint                          | Snapshot at purchase                    |
+| discount_pct        | smallint                        | Snapshot at purchase                    |
+| period_start        | timestamptz                     |                                         |
+| period_end          | timestamptz                     | Computed: period_start + term_months    |
+| hitpay_payment_id   | text nullable                   |                                         |
+| hitpay_fee_sen      | bigint nullable                 | Set by webhook on activation            |
+| bomy_commission_sen | bigint                          | (price − fee) × 10 %, set on activation |
+| brand_payout_sen    | bigint                          | (price − fee) × 90 %, set on activation |
+| brand_payout_at     | timestamptz nullable            | Set when admin triggers payout          |
+| cancelled_at        | timestamptz nullable            |                                         |
+| created_at          | timestamptz                     |                                         |
+| updated_at          | timestamptz                     |                                         |
 
 **RLS:** User sees own. `seller_owner` sees subscriptions to their store (no buyer PII beyond user_id). `bomy_ops`/`bomy_admin`/`bomy_finance` see all.
 
@@ -184,14 +185,16 @@ One row per active #1 member per quarter.
 
 - 1 credit row: `+price_myr_sen`, ref = `member_subscription_id`
 
-**Brand subscription charge (revenue_source = brand_subscription):**
+**Brand subscription charge** — webhook computes `net = price_myr_sen − hitpay_fee_sen`,
+then `brand_payout_sen = net × 90 %` and `bomy_commission_sen = net × 10 %`.
+One transaction, three legs:
 
-- 1 credit row: `+price_myr_sen` (full amount received)
-- 1 debit row: `-brand_payout_sen` (90% payable to brand, ref = `brand_subscription_id`)
+- 1 credit row: `+price_myr_sen`, `revenue_source = brand_subscription`
+- 1 debit row: `-brand_payout_sen`, `revenue_source = brand_subscription`, ref = `brand_subscription_id`
+- 1 debit row: `-hitpay_fee_sen`, `revenue_source = processing_fee`
 
-**HitPay processing fee** (when amount known from webhook):
-
-- 1 debit row: `-fee_sen`, `revenue_source = processing_fee` (new enum value)
+The remaining `bomy_commission_sen` is BOMY's net take. The three debit
+legs sum to `price_myr_sen`, so the journal balances.
 
 ---
 
@@ -358,7 +361,7 @@ Proposed sequence — each PR is independently reviewable:
 ## 11. Hard Constraints (from proposal — must not violate)
 
 - All monetary values stored as bigint (sen). Never floats.
-- Commission = 25% of **gross sold amount**. HitPay fees never deducted first.
+- Commission is **net-of-fees** (revised 2026-05-01). `net = gross − hitpay_fee`. Regular orders: BOMY = `net × 25 %`. Brand subscriptions: BOMY = `net × 10 %`. The brand-subscription `CHECK` constraint enforces `commission + payout + fee = price` on every active row, so the journal always balances.
 - No voucher stacking: platform voucher and brand discount mutually exclusive per checkout.
 - `random_myr` voucher amount resolved at issuance, not at redemption.
 - Brand subscription plan changes do not affect existing active subscriptions (all values snapshotted).
