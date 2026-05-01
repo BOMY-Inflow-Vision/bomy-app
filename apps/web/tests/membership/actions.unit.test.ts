@@ -34,6 +34,7 @@ describe("joinMembership — DB correlation failure compensation", () => {
   beforeEach(() => {
     process.env["HITPAY_API_KEY"] = "test-key"
     process.env["HITPAY_API_URL"] = "https://api.sandbox.hit-pay.com"
+    process.env["APP_URL"] = "http://localhost:3000"
     ;(auth as unknown as Mock).mockResolvedValue({
       user: { id: USER_ID, role: "buyer", email: "t@test.bomy" },
     })

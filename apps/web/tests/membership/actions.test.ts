@@ -65,9 +65,10 @@ describe.skipIf(!shouldRun)("membership actions", () => {
     // Forward DATABASE_APP_URL into DATABASE_URL so actions.ts → makeDb() resolves it.
     // DATABASE_APP_URL is the non-superuser app role in CI; locally DATABASE_URL is used directly.
     process.env["DATABASE_URL"] = DATABASE_URL as string
-    // Dummy HitPay env vars — HitPayClient is fully mocked, these are never used
+    // Dummy env vars — HitPayClient is fully mocked, these are never used
     process.env["HITPAY_API_KEY"] = "test-api-key"
     process.env["HITPAY_API_URL"] = "https://api.sandbox.hit-pay.com"
+    process.env["APP_URL"] = "http://localhost:3000"
 
     testDb = makeDb({ url: DATABASE_URL as string })
     userId = randomUUID()
@@ -280,7 +281,7 @@ describe.skipIf(!shouldRun)("membership actions", () => {
           .from(schema.memberSubscriptions)
           .where(eq(schema.memberSubscriptions.id, subId)),
       )
-      // Status stays 'active' — webhook fires later with status='cancelled'
+      // Status stays 'active' — MembershipCancellationExpiryJob flips it after periodEnd
       expect(cancelRows[0]?.status).toBe("active")
       expect(cancelRows[0]?.cancelledAt).not.toBeNull()
 

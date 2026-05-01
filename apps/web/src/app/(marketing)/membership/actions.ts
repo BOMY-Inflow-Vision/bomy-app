@@ -49,7 +49,12 @@ export async function joinMembership() {
   const session = await auth()
   if (!session) redirect("/auth/sign-in?callbackUrl=/membership")
 
-  const appUrl = process.env["NEXTAUTH_URL"] ?? process.env["APP_URL"] ?? "http://localhost:3000"
+  const appUrl = process.env["NEXTAUTH_URL"] ?? process.env["APP_URL"]
+  if (!appUrl)
+    throw new Error("NEXTAUTH_URL or APP_URL must be set — required for HitPay checkout redirect")
+  // HITPAY_WEBHOOK_URL is optional. If unset, HitPay uses the global webhook URL
+  // configured in the dashboard (typically the apps/api /webhooks/hitpay endpoint).
+  // Set this env var to route webhooks to a specific environment or URL.
   const webhookUrl = process.env["HITPAY_WEBHOOK_URL"]
 
   // Read platform price — platform_config is staff-only; use real user as audit actor
@@ -233,9 +238,9 @@ export async function cancelMembership() {
     await hitpayClient().cancelRecurringBilling(sub.hitpayRecurringId)
   }
 
-  // Record cancellation intent only — status stays 'active' until the webhook
-  // fires recurring_billing.subscription_updated with status='cancelled'.
-  // Membership remains usable until period_end.
+  // Record cancellation intent only — status stays 'active' until period_end.
+  // apps/api MembershipCancellationExpiryJob sweeps daily and sets
+  // status='cancelled' once period_end passes.
   await withAdmin(
     getDb(),
     { userId: session.user.id, reason: "user-initiated membership cancellation" },
