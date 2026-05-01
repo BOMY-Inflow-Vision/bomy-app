@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto"
 
 import { schema, withAdmin } from "@bomy/db"
 import { verifyWebhookSignature } from "@bomy/hitpay"
-import { eq } from "drizzle-orm"
+import { desc, eq } from "drizzle-orm"
 import type { FastifyPluginAsync } from "fastify"
 
 // Sentinel UUID identifying the HitPay webhook system as the audit actor
@@ -61,6 +61,9 @@ export const hitpayWebhookRoutes: FastifyPluginAsync = async (app) => {
     const feesStr = typeof payload["fees"] === "string" ? payload["fees"] : "0.00"
     const recurringBillingId = payload["recurring_billing_id"]
     const paymentRequestId = payload["payment_request_id"]
+    // charge.updated refund events may carry refund_amount; fall back to amount.
+    const refundAmountStr =
+      typeof payload["refund_amount"] === "string" ? payload["refund_amount"] : amountStr
 
     // 2. Route by event type header, falling back to payload shape.
     if (
@@ -71,6 +74,8 @@ export const hitpayWebhookRoutes: FastifyPluginAsync = async (app) => {
       if (typeof recurringBillingId === "string") {
         await handleMembershipCharge({ app, recurringBillingId, paymentId, status, amountStr })
       }
+    } else if (eventType === "charge.updated") {
+      await handleRefund({ app, paymentId, refundAmountStr })
     } else if (
       eventType === "payment_request.completed" ||
       eventType === "payment_request.failed" ||
@@ -82,6 +87,7 @@ export const hitpayWebhookRoutes: FastifyPluginAsync = async (app) => {
           paymentRequestId,
           paymentId,
           status,
+          amountStr,
           feesStr,
         })
       }
@@ -115,10 +121,14 @@ async function handleMembershipCharge({
     app.db.db,
     { userId: SYSTEM_ACTOR, reason: "hitpay webhook: membership charge" },
     async (tx) => {
+      // ORDER BY created_at DESC: after renewal two rows share the same
+      // recurring_id (expired old + active new). Reading the newest ensures
+      // idempotency checks see the already-processed payment_id on retry.
       const rows = await tx
         .select()
         .from(schema.memberSubscriptions)
         .where(eq(schema.memberSubscriptions.hitpayRecurringId, recurringBillingId))
+        .orderBy(desc(schema.memberSubscriptions.createdAt))
         .limit(1)
 
       const sub = rows[0]
@@ -138,6 +148,26 @@ async function handleMembershipCharge({
 
       if (status === "succeeded" || status === "active") {
         const now = new Date()
+
+        // Amount guard: webhook gross must equal the subscribed price.
+        // A mismatch means HitPay charged a different amount — do not activate.
+        let amountSen: bigint
+        try {
+          amountSen = parseSen(amountStr)
+        } catch {
+          app.log.error(
+            { amountStr, paymentId },
+            "hitpay webhook: membership amount unparseable — aborting activation",
+          )
+          return
+        }
+        if (amountSen !== sub.priceMyrSen) {
+          app.log.error(
+            { amountSen, priceMyrSen: sub.priceMyrSen, paymentId },
+            "hitpay webhook: membership amount mismatch — aborting activation",
+          )
+          return
+        }
 
         if (sub.status === "pending") {
           // First activation: update the existing pending row in place.
@@ -178,7 +208,7 @@ async function handleMembershipCharge({
             idempotencyKey: `membership:recurring:${paymentId}:credit`,
             direction: "credit",
             account: "revenue:platform_subscription",
-            amountMinor: parseSen(amountStr),
+            amountMinor: amountSen,
             currency: "MYR",
             revenueSource: "platform_subscription",
             referenceId: newSubId,
@@ -199,7 +229,7 @@ async function handleMembershipCharge({
           idempotencyKey: `membership:recurring:${paymentId}:credit`,
           direction: "credit",
           account: "revenue:platform_subscription",
-          amountMinor: parseSen(amountStr),
+          amountMinor: amountSen,
           currency: "MYR",
           revenueSource: "platform_subscription",
           referenceId: sub.id,
@@ -216,7 +246,9 @@ async function handleMembershipCharge({
           .update(schema.memberSubscriptions)
           .set({
             status: status === "cancelled" ? "cancelled" : "payment_failed",
-            hitpayPaymentId: paymentId,
+            // Only overwrite payment_id if the event carries one; cancellation
+            // events (subscription_updated) often carry no payment_id.
+            ...(paymentId ? { hitpayPaymentId: paymentId } : {}),
             ...(status === "cancelled" ? { cancelledAt: now } : {}),
             updatedAt: now,
           })
@@ -238,6 +270,7 @@ interface BrandSubArgs {
   paymentRequestId: string
   paymentId: string
   status: string
+  amountStr: string
   feesStr: string
 }
 
@@ -246,6 +279,7 @@ async function handleBrandSubscriptionPayment({
   paymentRequestId,
   paymentId,
   status,
+  amountStr,
   feesStr,
 }: BrandSubArgs): Promise<void> {
   await withAdmin(
@@ -269,14 +303,36 @@ async function handleBrandSubscriptionPayment({
         return
       }
 
-      // Idempotency — already processed this exact charge.
-      if (sub.hitpayPaymentId === paymentId) {
+      // Idempotency: skip if already processed (same payment_id) OR already
+      // active. Brand subscriptions are one-time — a duplicate succeeded event
+      // with a different payment_id must not re-activate or create extra legs.
+      if (sub.hitpayPaymentId === paymentId || sub.status === "active") {
         app.log.info({ paymentId }, "hitpay webhook: brand subscription already processed")
         return
       }
 
       if (status === "completed" || status === "succeeded") {
         const priceSen = sub.priceMyrSen
+
+        // Amount guard: webhook gross must equal the subscribed price.
+        let webhookAmountSen: bigint
+        try {
+          webhookAmountSen = parseSen(amountStr)
+        } catch {
+          app.log.error(
+            { amountStr, paymentId },
+            "hitpay webhook: brand sub amount unparseable — aborting activation",
+          )
+          return
+        }
+        if (webhookAmountSen !== priceSen) {
+          app.log.error(
+            { webhookAmountSen, priceSen, paymentId },
+            "hitpay webhook: brand sub amount mismatch — aborting activation",
+          )
+          return
+        }
+
         const feeSen = parseSen(feesStr)
         const netSen = priceSen - feeSen
 
@@ -307,7 +363,8 @@ async function handleBrandSubscriptionPayment({
           })
           .where(eq(schema.brandSubscriptions.id, sub.id))
 
-        // Ledger: 3 legs per spec §3.4
+        // Ledger: revenue credit + payout debit always; processing_fee debit
+        // only when feeSen > 0 (ledger_entries.amount_minor > 0 constraint).
         const txnId = randomUUID()
         await tx.insert(schema.ledgerEntries).values([
           {
@@ -332,7 +389,10 @@ async function handleBrandSubscriptionPayment({
             referenceId: sub.id,
             referenceType: "brand_subscription",
           },
-          {
+        ])
+
+        if (feeSen > 0n) {
+          await tx.insert(schema.ledgerEntries).values({
             transactionId: txnId,
             idempotencyKey: `brand_sub:${sub.id}:${paymentId}:debit:fee`,
             direction: "debit",
@@ -342,8 +402,8 @@ async function handleBrandSubscriptionPayment({
             revenueSource: "processing_fee",
             referenceId: sub.id,
             referenceType: "brand_subscription",
-          },
-        ])
+          })
+        }
 
         app.log.info(
           { subscriptionId: sub.id, paymentId, brandPayoutSen, bomyCommissionSen, feeSen },
@@ -363,6 +423,101 @@ async function handleBrandSubscriptionPayment({
           "hitpay webhook: brand subscription payment failed",
         )
       }
+    },
+  )
+}
+
+// ─── Refund (charge.updated) ──────────────────────────────────────────────────
+
+interface RefundArgs {
+  app: Parameters<FastifyPluginAsync>[0]
+  paymentId: string
+  refundAmountStr: string
+}
+
+async function handleRefund({ app, paymentId, refundAmountStr }: RefundArgs): Promise<void> {
+  if (!paymentId) {
+    app.log.warn("hitpay webhook: charge.updated received without payment_id — skipping")
+    return
+  }
+
+  let refundAmountSen: bigint
+  try {
+    refundAmountSen = parseSen(refundAmountStr)
+  } catch {
+    app.log.warn(
+      { refundAmountStr, paymentId },
+      "hitpay webhook: charge.updated refund amount unparseable — skipping",
+    )
+    return
+  }
+
+  if (refundAmountSen === 0n) {
+    app.log.info({ paymentId }, "hitpay webhook: charge.updated with zero refund amount — skipping")
+    return
+  }
+
+  await withAdmin(
+    app.db.db,
+    { userId: SYSTEM_ACTOR, reason: "hitpay webhook: refund" },
+    async (tx) => {
+      // Search membership subscriptions first, then brand subscriptions.
+      const memberRows = await tx
+        .select()
+        .from(schema.memberSubscriptions)
+        .where(eq(schema.memberSubscriptions.hitpayPaymentId, paymentId))
+        .limit(1)
+
+      if (memberRows[0]) {
+        const sub = memberRows[0]
+        await tx.insert(schema.ledgerEntries).values({
+          transactionId: randomUUID(),
+          idempotencyKey: `refund:${paymentId}:${sub.id}:debit`,
+          direction: "debit",
+          account: "revenue:platform_subscription",
+          amountMinor: refundAmountSen,
+          currency: "MYR",
+          revenueSource: "refund",
+          referenceId: sub.id,
+          referenceType: "member_subscription",
+        })
+        app.log.info(
+          { subscriptionId: sub.id, paymentId, refundAmountSen },
+          "hitpay webhook: membership refund recorded",
+        )
+        return
+      }
+
+      const brandRows = await tx
+        .select()
+        .from(schema.brandSubscriptions)
+        .where(eq(schema.brandSubscriptions.hitpayPaymentId, paymentId))
+        .limit(1)
+
+      if (brandRows[0]) {
+        const sub = brandRows[0]
+        await tx.insert(schema.ledgerEntries).values({
+          transactionId: randomUUID(),
+          idempotencyKey: `refund:${paymentId}:${sub.id}:debit`,
+          direction: "debit",
+          account: "revenue:brand_subscription",
+          amountMinor: refundAmountSen,
+          currency: "MYR",
+          revenueSource: "refund",
+          referenceId: sub.id,
+          referenceType: "brand_subscription",
+        })
+        app.log.info(
+          { subscriptionId: sub.id, paymentId, refundAmountSen },
+          "hitpay webhook: brand subscription refund recorded",
+        )
+        return
+      }
+
+      app.log.warn(
+        { paymentId },
+        "hitpay webhook: charge.updated refund — no subscription found for payment_id",
+      )
     },
   )
 }
