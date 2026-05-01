@@ -381,7 +381,7 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
       expect(rows[0]?.hitpayPaymentId).toBeNull()
     })
 
-    it("cancellation event without payment_id preserves existing hitpay_payment_id", async () => {
+    it("cancellation event before period_end: keeps status active, sets cancelledAt, preserves payment_id", async () => {
       const buyerId = await seedUser()
       const recurringId = `rb_${randomUUID()}`
       const existingPaymentId = `pay_${randomUUID()}`
@@ -403,7 +403,53 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
         })
       })
 
-      // Cancellation event with no payment_id in payload.
+      // Cancellation event fires before period_end — entitlement must be preserved.
+      await webhookInject(
+        app,
+        {
+          recurring_billing_id: recurringId,
+          status: "cancelled",
+          amount: "0.00",
+        },
+        { "hitpay-event-type": "recurring_billing.subscription_updated" },
+      )
+
+      const rows = await withAdmin(setupDb.db, { userId: buyerId, reason: "verify" }, async (tx) =>
+        tx
+          .select()
+          .from(schema.memberSubscriptions)
+          .where(eq(schema.memberSubscriptions.id, subId)),
+      )
+      // Status stays active — membership valid until periodEnd.
+      expect(rows[0]?.status).toBe("active")
+      expect(rows[0]?.cancelledAt).not.toBeNull()
+      // Existing payment_id must not be overwritten with an empty string.
+      expect(rows[0]?.hitpayPaymentId).toBe(existingPaymentId)
+    })
+
+    it("cancellation event after period_end revokes entitlement", async () => {
+      const buyerId = await seedUser()
+      const recurringId = `rb_${randomUUID()}`
+      const existingPaymentId = `pay_${randomUUID()}`
+      const subId = randomUUID()
+      const now = new Date()
+      // period_end set 1 day in the past — entitlement has expired.
+      const periodEnd = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+      const periodStart = new Date(periodEnd.getTime() - 365 * 24 * 60 * 60 * 1000)
+
+      await withAdmin(setupDb.db, { userId: buyerId, reason: "test seed" }, async (tx) => {
+        await tx.insert(schema.memberSubscriptions).values({
+          id: subId,
+          userId: buyerId,
+          status: "active",
+          priceMyrSen: 7500n,
+          periodStart,
+          periodEnd,
+          hitpayRecurringId: recurringId,
+          hitpayPaymentId: existingPaymentId,
+        })
+      })
+
       await webhookInject(
         app,
         {
@@ -421,8 +467,7 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
           .where(eq(schema.memberSubscriptions.id, subId)),
       )
       expect(rows[0]?.status).toBe("cancelled")
-      // Existing payment_id must not be overwritten with an empty string.
-      expect(rows[0]?.hitpayPaymentId).toBe(existingPaymentId)
+      expect(rows[0]?.cancelledAt).not.toBeNull()
     })
   })
 

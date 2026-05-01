@@ -46,5 +46,8 @@ export const memberSubscriptions = pgTable(
     activeUserUnique: uniqueIndex("member_subscriptions_active_user_unique_idx")
       .on(t.userId)
       .where(sql`status = 'active'`),
+    pendingUserUnique: uniqueIndex("member_subscriptions_pending_user_unique_idx")
+      .on(t.userId)
+      .where(sql`status = 'pending'`),
   }),
 )

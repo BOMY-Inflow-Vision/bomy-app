@@ -228,14 +228,9 @@ describe.skipIf(!shouldRun)("membership actions", () => {
       expect(rows).toHaveLength(0)
     })
 
-    it("DB correlation failure: cancels live HitPay billing — contract verified by code review", () => {
-      // The billing variable is assigned before the DB update call. If the DB
-      // update throws, the catch block sees billing !== null and calls
-      // cancelRecurringBilling(billing.id). Integration-level injection of a DB
-      // failure mid-action is not feasible in this test setup; the logic is
-      // confirmed by direct code inspection of actions.ts.
-      expect(true).toBe(true)
-    })
+    // DB correlation failure compensation is covered in actions.unit.test.ts
+    // (fully mocked, no DB required — see that file for both cancel-succeeds
+    // and cancel-fails branches).
   })
 
   // ── cancelMembership ────────────────────────────────────────────────────

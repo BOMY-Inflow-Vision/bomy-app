@@ -140,22 +140,64 @@ export async function joinMembership() {
       },
     )
   } catch (err) {
-    // If HitPay succeeded but DB correlation failed, cancel the live billing
     if (billing) {
+      // HitPay succeeded but DB correlation write failed.
+      // Try to cancel the live billing to avoid an unlinked subscription.
+      let cancelSucceeded = false
       try {
         await hitpayClient().cancelRecurringBilling(billing.id)
+        cancelSucceeded = true
       } catch {
-        // Log and continue — manual reconciliation needed
+        // Cancel also failed — try to write hitpayRecurringId onto the pending
+        // row so the webhook can still correlate if HitPay fires later.
+        try {
+          await withAdmin(
+            getDb(),
+            {
+              userId: session.user.id,
+              reason: "preserve hitpay_recurring_id after cancel failure",
+            },
+            async (tx) => {
+              await tx
+                .update(schema.memberSubscriptions)
+                .set({ hitpayRecurringId: billing!.id, updatedAt: new Date() })
+                .where(eq(schema.memberSubscriptions.id, subId))
+            },
+          )
+        } catch {
+          // Both cancel and correlation write failed.
+          // Row subId (reference passed to HitPay) remains for manual reconciliation.
+        }
       }
+      if (cancelSucceeded) {
+        // Live billing cancelled — safe to remove the orphan pending row.
+        await withAdmin(
+          getDb(),
+          { userId: session.user.id, reason: "delete pending member_subscription after error" },
+          async (tx) => {
+            await tx
+              .delete(schema.memberSubscriptions)
+              .where(eq(schema.memberSubscriptions.id, subId))
+          },
+        )
+      }
+      // If cancel failed, leave the row in place for reconciliation.
+    } else {
+      // HitPay was never called — no live billing to cancel.
+      // Remove the orphan pending row so the user can retry.
+      await withAdmin(
+        getDb(),
+        {
+          userId: session.user.id,
+          reason: "delete pending member_subscription after HitPay error",
+        },
+        async (tx) => {
+          await tx
+            .delete(schema.memberSubscriptions)
+            .where(eq(schema.memberSubscriptions.id, subId))
+        },
+      )
     }
-    // Remove orphan pending row so the user can retry
-    await withAdmin(
-      getDb(),
-      { userId: session.user.id, reason: "delete pending member_subscription after error" },
-      async (tx) => {
-        await tx.delete(schema.memberSubscriptions).where(eq(schema.memberSubscriptions.id, subId))
-      },
-    )
     throw err
   }
 

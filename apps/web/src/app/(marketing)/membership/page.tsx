@@ -61,7 +61,7 @@ export default async function MembershipPage() {
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Join BOMY</h1>
         <p className="text-gray-500 mb-8 text-sm leading-relaxed">
           Annual membership — shop across all BOMY stores, receive exclusive perks, and unlock a
-          welcome Starter Kit delivered to your door.
+          Welcome Gift delivered to your door.
         </p>
 
         <div className="mb-8 rounded-xl bg-amber-50 px-6 py-5">
