@@ -18,7 +18,7 @@ function hitpayClient() {
   const baseUrl = process.env["HITPAY_BASE_URL"]
   if (!apiKey) throw new Error("HITPAY_API_KEY is required")
   if (!baseUrl) throw new Error("HITPAY_BASE_URL is required")
-  return new HitPayClient({ apiKey, saltKey: "", baseUrl })
+  return new HitPayClient({ apiKey, baseUrl })
 }
 
 function senToMyr(sen: bigint): string {
