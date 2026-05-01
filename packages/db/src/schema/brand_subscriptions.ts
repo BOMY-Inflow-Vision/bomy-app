@@ -1,5 +1,15 @@
 import { sql } from "drizzle-orm"
-import { bigint, check, index, pgTable, smallint, text, timestamp, uuid } from "drizzle-orm/pg-core"
+import {
+  bigint,
+  check,
+  index,
+  pgTable,
+  smallint,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core"
 
 import { brandSubscriptionPlans } from "./brand_subscription_plans.js"
 import { subscriptionStatusEnum } from "./enums.js"
@@ -38,6 +48,7 @@ export const brandSubscriptions = pgTable(
     discountPct: smallint("discount_pct").notNull(),
     periodStart: timestamp("period_start", { withTimezone: true }).notNull(),
     periodEnd: timestamp("period_end", { withTimezone: true }).notNull(),
+    hitpayPaymentRequestId: text("hitpay_payment_request_id"),
     hitpayPaymentId: text("hitpay_payment_id"),
     hitpayFeeSen: bigint("hitpay_fee_sen", { mode: "bigint" }),
     bomyCommissionSen: bigint("bomy_commission_sen", { mode: "bigint" }).notNull(),
@@ -64,5 +75,8 @@ export const brandSubscriptions = pgTable(
       "brand_subscriptions_discount_chk",
       sql`${t.discountPct} BETWEEN 5 AND 10`,
     ),
+    paymentRequestUnique: uniqueIndex("brand_subscriptions_payment_request_unique_idx")
+      .on(t.hitpayPaymentRequestId)
+      .where(sql`hitpay_payment_request_id IS NOT NULL`),
   }),
 )

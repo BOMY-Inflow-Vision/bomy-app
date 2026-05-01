@@ -5,60 +5,88 @@ import { verifyWebhookSignature } from "@bomy/hitpay"
 import { eq } from "drizzle-orm"
 import type { FastifyPluginAsync } from "fastify"
 
-// Sentinel UUID used as the "actor" for system-level writes that have no
-// associated user session (webhook callbacks from HitPay).
+// Sentinel UUID identifying the HitPay webhook system as the audit actor
+// for all withAdmin writes. No user session exists for inbound webhooks.
+// Future: define system principals in a dedicated table (ADR-08).
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001" as const
 
+// Strict decimal-to-sen conversion. HitPay sends amounts as "N.NN" strings.
+// parseFloat is explicitly avoided — a malformed string throws rather than
+// silently producing a wrong bigint value.
 function parseSen(amount: string): bigint {
-  return BigInt(Math.round(parseFloat(amount) * 100))
+  if (!/^\d+\.\d{2}$/.test(amount)) {
+    throw new Error(`parseSen: invalid amount format "${amount}" — expected "N.NN"`)
+  }
+  const dotIdx = amount.indexOf(".")
+  const whole = amount.slice(0, dotIdx)
+  const cents = amount.slice(dotIdx + 1)
+  return BigInt(whole) * 100n + BigInt(cents)
 }
 
 export const hitpayWebhookRoutes: FastifyPluginAsync = async (app) => {
-  // Capture the raw form-encoded body as a string so HMAC verification can
-  // reconstruct the sorted-field message. Must be registered before routes.
-  app.addContentTypeParser(
-    "application/x-www-form-urlencoded",
-    { parseAs: "string" },
-    (_req, body, done) => {
-      done(null, body)
-    },
-  )
+  // Fail at registration time — an empty salt means anyone can forge a
+  // valid signature. Do not allow the app to start without this secret.
+  const salt = process.env["HITPAY_SALT"]
+  if (!salt) throw new Error("HITPAY_SALT is required — set it before starting apps/api")
+
+  // Capture the raw JSON body verbatim so the HMAC can be verified against
+  // the exact bytes HitPay signed. Fastify's default JSON parser discards
+  // whitespace and re-serialises; we need the original buffer.
+  app.addContentTypeParser("application/json", { parseAs: "string" }, (_req, body, done) => {
+    done(null, body)
+  })
 
   app.post<{ Body: string }>("/webhooks/hitpay", async (request, reply) => {
     const rawBody = request.body
-    const salt = process.env["HITPAY_SALT"] ?? ""
+    const signature = request.headers["hitpay-signature"]
 
-    const params = new URLSearchParams(rawBody)
-    const hmac = params.get("hmac") ?? ""
-
-    // 1. Verify HMAC — reject early; do not return 4xx details that could
-    //    aid an attacker in crafting valid signatures.
-    if (!verifyWebhookSignature(rawBody, hmac, salt)) {
-      request.log.warn({ path: "/webhooks/hitpay" }, "webhook signature invalid")
+    // 1. Verify HMAC-SHA256 signature from Hitpay-Signature header.
+    if (typeof signature !== "string" || !verifyWebhookSignature(rawBody, signature, salt)) {
+      request.log.warn({ path: "/webhooks/hitpay" }, "webhook signature invalid or missing")
       return reply.status(401).send({ error: "invalid signature" })
     }
 
-    const paymentId = params.get("payment_id") ?? ""
-    const status = params.get("status") ?? ""
-    const amountStr = params.get("amount") ?? "0"
-    const feesStr = params.get("fees") ?? "0"
-    const recurringBillingId = params.get("recurring_billing_id")
-    const paymentRequestId = params.get("payment_request_id")
+    let payload: Record<string, unknown>
+    try {
+      payload = JSON.parse(rawBody) as Record<string, unknown>
+    } catch {
+      request.log.warn("hitpay webhook: body is not valid JSON")
+      return reply.status(400).send({ error: "invalid body" })
+    }
 
-    // 2. Route by payload shape — HitPay form webhooks have no explicit
-    //    event_type field; we infer from which reference ID is present.
-    if (recurringBillingId) {
-      await handleMembershipCharge({ app, recurringBillingId, paymentId, status, amountStr })
-    } else if (paymentRequestId) {
-      await handleBrandSubscriptionPayment({
-        app,
-        paymentRequestId,
-        paymentId,
-        status,
-        feesStr,
-      })
+    const eventType = request.headers["hitpay-event-type"]
+    const paymentId = typeof payload["payment_id"] === "string" ? payload["payment_id"] : ""
+    const status = typeof payload["status"] === "string" ? payload["status"] : ""
+    const amountStr = typeof payload["amount"] === "string" ? payload["amount"] : "0.00"
+    const feesStr = typeof payload["fees"] === "string" ? payload["fees"] : "0.00"
+    const recurringBillingId = payload["recurring_billing_id"]
+    const paymentRequestId = payload["payment_request_id"]
+
+    // 2. Route by event type header, falling back to payload shape.
+    if (
+      eventType === "charge.created" ||
+      eventType === "recurring_billing.subscription_updated" ||
+      typeof recurringBillingId === "string"
+    ) {
+      if (typeof recurringBillingId === "string") {
+        await handleMembershipCharge({ app, recurringBillingId, paymentId, status, amountStr })
+      }
+    } else if (
+      eventType === "payment_request.completed" ||
+      eventType === "payment_request.failed" ||
+      typeof paymentRequestId === "string"
+    ) {
+      if (typeof paymentRequestId === "string") {
+        await handleBrandSubscriptionPayment({
+          app,
+          paymentRequestId,
+          paymentId,
+          status,
+          feesStr,
+        })
+      }
     } else {
-      request.log.warn({ paymentId, status }, "hitpay webhook: unrecognised payload shape")
+      request.log.warn({ eventType, paymentId }, "hitpay webhook: unrecognised event shape")
     }
 
     // Always 200 — prevents HitPay from retrying on slow DB writes.
@@ -119,14 +147,21 @@ async function handleMembershipCharge({
             .set({ status: "active", hitpayPaymentId: paymentId, updatedAt: now })
             .where(eq(schema.memberSubscriptions.id, sub.id))
         } else {
-          // Renewal: insert a new subscription row for the next period.
-          // The old row keeps its own period_end; renewals are immutable rows.
+          // Renewal: expire the current active row first (satisfies the partial
+          // unique index member_subscriptions_active_user_unique_idx which allows
+          // only one active row per user), then insert the new period row.
+          await tx
+            .update(schema.memberSubscriptions)
+            .set({ status: "expired", updatedAt: now })
+            .where(eq(schema.memberSubscriptions.id, sub.id))
+
           const periodStart = sub.periodEnd
           const periodEnd = new Date(periodStart)
           periodEnd.setFullYear(periodEnd.getFullYear() + 1)
 
+          const newSubId = randomUUID()
           await tx.insert(schema.memberSubscriptions).values({
-            id: randomUUID(),
+            id: newSubId,
             userId: sub.userId,
             status: "active",
             priceMyrSen: sub.priceMyrSen,
@@ -135,9 +170,29 @@ async function handleMembershipCharge({
             periodStart,
             periodEnd,
           })
+
+          // Ledger references the newly created row, not the expired one.
+          const txnId = randomUUID()
+          await tx.insert(schema.ledgerEntries).values({
+            transactionId: txnId,
+            idempotencyKey: `membership:recurring:${paymentId}:credit`,
+            direction: "credit",
+            account: "revenue:platform_subscription",
+            amountMinor: parseSen(amountStr),
+            currency: "MYR",
+            revenueSource: "platform_subscription",
+            referenceId: newSubId,
+            referenceType: "member_subscription",
+          })
+
+          app.log.info(
+            { expiredId: sub.id, newSubId, paymentId },
+            "hitpay webhook: membership renewed",
+          )
+          return
         }
 
-        // Ledger: one credit leg per charge.
+        // First activation ledger leg.
         const txnId = randomUUID()
         await tx.insert(schema.ledgerEntries).values({
           transactionId: txnId,
@@ -151,14 +206,10 @@ async function handleMembershipCharge({
           referenceType: "member_subscription",
         })
 
-        app.log.info(
-          { subscriptionId: sub.id, paymentId },
-          "hitpay webhook: membership charge processed",
-        )
+        app.log.info({ subscriptionId: sub.id, paymentId }, "hitpay webhook: membership activated")
         return
       }
 
-      // Failed or cancelled — update status on the existing row.
       if (status === "failed" || status === "cancelled") {
         const now = new Date()
         await tx
@@ -201,12 +252,12 @@ async function handleBrandSubscriptionPayment({
     app.db.db,
     { userId: SYSTEM_ACTOR, reason: "hitpay webhook: brand subscription payment" },
     async (tx) => {
-      // The web action (PR #21) stores the payment_request_id in hitpay_payment_id
-      // on the pending row so we can find it here.
+      // Lookup by hitpay_payment_request_id (set at checkout, never mutated).
+      // hitpay_payment_id is set on first activation and used for idempotency.
       const rows = await tx
         .select()
         .from(schema.brandSubscriptions)
-        .where(eq(schema.brandSubscriptions.hitpayPaymentId, paymentRequestId))
+        .where(eq(schema.brandSubscriptions.hitpayPaymentRequestId, paymentRequestId))
         .limit(1)
 
       const sub = rows[0]
@@ -218,9 +269,9 @@ async function handleBrandSubscriptionPayment({
         return
       }
 
-      // Idempotency — already activated.
-      if (sub.status === "active") {
-        app.log.info({ paymentRequestId }, "hitpay webhook: brand subscription already active")
+      // Idempotency — already processed this exact charge.
+      if (sub.hitpayPaymentId === paymentId) {
+        app.log.info({ paymentId }, "hitpay webhook: brand subscription already processed")
         return
       }
 
@@ -257,9 +308,6 @@ async function handleBrandSubscriptionPayment({
           .where(eq(schema.brandSubscriptions.id, sub.id))
 
         // Ledger: 3 legs per spec §3.4
-        // credit +price (revenue received)
-        // debit  −payout (owed to brand)
-        // debit  −fee (cost of HitPay processing)
         const txnId = randomUUID()
         await tx.insert(schema.ledgerEntries).values([
           {

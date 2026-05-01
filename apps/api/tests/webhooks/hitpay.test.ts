@@ -23,11 +23,26 @@ const shouldRun = Boolean(DATABASE_URL) && RLS_READY
 
 const TEST_SALT = "test-webhook-salt"
 
-function makeWebhookBody(params: Record<string, string>): string {
-  const sorted = Object.keys(params).sort()
-  const message = sorted.map((k) => params[k]).join("")
-  const hmac = createHmac("sha256", TEST_SALT).update(message).digest("hex")
-  return new URLSearchParams({ ...params, hmac }).toString()
+function makeSignature(rawBody: string): string {
+  return createHmac("sha256", TEST_SALT).update(rawBody).digest("hex")
+}
+
+function webhookInject(
+  app: Awaited<ReturnType<typeof createApp>>,
+  payload: Record<string, unknown>,
+  extraHeaders: Record<string, string> = {},
+) {
+  const body = JSON.stringify(payload)
+  return app.inject({
+    method: "POST",
+    url: "/webhooks/hitpay",
+    headers: {
+      "content-type": "application/json",
+      "hitpay-signature": makeSignature(body),
+      ...extraHeaders,
+    },
+    body,
+  })
 }
 
 describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
@@ -93,39 +108,27 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
 
   describe("signature verification", () => {
     it("returns 401 for a tampered signature", async () => {
-      const body = new URLSearchParams({
-        payment_id: "pay_xxx",
-        status: "succeeded",
-        amount: "75.00",
-        hmac: "deadbeef",
-      }).toString()
-
+      const body = JSON.stringify({ payment_id: "pay_xxx", status: "succeeded", amount: "75.00" })
       const res = await app.inject({
         method: "POST",
         url: "/webhooks/hitpay",
-        headers: { "content-type": "application/x-www-form-urlencoded" },
+        headers: {
+          "content-type": "application/json",
+          "hitpay-signature": "deadbeef",
+        },
         body,
       })
-
       expect(res.statusCode).toBe(401)
     })
 
     it("returns 200 for a valid signature even if no matching subscription", async () => {
-      const body = makeWebhookBody({
+      const res = await webhookInject(app, {
         payment_id: "pay_unknown",
         payment_request_id: "pr_unknown",
         status: "completed",
         amount: "50.00",
         fees: "1.00",
       })
-
-      const res = await app.inject({
-        method: "POST",
-        url: "/webhooks/hitpay",
-        headers: { "content-type": "application/x-www-form-urlencoded" },
-        body,
-      })
-
       expect(res.statusCode).toBe(200)
     })
   })
@@ -155,18 +158,11 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
         })
       })
 
-      const body = makeWebhookBody({
+      const res = await webhookInject(app, {
         recurring_billing_id: recurringId,
         payment_id: paymentId,
         status: "succeeded",
         amount: "75.00",
-      })
-
-      const res = await app.inject({
-        method: "POST",
-        url: "/webhooks/hitpay",
-        headers: { "content-type": "application/x-www-form-urlencoded" },
-        body,
       })
 
       expect(res.statusCode).toBe(200)
@@ -180,7 +176,6 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
       expect(rows[0]?.status).toBe("active")
       expect(rows[0]?.hitpayPaymentId).toBe(paymentId)
 
-      // Ledger credit leg created
       const ledger = await withAdmin(
         setupDb.db,
         { userId: buyerId, reason: "verify" },
@@ -223,31 +218,19 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
         })
       })
 
-      const body = makeWebhookBody({
+      const payload = {
         recurring_billing_id: recurringId,
         payment_id: paymentId,
         status: "succeeded",
         amount: "75.00",
-      })
+      }
 
-      const res1 = await app.inject({
-        method: "POST",
-        url: "/webhooks/hitpay",
-        headers: { "content-type": "application/x-www-form-urlencoded" },
-        body,
-      })
-      const res2 = await app.inject({
-        method: "POST",
-        url: "/webhooks/hitpay",
-        headers: { "content-type": "application/x-www-form-urlencoded" },
-        body,
-      })
+      const res1 = await webhookInject(app, payload)
+      const res2 = await webhookInject(app, payload)
 
       expect(res1.statusCode).toBe(200)
       expect(res2.statusCode).toBe(200)
 
-      // No duplicate ledger entries — the idempotency_key unique constraint
-      // would cause a DB error on insert, but we skip before reaching the insert.
       const ledger = await withAdmin(
         setupDb.db,
         { userId: buyerId, reason: "verify" },
@@ -278,18 +261,11 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
         })
       })
 
-      const body = makeWebhookBody({
+      await webhookInject(app, {
         recurring_billing_id: recurringId,
         payment_id: paymentId,
         status: "failed",
         amount: "75.00",
-      })
-
-      await app.inject({
-        method: "POST",
-        url: "/webhooks/hitpay",
-        headers: { "content-type": "application/x-www-form-urlencoded" },
-        body,
       })
 
       const rows = await withAdmin(setupDb.db, { userId: buyerId, reason: "verify" }, async (tx) =>
@@ -330,26 +306,19 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
           discountPct: 5,
           periodStart: now,
           periodEnd,
-          hitpayPaymentId: paymentRequestId,
+          hitpayPaymentRequestId: paymentRequestId,
           bomyCommissionSen: 0n,
           brandPayoutSen: 0n,
         })
       })
 
       // fees = 1.50 → 150 sen; net = 49850; brand = 44865; bomy = 4985; sum = 50000
-      const body = makeWebhookBody({
+      const res = await webhookInject(app, {
         payment_request_id: paymentRequestId,
         payment_id: paymentId,
         status: "completed",
         amount: "500.00",
         fees: "1.50",
-      })
-
-      const res = await app.inject({
-        method: "POST",
-        url: "/webhooks/hitpay",
-        headers: { "content-type": "application/x-www-form-urlencoded" },
-        body,
       })
 
       expect(res.statusCode).toBe(200)
@@ -362,11 +331,9 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
       expect(sub?.hitpayPaymentId).toBe(paymentId)
       expect(sub?.hitpayFeeSen).toBe(150n)
 
-      // Commission invariant: commission + payout + fee === price
       const total = sub!.bomyCommissionSen + sub!.brandPayoutSen + sub!.hitpayFeeSen!
       expect(total).toBe(priceSen)
 
-      // 3 ledger legs
       const legs = await withAdmin(setupDb.db, { userId: buyerId, reason: "verify" }, async (tx) =>
         tx.select().from(schema.ledgerEntries).where(eq(schema.ledgerEntries.referenceId, subId)),
       )
@@ -412,6 +379,7 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
           discountPct: 5,
           periodStart: now,
           periodEnd: new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000),
+          hitpayPaymentRequestId: paymentRequestId,
           hitpayPaymentId: paymentId,
           hitpayFeeSen: feeSen,
           bomyCommissionSen,
@@ -419,7 +387,7 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
         })
       })
 
-      const body = makeWebhookBody({
+      const res = await webhookInject(app, {
         payment_request_id: paymentRequestId,
         payment_id: paymentId,
         status: "completed",
@@ -427,16 +395,8 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
         fees: "1.50",
       })
 
-      const res = await app.inject({
-        method: "POST",
-        url: "/webhooks/hitpay",
-        headers: { "content-type": "application/x-www-form-urlencoded" },
-        body,
-      })
-
       expect(res.statusCode).toBe(200)
 
-      // No ledger entries should have been added
       const legs = await withAdmin(setupDb.db, { userId: buyerId, reason: "verify" }, async (tx) =>
         tx.select().from(schema.ledgerEntries).where(eq(schema.ledgerEntries.referenceId, subId)),
       )
@@ -465,25 +425,18 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
           discountPct: 5,
           periodStart: now,
           periodEnd: new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000),
-          hitpayPaymentId: paymentRequestId,
+          hitpayPaymentRequestId: paymentRequestId,
           bomyCommissionSen: 0n,
           brandPayoutSen: 0n,
         })
       })
 
-      const body = makeWebhookBody({
+      await webhookInject(app, {
         payment_request_id: paymentRequestId,
         payment_id: paymentId,
         status: "failed",
         amount: "500.00",
         fees: "0.00",
-      })
-
-      await app.inject({
-        method: "POST",
-        url: "/webhooks/hitpay",
-        headers: { "content-type": "application/x-www-form-urlencoded" },
-        body,
       })
 
       const rows = await withAdmin(setupDb.db, { userId: buyerId, reason: "verify" }, async (tx) =>
