@@ -66,13 +66,17 @@ export const hitpayWebhookRoutes: FastifyPluginAsync = async (app) => {
     // field — treating it as a refund amount would create false ledger entries.
     const refundAmountStr =
       typeof payload["refund_amount"] === "string" ? payload["refund_amount"] : null
+    // HitPay may include a refund_id on charge.updated. When present it is used
+    // as part of the idempotency key so multiple partial refunds on the same
+    // payment can each be ledgered independently.
+    const refundId = typeof payload["refund_id"] === "string" ? payload["refund_id"] : null
 
     // 2. Route by event type header.
     //    charge.updated is checked FIRST — before payload-shape fallbacks — so
     //    recurring membership refunds (which also carry recurring_billing_id)
     //    are not swallowed by the membership branch.
     if (eventType === "charge.updated") {
-      await handleRefund({ app, paymentId, refundAmountStr })
+      await handleRefund({ app, paymentId, refundAmountStr, refundId })
     } else if (
       eventType === "charge.created" ||
       eventType === "recurring_billing.subscription_updated" ||
@@ -462,9 +466,19 @@ interface RefundArgs {
   // null when refund_amount is absent — non-refund charge.updated events must
   // not create ledger entries, so we require the field to be explicitly present.
   refundAmountStr: string | null
+  // When HitPay provides a refund_id, it is included in the idempotency key so
+  // multiple partial refunds on the same payment each produce a distinct ledger
+  // entry. Without a refund_id (Stage 4 full-refund-only scope), the key is
+  // keyed on paymentId alone, allowing exactly one refund per payment.
+  refundId: string | null
 }
 
-async function handleRefund({ app, paymentId, refundAmountStr }: RefundArgs): Promise<void> {
+async function handleRefund({
+  app,
+  paymentId,
+  refundAmountStr,
+  refundId,
+}: RefundArgs): Promise<void> {
   if (!paymentId) {
     app.log.warn("hitpay webhook: charge.updated received without payment_id — skipping")
     return
@@ -507,7 +521,9 @@ async function handleRefund({ app, paymentId, refundAmountStr }: RefundArgs): Pr
 
       if (memberRows[0]) {
         const sub = memberRows[0]
-        const idemKey = `refund:${paymentId}:${sub.id}:debit`
+        const idemKey = refundId
+          ? `refund:${paymentId}:${refundId}:${sub.id}:debit`
+          : `refund:${paymentId}:${sub.id}:debit`
 
         // Idempotency: skip if this refund has already been recorded.
         const existing = await tx
@@ -552,7 +568,9 @@ async function handleRefund({ app, paymentId, refundAmountStr }: RefundArgs): Pr
 
       if (brandRows[0]) {
         const sub = brandRows[0]
-        const idemKey = `refund:${paymentId}:${sub.id}:debit`
+        const idemKey = refundId
+          ? `refund:${paymentId}:${refundId}:${sub.id}:debit`
+          : `refund:${paymentId}:${sub.id}:debit`
 
         // Idempotency: skip if this refund has already been recorded.
         const existing = await tx
