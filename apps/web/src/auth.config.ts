@@ -17,7 +17,9 @@ export const authConfig = {
 
       // Routes that require any login
       const requiresLogin =
-        nextUrl.pathname.startsWith("/account") || nextUrl.pathname.startsWith("/dashboard")
+        nextUrl.pathname.startsWith("/account") ||
+        nextUrl.pathname.startsWith("/dashboard") ||
+        nextUrl.pathname.startsWith("/membership/manage")
       if (requiresLogin && !isLoggedIn) return false
 
       // Seller dashboard requires seller_owner role

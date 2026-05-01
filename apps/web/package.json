@@ -12,6 +12,7 @@
   "dependencies": {
     "@auth/drizzle-adapter": "^1.7.4",
     "@bomy/db": "workspace:*",
+    "@bomy/hitpay": "workspace:*",
     "drizzle-orm": "^0.36.4",
     "clsx": "^2.1.1",
     "class-variance-authority": "^0.7.1",
