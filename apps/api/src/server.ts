@@ -8,6 +8,7 @@ import { sessionPlugin } from "./plugins/session.js"
 import { healthRoutes } from "./routes/health.js"
 import { meRoutes } from "./routes/me.js"
 import { readyRoutes } from "./routes/ready.js"
+import { hitpayWebhookRoutes } from "./routes/webhooks/hitpay.js"
 
 export async function createApp() {
   const isDev = process.env["NODE_ENV"] !== "production"
@@ -30,6 +31,7 @@ export async function createApp() {
   await app.register(healthRoutes)
   await app.register(readyRoutes)
   await app.register(meRoutes)
+  await app.register(hitpayWebhookRoutes)
 
   return app
 }

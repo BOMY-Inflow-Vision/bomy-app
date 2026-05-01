@@ -6,90 +6,50 @@ import { verifyWebhookSignature } from "../src/webhook.js"
 
 const SALT = "super-secret-salt"
 
-function makeBody(params: Record<string, string>): string {
-  return new URLSearchParams(params).toString()
-}
-
-function makeHmac(params: Record<string, string>): string {
-  const sorted = Object.keys(params).sort()
-  const message = sorted.map((k) => params[k]).join("")
-  return createHmac("sha256", SALT).update(message).digest("hex")
+function makeSignature(rawBody: string): string {
+  return createHmac("sha256", SALT).update(rawBody).digest("hex")
 }
 
 describe("verifyWebhookSignature", () => {
-  it("returns true for a valid signature", () => {
-    const params = {
-      payment_id: "pay_abc123",
-      amount: "100.00",
-      currency: "MYR",
-      status: "succeeded",
-    }
-    const hmac = makeHmac(params)
-    const rawBody = makeBody({ ...params, hmac })
-    expect(verifyWebhookSignature(rawBody, hmac, SALT)).toBe(true)
+  it("returns true for a valid JSON body + correct signature", () => {
+    const body = JSON.stringify({ payment_id: "pay_abc", amount: "100.00", status: "succeeded" })
+    const sig = makeSignature(body)
+    expect(verifyWebhookSignature(body, sig, SALT)).toBe(true)
   })
 
   it("returns false when the signature is wrong", () => {
-    const params = {
-      payment_id: "pay_abc123",
-      amount: "100.00",
-      currency: "MYR",
-      status: "succeeded",
-    }
-    const rawBody = makeBody({ ...params, hmac: "deadbeef" })
-    expect(verifyWebhookSignature(rawBody, "deadbeef", SALT)).toBe(false)
+    const body = JSON.stringify({ payment_id: "pay_abc", amount: "100.00" })
+    expect(verifyWebhookSignature(body, "deadbeef", SALT)).toBe(false)
   })
 
-  it("returns false when a payload field is tampered", () => {
-    const params = {
-      payment_id: "pay_abc123",
-      amount: "100.00",
-      currency: "MYR",
-      status: "succeeded",
-    }
-    const hmac = makeHmac(params)
-    const tampered = makeBody({ ...params, amount: "1.00", hmac })
-    expect(verifyWebhookSignature(tampered, hmac, SALT)).toBe(false)
+  it("returns false when the body is tampered after signing", () => {
+    const body = JSON.stringify({ payment_id: "pay_abc", amount: "100.00" })
+    const sig = makeSignature(body)
+    const tampered = JSON.stringify({ payment_id: "pay_abc", amount: "1.00" })
+    expect(verifyWebhookSignature(tampered, sig, SALT)).toBe(false)
   })
 
   it("returns false when the salt is wrong", () => {
-    const params = { payment_id: "pay_abc123", amount: "100.00" }
-    const hmac = makeHmac(params)
-    const rawBody = makeBody({ ...params, hmac })
-    expect(verifyWebhookSignature(rawBody, hmac, "wrong-salt")).toBe(false)
+    const body = JSON.stringify({ payment_id: "pay_abc" })
+    const sig = makeSignature(body)
+    expect(verifyWebhookSignature(body, sig, "wrong-salt")).toBe(false)
   })
 
-  it("handles payloads with no extra fields beyond hmac", () => {
-    const params = { payment_id: "pay_single" }
-    const hmac = makeHmac(params)
-    const rawBody = makeBody({ ...params, hmac })
-    expect(verifyWebhookSignature(rawBody, hmac, SALT)).toBe(true)
+  it("returns false if signature lengths differ", () => {
+    const body = JSON.stringify({ payment_id: "pay_x" })
+    expect(verifyWebhookSignature(body, "short", SALT)).toBe(false)
   })
 
-  it("sorts fields deterministically regardless of URLSearchParams order", () => {
-    const params = {
-      z_last: "zzz",
-      a_first: "aaa",
-      m_middle: "mmm",
-    }
-    const sortedKeys = Object.keys(params).sort()
-    const message = sortedKeys.map((k) => params[k as keyof typeof params]).join("")
-    const hmac = createHmac("sha256", SALT).update(message).digest("hex")
-
-    // Body with reversed key order — should still verify correctly
-    const rawBody = new URLSearchParams({
-      m_middle: "mmm",
-      z_last: "zzz",
-      a_first: "aaa",
-      hmac,
-    }).toString()
-
-    expect(verifyWebhookSignature(rawBody, hmac, SALT)).toBe(true)
+  it("is sensitive to byte-level body differences — JSON serialisation must be preserved verbatim", () => {
+    const body1 = '{"payment_id":"pay_x","amount":"1.00"}'
+    const body2 = '{"amount":"1.00","payment_id":"pay_x"}'
+    const sig = makeSignature(body1)
+    expect(verifyWebhookSignature(body2, sig, SALT)).toBe(false)
   })
 
-  it("returns false if hmac lengths differ (prevents timing attacks being triggered)", () => {
-    const params = { payment_id: "pay_x" }
-    const rawBody = makeBody({ ...params, hmac: "short" })
-    expect(verifyWebhookSignature(rawBody, "short", SALT)).toBe(false)
+  it("works with an empty body", () => {
+    const body = ""
+    const sig = makeSignature(body)
+    expect(verifyWebhookSignature(body, sig, SALT)).toBe(true)
   })
 })
