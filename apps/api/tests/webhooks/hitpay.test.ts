@@ -276,6 +276,154 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
       )
       expect(rows[0]?.status).toBe("payment_failed")
     })
+
+    it("renewal retry — second webhook with same payment_id is idempotent after renewal", async () => {
+      const buyerId = await seedUser()
+      const recurringId = `rb_${randomUUID()}`
+      const firstPaymentId = `pay_${randomUUID()}`
+      const renewalPaymentId = `pay_${randomUUID()}`
+
+      const subId = randomUUID()
+      const now = new Date()
+      const periodEnd = new Date(now)
+      periodEnd.setFullYear(periodEnd.getFullYear() + 1)
+
+      await withAdmin(setupDb.db, { userId: buyerId, reason: "test seed" }, async (tx) => {
+        await tx.insert(schema.memberSubscriptions).values({
+          id: subId,
+          userId: buyerId,
+          status: "active",
+          priceMyrSen: 7500n,
+          periodStart: now,
+          periodEnd,
+          hitpayRecurringId: recurringId,
+          hitpayPaymentId: firstPaymentId,
+        })
+      })
+
+      // First renewal: creates a new active row, expires the old one.
+      const res1 = await webhookInject(app, {
+        recurring_billing_id: recurringId,
+        payment_id: renewalPaymentId,
+        status: "succeeded",
+        amount: "75.00",
+      })
+      expect(res1.statusCode).toBe(200)
+
+      // Retry of the same renewal: ORDER BY created_at DESC reads the new
+      // active row (hitpayPaymentId = renewalPaymentId) and skips.
+      const res2 = await webhookInject(app, {
+        recurring_billing_id: recurringId,
+        payment_id: renewalPaymentId,
+        status: "succeeded",
+        amount: "75.00",
+      })
+      expect(res2.statusCode).toBe(200)
+
+      // Exactly one ledger credit for the renewal payment.
+      const ledger = await withAdmin(
+        setupDb.db,
+        { userId: buyerId, reason: "verify" },
+        async (tx) =>
+          tx
+            .select()
+            .from(schema.ledgerEntries)
+            .where(
+              and(
+                eq(
+                  schema.ledgerEntries.idempotencyKey,
+                  `membership:recurring:${renewalPaymentId}:credit`,
+                ),
+                eq(schema.ledgerEntries.direction, "credit"),
+              ),
+            ),
+      )
+      expect(ledger).toHaveLength(1)
+    })
+
+    it("aborts activation when webhook amount does not match price", async () => {
+      const buyerId = await seedUser()
+      const recurringId = `rb_${randomUUID()}`
+      const paymentId = `pay_${randomUUID()}`
+      const subId = randomUUID()
+      const now = new Date()
+      const periodEnd = new Date(now)
+      periodEnd.setFullYear(periodEnd.getFullYear() + 1)
+
+      await withAdmin(setupDb.db, { userId: buyerId, reason: "test seed" }, async (tx) => {
+        await tx.insert(schema.memberSubscriptions).values({
+          id: subId,
+          userId: buyerId,
+          status: "pending",
+          priceMyrSen: 7500n,
+          periodStart: now,
+          periodEnd,
+          hitpayRecurringId: recurringId,
+        })
+      })
+
+      // Wrong amount: "50.00" (5000 sen) instead of "75.00" (7500 sen).
+      await webhookInject(app, {
+        recurring_billing_id: recurringId,
+        payment_id: paymentId,
+        status: "succeeded",
+        amount: "50.00",
+      })
+
+      const rows = await withAdmin(setupDb.db, { userId: buyerId, reason: "verify" }, async (tx) =>
+        tx
+          .select()
+          .from(schema.memberSubscriptions)
+          .where(eq(schema.memberSubscriptions.id, subId)),
+      )
+      // Row must still be pending — activation aborted.
+      expect(rows[0]?.status).toBe("pending")
+      expect(rows[0]?.hitpayPaymentId).toBeNull()
+    })
+
+    it("cancellation event without payment_id preserves existing hitpay_payment_id", async () => {
+      const buyerId = await seedUser()
+      const recurringId = `rb_${randomUUID()}`
+      const existingPaymentId = `pay_${randomUUID()}`
+      const subId = randomUUID()
+      const now = new Date()
+      const periodEnd = new Date(now)
+      periodEnd.setFullYear(periodEnd.getFullYear() + 1)
+
+      await withAdmin(setupDb.db, { userId: buyerId, reason: "test seed" }, async (tx) => {
+        await tx.insert(schema.memberSubscriptions).values({
+          id: subId,
+          userId: buyerId,
+          status: "active",
+          priceMyrSen: 7500n,
+          periodStart: now,
+          periodEnd,
+          hitpayRecurringId: recurringId,
+          hitpayPaymentId: existingPaymentId,
+        })
+      })
+
+      // Cancellation event with no payment_id in payload.
+      await webhookInject(
+        app,
+        {
+          recurring_billing_id: recurringId,
+          status: "cancelled",
+          amount: "0.00",
+        },
+        { "hitpay-event-type": "recurring_billing.subscription_updated" },
+      )
+
+      const rows = await withAdmin(setupDb.db, { userId: buyerId, reason: "verify" }, async (tx) =>
+        tx
+          .select()
+          .from(schema.memberSubscriptions)
+          .where(eq(schema.memberSubscriptions.id, subId)),
+      )
+      expect(rows[0]?.status).toBe("cancelled")
+      // Existing payment_id must not be overwritten with an empty string.
+      expect(rows[0]?.hitpayPaymentId).toBe(existingPaymentId)
+    })
   })
 
   // ── brand subscription ─────────────────────────────────────────────────────
@@ -443,6 +591,236 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
         tx.select().from(schema.brandSubscriptions).where(eq(schema.brandSubscriptions.id, subId)),
       )
       expect(rows[0]?.status).toBe("payment_failed")
+    })
+
+    it("zero-fee activation writes only 2 ledger legs (no processing_fee leg)", async () => {
+      const ownerId = await seedUser("seller_owner")
+      const buyerId = await seedUser()
+      const storeId = await seedStore(ownerId)
+      const planId = await seedBrandPlan(storeId)
+
+      const paymentRequestId = `pr_${randomUUID()}`
+      const paymentId = `pay_${randomUUID()}`
+      const subId = randomUUID()
+      const now = new Date()
+      const priceSen = 50000n
+
+      await withAdmin(setupDb.db, { userId: buyerId, reason: "test seed" }, async (tx) => {
+        await tx.insert(schema.brandSubscriptions).values({
+          id: subId,
+          userId: buyerId,
+          storeId,
+          planId,
+          status: "pending",
+          priceMyrSen: priceSen,
+          discountPct: 5,
+          periodStart: now,
+          periodEnd: new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000),
+          hitpayPaymentRequestId: paymentRequestId,
+          bomyCommissionSen: 0n,
+          brandPayoutSen: 0n,
+        })
+      })
+
+      const res = await webhookInject(app, {
+        payment_request_id: paymentRequestId,
+        payment_id: paymentId,
+        status: "completed",
+        amount: "500.00",
+        fees: "0.00",
+      })
+      expect(res.statusCode).toBe(200)
+
+      const legs = await withAdmin(setupDb.db, { userId: buyerId, reason: "verify" }, async (tx) =>
+        tx.select().from(schema.ledgerEntries).where(eq(schema.ledgerEntries.referenceId, subId)),
+      )
+      // Only credit + payout debit; no processing_fee debit when feeSen = 0.
+      expect(legs).toHaveLength(2)
+      expect(legs.every((l) => l.amountMinor > 0n)).toBe(true)
+    })
+
+    it("aborts activation when webhook amount does not match price", async () => {
+      const ownerId = await seedUser("seller_owner")
+      const buyerId = await seedUser()
+      const storeId = await seedStore(ownerId)
+      const planId = await seedBrandPlan(storeId)
+
+      const paymentRequestId = `pr_${randomUUID()}`
+      const paymentId = `pay_${randomUUID()}`
+      const subId = randomUUID()
+      const now = new Date()
+
+      await withAdmin(setupDb.db, { userId: buyerId, reason: "test seed" }, async (tx) => {
+        await tx.insert(schema.brandSubscriptions).values({
+          id: subId,
+          userId: buyerId,
+          storeId,
+          planId,
+          status: "pending",
+          priceMyrSen: 50000n,
+          discountPct: 5,
+          periodStart: now,
+          periodEnd: new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000),
+          hitpayPaymentRequestId: paymentRequestId,
+          bomyCommissionSen: 0n,
+          brandPayoutSen: 0n,
+        })
+      })
+
+      // Wrong amount: "450.00" (45000 sen) instead of "500.00" (50000 sen).
+      await webhookInject(app, {
+        payment_request_id: paymentRequestId,
+        payment_id: paymentId,
+        status: "completed",
+        amount: "450.00",
+        fees: "1.50",
+      })
+
+      const rows = await withAdmin(setupDb.db, { userId: buyerId, reason: "verify" }, async (tx) =>
+        tx.select().from(schema.brandSubscriptions).where(eq(schema.brandSubscriptions.id, subId)),
+      )
+      // Row must still be pending — activation aborted.
+      expect(rows[0]?.status).toBe("pending")
+    })
+  })
+
+  // ── refund (charge.updated) ────────────────────────────────────────────────
+
+  describe("refund (charge.updated)", () => {
+    it("records a debit ledger entry for a membership refund", async () => {
+      const buyerId = await seedUser()
+      const recurringId = `rb_${randomUUID()}`
+      const paymentId = `pay_${randomUUID()}`
+      const subId = randomUUID()
+      const now = new Date()
+      const periodEnd = new Date(now)
+      periodEnd.setFullYear(periodEnd.getFullYear() + 1)
+
+      await withAdmin(setupDb.db, { userId: buyerId, reason: "test seed" }, async (tx) => {
+        await tx.insert(schema.memberSubscriptions).values({
+          id: subId,
+          userId: buyerId,
+          status: "active",
+          priceMyrSen: 7500n,
+          periodStart: now,
+          periodEnd,
+          hitpayRecurringId: recurringId,
+          hitpayPaymentId: paymentId,
+        })
+      })
+
+      const res = await webhookInject(
+        app,
+        {
+          payment_id: paymentId,
+          refund_amount: "75.00",
+          status: "refunded",
+        },
+        { "hitpay-event-type": "charge.updated" },
+      )
+      expect(res.statusCode).toBe(200)
+
+      const legs = await withAdmin(setupDb.db, { userId: buyerId, reason: "verify" }, async (tx) =>
+        tx
+          .select()
+          .from(schema.ledgerEntries)
+          .where(
+            and(
+              eq(schema.ledgerEntries.referenceId, subId),
+              eq(schema.ledgerEntries.revenueSource, "refund"),
+            ),
+          ),
+      )
+      expect(legs).toHaveLength(1)
+      expect(legs[0]?.direction).toBe("debit")
+      expect(legs[0]?.amountMinor).toBe(7500n)
+    })
+
+    it("refund is idempotent — second charge.updated does not insert a duplicate", async () => {
+      const buyerId = await seedUser()
+      const recurringId = `rb_${randomUUID()}`
+      const paymentId = `pay_${randomUUID()}`
+      const subId = randomUUID()
+      const now = new Date()
+      const periodEnd = new Date(now)
+      periodEnd.setFullYear(periodEnd.getFullYear() + 1)
+
+      await withAdmin(setupDb.db, { userId: buyerId, reason: "test seed" }, async (tx) => {
+        await tx.insert(schema.memberSubscriptions).values({
+          id: subId,
+          userId: buyerId,
+          status: "active",
+          priceMyrSen: 7500n,
+          periodStart: now,
+          periodEnd,
+          hitpayRecurringId: recurringId,
+          hitpayPaymentId: paymentId,
+        })
+      })
+
+      const payload = { payment_id: paymentId, refund_amount: "75.00", status: "refunded" }
+      const headers = { "hitpay-event-type": "charge.updated" }
+
+      await webhookInject(app, payload, headers)
+      const res2 = await webhookInject(app, payload, headers)
+      expect(res2.statusCode).toBe(200)
+
+      const legs = await withAdmin(setupDb.db, { userId: buyerId, reason: "verify" }, async (tx) =>
+        tx
+          .select()
+          .from(schema.ledgerEntries)
+          .where(
+            and(
+              eq(schema.ledgerEntries.referenceId, subId),
+              eq(schema.ledgerEntries.revenueSource, "refund"),
+            ),
+          ),
+      )
+      expect(legs).toHaveLength(1)
+    })
+
+    it("charge.updated without refund_amount creates no ledger entry", async () => {
+      const buyerId = await seedUser()
+      const recurringId = `rb_${randomUUID()}`
+      const paymentId = `pay_${randomUUID()}`
+      const subId = randomUUID()
+      const now = new Date()
+      const periodEnd = new Date(now)
+      periodEnd.setFullYear(periodEnd.getFullYear() + 1)
+
+      await withAdmin(setupDb.db, { userId: buyerId, reason: "test seed" }, async (tx) => {
+        await tx.insert(schema.memberSubscriptions).values({
+          id: subId,
+          userId: buyerId,
+          status: "active",
+          priceMyrSen: 7500n,
+          periodStart: now,
+          periodEnd,
+          hitpayRecurringId: recurringId,
+          hitpayPaymentId: paymentId,
+        })
+      })
+
+      // charge.updated with amount but no refund_amount — non-refund update.
+      const res = await webhookInject(
+        app,
+        { payment_id: paymentId, amount: "75.00", status: "updated" },
+        { "hitpay-event-type": "charge.updated" },
+      )
+      expect(res.statusCode).toBe(200)
+
+      const legs = await withAdmin(setupDb.db, { userId: buyerId, reason: "verify" }, async (tx) =>
+        tx
+          .select()
+          .from(schema.ledgerEntries)
+          .where(
+            and(
+              eq(schema.ledgerEntries.referenceId, subId),
+              eq(schema.ledgerEntries.revenueSource, "refund"),
+            ),
+          ),
+      )
+      expect(legs).toHaveLength(0)
     })
   })
 })

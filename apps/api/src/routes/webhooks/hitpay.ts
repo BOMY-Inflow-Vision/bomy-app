@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto"
 
 import { schema, withAdmin } from "@bomy/db"
 import { verifyWebhookSignature } from "@bomy/hitpay"
-import { desc, eq } from "drizzle-orm"
+import { and, desc, eq } from "drizzle-orm"
 import type { FastifyPluginAsync } from "fastify"
 
 // Sentinel UUID identifying the HitPay webhook system as the audit actor
@@ -61,12 +61,19 @@ export const hitpayWebhookRoutes: FastifyPluginAsync = async (app) => {
     const feesStr = typeof payload["fees"] === "string" ? payload["fees"] : "0.00"
     const recurringBillingId = payload["recurring_billing_id"]
     const paymentRequestId = payload["payment_request_id"]
-    // charge.updated refund events may carry refund_amount; fall back to amount.
+    // charge.updated refund events must include refund_amount. We do NOT fall
+    // back to amount because non-refund charge updates also carry an amount
+    // field — treating it as a refund amount would create false ledger entries.
     const refundAmountStr =
-      typeof payload["refund_amount"] === "string" ? payload["refund_amount"] : amountStr
+      typeof payload["refund_amount"] === "string" ? payload["refund_amount"] : null
 
-    // 2. Route by event type header, falling back to payload shape.
-    if (
+    // 2. Route by event type header.
+    //    charge.updated is checked FIRST — before payload-shape fallbacks — so
+    //    recurring membership refunds (which also carry recurring_billing_id)
+    //    are not swallowed by the membership branch.
+    if (eventType === "charge.updated") {
+      await handleRefund({ app, paymentId, refundAmountStr })
+    } else if (
       eventType === "charge.created" ||
       eventType === "recurring_billing.subscription_updated" ||
       typeof recurringBillingId === "string"
@@ -74,8 +81,6 @@ export const hitpayWebhookRoutes: FastifyPluginAsync = async (app) => {
       if (typeof recurringBillingId === "string") {
         await handleMembershipCharge({ app, recurringBillingId, paymentId, status, amountStr })
       }
-    } else if (eventType === "charge.updated") {
-      await handleRefund({ app, paymentId, refundAmountStr })
     } else if (
       eventType === "payment_request.completed" ||
       eventType === "payment_request.failed" ||
@@ -147,6 +152,17 @@ async function handleMembershipCharge({
       }
 
       if (status === "succeeded" || status === "active") {
+        // A missing payment_id would write blank idempotency keys into the
+        // ledger and set hitpay_payment_id = "" on the subscription row,
+        // permanently breaking future idempotency checks.
+        if (!paymentId) {
+          app.log.error(
+            { recurringBillingId },
+            "hitpay webhook: membership activation missing payment_id — aborting",
+          )
+          return
+        }
+
         const now = new Date()
 
         // Amount guard: webhook gross must equal the subscribed price.
@@ -312,6 +328,17 @@ async function handleBrandSubscriptionPayment({
       }
 
       if (status === "completed" || status === "succeeded") {
+        // A missing payment_id would write blank idempotency keys into the
+        // ledger and set hitpay_payment_id = "" on the subscription row,
+        // permanently breaking future idempotency checks.
+        if (!paymentId) {
+          app.log.error(
+            { paymentRequestId },
+            "hitpay webhook: brand sub activation missing payment_id — aborting",
+          )
+          return
+        }
+
         const priceSen = sub.priceMyrSen
 
         // Amount guard: webhook gross must equal the subscribed price.
@@ -432,12 +459,22 @@ async function handleBrandSubscriptionPayment({
 interface RefundArgs {
   app: Parameters<FastifyPluginAsync>[0]
   paymentId: string
-  refundAmountStr: string
+  // null when refund_amount is absent — non-refund charge.updated events must
+  // not create ledger entries, so we require the field to be explicitly present.
+  refundAmountStr: string | null
 }
 
 async function handleRefund({ app, paymentId, refundAmountStr }: RefundArgs): Promise<void> {
   if (!paymentId) {
     app.log.warn("hitpay webhook: charge.updated received without payment_id — skipping")
+    return
+  }
+
+  if (!refundAmountStr) {
+    app.log.info(
+      { paymentId },
+      "hitpay webhook: charge.updated without refund_amount — not a refund, skipping",
+    )
     return
   }
 
@@ -470,9 +507,28 @@ async function handleRefund({ app, paymentId, refundAmountStr }: RefundArgs): Pr
 
       if (memberRows[0]) {
         const sub = memberRows[0]
+        const idemKey = `refund:${paymentId}:${sub.id}:debit`
+
+        // Idempotency: skip if this refund has already been recorded.
+        const existing = await tx
+          .select({ id: schema.ledgerEntries.id })
+          .from(schema.ledgerEntries)
+          .where(
+            and(
+              eq(schema.ledgerEntries.idempotencyKey, idemKey),
+              eq(schema.ledgerEntries.direction, "debit"),
+            ),
+          )
+          .limit(1)
+
+        if (existing[0]) {
+          app.log.info({ paymentId }, "hitpay webhook: membership refund already recorded")
+          return
+        }
+
         await tx.insert(schema.ledgerEntries).values({
           transactionId: randomUUID(),
-          idempotencyKey: `refund:${paymentId}:${sub.id}:debit`,
+          idempotencyKey: idemKey,
           direction: "debit",
           account: "revenue:platform_subscription",
           amountMinor: refundAmountSen,
@@ -496,9 +552,28 @@ async function handleRefund({ app, paymentId, refundAmountStr }: RefundArgs): Pr
 
       if (brandRows[0]) {
         const sub = brandRows[0]
+        const idemKey = `refund:${paymentId}:${sub.id}:debit`
+
+        // Idempotency: skip if this refund has already been recorded.
+        const existing = await tx
+          .select({ id: schema.ledgerEntries.id })
+          .from(schema.ledgerEntries)
+          .where(
+            and(
+              eq(schema.ledgerEntries.idempotencyKey, idemKey),
+              eq(schema.ledgerEntries.direction, "debit"),
+            ),
+          )
+          .limit(1)
+
+        if (existing[0]) {
+          app.log.info({ paymentId }, "hitpay webhook: brand subscription refund already recorded")
+          return
+        }
+
         await tx.insert(schema.ledgerEntries).values({
           transactionId: randomUUID(),
-          idempotencyKey: `refund:${paymentId}:${sub.id}:debit`,
+          idempotencyKey: idemKey,
           direction: "debit",
           account: "revenue:brand_subscription",
           amountMinor: refundAmountSen,
