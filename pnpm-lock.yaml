@@ -275,6 +275,24 @@ importers:
         specifier: ^2.1.9
         version: 2.1.9(@types/node@20.19.39)
 
+  packages/hitpay:
+    devDependencies:
+      '@bomy/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/node':
+        specifier: ^20.17.0
+        version: 20.19.39
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+      typescript-eslint:
+        specifier: ^8.32.1
+        version: 8.58.2(eslint@9.39.4(jiti@1.21.7))(typescript@5.9.3)
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@20.19.39)
+
 packages:
 
   '@alloc/quick-lru@5.2.0':
