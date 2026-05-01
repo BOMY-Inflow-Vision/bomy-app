@@ -56,6 +56,10 @@ const MIGRATIONS = [
     name: "0004_brand_sub_hitpay_correlation",
     file: join(__dirname, "../drizzle/0004_brand_sub_hitpay_correlation.sql"),
   },
+  {
+    name: "0005_member_sub_pending_unique",
+    file: join(__dirname, "../drizzle/0005_member_sub_pending_unique.sql"),
+  },
 ]
 
 try {

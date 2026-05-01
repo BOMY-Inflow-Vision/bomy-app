@@ -5,20 +5,23 @@ import { and, desc, eq, inArray } from "drizzle-orm"
 import { redirect } from "next/navigation"
 
 import { makeDb, schema, withAdmin, withTenant } from "@bomy/db"
-import { HitPayClient } from "@bomy/hitpay"
+import { HitPayClient, type RecurringBillingResponse } from "@bomy/hitpay"
 
 import { auth } from "@/auth"
 
-const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001" as const
-
-const { db } = makeDb()
+// Lazy DB singleton — module is importable without DATABASE_URL at startup
+let _client: ReturnType<typeof makeDb> | null = null
+function getDb() {
+  if (!_client) _client = makeDb()
+  return _client.db
+}
 
 function hitpayClient() {
   const apiKey = process.env["HITPAY_API_KEY"]
-  const baseUrl = process.env["HITPAY_BASE_URL"]
+  const apiUrl = process.env["HITPAY_API_URL"]
   if (!apiKey) throw new Error("HITPAY_API_KEY is required")
-  if (!baseUrl) throw new Error("HITPAY_BASE_URL is required")
-  return new HitPayClient({ apiKey, baseUrl })
+  if (!apiUrl) throw new Error("HITPAY_API_URL is required")
+  return new HitPayClient({ apiKey, baseUrl: apiUrl })
 }
 
 function senToMyr(sen: bigint): string {
@@ -33,16 +36,26 @@ function addOneYear(d: Date): Date {
   return result
 }
 
+function isUniqueViolation(err: unknown): boolean {
+  return (
+    err !== null &&
+    typeof err === "object" &&
+    "code" in err &&
+    (err as { code: unknown }).code === "23505"
+  )
+}
+
 export async function joinMembership() {
   const session = await auth()
   if (!session) redirect("/auth/sign-in?callbackUrl=/membership")
 
   const appUrl = process.env["NEXTAUTH_URL"] ?? process.env["APP_URL"] ?? "http://localhost:3000"
+  const webhookUrl = process.env["HITPAY_WEBHOOK_URL"]
 
-  // Read platform price — platform_config is staff-only, use bypass
+  // Read platform price — platform_config is staff-only; use real user as audit actor
   const priceSen = await withAdmin(
-    db,
-    { userId: SYSTEM_ACTOR, reason: "read platform membership price for join action" },
+    getDb(),
+    { userId: session.user.id, reason: "read platform membership price for join" },
     async (tx) => {
       const rows = await tx
         .select({ value: schema.platformConfig.value })
@@ -56,7 +69,7 @@ export async function joinMembership() {
 
   // Guard: already active or payment in-flight
   const existing = await withTenant(
-    db,
+    getDb(),
     { userId: session.user.id, userRole: session.user.role },
     async (tx) =>
       tx
@@ -77,25 +90,32 @@ export async function joinMembership() {
   const now = new Date()
   const subId = randomUUID()
 
-  // Insert pending row first — webhook lookup depends on hitpayRecurringId being set
-  await withAdmin(
-    db,
-    { userId: SYSTEM_ACTOR, reason: "create pending member_subscription on join" },
-    async (tx) => {
-      await tx.insert(schema.memberSubscriptions).values({
-        id: subId,
-        userId: session.user.id,
-        status: "pending",
-        priceMyrSen: priceSen,
-        periodStart: now,
-        periodEnd: addOneYear(now),
-      })
-    },
-  )
-
-  let checkoutUrl: string
+  // Insert pending row — unique index on (user_id) WHERE status='pending' guards
+  // against concurrent double-submit at the DB level
   try {
-    const billing = await hitpayClient().createRecurringBilling({
+    await withAdmin(
+      getDb(),
+      { userId: session.user.id, reason: "create pending member_subscription on join" },
+      async (tx) => {
+        await tx.insert(schema.memberSubscriptions).values({
+          id: subId,
+          userId: session.user.id,
+          status: "pending",
+          priceMyrSen: priceSen,
+          periodStart: now,
+          periodEnd: addOneYear(now),
+        })
+      },
+    )
+  } catch (err) {
+    if (isUniqueViolation(err)) redirect("/membership/success")
+    throw err
+  }
+
+  // Call HitPay — track billing so we can cancel it if DB correlation fails
+  let billing: RecurringBillingResponse | null = null
+  try {
+    billing = await hitpayClient().createRecurringBilling({
       plan: {
         amount: senToMyr(priceSen),
         currency: "MYR",
@@ -105,25 +125,33 @@ export async function joinMembership() {
       customer: { email: session.user.email ?? "" },
       reference: subId,
       redirect_url: `${appUrl}/membership/success`,
+      ...(webhookUrl ? { webhook: webhookUrl } : {}),
     })
 
+    // Store recurring ID — if this fails, cancel the live HitPay billing
     await withAdmin(
-      db,
-      { userId: SYSTEM_ACTOR, reason: "store hitpay_recurring_id after createRecurringBilling" },
+      getDb(),
+      { userId: session.user.id, reason: "store hitpay_recurring_id after createRecurringBilling" },
       async (tx) => {
         await tx
           .update(schema.memberSubscriptions)
-          .set({ hitpayRecurringId: billing.id, updatedAt: new Date() })
+          .set({ hitpayRecurringId: billing!.id, updatedAt: new Date() })
           .where(eq(schema.memberSubscriptions.id, subId))
       },
     )
-
-    checkoutUrl = billing.url
   } catch (err) {
-    // Clean up pending row so the user can retry
+    // If HitPay succeeded but DB correlation failed, cancel the live billing
+    if (billing) {
+      try {
+        await hitpayClient().cancelRecurringBilling(billing.id)
+      } catch {
+        // Log and continue — manual reconciliation needed
+      }
+    }
+    // Remove orphan pending row so the user can retry
     await withAdmin(
-      db,
-      { userId: SYSTEM_ACTOR, reason: "delete pending member_subscription after HitPay error" },
+      getDb(),
+      { userId: session.user.id, reason: "delete pending member_subscription after error" },
       async (tx) => {
         await tx.delete(schema.memberSubscriptions).where(eq(schema.memberSubscriptions.id, subId))
       },
@@ -131,7 +159,7 @@ export async function joinMembership() {
     throw err
   }
 
-  redirect(checkoutUrl)
+  redirect(billing.url)
 }
 
 export async function cancelMembership() {
@@ -139,7 +167,7 @@ export async function cancelMembership() {
   if (!session) redirect("/auth/sign-in?callbackUrl=/membership")
 
   const sub = await withTenant(
-    db,
+    getDb(),
     { userId: session.user.id, userRole: session.user.role },
     async (tx) => {
       const rows = await tx
@@ -163,17 +191,19 @@ export async function cancelMembership() {
     await hitpayClient().cancelRecurringBilling(sub.hitpayRecurringId)
   }
 
-  // Optimistic cancel — webhook's cancelled event is idempotent
+  // Record cancellation intent only — status stays 'active' until the webhook
+  // fires recurring_billing.subscription_updated with status='cancelled'.
+  // Membership remains usable until period_end.
   await withAdmin(
-    db,
-    { userId: SYSTEM_ACTOR, reason: "user-initiated membership cancellation" },
+    getDb(),
+    { userId: session.user.id, reason: "user-initiated membership cancellation" },
     async (tx) => {
       await tx
         .update(schema.memberSubscriptions)
-        .set({ status: "cancelled", cancelledAt: new Date(), updatedAt: new Date() })
+        .set({ cancelledAt: new Date(), updatedAt: new Date() })
         .where(eq(schema.memberSubscriptions.id, sub.id))
     },
   )
 
-  redirect("/membership")
+  redirect("/membership/manage")
 }

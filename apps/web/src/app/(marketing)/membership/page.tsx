@@ -20,7 +20,8 @@ async function getPriceSen(): Promise<bigint> {
         .from(schema.platformConfig)
         .where(eq(schema.platformConfig.key, "platform_membership_price_myr_sen"))
         .limit(1)
-      return rows[0] ? BigInt(rows[0].value as number) : 7500n
+      if (!rows[0]) throw new Error("platform_membership_price_myr_sen not in platform_config")
+      return BigInt(rows[0].value as number)
     },
   )
 }
@@ -71,7 +72,7 @@ export default async function MembershipPage() {
         <ul className="mb-8 space-y-2 text-left text-sm text-gray-600">
           <li className="flex items-start gap-2">
             <span className="mt-0.5 text-amber-500">✓</span>
-            Welcome Starter Kit (dispatched within 14 days of activation)
+            Welcome Gift (dispatched within 14 days of activation)
           </li>
           <li className="flex items-start gap-2">
             <span className="mt-0.5 text-amber-500">✓</span>
