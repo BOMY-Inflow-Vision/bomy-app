@@ -2,6 +2,7 @@ import Image from "next/image"
 import { redirect } from "next/navigation"
 
 import { auth } from "@/auth"
+import { AccountTabs } from "./account-tabs"
 import { SignOutButton } from "./sign-out-button"
 
 export default async function AccountPage() {
@@ -13,6 +14,7 @@ export default async function AccountPage() {
   return (
     <main className="flex min-h-screen items-start justify-center bg-gray-50 pt-16">
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-sm ring-1 ring-gray-200">
+        <AccountTabs active="profile" />
         <div className="flex items-center gap-4">
           {user.image ? (
             <Image

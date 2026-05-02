@@ -60,6 +60,10 @@ const MIGRATIONS = [
     name: "0005_member_sub_pending_unique",
     file: join(__dirname, "../drizzle/0005_member_sub_pending_unique.sql"),
   },
+  {
+    name: "0006_brand_sub_active_pending_unique",
+    file: join(__dirname, "../drizzle/0006_brand_sub_active_pending_unique.sql"),
+  },
 ]
 
 try {

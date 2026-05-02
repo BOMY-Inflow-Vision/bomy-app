@@ -78,5 +78,8 @@ export const brandSubscriptions = pgTable(
     paymentRequestUnique: uniqueIndex("brand_subscriptions_payment_request_unique_idx")
       .on(t.hitpayPaymentRequestId)
       .where(sql`hitpay_payment_request_id IS NOT NULL`),
+    activeOrPendingUserStoreUnique: uniqueIndex("brand_subscriptions_active_pending_user_store_idx")
+      .on(t.userId, t.storeId)
+      .where(sql`status IN ('active', 'pending')`),
   }),
 )
