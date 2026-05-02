@@ -260,23 +260,51 @@ async function handleMembershipCharge({
         return
       }
 
-      if (status === "failed" || status === "cancelled") {
+      if (status === "failed") {
         const now = new Date()
         await tx
           .update(schema.memberSubscriptions)
           .set({
-            status: status === "cancelled" ? "cancelled" : "payment_failed",
-            // Only overwrite payment_id if the event carries one; cancellation
-            // events (subscription_updated) often carry no payment_id.
+            status: "payment_failed",
             ...(paymentId ? { hitpayPaymentId: paymentId } : {}),
-            ...(status === "cancelled" ? { cancelledAt: now } : {}),
             updatedAt: now,
           })
           .where(eq(schema.memberSubscriptions.id, sub.id))
 
+        app.log.info({ subscriptionId: sub.id }, "hitpay webhook: membership payment failed")
+      }
+
+      if (status === "cancelled") {
+        const now = new Date()
+        // Only revoke entitlement once the period has elapsed. Before that,
+        // the spec says "membership stays active until period_end" — record
+        // the cancellation intent but leave status = 'active' so the user
+        // retains access for the remainder of their paid period.
+        const entitlementExpired = now >= sub.periodEnd
+        if (entitlementExpired) {
+          await tx
+            .update(schema.memberSubscriptions)
+            .set({
+              status: "cancelled",
+              cancelledAt: sub.cancelledAt ?? now,
+              ...(paymentId ? { hitpayPaymentId: paymentId } : {}),
+              updatedAt: now,
+            })
+            .where(eq(schema.memberSubscriptions.id, sub.id))
+        } else {
+          await tx
+            .update(schema.memberSubscriptions)
+            .set({
+              cancelledAt: sub.cancelledAt ?? now,
+              ...(paymentId ? { hitpayPaymentId: paymentId } : {}),
+              updatedAt: now,
+            })
+            .where(eq(schema.memberSubscriptions.id, sub.id))
+        }
+
         app.log.info(
-          { subscriptionId: sub.id, status },
-          "hitpay webhook: membership status updated",
+          { subscriptionId: sub.id, entitlementExpired },
+          "hitpay webhook: membership cancellation processed",
         )
       }
     },

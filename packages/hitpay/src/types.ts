@@ -53,6 +53,7 @@ export interface CreateRecurringBillingInput {
 
 export interface RecurringBillingResponse {
   id: string
+  url: string
   name: string
   description: string | null
   cycle: string

@@ -18,7 +18,8 @@ import type {
 
 export interface HitPayClientOptions {
   apiKey: string
-  saltKey: string
+  /** Salt for webhook signature verification. Not used by the HTTP client itself. */
+  saltKey?: string
   baseUrl: string
 }
 
