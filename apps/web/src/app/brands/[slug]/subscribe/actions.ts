@@ -1,7 +1,7 @@
 "use server"
 
 import { randomUUID } from "node:crypto"
-import { and, desc, eq, inArray } from "drizzle-orm"
+import { and, desc, eq, gt, inArray } from "drizzle-orm"
 import { notFound, redirect } from "next/navigation"
 
 import { makeDb, schema, withAdmin, withTenant, type UserRole } from "@bomy/db"
@@ -35,7 +35,16 @@ function addMonths(d: Date, months: number): Date {
   return result
 }
 
-// Used by PR #22 subscribe page to show the store's available active plans.
+function isUniqueViolation(err: unknown): boolean {
+  return (
+    err !== null &&
+    typeof err === "object" &&
+    "code" in err &&
+    (err as { code: unknown }).code === "23505"
+  )
+}
+
+// Used by the subscribe page to show the store's available active plans.
 export async function getStorePlans(slug: string) {
   const rows = await withAdmin(
     getDb(),
@@ -141,25 +150,32 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
 
   // Insert pending row — zero commission/payout; webhook fills these on activation.
   // The CHECK constraint only fires for status='active', so zeros are valid for pending.
-  await withAdmin(
-    getDb(),
-    { userId: session.user.id, reason: "create pending brand_subscription on subscribe" },
-    async (tx) => {
-      await tx.insert(schema.brandSubscriptions).values({
-        id: subId,
-        userId: session.user.id,
-        storeId: store.id,
-        planId: plan.id,
-        status: "pending",
-        priceMyrSen: plan.priceMyrSen,
-        discountPct: plan.discountPct,
-        periodStart: now,
-        periodEnd,
-        bomyCommissionSen: 0n,
-        brandPayoutSen: 0n,
-      })
-    },
-  )
+  // The partial unique index on (user_id, store_id) WHERE status IN ('active','pending')
+  // is the DB-level guard against concurrent double-submit; 23505 → redirect to success.
+  try {
+    await withAdmin(
+      getDb(),
+      { userId: session.user.id, reason: "create pending brand_subscription on subscribe" },
+      async (tx) => {
+        await tx.insert(schema.brandSubscriptions).values({
+          id: subId,
+          userId: session.user.id,
+          storeId: store.id,
+          planId: plan.id,
+          status: "pending",
+          priceMyrSen: plan.priceMyrSen,
+          discountPct: plan.discountPct,
+          periodStart: now,
+          periodEnd,
+          bomyCommissionSen: 0n,
+          brandPayoutSen: 0n,
+        })
+      },
+    )
+  } catch (err) {
+    if (isUniqueViolation(err)) redirect(`/brands/${store.slug}/subscribe/success`)
+    throw err
+  }
 
   // Call HitPay createPaymentRequest.
   let paymentRequest: PaymentRequestResponse | null = null
@@ -171,6 +187,7 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
       purpose: `${store.name} Brand Subscription (${plan.termMonths}mo)`,
       redirect_url: `${appUrl}/brands/${store.slug}/subscribe/success`,
       reference_number: subId,
+      allow_repeated_payments: false,
       ...(webhookUrl ? { webhook: webhookUrl } : {}),
     })
 
@@ -191,9 +208,10 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
   } catch (err) {
     if (paymentRequest) {
       // HitPay succeeded but DB correlation write failed.
-      // Try once more to save the payment request ID. If that also fails,
-      // delete the pending row so the user can retry — the payment request
-      // URL will expire unused (no auto-charge for payment requests).
+      // Try once more to save the payment request ID so the webhook can correlate.
+      // If the fallback succeeds, redirect to checkout — the user can complete payment
+      // and the row is properly linked. Only delete the row if both writes fail.
+      let fallbackSaved = false
       try {
         await withAdmin(
           getDb(),
@@ -208,6 +226,7 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
               .where(eq(schema.brandSubscriptions.id, subId))
           },
         )
+        fallbackSaved = true
       } catch {
         // Fallback write also failed — delete orphan row so user can retry.
         try {
@@ -226,6 +245,11 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
         } catch {
           // Leave row in place for manual reconciliation.
         }
+      }
+      if (fallbackSaved) {
+        // Row has the payment request ID — redirect to checkout.
+        // The user can complete payment; the webhook will activate the subscription.
+        redirect(paymentRequest.url)
       }
     } else {
       // HitPay was never called — remove orphan row so user can retry.
@@ -254,6 +278,8 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
 
 // Returns the active brand discount for a given user+store pair.
 // Called by the checkout server action (Stage 5+) to apply the discount to order subtotal.
+// Filters period_end > now() so expired subscriptions (not yet swept by the expiry job)
+// never grant stale discounts.
 export async function getActiveBrandDiscount(
   userId: string,
   storeId: string,
@@ -269,6 +295,7 @@ export async function getActiveBrandDiscount(
           eq(schema.brandSubscriptions.userId, userId),
           eq(schema.brandSubscriptions.storeId, storeId),
           eq(schema.brandSubscriptions.status, "active"),
+          gt(schema.brandSubscriptions.periodEnd, new Date()),
         ),
       )
       .orderBy(desc(schema.brandSubscriptions.periodEnd))

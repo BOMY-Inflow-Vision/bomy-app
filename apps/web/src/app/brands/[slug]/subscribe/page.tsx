@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm"
+import { and, desc, eq, inArray } from "drizzle-orm"
 import { notFound, redirect } from "next/navigation"
 
 import { makeDb, schema, withTenant } from "@bomy/db"
@@ -39,9 +39,10 @@ export default async function BrandSubscribePage({ params }: Props) {
             and(
               eq(schema.brandSubscriptions.userId, session.user.id),
               eq(schema.brandSubscriptions.storeId, store.id),
+              inArray(schema.brandSubscriptions.status, ["active", "pending"]),
             ),
           )
-          .orderBy(schema.brandSubscriptions.createdAt)
+          .orderBy(desc(schema.brandSubscriptions.createdAt))
           .limit(1)
         return rows[0] ?? null
       },

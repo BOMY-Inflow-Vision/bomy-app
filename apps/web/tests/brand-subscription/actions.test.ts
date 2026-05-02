@@ -206,6 +206,9 @@ describe.skipIf(!shouldRun)("subscribeToBrand", () => {
     mockAuth.mockResolvedValue({ user: { id: userId, role: "buyer", email: "t@test.bomy" } })
 
     const subId = randomUUID()
+    // Seed a valid active row: split must satisfy commission + payout + fee = price
+    // (enforced by the brand_subscriptions_split_chk constraint for status='active').
+    // price=5000, fee=100 → net=4900 → payout=floor(4900*90%)=4410, commission=490
     await withAdmin(testDb.db, { userId, reason: "test seed" }, async (tx) => {
       await tx.insert(schema.brandSubscriptions).values({
         id: subId,
@@ -217,9 +220,9 @@ describe.skipIf(!shouldRun)("subscribeToBrand", () => {
         discountPct: 5,
         periodStart: new Date(),
         periodEnd: new Date(Date.now() + 90 * 86400 * 1000),
-        bomyCommissionSen: 0n,
-        brandPayoutSen: 0n,
-        hitpayFeeSen: 0n,
+        hitpayFeeSen: 100n,
+        bomyCommissionSen: 490n,
+        brandPayoutSen: 4410n,
       })
     })
 

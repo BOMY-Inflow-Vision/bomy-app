@@ -133,7 +133,7 @@ describe("subscribeToBrand — DB correlation failure compensation", () => {
     expect(mockWithAdmin).toHaveBeenCalledTimes(5)
   })
 
-  it("DB correlation write fails: saves payment_request_id on fallback, does NOT delete row", async () => {
+  it("DB correlation write fails: fallback succeeds → redirects to checkout, does NOT delete row", async () => {
     const createPaymentRequest = vi.fn().mockResolvedValue({
       id: "pr-xyz789",
       url: "https://securecheckout.hit-pay.com/pr-xyz789",
@@ -144,8 +144,8 @@ describe("subscribeToBrand — DB correlation failure compensation", () => {
     //   1 — read plan+store
     //   2 — insert pending row
     //   3 — store hitpay_payment_request_id ← throw
-    //   4 — fallback write ← succeed (row kept for correlation)
-    // (no 5th call — row is NOT deleted)
+    //   4 — fallback write ← succeed → redirect to paymentRequest.url
+    // (no 5th call — row is NOT deleted; redirect throws before throw err is reached)
     let callCount = 0
     const mockWithAdmin = dbModule.withAdmin as unknown as Mock
     mockWithAdmin.mockImplementation(() => {
@@ -171,7 +171,9 @@ describe("subscribeToBrand — DB correlation failure compensation", () => {
       return undefined // fallback write succeeds
     })
 
-    await expect(subscribeToBrand(PLAN_ID)).rejects.toThrow("DB write failed — primary")
+    // Fallback saved → redirect throws (not the original DB error)
+    const err = await subscribeToBrand(PLAN_ID).catch((e: Error) => e)
+    expect((err as Error).message).toBe("REDIRECT:https://securecheckout.hit-pay.com/pr-xyz789")
 
     // 4 calls: plan read + insert + primary fail + fallback succeed; NO delete
     expect(mockWithAdmin).toHaveBeenCalledTimes(4)
