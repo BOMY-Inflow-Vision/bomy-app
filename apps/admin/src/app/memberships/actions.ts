@@ -1,6 +1,6 @@
 "use server"
 
-import { eq } from "drizzle-orm"
+import { and, eq, isNull } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 
 import { schema, withAdmin } from "@bomy/db"
@@ -23,27 +23,46 @@ function hitpayClient() {
   return new HitPayClient({ apiKey, baseUrl: apiUrl })
 }
 
-// Cancel HitPay recurring billing first (if present); only set cancelledAt on success.
-// If no hitpayRecurringId, set cancelledAt directly (manual/test subscription).
 export async function cancelMembership(subId: string) {
   const adminId = await getAdminId()
+
+  // Fetch subscription outside the write transaction so the connection
+  // is not held open during the HitPay HTTP call.
+  const [sub] = await withAdmin(
+    getDb(),
+    { userId: adminId, reason: "admin read membership for cancel" },
+    async (tx) =>
+      tx
+        .select({
+          id: schema.memberSubscriptions.id,
+          status: schema.memberSubscriptions.status,
+          cancelledAt: schema.memberSubscriptions.cancelledAt,
+          hitpayRecurringId: schema.memberSubscriptions.hitpayRecurringId,
+        })
+        .from(schema.memberSubscriptions)
+        .where(eq(schema.memberSubscriptions.id, subId))
+        .limit(1),
+  )
+
+  if (!sub) throw new Error("Subscription not found")
+  if (sub.status !== "active" || sub.cancelledAt !== null)
+    throw new Error(`Cannot cancel: subscription is '${sub.status}'`)
+
+  if (sub.hitpayRecurringId) {
+    await hitpayClient().cancelRecurringBilling(sub.hitpayRecurringId)
+  }
+
   await withAdmin(getDb(), { userId: adminId, reason: "admin cancel membership" }, async (tx) => {
-    const [sub] = await tx
-      .select({
-        id: schema.memberSubscriptions.id,
-        hitpayRecurringId: schema.memberSubscriptions.hitpayRecurringId,
-      })
-      .from(schema.memberSubscriptions)
-      .where(eq(schema.memberSubscriptions.id, subId))
-      .limit(1)
-    if (!sub) throw new Error("Subscription not found")
-    if (sub.hitpayRecurringId) {
-      await hitpayClient().cancelRecurringBilling(sub.hitpayRecurringId)
-    }
     await tx
       .update(schema.memberSubscriptions)
-      .set({ cancelledAt: new Date(), updatedAt: new Date() })
-      .where(eq(schema.memberSubscriptions.id, subId))
+      .set({ status: "cancelled", cancelledAt: new Date(), updatedAt: new Date() })
+      .where(
+        and(
+          eq(schema.memberSubscriptions.id, subId),
+          eq(schema.memberSubscriptions.status, "active"),
+          isNull(schema.memberSubscriptions.cancelledAt),
+        ),
+      )
   })
   revalidatePath("/memberships")
 }

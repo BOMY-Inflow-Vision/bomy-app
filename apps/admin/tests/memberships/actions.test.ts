@@ -37,14 +37,12 @@ describe.skipIf(!shouldRun)("cancelMembership", () => {
   let testDb: ReturnType<typeof makeDb>
   let adminId: string
   let userId: string
-  let subId: string
 
   beforeAll(async () => {
     process.env["DATABASE_URL"] = DATABASE_URL as string
     testDb = makeDb({ url: DATABASE_URL as string })
     adminId = randomUUID()
     userId = randomUUID()
-    subId = randomUUID()
 
     await withAdmin(testDb.db, { userId: adminId, reason: "test seed" }, async (tx) => {
       await tx.insert(schema.users).values([
@@ -65,17 +63,22 @@ describe.skipIf(!shouldRun)("cancelMembership", () => {
     await testDb.close()
   })
 
-  it("cancels HitPay recurring billing then sets cancelled_at", async () => {
+  it("cancels HitPay recurring billing then sets status=cancelled and cancelled_at", async () => {
     mockAuth.mockResolvedValue({
       user: { id: adminId, role: "bomy_admin", email: "admin@test.bomy" },
     })
 
-    const now = new Date()
-    const sid = randomUUID()
+    // Each test uses its own userId-scoped subscription to avoid unique index conflicts.
+    const tid = randomUUID()
+    const tUserId = randomUUID()
     await withAdmin(testDb.db, { userId: adminId, reason: "test seed" }, async (tx) => {
+      await tx
+        .insert(schema.users)
+        .values({ id: tUserId, email: `${tUserId}@test.bomy`, role: "buyer" })
+      const now = new Date()
       await tx.insert(schema.memberSubscriptions).values({
-        id: sid,
-        userId,
+        id: tid,
+        userId: tUserId,
         status: "active",
         priceMyrSen: 7500n,
         periodStart: now,
@@ -87,7 +90,7 @@ describe.skipIf(!shouldRun)("cancelMembership", () => {
     const mockInstance = { cancelRecurringBilling: vi.fn().mockResolvedValue(undefined) }
     ;(HitPayClient as unknown as Mock).mockImplementation(() => mockInstance)
 
-    await cancelMembership(sid)
+    await cancelMembership(tid)
 
     expect(mockInstance.cancelRecurringBilling).toHaveBeenCalledWith("rbill-test-123")
 
@@ -95,22 +98,32 @@ describe.skipIf(!shouldRun)("cancelMembership", () => {
       testDb.db,
       { userId: adminId, reason: "test assert" },
       async (tx) =>
-        tx.select().from(schema.memberSubscriptions).where(eq(schema.memberSubscriptions.id, sid)),
+        tx.select().from(schema.memberSubscriptions).where(eq(schema.memberSubscriptions.id, tid)),
     )
     expect(row?.cancelledAt).not.toBeNull()
+    expect(row?.status).toBe("cancelled")
+
+    await withAdmin(testDb.db, { userId: adminId, reason: "test cleanup" }, async (tx) => {
+      await tx.delete(schema.memberSubscriptions).where(eq(schema.memberSubscriptions.id, tid))
+      await tx.delete(schema.users).where(eq(schema.users.id, tUserId))
+    })
   })
 
-  it("sets cancelled_at without calling HitPay when no hitpayRecurringId", async () => {
+  it("sets status=cancelled without calling HitPay when no hitpayRecurringId", async () => {
     mockAuth.mockResolvedValue({
       user: { id: adminId, role: "bomy_admin", email: "admin@test.bomy" },
     })
 
-    const now = new Date()
-    const sid = randomUUID()
+    const tid = randomUUID()
+    const tUserId = randomUUID()
     await withAdmin(testDb.db, { userId: adminId, reason: "test seed" }, async (tx) => {
+      await tx
+        .insert(schema.users)
+        .values({ id: tUserId, email: `${tUserId}@test.bomy`, role: "buyer" })
+      const now = new Date()
       await tx.insert(schema.memberSubscriptions).values({
-        id: sid,
-        userId,
+        id: tid,
+        userId: tUserId,
         status: "active",
         priceMyrSen: 7500n,
         periodStart: now,
@@ -122,7 +135,7 @@ describe.skipIf(!shouldRun)("cancelMembership", () => {
     const mockInstance = { cancelRecurringBilling: vi.fn() }
     ;(HitPayClient as unknown as Mock).mockImplementation(() => mockInstance)
 
-    await cancelMembership(sid)
+    await cancelMembership(tid)
 
     expect(mockInstance.cancelRecurringBilling).not.toHaveBeenCalled()
 
@@ -130,48 +143,41 @@ describe.skipIf(!shouldRun)("cancelMembership", () => {
       testDb.db,
       { userId: adminId, reason: "test assert" },
       async (tx) =>
-        tx.select().from(schema.memberSubscriptions).where(eq(schema.memberSubscriptions.id, sid)),
+        tx.select().from(schema.memberSubscriptions).where(eq(schema.memberSubscriptions.id, tid)),
     )
     expect(row?.cancelledAt).not.toBeNull()
+    expect(row?.status).toBe("cancelled")
+
+    await withAdmin(testDb.db, { userId: adminId, reason: "test cleanup" }, async (tx) => {
+      await tx.delete(schema.memberSubscriptions).where(eq(schema.memberSubscriptions.id, tid))
+      await tx.delete(schema.users).where(eq(schema.users.id, tUserId))
+    })
   })
 
-  it("sets cancelled_at on an active membership", async () => {
+  it("throws when subscription is not active", async () => {
     mockAuth.mockResolvedValue({
       user: { id: adminId, role: "bomy_admin", email: "admin@test.bomy" },
     })
 
+    // Insert a cancelled subscription — cancel attempt should be rejected.
+    const sid = randomUUID()
     const now = new Date()
     await withAdmin(testDb.db, { userId: adminId, reason: "test seed" }, async (tx) => {
       await tx.insert(schema.memberSubscriptions).values({
-        id: subId,
+        id: sid,
         userId,
-        status: "active",
+        status: "cancelled",
         priceMyrSen: 7500n,
         periodStart: now,
         periodEnd: new Date(now.getTime() + 365 * 86400 * 1000),
-        hitpayRecurringId: "rbill-test-123",
+        cancelledAt: now,
       })
     })
 
-    const mockInstance = { cancelRecurringBilling: vi.fn().mockResolvedValue(undefined) }
-    ;(HitPayClient as unknown as Mock).mockImplementation(() => mockInstance)
-
-    await cancelMembership(subId)
-
-    const [row] = await withAdmin(
-      testDb.db,
-      { userId: adminId, reason: "test assert" },
-      async (tx) =>
-        tx
-          .select()
-          .from(schema.memberSubscriptions)
-          .where(eq(schema.memberSubscriptions.id, subId)),
-    )
-    expect(row?.cancelledAt).not.toBeNull()
-    expect(row?.status).toBe("active")
+    await expect(cancelMembership(sid)).rejects.toThrow("Cannot cancel")
 
     await withAdmin(testDb.db, { userId: adminId, reason: "test cleanup" }, async (tx) => {
-      await tx.delete(schema.memberSubscriptions).where(eq(schema.memberSubscriptions.id, subId))
+      await tx.delete(schema.memberSubscriptions).where(eq(schema.memberSubscriptions.id, sid))
     })
   })
 })

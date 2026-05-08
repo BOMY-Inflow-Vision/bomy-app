@@ -77,68 +77,74 @@ export default async function VouchersPage() {
                 <option value="random_myr">Random MYR</option>
               </select>
             </div>
-            {currentType === "fixed_myr" && (
-              <div className="flex items-center gap-4">
-                <label className="w-32 text-sm font-medium text-gray-700">Amount (MYR)</label>
-                <input
-                  name="fixedAmountMyr"
-                  type="text"
-                  defaultValue={
-                    config["voucher_monthly_fixed_sen"] != null
-                      ? (Number(config["voucher_monthly_fixed_sen"]) / 100).toFixed(2)
-                      : ""
-                  }
-                  placeholder="e.g. 10.00"
-                  className="w-32 rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                />
-              </div>
-            )}
-            {currentType === "percentage" && (
-              <div className="flex items-center gap-4">
-                <label className="w-32 text-sm font-medium text-gray-700">Percentage</label>
-                <input
-                  name="percentage"
-                  type="number"
-                  min="1"
-                  max="100"
-                  defaultValue={
-                    typeof config["voucher_monthly_pct"] === "number"
-                      ? String(config["voucher_monthly_pct"])
-                      : ""
-                  }
-                  placeholder="e.g. 20"
-                  className="w-32 rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                />
-              </div>
-            )}
-            {currentType === "random_myr" && (
-              <div className="flex items-center gap-4">
-                <label className="w-32 text-sm font-medium text-gray-700">Range (MYR)</label>
-                <input
-                  name="randomMinMyr"
-                  type="text"
-                  defaultValue={
-                    config["voucher_monthly_random_min_sen"] != null
-                      ? (Number(config["voucher_monthly_random_min_sen"]) / 100).toFixed(2)
-                      : ""
-                  }
-                  placeholder="Min"
-                  className="w-24 rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                />
-                <span className="text-gray-400">–</span>
-                <input
-                  name="randomMaxMyr"
-                  type="text"
-                  defaultValue={
-                    config["voucher_monthly_random_max_sen"] != null
-                      ? (Number(config["voucher_monthly_random_max_sen"]) / 100).toFixed(2)
-                      : ""
-                  }
-                  placeholder="Max"
-                  className="w-24 rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                />
-              </div>
-            )}
+            {/* All three field groups are always rendered so the form is
+                submittable after changing the type dropdown without JS.
+                The action only validates fields for the submitted type. */}
+            <div className="flex items-center gap-4">
+              <label className="w-32 text-sm font-medium text-gray-700">
+                Amount (MYR)
+                <span className="ml-1 text-xs font-normal text-gray-400">(fixed)</span>
+              </label>
+              <input
+                name="fixedAmountMyr"
+                type="text"
+                defaultValue={
+                  config["voucher_monthly_fixed_sen"] != null
+                    ? (Number(config["voucher_monthly_fixed_sen"]) / 100).toFixed(2)
+                    : ""
+                }
+                placeholder="e.g. 10.00"
+                className="w-32 rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+            <div className="flex items-center gap-4">
+              <label className="w-32 text-sm font-medium text-gray-700">
+                Percentage
+                <span className="ml-1 text-xs font-normal text-gray-400">(pct)</span>
+              </label>
+              <input
+                name="percentage"
+                type="number"
+                min="1"
+                max="100"
+                defaultValue={
+                  typeof config["voucher_monthly_pct"] === "number"
+                    ? String(config["voucher_monthly_pct"])
+                    : ""
+                }
+                placeholder="e.g. 20"
+                className="w-32 rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+            <div className="flex items-center gap-4">
+              <label className="w-32 text-sm font-medium text-gray-700">
+                Range (MYR)
+                <span className="ml-1 text-xs font-normal text-gray-400">(random)</span>
+              </label>
+              <input
+                name="randomMinMyr"
+                type="text"
+                defaultValue={
+                  config["voucher_monthly_random_min_sen"] != null
+                    ? (Number(config["voucher_monthly_random_min_sen"]) / 100).toFixed(2)
+                    : ""
+                }
+                placeholder="Min"
+                className="w-24 rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+              <span className="text-gray-400">–</span>
+              <input
+                name="randomMaxMyr"
+                type="text"
+                defaultValue={
+                  config["voucher_monthly_random_max_sen"] != null
+                    ? (Number(config["voucher_monthly_random_max_sen"]) / 100).toFixed(2)
+                    : ""
+                }
+                placeholder="Max"
+                className="w-24 rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
             <div className="flex items-center gap-3 pt-2">
               <button
                 type="submit"
