@@ -63,7 +63,7 @@ describe.skipIf(!shouldRun)("cancelMembership", () => {
     await testDb.close()
   })
 
-  it("cancels HitPay recurring billing then sets status=cancelled and cancelled_at", async () => {
+  it("cancels HitPay recurring billing, sets cancelled_at, keeps status=active", async () => {
     mockAuth.mockResolvedValue({
       user: { id: adminId, role: "bomy_admin", email: "admin@test.bomy" },
     })
@@ -109,7 +109,7 @@ describe.skipIf(!shouldRun)("cancelMembership", () => {
     })
   })
 
-  it("sets status=cancelled without calling HitPay when no hitpayRecurringId", async () => {
+  it("sets cancelled_at without calling HitPay when no hitpayRecurringId, keeps status=active", async () => {
     mockAuth.mockResolvedValue({
       user: { id: adminId, role: "bomy_admin", email: "admin@test.bomy" },
     })
