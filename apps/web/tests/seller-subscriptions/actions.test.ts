@@ -204,42 +204,31 @@ describe.skipIf(!shouldRun)("seller subscription plan actions", () => {
     })
 
     it("editing an active plan resets isActive to false (re-approval required)", async () => {
-      const activePlanId = randomUUID()
-      await withAdmin(testDb.db, { userId: sellerId, reason: "test seed" }, async (tx) => {
-        await tx.insert(schema.brandSubscriptionPlans).values({
-          id: activePlanId,
-          storeId,
-          termMonths: 6,
-          priceMyrSen: 9000n,
-          discountPct: 8,
-          isActive: true,
-        })
+      // Activate the already-seeded planId (12-month) so we avoid inserting a new
+      // (storeId, termMonths) row that would conflict with the unique index.
+      await withAdmin(testDb.db, { userId: sellerId, reason: "test setup" }, async (tx) => {
+        await tx
+          .update(schema.brandSubscriptionPlans)
+          .set({ isActive: true })
+          .where(eq(schema.brandSubscriptionPlans.id, planId))
       })
 
-      try {
-        mockAuth.mockResolvedValue({
-          user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
-        })
+      mockAuth.mockResolvedValue({
+        user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
+      })
 
-        await updatePlan(activePlanId, makeFormData({ priceMyrSen: "95.00", discountPct: "8" }))
+      await updatePlan(planId, makeFormData({ priceMyrSen: "95.00", discountPct: "8" }))
 
-        const [row] = await withAdmin(
-          testDb.db,
-          { userId: sellerId, reason: "test assert" },
-          async (tx) =>
-            tx
-              .select({ isActive: schema.brandSubscriptionPlans.isActive })
-              .from(schema.brandSubscriptionPlans)
-              .where(eq(schema.brandSubscriptionPlans.id, activePlanId)),
-        )
-        expect(row!.isActive).toBe(false)
-      } finally {
-        await withAdmin(testDb.db, { userId: sellerId, reason: "test cleanup" }, async (tx) => {
-          await tx
-            .delete(schema.brandSubscriptionPlans)
-            .where(eq(schema.brandSubscriptionPlans.id, activePlanId))
-        })
-      }
+      const [row] = await withAdmin(
+        testDb.db,
+        { userId: sellerId, reason: "test assert" },
+        async (tx) =>
+          tx
+            .select({ isActive: schema.brandSubscriptionPlans.isActive })
+            .from(schema.brandSubscriptionPlans)
+            .where(eq(schema.brandSubscriptionPlans.id, planId)),
+      )
+      expect(row!.isActive).toBe(false)
     })
   })
 
