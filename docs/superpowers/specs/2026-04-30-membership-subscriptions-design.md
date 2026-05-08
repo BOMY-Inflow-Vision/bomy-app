@@ -332,13 +332,13 @@ When a buyer has an active `brand_subscriptions` row for the seller they are pur
 
 ## 9. New Environment Variables
 
-| Variable             | Where                     | Notes                                                                                                                                                            |
-| -------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `HITPAY_API_KEY`     | apps/api, apps/web        | From HitPay Dashboard → Settings → API Keys                                                                                                                      |
-| `HITPAY_SALT`        | apps/api                  | Separate salt key for webhook HMAC verification                                                                                                                  |
-| `HITPAY_API_URL`     | apps/api, apps/web        | `https://api.sandbox.hit-pay.com` (dev) / `https://api.hit-pay.com` (prod)                                                                                       |
-| `HITPAY_WEBHOOK_URL` | apps/api, apps/web (opt.) | Public URL for POST /webhooks/hitpay (ngrok in local dev). apps/web uses it as a per-request override; HitPay dashboard global webhook is the fallback if unset. |
-| `APP_URL`            | apps/web                  | Base URL for HitPay post-payment redirect callbacks. Required — joinMembership throws if neither APP_URL nor NEXTAUTH_URL is set.                                |
+| Variable             | Where                          | Notes                                                                                                                                                            |
+| -------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `HITPAY_API_KEY`     | apps/api, apps/web, apps/admin | From HitPay Dashboard → Settings → API Keys                                                                                                                      |
+| `HITPAY_SALT`        | apps/api                       | Separate salt key for webhook HMAC verification                                                                                                                  |
+| `HITPAY_API_URL`     | apps/api, apps/web, apps/admin | `https://api.sandbox.hit-pay.com` (dev) / `https://api.hit-pay.com` (prod)                                                                                       |
+| `HITPAY_WEBHOOK_URL` | apps/api, apps/web (opt.)      | Public URL for POST /webhooks/hitpay (ngrok in local dev). apps/web uses it as a per-request override; HitPay dashboard global webhook is the fallback if unset. |
+| `APP_URL`            | apps/web                       | Base URL for HitPay post-payment redirect callbacks. Required — joinMembership throws if neither APP_URL nor NEXTAUTH_URL is set.                                |
 
 ---
 

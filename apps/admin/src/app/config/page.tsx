@@ -3,14 +3,14 @@ import { sql } from "drizzle-orm"
 import { schema, withAdmin } from "@bomy/db"
 
 import { auth } from "@/auth"
-import { db } from "@/lib/db"
+import { getDb } from "@/lib/db"
 
 export default async function ConfigPage() {
   const session = await auth()
   if (!session) return null
 
   const rows = await withAdmin(
-    db,
+    getDb(),
     { userId: session.user.id, reason: "admin view config" },
     async (tx) =>
       tx

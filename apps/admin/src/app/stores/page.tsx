@@ -4,7 +4,7 @@ import { eq, sql } from "drizzle-orm"
 import { schema, withAdmin } from "@bomy/db"
 
 import { auth } from "@/auth"
-import { db } from "@/lib/db"
+import { getDb } from "@/lib/db"
 import { approveStore, suspendStore } from "./actions"
 
 const STATUS_COLORS = {
@@ -23,7 +23,7 @@ export default async function StoresPage({
   const { status } = await searchParams
 
   const rows = await withAdmin(
-    db,
+    getDb(),
     { userId: session.user.id, reason: "admin list stores" },
     async (tx) => {
       const q = tx
