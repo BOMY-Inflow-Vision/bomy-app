@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 
 const NAV = [
   { href: "/seller/dashboard", label: "Overview", exact: true },
+  { href: "/seller/dashboard/subscriptions", label: "Subscriptions" },
   { href: "/seller/dashboard/products", label: "Products" },
   { href: "/seller/dashboard/orders", label: "Orders" },
   { href: "/seller/dashboard/settings", label: "Settings" },
@@ -22,7 +23,8 @@ export default function SellerDashboardLayout({ children }: { children: React.Re
         <nav className="flex flex-1 flex-col py-2">
           {NAV.map((item) => {
             const active = item.exact ? pathname === item.href : pathname.startsWith(item.href)
-            const isComingSoon = item.href !== "/seller/dashboard"
+            const isComingSoon =
+              item.href !== "/seller/dashboard" && item.href !== "/seller/dashboard/subscriptions"
             return (
               <Link
                 key={item.href}
