@@ -3,7 +3,7 @@ import { sql } from "drizzle-orm"
 import { schema, withAdmin } from "@bomy/db"
 
 import { auth } from "@/auth"
-import { db } from "@/lib/db"
+import { getDb } from "@/lib/db"
 import { RoleSelector } from "./role-selector"
 
 const ROLE_COLORS: Record<string, string> = {
@@ -20,7 +20,7 @@ export default async function UsersPage() {
   if (!session) return null
 
   const rows = await withAdmin(
-    db,
+    getDb(),
     { userId: session.user.id, reason: "admin list users" },
     async (tx) =>
       tx

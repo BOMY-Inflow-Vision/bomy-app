@@ -3,7 +3,7 @@ import { eq, sql } from "drizzle-orm"
 import { schema, withAdmin } from "@bomy/db"
 
 import { auth } from "@/auth"
-import { db } from "@/lib/db"
+import { getDb } from "@/lib/db"
 import { togglePlanActive } from "./actions"
 
 export default async function BrandPlansPage() {
@@ -11,7 +11,7 @@ export default async function BrandPlansPage() {
   if (!session) return null
 
   const rows = await withAdmin(
-    db,
+    getDb(),
     { userId: session.user.id, reason: "admin list brand subscription plans" },
     async (tx) =>
       tx

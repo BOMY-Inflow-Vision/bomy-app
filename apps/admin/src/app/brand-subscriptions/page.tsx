@@ -4,7 +4,7 @@ import { and, desc, eq, sql } from "drizzle-orm"
 import { schema, withAdmin } from "@bomy/db"
 
 import { auth } from "@/auth"
-import { db } from "@/lib/db"
+import { getDb } from "@/lib/db"
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "text-amber-600",
@@ -24,15 +24,18 @@ export default async function BrandSubscriptionsPage({
   const { status, storeId } = await searchParams
 
   const rows = await withAdmin(
-    db,
+    getDb(),
     { userId: session.user.id, reason: "admin list brand subscriptions" },
     async (tx) => {
       const conditions = []
-      if (status && ["pending", "active", "cancelled", "expired"].includes(status)) {
+      if (
+        status &&
+        ["pending", "active", "cancelled", "expired", "payment_failed"].includes(status)
+      ) {
         conditions.push(
           eq(
             schema.brandSubscriptions.status,
-            status as "pending" | "active" | "cancelled" | "expired",
+            status as "pending" | "active" | "cancelled" | "expired" | "payment_failed",
           ),
         )
       }
@@ -66,7 +69,7 @@ export default async function BrandSubscriptionsPage({
   )
 
   const stores = await withAdmin(
-    db,
+    getDb(),
     { userId: session.user.id, reason: "admin list stores for brand sub filter" },
     async (tx) =>
       tx
@@ -84,7 +87,7 @@ export default async function BrandSubscriptionsPage({
       <div className="mb-4 flex items-center gap-4">
         <h1 className="text-lg font-semibold text-gray-900">Brand Subscriptions</h1>
         <div className="flex gap-1 text-sm">
-          {["", "pending", "active", "cancelled", "expired"].map((s) => (
+          {["", "pending", "active", "cancelled", "expired", "payment_failed"].map((s) => (
             <Link
               key={s}
               href={`/brand-subscriptions?${new URLSearchParams({ ...(s ? { status: s } : {}), ...(storeId ? { storeId } : {}) }).toString()}`}

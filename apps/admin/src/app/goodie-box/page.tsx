@@ -4,7 +4,7 @@ import { and, desc, eq, sql } from "drizzle-orm"
 import { schema, withAdmin } from "@bomy/db"
 
 import { auth } from "@/auth"
-import { db } from "@/lib/db"
+import { getDb } from "@/lib/db"
 import { markDispatched } from "./actions"
 
 const STATUS_COLORS: Record<string, string> = {
@@ -23,7 +23,7 @@ export default async function GoodieBoxPage({
   const { quarter, status } = await searchParams
 
   const quarters = await withAdmin(
-    db,
+    getDb(),
     { userId: session.user.id, reason: "admin list goodie box quarters" },
     async (tx) =>
       tx
@@ -33,7 +33,7 @@ export default async function GoodieBoxPage({
   )
 
   const rows = await withAdmin(
-    db,
+    getDb(),
     { userId: session.user.id, reason: "admin list goodie box dispatches" },
     async (tx) => {
       const q = tx
@@ -56,13 +56,13 @@ export default async function GoodieBoxPage({
 
       const conditions = []
       if (quarter) conditions.push(eq(schema.goodieBoxDispatches.quarter, quarter))
-      if (status && ["pending", "dispatched"].includes(status)) {
-        conditions.push(eq(schema.goodieBoxDispatches.status, status as "pending" | "dispatched"))
+      if (status && ["pending", "dispatched", "delivered"].includes(status)) {
+        conditions.push(
+          eq(schema.goodieBoxDispatches.status, status as "pending" | "dispatched" | "delivered"),
+        )
       }
 
-      if (conditions.length === 1) return q.where(conditions[0])
-      if (conditions.length === 2) return q.where(and(conditions[0], conditions[1]))
-      return q
+      return conditions.length > 0 ? q.where(and(...conditions)) : q
     },
   )
 
@@ -71,7 +71,7 @@ export default async function GoodieBoxPage({
       <div className="mb-4 flex items-center gap-4">
         <h1 className="text-lg font-semibold text-gray-900">Goodie Box Dispatches</h1>
         <div className="flex gap-1 text-sm">
-          {["", "pending", "dispatched"].map((s) => (
+          {["", "pending", "dispatched", "delivered"].map((s) => (
             <Link
               key={s}
               href={`/goodie-box?${new URLSearchParams({ ...(s ? { status: s } : {}), ...(quarter ? { quarter } : {}) }).toString()}`}

@@ -95,4 +95,18 @@ describe.skipIf(!shouldRun)("markDispatched", () => {
       "Tracking number is required",
     )
   })
+
+  it("throws when dispatch is already dispatched", async () => {
+    mockAuth.mockResolvedValue({
+      user: { id: adminId, role: "bomy_admin", email: "admin@test.bomy" },
+    })
+
+    // dispatchId was set to "dispatched" by the first test
+    const formData = new FormData()
+    formData.set("trackingNumber", "EE999999999MY")
+
+    await expect(markDispatched(dispatchId, formData)).rejects.toThrow(
+      "Cannot dispatch: already 'dispatched'",
+    )
+  })
 })

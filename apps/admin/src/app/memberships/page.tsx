@@ -4,7 +4,7 @@ import { desc, eq, sql } from "drizzle-orm"
 import { schema, withAdmin } from "@bomy/db"
 
 import { auth } from "@/auth"
-import { db } from "@/lib/db"
+import { getDb } from "@/lib/db"
 import { cancelMembership } from "./actions"
 
 const STATUS_COLORS: Record<string, string> = {
@@ -25,7 +25,7 @@ export default async function MembershipsPage({
   const { status } = await searchParams
 
   const rows = await withAdmin(
-    db,
+    getDb(),
     { userId: session.user.id, reason: "admin list memberships" },
     async (tx) => {
       const q = tx
@@ -43,11 +43,14 @@ export default async function MembershipsPage({
         .innerJoin(schema.users, eq(schema.users.id, schema.memberSubscriptions.userId))
         .orderBy(desc(sql`${schema.memberSubscriptions.createdAt}`))
 
-      if (status && ["pending", "active", "cancelled", "expired"].includes(status)) {
+      if (
+        status &&
+        ["pending", "active", "cancelled", "expired", "payment_failed"].includes(status)
+      ) {
         return q.where(
           eq(
             schema.memberSubscriptions.status,
-            status as "pending" | "active" | "cancelled" | "expired",
+            status as "pending" | "active" | "cancelled" | "expired" | "payment_failed",
           ),
         )
       }
@@ -60,7 +63,7 @@ export default async function MembershipsPage({
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-lg font-semibold text-gray-900">Platform Memberships</h1>
         <div className="flex gap-1 text-sm">
-          {["", "pending", "active", "cancelled", "expired"].map((s) => (
+          {["", "pending", "active", "cancelled", "expired", "payment_failed"].map((s) => (
             <Link
               key={s}
               href={s ? `/memberships?status=${s}` : "/memberships"}

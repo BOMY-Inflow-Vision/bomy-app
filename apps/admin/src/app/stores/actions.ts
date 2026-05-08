@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache"
 import { schema, withAdmin } from "@bomy/db"
 
 import { auth } from "@/auth"
-import { db } from "@/lib/db"
+import { getDb } from "@/lib/db"
 
 async function getAdminId() {
   const session = await auth()
@@ -16,7 +16,7 @@ async function getAdminId() {
 
 export async function approveStore(storeId: string) {
   const adminId = await getAdminId()
-  await withAdmin(db, { userId: adminId, reason: "admin approve store" }, async (tx) => {
+  await withAdmin(getDb(), { userId: adminId, reason: "admin approve store" }, async (tx) => {
     const [store] = await tx
       .select({ ownerId: schema.stores.ownerId })
       .from(schema.stores)
@@ -37,7 +37,7 @@ export async function approveStore(storeId: string) {
 
 export async function suspendStore(storeId: string) {
   const adminId = await getAdminId()
-  await withAdmin(db, { userId: adminId, reason: "admin suspend store" }, async (tx) => {
+  await withAdmin(getDb(), { userId: adminId, reason: "admin suspend store" }, async (tx) => {
     await tx
       .update(schema.stores)
       .set({ status: "suspended", updatedAt: new Date() })
@@ -55,7 +55,7 @@ export async function createStore(formData: FormData) {
 
   if (!ownerEmail || !name || !slug) throw new Error("Missing required fields")
 
-  await withAdmin(db, { userId: adminId, reason: "admin create store" }, async (tx) => {
+  await withAdmin(getDb(), { userId: adminId, reason: "admin create store" }, async (tx) => {
     const [owner] = await tx
       .select({ id: schema.users.id })
       .from(schema.users)

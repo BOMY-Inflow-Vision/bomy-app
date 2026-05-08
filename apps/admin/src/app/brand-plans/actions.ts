@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache"
 import { schema, withAdmin } from "@bomy/db"
 
 import { auth } from "@/auth"
-import { db } from "@/lib/db"
+import { getDb } from "@/lib/db"
 
 async function getAdminId() {
   const session = await auth()
@@ -16,11 +16,15 @@ async function getAdminId() {
 
 export async function togglePlanActive(planId: string, isActive: boolean) {
   const adminId = await getAdminId()
-  await withAdmin(db, { userId: adminId, reason: "admin toggle brand plan active" }, async (tx) => {
-    await tx
-      .update(schema.brandSubscriptionPlans)
-      .set({ isActive, updatedAt: new Date() })
-      .where(eq(schema.brandSubscriptionPlans.id, planId))
-  })
+  await withAdmin(
+    getDb(),
+    { userId: adminId, reason: "admin toggle brand plan active" },
+    async (tx) => {
+      await tx
+        .update(schema.brandSubscriptionPlans)
+        .set({ isActive, updatedAt: new Date() })
+        .where(eq(schema.brandSubscriptionPlans.id, planId))
+    },
+  )
   revalidatePath("/brand-plans")
 }

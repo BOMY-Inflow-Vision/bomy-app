@@ -47,6 +47,9 @@ importers:
       '@bomy/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@bomy/hitpay':
+        specifier: workspace:*
+        version: link:../../packages/hitpay
       clsx:
         specifier: ^2.1.1
         version: 2.1.1

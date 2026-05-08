@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache"
 import { schema, withAdmin } from "@bomy/db"
 
 import { auth } from "@/auth"
-import { db } from "@/lib/db"
+import { getDb } from "@/lib/db"
 
 async function getAdminId() {
   const session = await auth()
@@ -20,9 +20,17 @@ export async function markDispatched(dispatchId: string, formData: FormData) {
 
   const adminId = await getAdminId()
   await withAdmin(
-    db,
+    getDb(),
     { userId: adminId, reason: "admin mark goodie box dispatched" },
     async (tx) => {
+      const [existing] = await tx
+        .select({ status: schema.goodieBoxDispatches.status })
+        .from(schema.goodieBoxDispatches)
+        .where(eq(schema.goodieBoxDispatches.id, dispatchId))
+        .limit(1)
+      if (!existing) throw new Error("Dispatch not found")
+      if (existing.status !== "pending")
+        throw new Error(`Cannot dispatch: already '${existing.status}'`)
       await tx
         .update(schema.goodieBoxDispatches)
         .set({
