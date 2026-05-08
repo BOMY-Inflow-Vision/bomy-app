@@ -7,6 +7,11 @@ const NAV = [
   { href: "/stores", label: "Stores" },
   { href: "/users", label: "Users" },
   { href: "/seller-inquiries", label: "Seller Inquiries" },
+  { href: "/memberships", label: "Memberships" },
+  { href: "/brand-subscriptions", label: "Brand Subs" },
+  { href: "/brand-plans", label: "Brand Plans" },
+  { href: "/goodie-box", label: "Goodie Box" },
+  { href: "/vouchers", label: "Vouchers" },
   { href: "/config", label: "Config" },
 ]
 
