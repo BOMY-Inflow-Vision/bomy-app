@@ -5,7 +5,7 @@ import { schema, withAdmin } from "@bomy/db"
 
 import { auth } from "@/auth"
 import { getDb } from "@/lib/db"
-import { updateVoucherConfig } from "./actions"
+import { triggerVoucherIssuance, updateVoucherConfig } from "./actions"
 
 export default async function VouchersPage() {
   const session = await auth()
@@ -152,14 +152,14 @@ export default async function VouchersPage() {
               >
                 Save Config
               </button>
-              <button
-                type="button"
-                disabled
-                title="Available in PR #25"
-                className="cursor-not-allowed rounded-lg bg-gray-100 px-4 py-1.5 text-sm font-medium text-gray-400"
-              >
-                Issue Now
-              </button>
+              <form action={triggerVoucherIssuance}>
+                <button
+                  type="submit"
+                  className="rounded-lg bg-amber-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-amber-700"
+                >
+                  Issue Now
+                </button>
+              </form>
             </div>
           </form>
         </div>

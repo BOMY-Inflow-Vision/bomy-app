@@ -8,6 +8,27 @@ import { schema, withAdmin } from "@bomy/db"
 import { auth } from "@/auth"
 import { getDb } from "@/lib/db"
 
+export async function triggerVoucherIssuance() {
+  const session = await auth()
+  if (!session) throw new Error("Unauthorized")
+
+  const apiUrl = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001"
+  const secret = process.env["INTERNAL_API_SECRET"]
+  if (!secret) throw new Error("INTERNAL_API_SECRET is not configured")
+
+  const res = await fetch(`${apiUrl}/internal/jobs/voucher-issuance`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${secret}` },
+  })
+
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string }
+    throw new Error(body.error ?? `API responded with ${res.status}`)
+  }
+
+  revalidatePath("/vouchers")
+}
+
 async function getAdminId() {
   const session = await auth()
   if (!session) throw new Error("Unauthorized")
