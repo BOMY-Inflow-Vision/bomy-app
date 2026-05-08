@@ -77,7 +77,7 @@ describe.skipIf(!shouldRun)("notifyRenewalsDue", () => {
   }
 
   it("sends T-30 notification and records day 30 in notifiedDays", async () => {
-    // Period ends in exactly 29 days — within the T-30 window
+    // 29 days to expiry — inside (14d, 30d] window
     const { userId, subId } = await seedMember(29 * 86400 * 1000)
     vi.spyOn(console, "log").mockImplementation(() => undefined)
 
@@ -92,6 +92,7 @@ describe.skipIf(!shouldRun)("notifyRenewalsDue", () => {
   })
 
   it("sends T-7 notification and records day 7 in notifiedDays", async () => {
+    // 6 days to expiry — inside (1d, 7d] window; [30,14] pre-seeded so those milestones skip
     const { userId, subId } = await seedMember(6 * 86400 * 1000, [30, 14])
     vi.spyOn(console, "log").mockImplementation(() => undefined)
 
@@ -100,6 +101,23 @@ describe.skipIf(!shouldRun)("notifyRenewalsDue", () => {
 
     const days = await getNotifiedDays(subId)
     expect(days).toContain(7)
+
+    vi.restoreAllMocks()
+    await cleanup(userId, subId)
+  })
+
+  it("fires only T-7 for a member with 6 days left and empty notifiedDays (no multi-match)", async () => {
+    // Bug regression: old code fired T-30, T-14, and T-7 in one run for the same member.
+    // Bounded windows ensure only the matching window fires.
+    const { userId, subId } = await seedMember(6 * 86400 * 1000)
+    vi.spyOn(console, "log").mockImplementation(() => undefined)
+
+    await notifyRenewalsDue(testDb.db)
+
+    const days = await getNotifiedDays(subId)
+    expect(days).toContain(7)
+    expect(days).not.toContain(30)
+    expect(days).not.toContain(14)
 
     vi.restoreAllMocks()
     await cleanup(userId, subId)
@@ -121,7 +139,7 @@ describe.skipIf(!shouldRun)("notifyRenewalsDue", () => {
   })
 
   it("does not notify members whose subscription is not yet within any milestone window", async () => {
-    // Period ends in 60 days — outside all T-30/14/7/1 windows
+    // Period ends in 60 days — outside all (14d, 30d] and smaller windows
     const { userId, subId } = await seedMember(60 * 86400 * 1000)
 
     const daysBefore = await getNotifiedDays(subId)

@@ -58,15 +58,31 @@ async function readVoucherConfig(db: Database): Promise<VoucherConfig | null> {
   return null
 }
 
+function getMYTYearMonth(): { year: number; month: number } {
+  const parts = new Intl.DateTimeFormat("en", {
+    timeZone: "Asia/Kuala_Lumpur",
+    year: "numeric",
+    month: "numeric",
+  }).formatToParts(new Date())
+  return {
+    year: Number(parts.find((p) => p.type === "year")?.value),
+    month: Number(parts.find((p) => p.type === "month")?.value),
+  }
+}
+
 function currentIssuedMonth(): string {
-  const now = new Date()
-  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`
+  const { year, month } = getMYTYearMonth()
+  return `${year}-${String(month).padStart(2, "0")}`
 }
 
 function endOfCurrentMonth(): Date {
-  const now = new Date()
-  // Day 0 of next month = last day of this month; set to 23:59:59.999 UTC.
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999))
+  const { year, month } = getMYTYearMonth()
+  // First moment of next month 00:00 MYT, converted to UTC (MYT = UTC+8).
+  const nextMonth = month === 12 ? 1 : month + 1
+  const nextYear = month === 12 ? year + 1 : year
+  const firstOfNextMonthUTC = Date.UTC(nextYear, nextMonth - 1, 1, 0, 0, 0, 0) - 8 * 60 * 60 * 1000
+  // Last ms of current MYT month = first of next month MYT − 1 ms.
+  return new Date(firstOfNextMonthUTC - 1)
 }
 
 type VoucherInsert = typeof schema.vouchers.$inferInsert
@@ -131,7 +147,7 @@ export async function issueMonthlyVouchers(db: Database): Promise<number> {
       const result = await tx
         .insert(schema.vouchers)
         .values(rows)
-        .onConflictDoNothing()
+        .onConflictDoNothing({ target: [schema.vouchers.userId, schema.vouchers.issuedMonth] })
         .returning({ id: schema.vouchers.id })
       return result.length
     },
