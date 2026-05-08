@@ -1,6 +1,6 @@
 "use server"
 
-import { and, count, desc, eq } from "drizzle-orm"
+import { and, count, desc, eq, gt, inArray } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 
@@ -26,6 +26,15 @@ function parseMyrToSen(myr: string): bigint {
 function str(fd: FormData, key: string): string {
   const v = fd.get(key)
   return typeof v === "string" ? v : ""
+}
+
+function isUniqueViolation(err: unknown): boolean {
+  return (
+    err !== null &&
+    typeof err === "object" &&
+    "code" in err &&
+    (err as { code: unknown }).code === "23505"
+  )
 }
 
 async function requireSeller() {
@@ -56,6 +65,8 @@ export async function getSellerPlansData() {
         .where(eq(schema.brandSubscriptionPlans.storeId, store.id))
         .orderBy(schema.brandSubscriptionPlans.termMonths)
 
+      // Only count subscriptions that are both active in status and within their period.
+      // Expired-but-not-yet-swept rows (periodEnd in the past) are excluded.
       const subCounts = await tx
         .select({
           planId: schema.brandSubscriptions.planId,
@@ -66,6 +77,7 @@ export async function getSellerPlansData() {
           and(
             eq(schema.brandSubscriptions.storeId, store.id),
             eq(schema.brandSubscriptions.status, "active"),
+            gt(schema.brandSubscriptions.periodEnd, new Date()),
           ),
         )
         .groupBy(schema.brandSubscriptions.planId)
@@ -73,8 +85,9 @@ export async function getSellerPlansData() {
       const countByPlan: Record<string, number> = {}
       for (const r of subCounts) countByPlan[r.planId] = r.activeCount
 
-      // Payout history: active subs for this store, ordered by period_end desc.
-      // Shows both paid (brand_payout_at IS NOT NULL) and pending payouts.
+      // Payout history: include active AND expired rows so that payouts are not
+      // lost from the history just because a subscription has since expired.
+      // Pending = no brand_payout_at. Paid = brand_payout_at set by admin.
       const payouts = await tx
         .select({
           id: schema.brandSubscriptions.id,
@@ -89,7 +102,7 @@ export async function getSellerPlansData() {
         .where(
           and(
             eq(schema.brandSubscriptions.storeId, store.id),
-            eq(schema.brandSubscriptions.status, "active"),
+            inArray(schema.brandSubscriptions.status, ["active", "expired"]),
           ),
         )
         .orderBy(desc(schema.brandSubscriptions.periodEnd))
@@ -117,27 +130,33 @@ export async function createPlan(formData: FormData) {
 
   const description = str(formData, "description").trim() || null
 
-  await withTenant(
-    getDb(),
-    { userId: session.user.id, userRole: session.user.role },
-    async (tx) => {
-      const storeRows = await tx
-        .select({ id: schema.stores.id })
-        .from(schema.stores)
-        .where(eq(schema.stores.ownerId, session.user.id))
-        .limit(1)
+  try {
+    await withTenant(
+      getDb(),
+      { userId: session.user.id, userRole: session.user.role },
+      async (tx) => {
+        const storeRows = await tx
+          .select({ id: schema.stores.id })
+          .from(schema.stores)
+          .where(eq(schema.stores.ownerId, session.user.id))
+          .limit(1)
 
-      if (!storeRows[0]) throw new Error("No store found for this seller")
+        if (!storeRows[0]) throw new Error("No store found for this seller")
 
-      await tx.insert(schema.brandSubscriptionPlans).values({
-        storeId: storeRows[0].id,
-        termMonths,
-        priceMyrSen,
-        discountPct,
-        description,
-      })
-    },
-  )
+        await tx.insert(schema.brandSubscriptionPlans).values({
+          storeId: storeRows[0].id,
+          termMonths,
+          priceMyrSen,
+          discountPct,
+          description,
+        })
+      },
+    )
+  } catch (err) {
+    if (isUniqueViolation(err))
+      throw new Error("A plan for this term length already exists for your store")
+    throw err
+  }
 
   revalidatePath("/seller/dashboard/subscriptions")
 }
@@ -153,13 +172,16 @@ export async function updatePlan(planId: string, formData: FormData) {
 
   const description = str(formData, "description").trim() || null
 
+  // Editing any field resets isActive to false so BOMY must re-approve the
+  // updated price/discount before buyers can subscribe. Existing active
+  // subscriptions are unaffected (values are snapshotted at purchase).
   const updated = await withTenant(
     getDb(),
     { userId: session.user.id, userRole: session.user.role },
     async (tx) =>
       tx
         .update(schema.brandSubscriptionPlans)
-        .set({ priceMyrSen, discountPct, description, updatedAt: new Date() })
+        .set({ priceMyrSen, discountPct, description, isActive: false, updatedAt: new Date() })
         .where(eq(schema.brandSubscriptionPlans.id, planId))
         .returning({ id: schema.brandSubscriptionPlans.id }),
   )

@@ -156,7 +156,12 @@ export default async function SellerSubscriptionsPage({
                               Save
                             </button>
                           </form>
-                          {!plan.isActive && (
+                          {plan.isActive ? (
+                            <p className="mt-2 text-xs text-amber-700">
+                              Saving will deactivate this plan — BOMY must re-approve the updated
+                              price/discount before buyers can subscribe again.
+                            </p>
+                          ) : (
                             <p className="mt-2 text-xs text-amber-600">
                               This plan is pending activation. Contact BOMY support to make it live
                               for buyers.

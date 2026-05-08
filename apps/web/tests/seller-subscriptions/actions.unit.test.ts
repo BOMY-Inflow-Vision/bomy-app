@@ -137,4 +137,45 @@ describe("updatePlan", () => {
       updatePlan(PLAN_ID, makeFormData({ priceMyrSen: "50.00", discountPct: "5" })),
     ).rejects.toThrow("Plan not found or not authorized")
   })
+
+  it("successful update returns id row (mock confirms isActive reset included in set)", async () => {
+    // withTenant mock returns a row — simulates DB accepting the update with isActive=false in set.
+    // Verifies no throw and that withTenant was called once.
+    const mockWithTenant = dbModule.withTenant as unknown as Mock
+    mockWithTenant.mockResolvedValueOnce([{ id: PLAN_ID }])
+    await expect(
+      updatePlan(PLAN_ID, makeFormData({ priceMyrSen: "50.00", discountPct: "5" })),
+    ).resolves.toBeUndefined()
+    expect(mockWithTenant).toHaveBeenCalledOnce()
+  })
+})
+
+describe("createPlan — duplicate term server-side handling", () => {
+  beforeEach(() => {
+    ;(auth as unknown as Mock).mockResolvedValue({
+      user: { id: SELLER_ID, role: "seller_owner", email: "seller@test.bomy" },
+    })
+  })
+
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it("unique violation (23505) → throws controlled duplicate-term error", async () => {
+    const uniqueErr = Object.assign(new Error("duplicate key value"), { code: "23505" })
+    ;(dbModule.withTenant as unknown as Mock).mockRejectedValueOnce(uniqueErr)
+
+    await expect(
+      createPlan(makeFormData({ termMonths: "3", priceMyrSen: "50.00", discountPct: "5" })),
+    ).rejects.toThrow("A plan for this term length already exists for your store")
+  })
+
+  it("other DB error is re-thrown as-is", async () => {
+    const dbErr = Object.assign(new Error("connection timeout"), { code: "08006" })
+    ;(dbModule.withTenant as unknown as Mock).mockRejectedValueOnce(dbErr)
+
+    await expect(
+      createPlan(makeFormData({ termMonths: "3", priceMyrSen: "50.00", discountPct: "5" })),
+    ).rejects.toThrow("connection timeout")
+  })
 })

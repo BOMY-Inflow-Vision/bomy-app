@@ -194,7 +194,6 @@ describe.skipIf(!shouldRun)("seller subscription plan actions", () => {
     })
 
     it("throws when plan belongs to a different seller's store (RLS)", async () => {
-      // otherSellerId tries to update sellerId's plan
       mockAuth.mockResolvedValue({
         user: { id: otherSellerId, role: "seller_owner", email: "other@test.bomy" },
       })
@@ -202,6 +201,58 @@ describe.skipIf(!shouldRun)("seller subscription plan actions", () => {
       await expect(
         updatePlan(planId, makeFormData({ priceMyrSen: "200.00", discountPct: "5" })),
       ).rejects.toThrow("Plan not found or not authorized")
+    })
+
+    it("editing an active plan resets isActive to false (re-approval required)", async () => {
+      const activePlanId = randomUUID()
+      await withAdmin(testDb.db, { userId: sellerId, reason: "test seed" }, async (tx) => {
+        await tx.insert(schema.brandSubscriptionPlans).values({
+          id: activePlanId,
+          storeId,
+          termMonths: 6,
+          priceMyrSen: 9000n,
+          discountPct: 8,
+          isActive: true,
+        })
+      })
+
+      try {
+        mockAuth.mockResolvedValue({
+          user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
+        })
+
+        await updatePlan(activePlanId, makeFormData({ priceMyrSen: "95.00", discountPct: "8" }))
+
+        const [row] = await withAdmin(
+          testDb.db,
+          { userId: sellerId, reason: "test assert" },
+          async (tx) =>
+            tx
+              .select({ isActive: schema.brandSubscriptionPlans.isActive })
+              .from(schema.brandSubscriptionPlans)
+              .where(eq(schema.brandSubscriptionPlans.id, activePlanId)),
+        )
+        expect(row!.isActive).toBe(false)
+      } finally {
+        await withAdmin(testDb.db, { userId: sellerId, reason: "test cleanup" }, async (tx) => {
+          await tx
+            .delete(schema.brandSubscriptionPlans)
+            .where(eq(schema.brandSubscriptionPlans.id, activePlanId))
+        })
+      }
+    })
+  })
+
+  describe("createPlan — duplicate term", () => {
+    it("duplicate term throws a controlled error (not a raw DB error)", async () => {
+      mockAuth.mockResolvedValue({
+        user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
+      })
+
+      // 3-month plan was already created in the createPlan describe above
+      await expect(
+        createPlan(makeFormData({ termMonths: "3", priceMyrSen: "40.00", discountPct: "5" })),
+      ).rejects.toThrow("A plan for this term length already exists for your store")
     })
   })
 })
