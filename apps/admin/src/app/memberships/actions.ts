@@ -55,7 +55,7 @@ export async function cancelMembership(subId: string) {
   await withAdmin(getDb(), { userId: adminId, reason: "admin cancel membership" }, async (tx) => {
     await tx
       .update(schema.memberSubscriptions)
-      .set({ status: "cancelled", cancelledAt: new Date(), updatedAt: new Date() })
+      .set({ cancelledAt: new Date(), updatedAt: new Date() })
       .where(
         and(
           eq(schema.memberSubscriptions.id, subId),

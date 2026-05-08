@@ -101,7 +101,7 @@ describe.skipIf(!shouldRun)("cancelMembership", () => {
         tx.select().from(schema.memberSubscriptions).where(eq(schema.memberSubscriptions.id, tid)),
     )
     expect(row?.cancelledAt).not.toBeNull()
-    expect(row?.status).toBe("cancelled")
+    expect(row?.status).toBe("active")
 
     await withAdmin(testDb.db, { userId: adminId, reason: "test cleanup" }, async (tx) => {
       await tx.delete(schema.memberSubscriptions).where(eq(schema.memberSubscriptions.id, tid))
@@ -146,7 +146,7 @@ describe.skipIf(!shouldRun)("cancelMembership", () => {
         tx.select().from(schema.memberSubscriptions).where(eq(schema.memberSubscriptions.id, tid)),
     )
     expect(row?.cancelledAt).not.toBeNull()
-    expect(row?.status).toBe("cancelled")
+    expect(row?.status).toBe("active")
 
     await withAdmin(testDb.db, { userId: adminId, reason: "test cleanup" }, async (tx) => {
       await tx.delete(schema.memberSubscriptions).where(eq(schema.memberSubscriptions.id, tid))
