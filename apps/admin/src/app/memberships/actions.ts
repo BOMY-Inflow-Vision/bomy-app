@@ -9,6 +9,41 @@ import { HitPayClient } from "@bomy/hitpay"
 import { auth } from "@/auth"
 import { getDb } from "@/lib/db"
 
+export async function updateRenewalNotificationDays(formData: FormData) {
+  const session = await auth()
+  if (!session) throw new Error("Unauthorized")
+
+  const raw = (formData.get("notificationDays") as string | null)?.trim()
+  if (!raw) throw new Error("Notification days are required")
+
+  const days = raw
+    .split(",")
+    .map((s) => Number(s.trim()))
+    .filter((n) => Number.isInteger(n) && n > 0)
+
+  if (days.length === 0) throw new Error("At least one positive integer day is required")
+
+  await withAdmin(
+    getDb(),
+    { userId: session.user.id, reason: "admin update renewal_notification_days" },
+    async (tx) => {
+      await tx
+        .insert(schema.platformConfig)
+        .values({
+          key: "renewal_notification_days",
+          value: days,
+          description: "Days before membership expiry at which renewal reminder emails are sent.",
+          updatedBy: session.user.id,
+        })
+        .onConflictDoUpdate({
+          target: schema.platformConfig.key,
+          set: { value: days, updatedBy: session.user.id, updatedAt: new Date() },
+        })
+    },
+  )
+  revalidatePath("/memberships")
+}
+
 async function getAdminId() {
   const session = await auth()
   if (!session) throw new Error("Unauthorized")

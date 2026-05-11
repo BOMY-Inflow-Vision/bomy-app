@@ -5,7 +5,7 @@ import { schema, withAdmin } from "@bomy/db"
 
 import { auth } from "@/auth"
 import { getDb } from "@/lib/db"
-import { updateVoucherConfig } from "./actions"
+import { triggerVoucherIssuance, updateVoucherConfig } from "./actions"
 
 export default async function VouchersPage() {
   const session = await auth()
@@ -64,7 +64,7 @@ export default async function VouchersPage() {
       <div>
         <h1 className="mb-4 text-lg font-semibold text-gray-900">Monthly Voucher Config</h1>
         <div className="rounded-lg border border-gray-200 bg-white p-6">
-          <form action={updateVoucherConfig} className="space-y-4">
+          <form id="voucher-config-form" action={updateVoucherConfig} className="space-y-4">
             <div className="flex items-center gap-4">
               <label className="w-32 text-sm font-medium text-gray-700">Type</label>
               <select
@@ -145,23 +145,26 @@ export default async function VouchersPage() {
                 className="w-24 rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
-            <div className="flex items-center gap-3 pt-2">
+          </form>
+          {/* Buttons are siblings — never nest forms. Save Config references
+              voucher-config-form via the form= attribute (HTML5 association). */}
+          <div className="flex items-center gap-3 pt-2">
+            <button
+              type="submit"
+              form="voucher-config-form"
+              className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+            >
+              Save Config
+            </button>
+            <form action={triggerVoucherIssuance}>
               <button
                 type="submit"
-                className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
-              >
-                Save Config
-              </button>
-              <button
-                type="button"
-                disabled
-                title="Available in PR #25"
-                className="cursor-not-allowed rounded-lg bg-gray-100 px-4 py-1.5 text-sm font-medium text-gray-400"
+                className="rounded-lg bg-amber-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-amber-700"
               >
                 Issue Now
               </button>
-            </div>
-          </form>
+            </form>
+          </div>
         </div>
       </div>
 

@@ -7,9 +7,11 @@ import { expireCancelledMemberships } from "./jobs/expire-cancelled-memberships.
 import { loggingPlugin } from "./plugins/logging.js"
 import { sessionPlugin } from "./plugins/session.js"
 import { healthRoutes } from "./routes/health.js"
+import { internalJobRoutes } from "./routes/internal/jobs.js"
 import { meRoutes } from "./routes/me.js"
 import { readyRoutes } from "./routes/ready.js"
 import { hitpayWebhookRoutes } from "./routes/webhooks/hitpay.js"
+import { createScheduler, type Scheduler } from "./scheduler.js"
 
 export async function createApp(opts: { enableJobs?: boolean } = {}) {
   // Default: run background jobs in production/development, disable in tests
@@ -43,6 +45,7 @@ export async function createApp(opts: { enableJobs?: boolean } = {}) {
     // after period_end without a follow-up HitPay event.
     const EXPIRY_MS = 24 * 60 * 60 * 1000
     let expiryIntervalId: ReturnType<typeof setInterval> | undefined
+    let scheduler: Scheduler | undefined
 
     app.addHook("onReady", async () => {
       const db = app.db.db
@@ -58,12 +61,23 @@ export async function createApp(opts: { enableJobs?: boolean } = {}) {
       }
       runExpiry()
       expiryIntervalId = setInterval(runExpiry, EXPIRY_MS)
+
+      // BullMQ scheduler — registers cron jobs and starts workers.
+      scheduler = await createScheduler(db, {
+        info: (msg) => app.log.info(msg),
+        error: (obj, msg) => app.log.error(obj, msg),
+      })
     })
 
     app.addHook("onClose", async () => {
       if (expiryIntervalId !== undefined) clearInterval(expiryIntervalId)
+      await scheduler?.close()
     })
   }
+
+  // Internal trigger endpoint (e.g. "Issue Now" from admin). Always registered
+  // so the route exists even when enableJobs=false (returns 503 gracefully).
+  await app.register(internalJobRoutes)
 
   return app
 }
