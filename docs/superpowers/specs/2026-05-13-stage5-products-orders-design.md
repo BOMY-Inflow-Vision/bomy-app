@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-13
 **Author:** Andy (AI technical lead)
-**Status:** Approved by Charlie; reviewed by Bob
+**Status:** Approved by Charlie; Bob review revisions applied 2026-05-13
 **Builds on:** Stage 4 (PRs #18–#25), project_membership_model.md, project_commission_rule.md
 
 ---
@@ -162,13 +162,13 @@ RLS: same as `products`.
 
 ### 3.3 PR #30 — Checkout + Inventory Schema (migration 0010)
 
-Also adds to existing `vouchers` table:
+Also modifies existing `vouchers` table (migration 0010, after `checkout_sessions` is created in the same migration):
 
-- `reserved_checkout_session_id` (uuid nullable, soft FK — checkout_sessions not yet created at this migration)
-- `reserved_at` (timestamptz nullable)
-- `redeemed_checkout_session_id` (uuid nullable, soft FK)
-- `redeemed_at` (timestamptz nullable)
-- Drops placeholder column `redeemed_order_id` (was never populated in Stage 4)
+- ADD `reserved_checkout_session_id` (uuid nullable, proper FK → checkout_sessions — safe because checkout_sessions is created earlier in this same migration)
+- ADD `reserved_at` (timestamptz nullable)
+- ADD `redeemed_checkout_session_id` (uuid nullable, proper FK → checkout_sessions)
+- DROP `redeemed_order_id` (placeholder column, never populated in Stage 4)
+- `redeemed_at` already exists — do NOT add; keep as-is
 
 #### `checkout_sessions`
 
@@ -182,7 +182,7 @@ Also adds to existing `vouchers` table:
 | psp_payment_request_id   | text nullable                                              | Unique WHERE NOT NULL. Set after HitPay call.                                              |
 | psp_payment_id           | text nullable                                              | Unique WHERE NOT NULL. Set by webhook.                                                     |
 | psp_payment_url          | text nullable                                              | HitPay hosted page URL                                                                     |
-| psp_fee_sen              | bigint nullable                                            | Set by webhook. Default 0.                                                                 |
+| psp_fee_sen              | bigint NOT NULL default 0                                  | Updated by webhook when actual fee is known.                                               |
 | shipping_address         | jsonb NOT NULL                                             | Collected at checkout initiation; copied to each order                                     |
 | total_catalog_sen        | bigint NOT NULL                                            | Sum of all line items at catalog price                                                     |
 | total_shipping_sen       | bigint NOT NULL                                            | Sum of per-store shipping fees                                                             |
@@ -196,7 +196,15 @@ Also adds to existing `vouchers` table:
 | created_at               | timestamptz NOT NULL defaultNow                            |                                                                                            |
 | updated_at               | timestamptz NOT NULL defaultNow                            |                                                                                            |
 
-CHECK: `NOT (voucher_discount_sen > 0 AND brand_discount_total_sen > 0)`.
+CHECKs:
+
+- `NOT (voucher_discount_sen > 0 AND brand_discount_total_sen > 0)` (mutual exclusion)
+- `total_buyer_pays_sen > 0` (cannot initiate a zero-amount HitPay payment)
+- `voucher_discount_sen >= 0`
+- `brand_discount_total_sen >= 0`
+- `total_catalog_sen >= 0`
+- `total_shipping_sen >= 0`
+- `voucher_discount_sen <= total_catalog_sen` (voucher cannot exceed catalog total; prevents negative buyer payment)
 
 RLS: user sees own; `bomy_admin/ops/finance` see all.
 Indexes: unique on `psp_payment_request_id` WHERE NOT NULL; unique on `psp_payment_id` WHERE NOT NULL; index on `(status, expires_at)` for expiry job.
@@ -258,9 +266,9 @@ Indexes: composite on `(status, expires_at)` for expiry job; index on `checkout_
 
 ### 3.4 PR #31 — Order Schema (migration 0011)
 
-Adds FK on `vouchers.reserved_checkout_session_id` and `vouchers.redeemed_checkout_session_id` (now that `checkout_sessions` exists).
+No further `vouchers` changes — the reservation/redemption FKs are proper FKs added in migration 0010 (PR #30), since `checkout_sessions` is created in that same migration.
 
-Also adds `processed_webhook_events` (idempotency guard shared across all HitPay webhook event types).
+Adds `processed_webhook_events` (idempotency guard shared across all HitPay webhook event types).
 
 #### `orders`
 
@@ -403,13 +411,20 @@ Distinguishing order payments from subscription payments: look up `psp_payment_r
 
 1. Verify HMAC signature → 401 if invalid (only valid non-2xx response)
 2. Validate payload amount matches `checkout_session.total_buyer_pays_sen`; if mismatch → ops alert, set session `payment_review_required`, return 200
-3. Begin transaction. Insert `processed_webhook_events` (psp_provider, psp_event_id, event_type, payload_hash). If unique constraint fires → idempotency check:
+3. Begin transaction. Attempt idempotency claim:
+   ```sql
+   INSERT INTO processed_webhook_events (psp_provider, psp_event_id, event_type, payload_hash)
+   VALUES ($provider, $eventId, $eventType, $hash)
+   ON CONFLICT (psp_provider, psp_event_id) DO NOTHING
+   RETURNING id
+   ```
+   If RETURNING yields 0 rows → event already processed. Run consistency checks (do NOT use raw unique constraint — that would abort the transaction):
    - Verify `checkout_session.status = 'paid'`
    - Verify `COUNT(orders WHERE checkout_session_id) = COUNT(checkout_session_stores WHERE checkout_session_id)` (one order per seller)
    - Verify all `inventory_reservations.status = 'converted'`
-   - Verify ledger credit row exists for `checkout_session_id`
-   - If all pass → return 200. If any fail → ops alert, return 200 (do not re-process; flag for manual review).
-4. If `checkout_session.status ≠ 'pending_payment'` → return 200
+   - Verify ledger credit row exists for `checkout_session_id` (idempotency_key = `checkout:{session_id}:credit`)
+   - If all pass → commit, return 200. If any fail → ops alert, commit, return 200 (do not re-process; flag for manual review).
+4. If `checkout_session.status ≠ 'pending_payment'` → commit, return 200
 5. Set `checkout_session.psp_fee_sen` from webhook payload
 6. **Fan-out** — for each `checkout_session_stores` row (sorted ascending by `store_id` for determinism):
    - Compute `psp_fee_allocated_sen` = `psp_fee_sen × (discounted_subtotal_sen + shipping_fee_sen − voucher_contribution_sen) / total_buyer_pays_sen` (integer; last store absorbs remainder)
@@ -419,12 +434,18 @@ Distinguishing order payments from subscription payments: look up `psp_payment_r
    - Compute `bomy_commission_sen = (discounted_subtotal_sen − catalog_psp_fee) × 25% − voucher_contribution_sen` (absorbs rounding)
    - Insert `order` (payment_status = `paid`, fulfilment_status = `processing`)
    - Insert `order_items` from `checkout_session_items WHERE store_id`
-7. Write ledger (all legs share `transaction_id = checkout_session.id`):
-   - **One credit** `+total_buyer_pays_sen`, `regular_order`, ref = `checkout_session_id`
-   - **Per-order debit** `-seller_payout_sen`, `regular_order`, ref = `order_id`
-   - **Per-order debit** `-psp_fee_allocated_sen`, `processing_fee`, ref = `order_id`
-8. Claim voucher: `UPDATE vouchers SET redeemed_checkout_session_id = $sessionId, redeemed_at = now(), reserved_checkout_session_id = NULL WHERE id = $voucherId AND reserved_checkout_session_id = $sessionId AND redeemed_at IS NULL`; if 0 rows → ops alert (voucher race), return 200 (do not return non-2xx)
-9. Update `checkout_session.status = 'paid'`, `psp_payment_id`
+7. Write ledger — all legs share `transaction_id = checkout_session.id`; each leg has a unique per-leg `idempotency_key`:
+   - **One credit** `+total_buyer_pays_sen`, `regular_order`, ref = `checkout_session_id`, idempotency_key = `checkout:{session_id}:credit`
+   - **Per-order debit** `-seller_payout_sen`, `regular_order`, ref = `order_id`, idempotency_key = `order:{order_id}:seller_payout`
+   - **Per-order debit** `-psp_fee_allocated_sen`, `processing_fee`, ref = `order_id`, idempotency_key = `order:{order_id}:processing_fee`
+8. Claim voucher (if session has a voucher):
+   ```sql
+   UPDATE vouchers
+   SET redeemed_checkout_session_id = $sessionId, redeemed_at = now(), reserved_checkout_session_id = NULL
+   WHERE id = $voucherId AND reserved_checkout_session_id = $sessionId AND redeemed_at IS NULL
+   ```
+   If 0 rows returned → voucher reservation was lost (data integrity issue). Set `checkout_session.status = 'payment_review_required'` and proceed to commit. Ops-critical alert. Orders and ledger still commit (money already moved). Admin reconciles via `/checkout-sessions/[sessionId]`.
+9. Update `checkout_session.status = 'paid'` (or `payment_review_required` if step 8 triggered it), `psp_payment_id`
 10. Update `inventory_reservations.status = 'converted'` WHERE `checkout_session_id`
 11. Commit → return 200
 
