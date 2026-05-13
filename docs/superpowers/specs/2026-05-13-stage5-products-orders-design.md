@@ -430,7 +430,7 @@ CHECK (voucher_contribution_sen >= 0)
 
 ### 4.1 Phase 1 — Transaction 1 (validate + create session + reserve stock)
 
-**Pre-check (before transaction):** Read `checkout_enabled` from `platform_config`. If false or absent → return a user-facing error ("Checkout is temporarily unavailable"). This gates the entire payment path until PR #31 is deployed and sets the flag to `true`.
+**Pre-check (before transaction):** Read `checkout_enabled` from `platform_config`. If false or absent → return a user-facing error ("Checkout is temporarily unavailable"). This gates the entire payment path until the PR #31 post-deploy runbook sets the flag to `true` (never set by migration).
 
 Within a single DB transaction:
 
@@ -489,8 +489,8 @@ Distinguishing order payments from subscription payments: look up `psp_payment_r
    RETURNING id
    ```
    If RETURNING yields 0 rows → event already processed. Consistency profile depends on session status:
-   - **`status = 'paid'` or `'payment_review_resolved'`** (full fan-out completed): verify `COUNT(orders) = COUNT(checkout_session_stores)`; verify all `inventory_reservations.status = 'converted'`; verify ledger credit row exists (`idempotency_key = 'checkout:{session_id}:credit'`). If any fail → ops alert, commit, return 200.
-   - **`status = 'payment_review_required'`** — profile depends on reason:
+   - **`status = 'paid'`** (full fan-out completed): verify `COUNT(orders) = COUNT(checkout_session_stores)`; verify all `inventory_reservations.status = 'converted'`; verify ledger credit row exists (`idempotency_key = 'checkout:{session_id}:credit'`). If any fail → ops alert, commit, return 200.
+   - **`status = 'payment_review_required'` or `'payment_review_resolved'`** — profile depends on reason (resolved sessions may or may not have a fan-out depending on the original reason):
      - `reason IN ('amount_mismatch', 'invalid_commission_config')`: no orders/ledger expected (fan-out never ran). Minimal check only — verify reason is set. commit, return 200.
      - `reason = 'voucher_claim_failed'`: fan-out completed before parking. Apply full checks: verify `COUNT(orders) = COUNT(checkout_session_stores)`, all `inventory_reservations.status = 'converted'`, ledger credit exists. If any fail → ops alert, commit, return 200.
      - reason NULL or unknown: ops alert, commit, return 200 (data integrity issue — should never occur after PR #31).
