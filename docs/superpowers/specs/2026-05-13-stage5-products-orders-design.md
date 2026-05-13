@@ -199,6 +199,8 @@ Also modifies existing `vouchers` table (migration 0010, after `checkout_session
 
 CHECKs:
 
+- `payment_review_reason IS NULL OR payment_review_reason IN ('amount_mismatch', 'invalid_commission_config', 'voucher_claim_failed')` (allowed values)
+- `status NOT IN ('payment_review_required', 'payment_review_resolved') OR payment_review_reason IS NOT NULL` (reason required when in review state)
 - `NOT (voucher_discount_sen > 0 AND brand_discount_total_sen > 0)` (mutual exclusion)
 - `total_buyer_pays_sen = total_catalog_sen + total_shipping_sen − voucher_discount_sen − brand_discount_total_sen` (derived field equality)
 - `total_buyer_pays_sen > 0` (cannot initiate a zero-amount HitPay payment)
@@ -376,6 +378,8 @@ Exact DB CHECK constraints to implement (implementation checklist for migrations
 **`checkout_sessions` (migration 0010):**
 
 ```sql
+CHECK (payment_review_reason IS NULL OR payment_review_reason IN ('amount_mismatch', 'invalid_commission_config', 'voucher_claim_failed'))
+CHECK (status NOT IN ('payment_review_required', 'payment_review_resolved') OR payment_review_reason IS NOT NULL)
 CHECK (NOT (voucher_discount_sen > 0 AND brand_discount_total_sen > 0))
 CHECK (total_buyer_pays_sen = total_catalog_sen + total_shipping_sen - voucher_discount_sen - brand_discount_total_sen)
 CHECK (total_buyer_pays_sen > 0)
@@ -486,7 +490,10 @@ Distinguishing order payments from subscription payments: look up `psp_payment_r
    ```
    If RETURNING yields 0 rows → event already processed. Consistency profile depends on session status:
    - **`status = 'paid'` or `'payment_review_resolved'`** (full fan-out completed): verify `COUNT(orders) = COUNT(checkout_session_stores)`; verify all `inventory_reservations.status = 'converted'`; verify ledger credit row exists (`idempotency_key = 'checkout:{session_id}:credit'`). If any fail → ops alert, commit, return 200.
-   - **`status = 'payment_review_required'`** (partial state by design — amount mismatch may have halted before fan-out): no order/reservation/ledger checks. commit, return 200.
+   - **`status = 'payment_review_required'`** — profile depends on reason:
+     - `reason IN ('amount_mismatch', 'invalid_commission_config')`: no orders/ledger expected (fan-out never ran). Minimal check only — verify reason is set. commit, return 200.
+     - `reason = 'voucher_claim_failed'`: fan-out completed before parking. Apply full checks: verify `COUNT(orders) = COUNT(checkout_session_stores)`, all `inventory_reservations.status = 'converted'`, ledger credit exists. If any fail → ops alert, commit, return 200.
+     - reason NULL or unknown: ops alert, commit, return 200 (data integrity issue — should never occur after PR #31).
    - Any other status → ops alert, commit, return 200 (unexpected; flag for manual review).
 3. Validate payload amount matches `checkout_session.total_buyer_pays_sen`. If mismatch → set session `payment_review_required`, `payment_review_reason = 'amount_mismatch'`, ops alert, commit, return 200. (Idempotency row already inserted in step 2 — duplicate delivery will hit the 0-rows path and pass consistency checks.)
 4. If `checkout_session.status ≠ 'pending_payment'` → commit, return 200
@@ -664,16 +671,16 @@ Existing `S3_ENDPOINT / S3_ACCESS_KEY / S3_SECRET_KEY / S3_BUCKET` and `SMTP_HOS
 
 ## 11. PR Breakdown
 
-| PR  | Branch                     | Scope                                                                                                                                                                                                                                                                                                              | Model  |
-| --- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
-| #26 | `feat/admin-bypass-audit`  | Migration 0008: `admin_bypass_audit` table. Update `withAdmin` in `packages/db/src/tenant.ts` to write audit row within same transaction. Retrofit `apps/api/src/routes/webhooks/hitpay.ts` + all `apps/api/src/jobs/*.ts`. Integration tests.                                                                     | Opus   |
-| #27 | `feat/catalog-schema`      | Migration 0009: `categories`, `products`, `product_variants`, `product_images`. Catalog enums. RLS policies. FTS GIN index. Integration tests for RLS.                                                                                                                                                             | Sonnet |
-| #28 | `feat/seller-product-crud` | `apps/web /seller/dashboard/products` — create, edit, archive products + variants + images. Server actions via `withTenant`. Presigned upload via `getPresignedUploadUrl`.                                                                                                                                         | Sonnet |
-| #29 | `feat/storefront`          | `apps/web /products`, `/products/[storeSlug]/[productSlug]`, `/brands/[slug]` store page. FTS search. Category filter. Add-to-cart (client state).                                                                                                                                                                 | Sonnet |
-| #30 | `feat/cart-checkout`       | Migration 0010: checkout session tables + inventory enums + voucher field additions. Seed `checkout_enabled = false` into `platform_config`. Cart UI. Checkout initiation flow (Phases 1 + 1b) — gated by `checkout_enabled` flag. `InventoryReservationExpiryJob`. Buyer success/cancelled pages.                 | Opus   |
-| #31 | `feat/order-webhook`       | Migration 0011: order tables + order enums + `processed_webhook_events`. Seed `regular_order_commission_pct = 25` and `checkout_enabled = true` into `platform_config`. Extend `POST /webhooks/hitpay` for order payments. Ledger fan-out.                                                                         | Opus   |
-| #32 | `feat/order-management`    | `apps/web /orders`, `/orders/[orderId]`, `/seller/dashboard/orders`. `apps/admin /orders`, `/checkout-sessions/[sessionId]`, `/payouts`. Seller tracking. Buyer confirm-delivery. Admin payout record creation. Migration 0012: `platform_config` seeds (`order_auto_complete_days`, `order_auto_delivered_days`). | Sonnet |
-| #33 | `feat/notifications-email` | Real email sending (SendGrid/Postmark via SMTP). Wire all `console.log` stubs across Stage 4 + Stage 5. `OrderAutoCompleteJob`. Update `.env.example` with new vars.                                                                                                                                               | Sonnet |
+| PR  | Branch                     | Scope                                                                                                                                                                                                                                                                                                                                                                                                       | Model  |
+| --- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| #26 | `feat/admin-bypass-audit`  | Migration 0008: `admin_bypass_audit` table. Update `withAdmin` in `packages/db/src/tenant.ts` to write audit row within same transaction. Retrofit `apps/api/src/routes/webhooks/hitpay.ts` + all `apps/api/src/jobs/*.ts`. Integration tests.                                                                                                                                                              | Opus   |
+| #27 | `feat/catalog-schema`      | Migration 0009: `categories`, `products`, `product_variants`, `product_images`. Catalog enums. RLS policies. FTS GIN index. Integration tests for RLS.                                                                                                                                                                                                                                                      | Sonnet |
+| #28 | `feat/seller-product-crud` | `apps/web /seller/dashboard/products` — create, edit, archive products + variants + images. Server actions via `withTenant`. Presigned upload via `getPresignedUploadUrl`.                                                                                                                                                                                                                                  | Sonnet |
+| #29 | `feat/storefront`          | `apps/web /products`, `/products/[storeSlug]/[productSlug]`, `/brands/[slug]` store page. FTS search. Category filter. Add-to-cart (client state).                                                                                                                                                                                                                                                          | Sonnet |
+| #30 | `feat/cart-checkout`       | Migration 0010: checkout session tables + inventory enums + voucher field additions. Seed `checkout_enabled = false` into `platform_config`. Cart UI. Checkout initiation flow (Phases 1 + 1b) — gated by `checkout_enabled` flag. `InventoryReservationExpiryJob`. Buyer success/cancelled pages.                                                                                                          | Opus   |
+| #31 | `feat/order-webhook`       | Migration 0011: order tables + order enums + `processed_webhook_events`. Seed `regular_order_commission_pct = 25` into `platform_config`. Extend `POST /webhooks/hitpay` for order payments. Ledger fan-out. **Post-deploy runbook:** after confirming webhook API is live and smoke test passes, set `checkout_enabled = true` via ops DB script. `checkout_enabled` is never auto-enabled by a migration. | Opus   |
+| #32 | `feat/order-management`    | `apps/web /orders`, `/orders/[orderId]`, `/seller/dashboard/orders`. `apps/admin /orders`, `/checkout-sessions/[sessionId]`, `/payouts`. Seller tracking. Buyer confirm-delivery. Admin payout record creation. Migration 0012: `platform_config` seeds (`order_auto_complete_days`, `order_auto_delivered_days`).                                                                                          | Sonnet |
+| #33 | `feat/notifications-email` | Real email sending (SendGrid/Postmark via SMTP). Wire all `console.log` stubs across Stage 4 + Stage 5. `OrderAutoCompleteJob`. Update `.env.example` with new vars.                                                                                                                                                                                                                                        | Sonnet |
 
 ---
 
