@@ -20,7 +20,7 @@ Stage 5 delivers the core marketplace transaction layer: sellers list products, 
 | 5   | Cart + checkout — pricing, inventory reservation, HitPay redirect |
 | 6   | Order webhook — payment confirmation, order fan-out, ledger       |
 | 7   | Order management — buyer, seller, admin views                     |
-| 8   | Notifications + email — real sending; payout record creation      |
+| 8   | Notifications + email — real sending                              |
 
 **Out of scope for Stage 5:** Stripe / USD orders, seller KYB / automated bank transfers, product reviews, refund flow (schema hooks only), MeiliSearch, weight-based shipping, variant-specific images, per-store SKU uniqueness.
 
@@ -172,29 +172,30 @@ Also modifies existing `vouchers` table (migration 0010, after `checkout_session
 
 #### `checkout_sessions`
 
-| Column                   | Type                                                       | Notes                                                                                      |
-| ------------------------ | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| id                       | uuid PK                                                    | Used as HitPay `reference_number`                                                          |
-| user_id                  | uuid NOT NULL → users                                      |                                                                                            |
-| currency                 | currency_code NOT NULL default 'MYR'                       |                                                                                            |
-| status                   | checkout_session_status NOT NULL default 'pending_payment' |                                                                                            |
-| psp_provider             | psp_provider NOT NULL default 'hitpay'                     |                                                                                            |
-| psp_payment_request_id   | text nullable                                              | Unique WHERE NOT NULL. Set after HitPay call.                                              |
-| psp_payment_id           | text nullable                                              | Unique WHERE NOT NULL. Set by webhook.                                                     |
-| psp_payment_url          | text nullable                                              | HitPay hosted page URL                                                                     |
-| psp_fee_sen              | bigint NOT NULL default 0                                  | Updated by webhook when actual fee is known.                                               |
-| shipping_address         | jsonb NOT NULL                                             | Collected at checkout initiation; copied to each order                                     |
-| total_catalog_sen        | bigint NOT NULL                                            | Sum of all line items at catalog price                                                     |
-| total_shipping_sen       | bigint NOT NULL                                            | Sum of per-store shipping fees                                                             |
-| voucher_id               | uuid nullable → vouchers                                   |                                                                                            |
-| voucher_discount_sen     | bigint NOT NULL default 0                                  |                                                                                            |
-| brand_discount_total_sen | bigint NOT NULL default 0                                  | Sum of all per-store brand discounts                                                       |
-| total_buyer_pays_sen     | bigint NOT NULL                                            | `total_catalog_sen + total_shipping_sen − voucher_discount_sen − brand_discount_total_sen` |
-| resolution_note          | text nullable                                              | Admin note when resolving payment_review_required                                          |
-| resolved_by              | uuid nullable → users                                      | Admin who resolved                                                                         |
-| expires_at               | timestamptz NOT NULL                                       | Checkout initiation + 30 min                                                               |
-| created_at               | timestamptz NOT NULL defaultNow                            |                                                                                            |
-| updated_at               | timestamptz NOT NULL defaultNow                            |                                                                                            |
+| Column                   | Type                                                       | Notes                                                                                                                      |
+| ------------------------ | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| id                       | uuid PK                                                    | Used as HitPay `reference_number`                                                                                          |
+| user_id                  | uuid NOT NULL → users                                      |                                                                                                                            |
+| currency                 | currency_code NOT NULL default 'MYR'                       |                                                                                                                            |
+| status                   | checkout_session_status NOT NULL default 'pending_payment' |                                                                                                                            |
+| psp_provider             | psp_provider NOT NULL default 'hitpay'                     |                                                                                                                            |
+| psp_payment_request_id   | text nullable                                              | Unique WHERE NOT NULL. Set after HitPay call.                                                                              |
+| psp_payment_id           | text nullable                                              | Unique WHERE NOT NULL. Set by webhook.                                                                                     |
+| psp_payment_url          | text nullable                                              | HitPay hosted page URL                                                                                                     |
+| psp_fee_sen              | bigint NOT NULL default 0                                  | Updated by webhook when actual fee is known.                                                                               |
+| shipping_address         | jsonb NOT NULL                                             | Collected at checkout initiation; copied to each order                                                                     |
+| total_catalog_sen        | bigint NOT NULL                                            | Sum of all line items at catalog price                                                                                     |
+| total_shipping_sen       | bigint NOT NULL                                            | Sum of per-store shipping fees                                                                                             |
+| voucher_id               | uuid nullable → vouchers                                   |                                                                                                                            |
+| voucher_discount_sen     | bigint NOT NULL default 0                                  |                                                                                                                            |
+| brand_discount_total_sen | bigint NOT NULL default 0                                  | Sum of all per-store brand discounts                                                                                       |
+| total_buyer_pays_sen     | bigint NOT NULL                                            | `total_catalog_sen + total_shipping_sen − voucher_discount_sen − brand_discount_total_sen`                                 |
+| payment_review_reason    | text nullable                                              | Set when parking into `payment_review_required`: `amount_mismatch`, `invalid_commission_config`, or `voucher_claim_failed` |
+| resolution_note          | text nullable                                              | Admin note when resolving payment_review_required                                                                          |
+| resolved_by              | uuid nullable → users                                      | Admin who resolved                                                                                                         |
+| expires_at               | timestamptz NOT NULL                                       | Checkout initiation + 30 min                                                                                               |
+| created_at               | timestamptz NOT NULL defaultNow                            |                                                                                                                            |
+| updated_at               | timestamptz NOT NULL defaultNow                            |                                                                                                                            |
 
 CHECKs:
 
@@ -425,6 +426,8 @@ CHECK (voucher_contribution_sen >= 0)
 
 ### 4.1 Phase 1 — Transaction 1 (validate + create session + reserve stock)
 
+**Pre-check (before transaction):** Read `checkout_enabled` from `platform_config`. If false or absent → return a user-facing error ("Checkout is temporarily unavailable"). This gates the entire payment path until PR #31 is deployed and sets the flag to `true`.
+
 Within a single DB transaction:
 
 1. Validate: all variants exist, `is_active`, belong to active products, `stock_count ≥ requested qty`
@@ -485,10 +488,10 @@ Distinguishing order payments from subscription payments: look up `psp_payment_r
    - **`status = 'paid'` or `'payment_review_resolved'`** (full fan-out completed): verify `COUNT(orders) = COUNT(checkout_session_stores)`; verify all `inventory_reservations.status = 'converted'`; verify ledger credit row exists (`idempotency_key = 'checkout:{session_id}:credit'`). If any fail → ops alert, commit, return 200.
    - **`status = 'payment_review_required'`** (partial state by design — amount mismatch may have halted before fan-out): no order/reservation/ledger checks. commit, return 200.
    - Any other status → ops alert, commit, return 200 (unexpected; flag for manual review).
-3. Validate payload amount matches `checkout_session.total_buyer_pays_sen`. If mismatch → set session `payment_review_required`, ops alert, commit, return 200. (Idempotency row already inserted in step 2 — duplicate delivery will hit the 0-rows path and pass consistency checks.)
+3. Validate payload amount matches `checkout_session.total_buyer_pays_sen`. If mismatch → set session `payment_review_required`, `payment_review_reason = 'amount_mismatch'`, ops alert, commit, return 200. (Idempotency row already inserted in step 2 — duplicate delivery will hit the 0-rows path and pass consistency checks.)
 4. If `checkout_session.status ≠ 'pending_payment'` → commit, return 200
 5. Set `checkout_session.psp_fee_sen` from webhook payload
-6. **Fan-out** — read `regular_order_commission_pct` from `platform_config`. **Fail closed:** if the key is missing or the value is not a valid integer between 0 and 100, set session `payment_review_required`, ops-critical alert, commit (idempotency row + review state only — no orders, no ledger), return 200. Do not proceed with fan-out. Otherwise, for each `checkout_session_stores` row (sorted ascending by `store_id` for determinism):
+6. **Fan-out** — read `regular_order_commission_pct` from `platform_config`. **Fail closed:** if the key is missing or the value is not a valid integer between 0 and 100, set session `payment_review_required`, `payment_review_reason = 'invalid_commission_config'`, ops-critical alert, commit (idempotency row + review state only — no orders, no ledger), return 200. Do not proceed with fan-out. Otherwise, for each `checkout_session_stores` row (sorted ascending by `store_id` for determinism):
    - Compute `psp_fee_allocated_sen` = `psp_fee_sen × (discounted_subtotal_sen + shipping_fee_sen − voucher_contribution_sen) / total_buyer_pays_sen` (integer; last store absorbs remainder)
    - Compute `catalog_psp_fee = psp_fee_allocated × discounted_subtotal / (discounted_subtotal + shipping_fee)` (integer)
    - Compute `shipping_psp_fee = psp_fee_allocated − catalog_psp_fee`
@@ -508,7 +511,7 @@ Distinguishing order payments from subscription payments: look up `psp_payment_r
    SET redeemed_checkout_session_id = $sessionId, redeemed_at = now(), reserved_checkout_session_id = NULL
    WHERE id = $voucherId AND reserved_checkout_session_id = $sessionId AND redeemed_at IS NULL
    ```
-   If 0 rows returned → voucher reservation was lost (data integrity issue). Set `checkout_session.status = 'payment_review_required'` and proceed to commit. Ops-critical alert. Orders and ledger still commit (money already moved). Admin reconciles via `/checkout-sessions/[sessionId]`.
+   If 0 rows returned → voucher reservation was lost (data integrity issue). Set `checkout_session.status = 'payment_review_required'`, `payment_review_reason = 'voucher_claim_failed'` and proceed to commit. Ops-critical alert. Orders and ledger still commit (money already moved). Admin reconciles via `/checkout-sessions/[sessionId]`.
 9. Update `checkout_session.status = 'paid'` (or `payment_review_required` if step 8 triggered it), `psp_payment_id`
 10. Update `inventory_reservations.status = 'converted'` WHERE `checkout_session_id`
 11. Commit → return 200
@@ -615,13 +618,13 @@ All buyer/seller interactions are Next.js server actions. The existing `/interna
 
 ## 8. Admin Routes — `apps/admin` (PR #32)
 
-| Route                                | Purpose                                                                                                                                                                                                                                                                                                                                                                         |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /orders`                        | All orders. Filter: `payment_status`, `fulfilment_status`, store, date range. "Payment review required" filter JOINs to `checkout_sessions.status = 'payment_review_required'`.                                                                                                                                                                                                 |
-| `GET /orders/[orderId]`              | Full detail: all financial fields including `bomy_commission_sen`, `voucher_contribution_sen`. Links to checkout session.                                                                                                                                                                                                                                                       |
-| `GET /checkout-sessions/[sessionId]` | Session detail. If `payment_review_required`: shows "Mark Resolved" form (note field) → sets status `payment_review_resolved`, records `resolved_by`, `resolution_note`.                                                                                                                                                                                                        |
-| `GET /payouts`                       | All `order_payouts`. Filter by `status`. "Create Payout Record" button on eligible orders (`fulfilment_status = 'completed'`, no existing `pending/processing/completed` payout). Creates `order_payouts` row (status = `pending`, `triggered_by = admin`). Admin enters `manual_ref` after external bank transfer. "Mark Completed" sets status = `completed`, `completed_at`. |
-| `GET /payouts/reconciliation`        | Orders where `bomy_commission_sen < 0` (net-negative due to voucher). Sessions with `payment_review_required` or `payment_review_resolved`.                                                                                                                                                                                                                                     |
+| Route                                | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /orders`                        | All orders. Filter: `payment_status`, `fulfilment_status`, store, date range. "Payment review required" filter JOINs to `checkout_sessions.status = 'payment_review_required'`.                                                                                                                                                                                                                                         |
+| `GET /orders/[orderId]`              | Full detail: all financial fields including `bomy_commission_sen`, `voucher_contribution_sen`. Links to checkout session.                                                                                                                                                                                                                                                                                               |
+| `GET /checkout-sessions/[sessionId]` | Session detail. If `payment_review_required`: displays `payment_review_reason` and derived state context — `amount_mismatch` / `invalid_commission_config` show "No orders created — manual reconcile required"; `voucher_claim_failed` shows "Orders and ledger committed — voucher not redeemed." Shows "Mark Resolved" form (note field) → sets `payment_review_resolved`, records `resolved_by`, `resolution_note`. |
+| `GET /payouts`                       | All `order_payouts`. Filter by `status`. "Create Payout Record" button on eligible orders (`fulfilment_status = 'completed'`, no existing `pending/processing/completed` payout). Creates `order_payouts` row (status = `pending`, `triggered_by = admin`). Admin enters `manual_ref` after external bank transfer. "Mark Completed" sets status = `completed`, `completed_at`.                                         |
+| `GET /payouts/reconciliation`        | Orders where `bomy_commission_sen < 0` (net-negative due to voucher). Sessions with `payment_review_required` or `payment_review_resolved`.                                                                                                                                                                                                                                                                             |
 
 **`regular_order_commission_pct` display:** The existing `/config` page (`apps/admin/src/app/config/page.tsx`) reads all `platform_config` rows. Once migration 0011 seeds the key, it appears automatically — no PR #32 code change required for display.
 
@@ -667,8 +670,8 @@ Existing `S3_ENDPOINT / S3_ACCESS_KEY / S3_SECRET_KEY / S3_BUCKET` and `SMTP_HOS
 | #27 | `feat/catalog-schema`      | Migration 0009: `categories`, `products`, `product_variants`, `product_images`. Catalog enums. RLS policies. FTS GIN index. Integration tests for RLS.                                                                                                                                                             | Sonnet |
 | #28 | `feat/seller-product-crud` | `apps/web /seller/dashboard/products` — create, edit, archive products + variants + images. Server actions via `withTenant`. Presigned upload via `getPresignedUploadUrl`.                                                                                                                                         | Sonnet |
 | #29 | `feat/storefront`          | `apps/web /products`, `/products/[storeSlug]/[productSlug]`, `/brands/[slug]` store page. FTS search. Category filter. Add-to-cart (client state).                                                                                                                                                                 | Sonnet |
-| #30 | `feat/cart-checkout`       | Migration 0010: checkout session tables + inventory enums + voucher field additions. Cart UI. Checkout initiation flow (Phases 1 + 1b). `InventoryReservationExpiryJob`. Buyer success/cancelled pages.                                                                                                            | Opus   |
-| #31 | `feat/order-webhook`       | Migration 0011: order tables + order enums + `processed_webhook_events`. Seed `regular_order_commission_pct = 25` into `platform_config`. Extend `POST /webhooks/hitpay` for order payments. Ledger fan-out.                                                                                                       | Opus   |
+| #30 | `feat/cart-checkout`       | Migration 0010: checkout session tables + inventory enums + voucher field additions. Seed `checkout_enabled = false` into `platform_config`. Cart UI. Checkout initiation flow (Phases 1 + 1b) — gated by `checkout_enabled` flag. `InventoryReservationExpiryJob`. Buyer success/cancelled pages.                 | Opus   |
+| #31 | `feat/order-webhook`       | Migration 0011: order tables + order enums + `processed_webhook_events`. Seed `regular_order_commission_pct = 25` and `checkout_enabled = true` into `platform_config`. Extend `POST /webhooks/hitpay` for order payments. Ledger fan-out.                                                                         | Opus   |
 | #32 | `feat/order-management`    | `apps/web /orders`, `/orders/[orderId]`, `/seller/dashboard/orders`. `apps/admin /orders`, `/checkout-sessions/[sessionId]`, `/payouts`. Seller tracking. Buyer confirm-delivery. Admin payout record creation. Migration 0012: `platform_config` seeds (`order_auto_complete_days`, `order_auto_delivered_days`). | Sonnet |
 | #33 | `feat/notifications-email` | Real email sending (SendGrid/Postmark via SMTP). Wire all `console.log` stubs across Stage 4 + Stage 5. `OrderAutoCompleteJob`. Update `.env.example` with new vars.                                                                                                                                               | Sonnet |
 
