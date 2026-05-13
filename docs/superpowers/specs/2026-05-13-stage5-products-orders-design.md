@@ -28,26 +28,26 @@ Stage 5 delivers the core marketplace transaction layer: sellers list products, 
 
 ## 2. Locked Decisions
 
-| Decision                 | Value                                                                                                                                                                                                                                                                                                   |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Currency                 | MYR only. All amounts stored as `bigint` sen. Never floats.                                                                                                                                                                                                                                             |
-| PSP                      | HitPay only. Order core tables are PSP-agnostic; HitPay identity in provider metadata columns.                                                                                                                                                                                                          |
-| Commission basis         | Net-of-fees (consistent with Stage 4). `net_catalog = discounted_subtotal − catalog_psp_fee`. Regular orders: BOMY = `net_catalog × 25%`; Seller = `net_catalog × 75% + shipping_fee − shipping_psp_fee`.                                                                                               |
-| Shipping                 | Seller-set flat rate per order. Snapshotted in sen on checkout_session_stores and order. No commission on shipping.                                                                                                                                                                                     |
-| Stock                    | `stock_count` on `product_variants` = available purchasable quantity. Atomically decremented at checkout initiation; restored on expiry/failure. No separate reservation math on reads.                                                                                                                 |
-| Inventory reservation    | At checkout initiation (not add-to-cart). 30-minute expiry. 5-minute grace before expiry job releases.                                                                                                                                                                                                  |
-| Voucher settlement       | Buyer pays discounted total (`catalog_price − voucher_value`). BOMY funds the voucher from its 25% cut (can go net-negative). Seller payout is seller-neutral (based on discounted_subtotal, unaffected by platform voucher). Voucher reserved at checkout initiation; claimed at payment confirmation. |
-| Voucher / brand discount | Mutually exclusive per checkout session. `NOT (voucher_discount_sen > 0 AND brand_discount_total_sen > 0)` enforced by DB CHECK.                                                                                                                                                                        |
-| Cart / checkout model    | Multi-seller cart. Single HitPay payment per `checkout_session`. One `order` per seller created after payment confirmation via parent `checkout_session`.                                                                                                                                               |
-| PSP fee split            | `catalog_psp_fee = psp_fee_allocated × discounted_subtotal / (discounted_subtotal + shipping_fee)`. `shipping_psp_fee = psp_fee_allocated − catalog_psp_fee`. Integer arithmetic; last store absorbs remainder.                                                                                         |
-| Rounding                 | All fee/voucher/commission allocations use integer sen math, deterministic iteration order (ascending store_id), last store absorbs remainder. Rounding always absorbed into `bomy_commission_sen`.                                                                                                     |
-| Payout                   | Admin-triggered manual payout record creation only (no HitPay Transfers call until seller KYB/bank fields exist). Manual transfer tracked via `manual_ref`.                                                                                                                                             |
-| Order states             | Separate payment state (`order_payment_status`) and fulfilment state (`order_fulfilment_status`).                                                                                                                                                                                                       |
-| Fulfilment flow          | `processing → shipped → delivered → completed`. Buyer/seller mark delivered. Auto-complete from `delivered_at + order_auto_complete_days`. Fallback: auto-mark `delivered` from `shipped_at + order_auto_delivered_days`.                                                                               |
-| Refunds                  | Schema hooks only (`refund_requested_at`, `refunded_at`, `refund_amount_sen`). No refund flow. Explicit Stage 6 defer.                                                                                                                                                                                  |
-| Search                   | PostgreSQL FTS via `tsvector` column + GIN index. MeiliSearch deferred.                                                                                                                                                                                                                                 |
-| Image upload             | Server-side presigned S3 PUT URL (Next.js server action). Client uploads directly to R2/MinIO. No S3 write credentials exposed client-side.                                                                                                                                                             |
-| Admin bypass audit       | Every `withAdmin` call after PR #26 must write a durable audit row within the same transaction.                                                                                                                                                                                                         |
+| Decision                 | Value                                                                                                                                                                                                                                                                                                                                                                                 |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Currency                 | MYR only. All amounts stored as `bigint` sen. Never floats.                                                                                                                                                                                                                                                                                                                           |
+| PSP                      | HitPay only. Order core tables are PSP-agnostic; HitPay identity in provider metadata columns.                                                                                                                                                                                                                                                                                        |
+| Commission basis         | Net-of-fees (consistent with Stage 4). `net_catalog = discounted_subtotal − catalog_psp_fee`. Rate = `regular_order_commission_pct` from `platform_config` (default 25). BOMY = `net_catalog − seller_share − voucher_contribution`; Seller = `net_catalog × (100−pct)/100 + shipping_fee − shipping_psp_fee` (integer floor). Applied rate snapshot on `orders.bomy_commission_pct`. |
+| Shipping                 | Seller-set flat rate per order. Snapshotted in sen on checkout_session_stores and order. No commission on shipping.                                                                                                                                                                                                                                                                   |
+| Stock                    | `stock_count` on `product_variants` = available purchasable quantity. Atomically decremented at checkout initiation; restored on expiry/failure. No separate reservation math on reads.                                                                                                                                                                                               |
+| Inventory reservation    | At checkout initiation (not add-to-cart). 30-minute expiry. 5-minute grace before expiry job releases.                                                                                                                                                                                                                                                                                |
+| Voucher settlement       | Buyer pays discounted total (`catalog_price − voucher_value`). BOMY funds the voucher from its commission share (can go net-negative). Seller payout is seller-neutral (based on discounted_subtotal, unaffected by platform voucher). Voucher reserved at checkout initiation; claimed at payment confirmation.                                                                      |
+| Voucher / brand discount | Mutually exclusive per checkout session. `NOT (voucher_discount_sen > 0 AND brand_discount_total_sen > 0)` enforced by DB CHECK.                                                                                                                                                                                                                                                      |
+| Cart / checkout model    | Multi-seller cart. Single HitPay payment per `checkout_session`. One `order` per seller created after payment confirmation via parent `checkout_session`.                                                                                                                                                                                                                             |
+| PSP fee split            | `catalog_psp_fee = psp_fee_allocated × discounted_subtotal / (discounted_subtotal + shipping_fee)`. `shipping_psp_fee = psp_fee_allocated − catalog_psp_fee`. Integer arithmetic; last store absorbs remainder.                                                                                                                                                                       |
+| Rounding                 | All fee/voucher/commission allocations use integer sen math, deterministic iteration order (ascending store_id), last store absorbs remainder. Rounding always absorbed into `bomy_commission_sen`.                                                                                                                                                                                   |
+| Payout                   | Admin-triggered manual payout record creation only (no HitPay Transfers call until seller KYB/bank fields exist). Manual transfer tracked via `manual_ref`.                                                                                                                                                                                                                           |
+| Order states             | Separate payment state (`order_payment_status`) and fulfilment state (`order_fulfilment_status`).                                                                                                                                                                                                                                                                                     |
+| Fulfilment flow          | `processing → shipped → delivered → completed`. Buyer/seller mark delivered. Auto-complete from `delivered_at + order_auto_complete_days`. Fallback: auto-mark `delivered` from `shipped_at + order_auto_delivered_days`.                                                                                                                                                             |
+| Refunds                  | Schema hooks only (`refund_requested_at`, `refunded_at`, `refund_amount_sen`). No refund flow. Explicit Stage 6 defer.                                                                                                                                                                                                                                                                |
+| Search                   | PostgreSQL FTS via `tsvector` column + GIN index. MeiliSearch deferred.                                                                                                                                                                                                                                                                                                               |
+| Image upload             | Server-side presigned S3 PUT URL (Next.js server action). Client uploads directly to R2/MinIO. No S3 write credentials exposed client-side.                                                                                                                                                                                                                                           |
+| Admin bypass audit       | Every `withAdmin` call after PR #26 must write a durable audit row within the same transaction.                                                                                                                                                                                                                                                                                       |
 
 ---
 
@@ -199,6 +199,7 @@ Also modifies existing `vouchers` table (migration 0010, after `checkout_session
 CHECKs:
 
 - `NOT (voucher_discount_sen > 0 AND brand_discount_total_sen > 0)` (mutual exclusion)
+- `total_buyer_pays_sen = total_catalog_sen + total_shipping_sen − voucher_discount_sen − brand_discount_total_sen` (derived field equality)
 - `total_buyer_pays_sen > 0` (cannot initiate a zero-amount HitPay payment)
 - `voucher_discount_sen >= 0`
 - `brand_discount_total_sen >= 0`
@@ -226,6 +227,7 @@ Indexes: unique on `psp_payment_request_id` WHERE NOT NULL; unique on `psp_payme
 | brand_discount_sen  | bigint NOT NULL default 0            | Applied discount for this line (from buyer's brand subscription) |
 | created_at          | timestamptz NOT NULL defaultNow      |                                                                  |
 
+CHECKs: `quantity > 0`, `line_total_sen = quantity * unit_price_sen`.
 RLS: user sees own (via session join); `bomy_admin/ops` see all.
 
 #### `checkout_session_stores`
@@ -244,7 +246,7 @@ RLS: user sees own (via session join); `bomy_admin/ops` see all.
 | psp_fee_allocated_sen    | bigint NOT NULL default 0            | Updated by webhook when PSP fee is known.             |
 
 UNIQUE on `(checkout_session_id, store_id)`.
-CHECKs: `retail_subtotal_sen >= 0`, `shipping_fee_sen >= 0`, `brand_discount_sen >= 0`, `brand_discount_sen <= retail_subtotal_sen`, `discounted_subtotal_sen >= 0`, `voucher_contribution_sen >= 0`.
+CHECKs: `retail_subtotal_sen >= 0`, `shipping_fee_sen >= 0`, `brand_discount_sen >= 0`, `brand_discount_sen <= retail_subtotal_sen`, `discounted_subtotal_sen = retail_subtotal_sen − brand_discount_sen`, `discounted_subtotal_sen >= 0`, `voucher_contribution_sen >= 0`.
 Computed at checkout initiation; read by webhook for deterministic order fan-out.
 
 #### `inventory_reservations`
@@ -273,38 +275,40 @@ Adds `processed_webhook_events` (idempotency guard shared across all HitPay webh
 
 #### `orders`
 
-| Column                   | Type                                                  | Notes                                                           |
-| ------------------------ | ----------------------------------------------------- | --------------------------------------------------------------- |
-| id                       | uuid PK                                               |                                                                 |
-| checkout_session_id      | uuid NOT NULL → checkout_sessions                     |                                                                 |
-| store_id                 | uuid NOT NULL → stores                                |                                                                 |
-| buyer_id                 | uuid NOT NULL → users                                 |                                                                 |
-| currency                 | currency_code NOT NULL default 'MYR'                  |                                                                 |
-| shipping_address         | jsonb NOT NULL                                        | Copied from checkout_session at creation                        |
-| shipping_fee_sen         | bigint NOT NULL                                       | Copied from checkout_session_stores                             |
-| retail_subtotal_sen      | bigint NOT NULL                                       |                                                                 |
-| brand_discount_sen       | bigint NOT NULL default 0                             |                                                                 |
-| discounted_subtotal_sen  | bigint NOT NULL                                       | `retail_subtotal_sen − brand_discount_sen`                      |
-| voucher_contribution_sen | bigint NOT NULL default 0                             | Reporting only — not a ledger leg                               |
-| psp_fee_allocated_sen    | bigint NOT NULL default 0                             | Set by webhook                                                  |
-| bomy_commission_sen      | bigint NOT NULL                                       | Net after voucher; can be negative. Absorbs rounding remainder. |
-| seller_payout_sen        | bigint NOT NULL                                       |                                                                 |
-| payment_status           | order_payment_status NOT NULL default 'pending'       |                                                                 |
-| fulfilment_status        | order_fulfilment_status NOT NULL default 'processing' |                                                                 |
-| carrier                  | text nullable                                         |                                                                 |
-| tracking_number          | text nullable                                         |                                                                 |
-| shipped_at               | timestamptz nullable                                  |                                                                 |
-| delivered_at             | timestamptz nullable                                  |                                                                 |
-| completed_at             | timestamptz nullable                                  |                                                                 |
-| refund_requested_at      | timestamptz nullable                                  | Schema hook only — Stage 6 flow                                 |
-| refunded_at              | timestamptz nullable                                  |                                                                 |
-| refund_amount_sen        | bigint nullable                                       | Allows partial refunds when flow is built                       |
-| created_at               | timestamptz NOT NULL defaultNow                       |                                                                 |
-| updated_at               | timestamptz NOT NULL defaultNow                       |                                                                 |
+| Column                   | Type                                                  | Notes                                                                                        |
+| ------------------------ | ----------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| id                       | uuid PK                                               |                                                                                              |
+| checkout_session_id      | uuid NOT NULL → checkout_sessions                     |                                                                                              |
+| store_id                 | uuid NOT NULL → stores                                |                                                                                              |
+| buyer_id                 | uuid NOT NULL → users                                 |                                                                                              |
+| currency                 | currency_code NOT NULL default 'MYR'                  |                                                                                              |
+| shipping_address         | jsonb NOT NULL                                        | Copied from checkout_session at creation                                                     |
+| shipping_fee_sen         | bigint NOT NULL                                       | Copied from checkout_session_stores                                                          |
+| retail_subtotal_sen      | bigint NOT NULL                                       |                                                                                              |
+| brand_discount_sen       | bigint NOT NULL default 0                             |                                                                                              |
+| discounted_subtotal_sen  | bigint NOT NULL                                       | `retail_subtotal_sen − brand_discount_sen`                                                   |
+| voucher_contribution_sen | bigint NOT NULL default 0                             | Reporting only — not a ledger leg                                                            |
+| psp_fee_allocated_sen    | bigint NOT NULL default 0                             | Set by webhook                                                                               |
+| bomy_commission_sen      | bigint NOT NULL                                       | Net after voucher; can be negative. Absorbs rounding remainder.                              |
+| bomy_commission_pct      | integer NOT NULL                                      | Snapshot of `regular_order_commission_pct` from platform_config at webhook time (default 25) |
+| seller_payout_sen        | bigint NOT NULL                                       |                                                                                              |
+| payment_status           | order_payment_status NOT NULL default 'pending'       |                                                                                              |
+| fulfilment_status        | order_fulfilment_status NOT NULL default 'processing' |                                                                                              |
+| carrier                  | text nullable                                         |                                                                                              |
+| tracking_number          | text nullable                                         |                                                                                              |
+| shipped_at               | timestamptz nullable                                  |                                                                                              |
+| delivered_at             | timestamptz nullable                                  |                                                                                              |
+| completed_at             | timestamptz nullable                                  |                                                                                              |
+| refund_requested_at      | timestamptz nullable                                  | Schema hook only — Stage 6 flow                                                              |
+| refunded_at              | timestamptz nullable                                  |                                                                                              |
+| refund_amount_sen        | bigint nullable                                       | Allows partial refunds when flow is built                                                    |
+| created_at               | timestamptz NOT NULL defaultNow                       |                                                                                              |
+| updated_at               | timestamptz NOT NULL defaultNow                       |                                                                                              |
 
 CHECKs:
 
 - `seller_payout_sen + bomy_commission_sen + psp_fee_allocated_sen = discounted_subtotal_sen + shipping_fee_sen − voucher_contribution_sen` (journal balance)
+- `discounted_subtotal_sen = retail_subtotal_sen − brand_discount_sen` (derived field equality)
 - `retail_subtotal_sen >= 0`, `shipping_fee_sen >= 0`
 - `brand_discount_sen >= 0`, `brand_discount_sen <= retail_subtotal_sen`
 - `discounted_subtotal_sen >= 0`, `voucher_contribution_sen >= 0`
@@ -371,12 +375,20 @@ Exact DB CHECK constraints to implement (implementation checklist for migrations
 
 ```sql
 CHECK (NOT (voucher_discount_sen > 0 AND brand_discount_total_sen > 0))
+CHECK (total_buyer_pays_sen = total_catalog_sen + total_shipping_sen - voucher_discount_sen - brand_discount_total_sen)
 CHECK (total_buyer_pays_sen > 0)
 CHECK (voucher_discount_sen >= 0)
 CHECK (brand_discount_total_sen >= 0)
 CHECK (total_catalog_sen >= 0)
 CHECK (total_shipping_sen >= 0)
 CHECK (voucher_discount_sen <= total_catalog_sen)
+```
+
+**`checkout_session_items` (migration 0010):**
+
+```sql
+CHECK (quantity > 0)
+CHECK (line_total_sen = quantity * unit_price_sen)
 ```
 
 **`checkout_session_stores` (migration 0010):**
@@ -386,6 +398,7 @@ CHECK (retail_subtotal_sen >= 0)
 CHECK (shipping_fee_sen >= 0)
 CHECK (brand_discount_sen >= 0)
 CHECK (brand_discount_sen <= retail_subtotal_sen)
+CHECK (discounted_subtotal_sen = retail_subtotal_sen - brand_discount_sen)
 CHECK (discounted_subtotal_sen >= 0)
 CHECK (voucher_contribution_sen >= 0)
 ```
@@ -395,6 +408,7 @@ CHECK (voucher_contribution_sen >= 0)
 ```sql
 CHECK (seller_payout_sen + bomy_commission_sen + psp_fee_allocated_sen
        = discounted_subtotal_sen + shipping_fee_sen - voucher_contribution_sen)
+CHECK (discounted_subtotal_sen = retail_subtotal_sen - brand_discount_sen)
 CHECK (retail_subtotal_sen >= 0)
 CHECK (shipping_fee_sen >= 0)
 CHECK (brand_discount_sen >= 0)
@@ -465,22 +479,22 @@ Distinguishing order payments from subscription payments: look up `psp_payment_r
    ON CONFLICT (psp_provider, psp_event_id) DO NOTHING
    RETURNING id
    ```
-   If RETURNING yields 0 rows → event already processed. Run consistency checks:
-   - Verify `checkout_session.status IN ('paid', 'payment_review_required', 'payment_review_resolved')`
-   - Verify `COUNT(orders WHERE checkout_session_id) = COUNT(checkout_session_stores WHERE checkout_session_id)` (one order per seller)
-   - Verify all `inventory_reservations.status = 'converted'`
-   - Verify ledger credit row exists for `checkout_session_id` (idempotency_key = `checkout:{session_id}:credit`)
-   - If all pass → commit, return 200. If any fail → ops alert, commit, return 200 (do not re-process; flag for manual review).
+   If RETURNING yields 0 rows → event already processed. Consistency profile depends on session status:
+   - **`status = 'paid'` or `'payment_review_resolved'`** (full fan-out completed): verify `COUNT(orders) = COUNT(checkout_session_stores)`; verify all `inventory_reservations.status = 'converted'`; verify ledger credit row exists (`idempotency_key = 'checkout:{session_id}:credit'`). If any fail → ops alert, commit, return 200.
+   - **`status = 'payment_review_required'`** (partial state by design — amount mismatch may have halted before fan-out): no order/reservation/ledger checks. commit, return 200.
+   - Any other status → ops alert, commit, return 200 (unexpected; flag for manual review).
 3. Validate payload amount matches `checkout_session.total_buyer_pays_sen`. If mismatch → set session `payment_review_required`, ops alert, commit, return 200. (Idempotency row already inserted in step 2 — duplicate delivery will hit the 0-rows path and pass consistency checks.)
 4. If `checkout_session.status ≠ 'pending_payment'` → commit, return 200
 5. Set `checkout_session.psp_fee_sen` from webhook payload
-6. **Fan-out** — for each `checkout_session_stores` row (sorted ascending by `store_id` for determinism):
+6. **Fan-out** — read `regular_order_commission_pct` from `platform_config` (default 25 if absent). For each `checkout_session_stores` row (sorted ascending by `store_id` for determinism):
    - Compute `psp_fee_allocated_sen` = `psp_fee_sen × (discounted_subtotal_sen + shipping_fee_sen − voucher_contribution_sen) / total_buyer_pays_sen` (integer; last store absorbs remainder)
    - Compute `catalog_psp_fee = psp_fee_allocated × discounted_subtotal / (discounted_subtotal + shipping_fee)` (integer)
    - Compute `shipping_psp_fee = psp_fee_allocated − catalog_psp_fee`
-   - Compute `seller_payout_sen = (discounted_subtotal_sen − catalog_psp_fee) × 75% + shipping_fee_sen − shipping_psp_fee` (integer; remainder to `bomy_commission_sen`)
-   - Compute `bomy_commission_sen = (discounted_subtotal_sen − catalog_psp_fee) × 25% − voucher_contribution_sen` (absorbs rounding)
-   - Insert `order` (payment_status = `paid`, fulfilment_status = `processing`)
+   - Let `pct = regular_order_commission_pct` (e.g. 25), `net_catalog = discounted_subtotal_sen − catalog_psp_fee`
+   - Compute `seller_share_sen = net_catalog × (100 − pct) / 100` (integer floor — seller gets clean share)
+   - Compute `seller_payout_sen = seller_share_sen + shipping_fee_sen − shipping_psp_fee`
+   - Compute `bomy_commission_sen = net_catalog − seller_share_sen − voucher_contribution_sen` (absorbs integer rounding remainder; can be negative if voucher exceeds BOMY share)
+   - Insert `order` (payment_status = `paid`, fulfilment_status = `processing`, `bomy_commission_pct = pct`)
    - Insert `order_items` from `checkout_session_items WHERE store_id`
 7. Write ledger — all legs share `transaction_id = checkout_session.id`; each leg has a unique per-leg `idempotency_key`:
    - **One credit** `+total_buyer_pays_sen`, `regular_order`, ref = `checkout_session_id`, idempotency_key = `checkout:{session_id}:credit`
@@ -504,7 +518,7 @@ Same pattern as membership success pages. Polls `checkout_session.status` every 
 ### 4.5 Phase 5 — Expiry Job (`InventoryReservationExpiryJob`, every 10 min, ships in PR #30)
 
 1. Query `inventory_reservations WHERE status = 'active' AND expires_at < now() − interval '5 minutes'`
-2. For each: check `checkout_session.status ≠ 'paid'` — skip if paid (webhook delayed)
+2. For each: check `checkout_session.status NOT IN ('paid', 'payment_review_required', 'payment_review_resolved')` — skip if any post-payment state (webhook delayed, or session in admin review)
 3. Atomically transition reservation `active → expired`:
    ```sql
    UPDATE inventory_reservations
@@ -515,7 +529,7 @@ Same pattern as membership success pages. Polls `checkout_session.status` every 
    Only increment stock for rows that transitioned (0 rows returned = already handled)
 4. `UPDATE product_variants SET stock_count = stock_count + qty WHERE id = $variantId`
 5. Release voucher: `UPDATE vouchers SET reserved_checkout_session_id = NULL, reserved_at = NULL WHERE reserved_checkout_session_id = $sessionId AND redeemed_at IS NULL`
-6. If all reservations for session are expired/released: mark `checkout_session.status = 'expired'`
+6. If all reservations for session are expired/released: mark `checkout_session.status = 'expired'` only if current status is `pending_payment` (never overwrite post-payment states)
 7. Also clean up: sessions with `status = 'pending_payment' AND psp_payment_request_id IS NULL AND expires_at + interval '5 minutes' < now()` → mark `cancelled`, run same release path
 
 ---
@@ -648,7 +662,7 @@ Existing `S3_ENDPOINT / S3_ACCESS_KEY / S3_SECRET_KEY / S3_BUCKET` and `SMTP_HOS
 | #28 | `feat/seller-product-crud` | `apps/web /seller/dashboard/products` — create, edit, archive products + variants + images. Server actions via `withTenant`. Presigned upload via `getPresignedUploadUrl`.                                                                                                                                         | Sonnet |
 | #29 | `feat/storefront`          | `apps/web /products`, `/products/[storeSlug]/[productSlug]`, `/brands/[slug]` store page. FTS search. Category filter. Add-to-cart (client state).                                                                                                                                                                 | Sonnet |
 | #30 | `feat/cart-checkout`       | Migration 0010: checkout session tables + inventory enums + voucher field additions. Cart UI. Checkout initiation flow (Phases 1 + 1b). `InventoryReservationExpiryJob`. Buyer success/cancelled pages.                                                                                                            | Opus   |
-| #31 | `feat/order-webhook`       | Migration 0011: order tables + order enums + `processed_webhook_events` + voucher FK migration. Extend `POST /webhooks/hitpay` for order payments. Ledger fan-out.                                                                                                                                                 | Opus   |
+| #31 | `feat/order-webhook`       | Migration 0011: order tables + order enums + `processed_webhook_events`. Seed `regular_order_commission_pct = 25` into `platform_config`. Extend `POST /webhooks/hitpay` for order payments. Ledger fan-out.                                                                                                       | Opus   |
 | #32 | `feat/order-management`    | `apps/web /orders`, `/orders/[orderId]`, `/seller/dashboard/orders`. `apps/admin /orders`, `/checkout-sessions/[sessionId]`, `/payouts`. Seller tracking. Buyer confirm-delivery. Admin payout record creation. Migration 0012: `platform_config` seeds (`order_auto_complete_days`, `order_auto_delivered_days`). | Sonnet |
 | #33 | `feat/notifications-email` | Real email sending (SendGrid/Postmark via SMTP). Wire all `console.log` stubs across Stage 4 + Stage 5. `OrderAutoCompleteJob`. Update `.env.example` with new vars.                                                                                                                                               | Sonnet |
 
@@ -657,7 +671,7 @@ Existing `S3_ENDPOINT / S3_ACCESS_KEY / S3_SECRET_KEY / S3_BUCKET` and `SMTP_HOS
 ## 12. Hard Constraints (must not violate)
 
 1. **All monetary values as `bigint` (sen).** Never floats.
-2. **Commission is net-of-fees.** `net_catalog = discounted_subtotal − catalog_psp_fee`. Seller = `net_catalog × 75% + shipping − shipping_psp_fee`. BOMY = `net_catalog × 25% − voucher_contribution`. Consistent with Stage 4 locked rule.
+2. **Commission is net-of-fees and admin-configurable.** `net_catalog = discounted_subtotal − catalog_psp_fee`. `pct = regular_order_commission_pct` from `platform_config` (default 25, seeded in migration 0011). Seller = `net_catalog × (100−pct)/100 + shipping − shipping_psp_fee` (integer floor). BOMY = `net_catalog − seller_share − voucher_contribution` (absorbs rounding; can be negative). Consistent with Stage 4 locked rule. Applied rate snapshot on `orders.bomy_commission_pct`.
 3. **Integer sen math throughout.** All fee/voucher/commission allocations use integer arithmetic. Deterministic iteration order (ascending `store_id`). Last store absorbs rounding remainder into `bomy_commission_sen`.
 4. **Order CHECK enforces journal balance.** `seller_payout_sen + bomy_commission_sen + psp_fee_allocated_sen = discounted_subtotal_sen + shipping_fee_sen − voucher_contribution_sen` on every order row.
 5. **Webhook idempotency via `processed_webhook_events`.** Insert at transaction start; unique constraint is the gate. On conflict: verify full consistency (session status, order count, reservations, ledger) before returning 200.
