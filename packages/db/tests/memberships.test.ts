@@ -50,11 +50,15 @@ describe.skipIf(!shouldRun)("Stage 4 — platform_config seeds", () => {
 
   it("seeds the 6 voucher + membership keys", async () => {
     const adminId = randomUUID()
-    await withAdmin(handle.db, { userId: adminId, reason: "seed admin" }, async (tx) => {
-      await tx
-        .insert(users)
-        .values({ id: adminId, email: `${adminId}@test.bomy`, role: "bomy_admin" })
-    })
+    await withAdmin(
+      handle.db,
+      { userId: "00000000-0000-0000-0000-000000000001", reason: "seed admin" },
+      async (tx) => {
+        await tx
+          .insert(users)
+          .values({ id: adminId, email: `${adminId}@test.bomy`, role: "bomy_admin" })
+      },
+    )
 
     const expectedKeys = [
       "platform_membership_price_myr_sen",
@@ -98,31 +102,35 @@ describe.skipIf(!shouldRun)("Stage 4 — member_subscriptions RLS + constraints"
     const subA = randomUUID()
     const subB = randomUUID()
 
-    await withAdmin(handle.db, { userId: adminId, reason: "seed members" }, async (tx) => {
-      await tx.insert(users).values([
-        { id: adminId, email: `${adminId}@t`, role: "bomy_admin" },
-        { id: memberA, email: `${memberA}@t`, role: "buyer" },
-        { id: memberB, email: `${memberB}@t`, role: "buyer" },
-      ])
-      await tx.insert(memberSubscriptions).values([
-        {
-          id: subA,
-          userId: memberA,
-          status: "active",
-          priceMyrSen: 7500n,
-          periodStart: new Date(),
-          periodEnd: sixWeeksFromNow(),
-        },
-        {
-          id: subB,
-          userId: memberB,
-          status: "active",
-          priceMyrSen: 7500n,
-          periodStart: new Date(),
-          periodEnd: sixWeeksFromNow(),
-        },
-      ])
-    })
+    await withAdmin(
+      handle.db,
+      { userId: "00000000-0000-0000-0000-000000000001", reason: "seed members" },
+      async (tx) => {
+        await tx.insert(users).values([
+          { id: adminId, email: `${adminId}@t`, role: "bomy_admin" },
+          { id: memberA, email: `${memberA}@t`, role: "buyer" },
+          { id: memberB, email: `${memberB}@t`, role: "buyer" },
+        ])
+        await tx.insert(memberSubscriptions).values([
+          {
+            id: subA,
+            userId: memberA,
+            status: "active",
+            priceMyrSen: 7500n,
+            periodStart: new Date(),
+            periodEnd: sixWeeksFromNow(),
+          },
+          {
+            id: subB,
+            userId: memberB,
+            status: "active",
+            priceMyrSen: 7500n,
+            periodStart: new Date(),
+            periodEnd: sixWeeksFromNow(),
+          },
+        ])
+      },
+    )
 
     const aView = await withTenant(handle.db, { userId: memberA, userRole: "buyer" }, async (tx) =>
       tx.select({ id: memberSubscriptions.id }).from(memberSubscriptions),
@@ -135,19 +143,23 @@ describe.skipIf(!shouldRun)("Stage 4 — member_subscriptions RLS + constraints"
   it("DB rejects a second active membership for the same user (partial unique index)", async () => {
     const adminId = randomUUID()
     const member = randomUUID()
-    await withAdmin(handle.db, { userId: adminId, reason: "seed user" }, async (tx) => {
-      await tx.insert(users).values([
-        { id: adminId, email: `${adminId}@t`, role: "bomy_admin" },
-        { id: member, email: `${member}@t`, role: "buyer" },
-      ])
-      await tx.insert(memberSubscriptions).values({
-        userId: member,
-        status: "active",
-        priceMyrSen: 7500n,
-        periodStart: new Date(),
-        periodEnd: sixWeeksFromNow(),
-      })
-    })
+    await withAdmin(
+      handle.db,
+      { userId: "00000000-0000-0000-0000-000000000001", reason: "seed user" },
+      async (tx) => {
+        await tx.insert(users).values([
+          { id: adminId, email: `${adminId}@t`, role: "bomy_admin" },
+          { id: member, email: `${member}@t`, role: "buyer" },
+        ])
+        await tx.insert(memberSubscriptions).values({
+          userId: member,
+          status: "active",
+          priceMyrSen: 7500n,
+          periodStart: new Date(),
+          periodEnd: sixWeeksFromNow(),
+        })
+      },
+    )
 
     await expect(
       withAdmin(handle.db, { userId: adminId, reason: "double active" }, async (tx) => {
@@ -165,28 +177,32 @@ describe.skipIf(!shouldRun)("Stage 4 — member_subscriptions RLS + constraints"
   it("an expired + a new active membership for the same user is allowed", async () => {
     const adminId = randomUUID()
     const member = randomUUID()
-    await withAdmin(handle.db, { userId: adminId, reason: "seed user" }, async (tx) => {
-      await tx.insert(users).values([
-        { id: adminId, email: `${adminId}@t`, role: "bomy_admin" },
-        { id: member, email: `${member}@t`, role: "buyer" },
-      ])
-      await tx.insert(memberSubscriptions).values([
-        {
-          userId: member,
-          status: "expired",
-          priceMyrSen: 7500n,
-          periodStart: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000),
-          periodEnd: new Date(Date.now() - 1),
-        },
-        {
-          userId: member,
-          status: "active",
-          priceMyrSen: 7500n,
-          periodStart: new Date(),
-          periodEnd: sixWeeksFromNow(),
-        },
-      ])
-    })
+    await withAdmin(
+      handle.db,
+      { userId: "00000000-0000-0000-0000-000000000001", reason: "seed user" },
+      async (tx) => {
+        await tx.insert(users).values([
+          { id: adminId, email: `${adminId}@t`, role: "bomy_admin" },
+          { id: member, email: `${member}@t`, role: "buyer" },
+        ])
+        await tx.insert(memberSubscriptions).values([
+          {
+            userId: member,
+            status: "expired",
+            priceMyrSen: 7500n,
+            periodStart: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000),
+            periodEnd: new Date(Date.now() - 1),
+          },
+          {
+            userId: member,
+            status: "active",
+            priceMyrSen: 7500n,
+            periodStart: new Date(),
+            periodEnd: sixWeeksFromNow(),
+          },
+        ])
+      },
+    )
     // No throw → pass.
     expect(true).toBe(true)
   })
@@ -209,38 +225,42 @@ describe.skipIf(!shouldRun)("Stage 4 — brand_subscription_plans RLS + checks",
     const activePlanId = randomUUID()
     const inactivePlanId = randomUUID()
 
-    await withAdmin(handle.db, { userId: adminId, reason: "seed plans" }, async (tx) => {
-      await tx.insert(users).values([
-        { id: adminId, email: `${adminId}@t`, role: "bomy_admin" },
-        { id: seller, email: `${seller}@t`, role: "seller_owner" },
-        { id: otherBuyer, email: `${otherBuyer}@t`, role: "buyer" },
-      ])
-      await tx.insert(stores).values({
-        id: storeId,
-        ownerId: seller,
-        name: "Plan Store",
-        slug: `plan-${storeId}`,
-        status: "active",
-      })
-      await tx.insert(brandSubscriptionPlans).values([
-        {
-          id: activePlanId,
-          storeId,
-          termMonths: 3,
-          priceMyrSen: 3000n,
-          discountPct: 5,
-          isActive: true,
-        },
-        {
-          id: inactivePlanId,
-          storeId,
-          termMonths: 6,
-          priceMyrSen: 5000n,
-          discountPct: 8,
-          isActive: false,
-        },
-      ])
-    })
+    await withAdmin(
+      handle.db,
+      { userId: "00000000-0000-0000-0000-000000000001", reason: "seed plans" },
+      async (tx) => {
+        await tx.insert(users).values([
+          { id: adminId, email: `${adminId}@t`, role: "bomy_admin" },
+          { id: seller, email: `${seller}@t`, role: "seller_owner" },
+          { id: otherBuyer, email: `${otherBuyer}@t`, role: "buyer" },
+        ])
+        await tx.insert(stores).values({
+          id: storeId,
+          ownerId: seller,
+          name: "Plan Store",
+          slug: `plan-${storeId}`,
+          status: "active",
+        })
+        await tx.insert(brandSubscriptionPlans).values([
+          {
+            id: activePlanId,
+            storeId,
+            termMonths: 3,
+            priceMyrSen: 3000n,
+            discountPct: 5,
+            isActive: true,
+          },
+          {
+            id: inactivePlanId,
+            storeId,
+            termMonths: 6,
+            priceMyrSen: 5000n,
+            discountPct: 8,
+            isActive: false,
+          },
+        ])
+      },
+    )
 
     // Other buyer: sees only the active plan.
     const buyerView = await withTenant(
@@ -276,19 +296,23 @@ describe.skipIf(!shouldRun)("Stage 4 — brand_subscription_plans RLS + checks",
     const seller = randomUUID()
     const storeId = randomUUID()
 
-    await withAdmin(handle.db, { userId: adminId, reason: "seed" }, async (tx) => {
-      await tx.insert(users).values([
-        { id: adminId, email: `${adminId}@t`, role: "bomy_admin" },
-        { id: seller, email: `${seller}@t`, role: "seller_owner" },
-      ])
-      await tx.insert(stores).values({
-        id: storeId,
-        ownerId: seller,
-        name: "S",
-        slug: `s-${storeId}`,
-        status: "active",
-      })
-    })
+    await withAdmin(
+      handle.db,
+      { userId: "00000000-0000-0000-0000-000000000001", reason: "seed" },
+      async (tx) => {
+        await tx.insert(users).values([
+          { id: adminId, email: `${adminId}@t`, role: "bomy_admin" },
+          { id: seller, email: `${seller}@t`, role: "seller_owner" },
+        ])
+        await tx.insert(stores).values({
+          id: storeId,
+          ownerId: seller,
+          name: "S",
+          slug: `s-${storeId}`,
+          status: "active",
+        })
+      },
+    )
 
     await expect(
       withAdmin(handle.db, { userId: adminId, reason: "bad term" }, async (tx) => {
@@ -307,19 +331,23 @@ describe.skipIf(!shouldRun)("Stage 4 — brand_subscription_plans RLS + checks",
     const seller = randomUUID()
     const storeId = randomUUID()
 
-    await withAdmin(handle.db, { userId: adminId, reason: "seed" }, async (tx) => {
-      await tx.insert(users).values([
-        { id: adminId, email: `${adminId}@t`, role: "bomy_admin" },
-        { id: seller, email: `${seller}@t`, role: "seller_owner" },
-      ])
-      await tx.insert(stores).values({
-        id: storeId,
-        ownerId: seller,
-        name: "S",
-        slug: `s-${storeId}`,
-        status: "active",
-      })
-    })
+    await withAdmin(
+      handle.db,
+      { userId: "00000000-0000-0000-0000-000000000001", reason: "seed" },
+      async (tx) => {
+        await tx.insert(users).values([
+          { id: adminId, email: `${adminId}@t`, role: "bomy_admin" },
+          { id: seller, email: `${seller}@t`, role: "seller_owner" },
+        ])
+        await tx.insert(stores).values({
+          id: storeId,
+          ownerId: seller,
+          name: "S",
+          slug: `s-${storeId}`,
+          status: "active",
+        })
+      },
+    )
 
     await expect(
       withAdmin(handle.db, { userId: adminId, reason: "bad pct" }, async (tx) => {
@@ -352,45 +380,49 @@ describe.skipIf(!shouldRun)("Stage 4 — brand_subscriptions RLS + split check",
     const planId = randomUUID()
     const subId = randomUUID()
 
-    await withAdmin(handle.db, { userId: adminId, reason: "seed" }, async (tx) => {
-      await tx.insert(users).values([
-        { id: adminId, email: `${adminId}@t`, role: "bomy_admin" },
-        { id: seller, email: `${seller}@t`, role: "seller_owner" },
-        { id: buyer, email: `${buyer}@t`, role: "buyer" },
-        { id: otherBuyer, email: `${otherBuyer}@t`, role: "buyer" },
-      ])
-      await tx.insert(stores).values({
-        id: storeId,
-        ownerId: seller,
-        name: "Sub Store",
-        slug: `sub-${storeId}`,
-        status: "active",
-      })
-      await tx.insert(brandSubscriptionPlans).values({
-        id: planId,
-        storeId,
-        termMonths: 3,
-        priceMyrSen: 3000n,
-        discountPct: 5,
-        isActive: true,
-      })
-      // Locked 2026-05-01: fee taken off top, then 90/10 split.
-      // price=3000, fee=100, net=2900, brand=2610, bomy=290.
-      await tx.insert(brandSubscriptions).values({
-        id: subId,
-        userId: buyer,
-        storeId,
-        planId,
-        status: "active",
-        priceMyrSen: 3000n,
-        discountPct: 5,
-        periodStart: new Date(),
-        periodEnd: sixWeeksFromNow(),
-        hitpayFeeSen: 100n,
-        bomyCommissionSen: 290n,
-        brandPayoutSen: 2610n,
-      })
-    })
+    await withAdmin(
+      handle.db,
+      { userId: "00000000-0000-0000-0000-000000000001", reason: "seed" },
+      async (tx) => {
+        await tx.insert(users).values([
+          { id: adminId, email: `${adminId}@t`, role: "bomy_admin" },
+          { id: seller, email: `${seller}@t`, role: "seller_owner" },
+          { id: buyer, email: `${buyer}@t`, role: "buyer" },
+          { id: otherBuyer, email: `${otherBuyer}@t`, role: "buyer" },
+        ])
+        await tx.insert(stores).values({
+          id: storeId,
+          ownerId: seller,
+          name: "Sub Store",
+          slug: `sub-${storeId}`,
+          status: "active",
+        })
+        await tx.insert(brandSubscriptionPlans).values({
+          id: planId,
+          storeId,
+          termMonths: 3,
+          priceMyrSen: 3000n,
+          discountPct: 5,
+          isActive: true,
+        })
+        // Locked 2026-05-01: fee taken off top, then 90/10 split.
+        // price=3000, fee=100, net=2900, brand=2610, bomy=290.
+        await tx.insert(brandSubscriptions).values({
+          id: subId,
+          userId: buyer,
+          storeId,
+          planId,
+          status: "active",
+          priceMyrSen: 3000n,
+          discountPct: 5,
+          periodStart: new Date(),
+          periodEnd: sixWeeksFromNow(),
+          hitpayFeeSen: 100n,
+          bomyCommissionSen: 290n,
+          brandPayoutSen: 2610n,
+        })
+      },
+    )
 
     const buyerView = await withTenant(
       handle.db,
@@ -421,28 +453,32 @@ describe.skipIf(!shouldRun)("Stage 4 — brand_subscriptions RLS + split check",
     const storeId = randomUUID()
     const planId = randomUUID()
 
-    await withAdmin(handle.db, { userId: adminId, reason: "seed" }, async (tx) => {
-      await tx.insert(users).values([
-        { id: adminId, email: `${adminId}@t`, role: "bomy_admin" },
-        { id: seller, email: `${seller}@t`, role: "seller_owner" },
-        { id: buyer, email: `${buyer}@t`, role: "buyer" },
-      ])
-      await tx.insert(stores).values({
-        id: storeId,
-        ownerId: seller,
-        name: "S",
-        slug: `s-${storeId}`,
-        status: "active",
-      })
-      await tx.insert(brandSubscriptionPlans).values({
-        id: planId,
-        storeId,
-        termMonths: 3,
-        priceMyrSen: 3000n,
-        discountPct: 5,
-        isActive: true,
-      })
-    })
+    await withAdmin(
+      handle.db,
+      { userId: "00000000-0000-0000-0000-000000000001", reason: "seed" },
+      async (tx) => {
+        await tx.insert(users).values([
+          { id: adminId, email: `${adminId}@t`, role: "bomy_admin" },
+          { id: seller, email: `${seller}@t`, role: "seller_owner" },
+          { id: buyer, email: `${buyer}@t`, role: "buyer" },
+        ])
+        await tx.insert(stores).values({
+          id: storeId,
+          ownerId: seller,
+          name: "S",
+          slug: `s-${storeId}`,
+          status: "active",
+        })
+        await tx.insert(brandSubscriptionPlans).values({
+          id: planId,
+          storeId,
+          termMonths: 3,
+          priceMyrSen: 3000n,
+          discountPct: 5,
+          isActive: true,
+        })
+      },
+    )
 
     await expect(
       withAdmin(handle.db, { userId: adminId, reason: "bad split" }, async (tx) => {
@@ -470,28 +506,32 @@ describe.skipIf(!shouldRun)("Stage 4 — brand_subscriptions RLS + split check",
     const storeId = randomUUID()
     const planId = randomUUID()
 
-    await withAdmin(handle.db, { userId: adminId, reason: "seed" }, async (tx) => {
-      await tx.insert(users).values([
-        { id: adminId, email: `${adminId}@t`, role: "bomy_admin" },
-        { id: seller, email: `${seller}@t`, role: "seller_owner" },
-        { id: buyer, email: `${buyer}@t`, role: "buyer" },
-      ])
-      await tx.insert(stores).values({
-        id: storeId,
-        ownerId: seller,
-        name: "S",
-        slug: `s-${storeId}`,
-        status: "active",
-      })
-      await tx.insert(brandSubscriptionPlans).values({
-        id: planId,
-        storeId,
-        termMonths: 3,
-        priceMyrSen: 3000n,
-        discountPct: 5,
-        isActive: true,
-      })
-    })
+    await withAdmin(
+      handle.db,
+      { userId: "00000000-0000-0000-0000-000000000001", reason: "seed" },
+      async (tx) => {
+        await tx.insert(users).values([
+          { id: adminId, email: `${adminId}@t`, role: "bomy_admin" },
+          { id: seller, email: `${seller}@t`, role: "seller_owner" },
+          { id: buyer, email: `${buyer}@t`, role: "buyer" },
+        ])
+        await tx.insert(stores).values({
+          id: storeId,
+          ownerId: seller,
+          name: "S",
+          slug: `s-${storeId}`,
+          status: "active",
+        })
+        await tx.insert(brandSubscriptionPlans).values({
+          id: planId,
+          storeId,
+          termMonths: 3,
+          priceMyrSen: 3000n,
+          discountPct: 5,
+          isActive: true,
+        })
+      },
+    )
 
     await expect(
       withAdmin(handle.db, { userId: adminId, reason: "active no fee" }, async (tx) => {
@@ -519,41 +559,45 @@ describe.skipIf(!shouldRun)("Stage 4 — brand_subscriptions RLS + split check",
     const storeId = randomUUID()
     const planId = randomUUID()
 
-    await withAdmin(handle.db, { userId: adminId, reason: "seed" }, async (tx) => {
-      await tx.insert(users).values([
-        { id: adminId, email: `${adminId}@t`, role: "bomy_admin" },
-        { id: seller, email: `${seller}@t`, role: "seller_owner" },
-        { id: buyer, email: `${buyer}@t`, role: "buyer" },
-      ])
-      await tx.insert(stores).values({
-        id: storeId,
-        ownerId: seller,
-        name: "S",
-        slug: `s-${storeId}`,
-        status: "active",
-      })
-      await tx.insert(brandSubscriptionPlans).values({
-        id: planId,
-        storeId,
-        termMonths: 3,
-        priceMyrSen: 3000n,
-        discountPct: 5,
-        isActive: true,
-      })
-      await tx.insert(brandSubscriptions).values({
-        userId: buyer,
-        storeId,
-        planId,
-        status: "pending",
-        priceMyrSen: 3000n,
-        discountPct: 5,
-        periodStart: new Date(),
-        periodEnd: sixWeeksFromNow(),
-        // No fee, zeroed split — webhook will populate on activation.
-        bomyCommissionSen: 0n,
-        brandPayoutSen: 0n,
-      })
-    })
+    await withAdmin(
+      handle.db,
+      { userId: "00000000-0000-0000-0000-000000000001", reason: "seed" },
+      async (tx) => {
+        await tx.insert(users).values([
+          { id: adminId, email: `${adminId}@t`, role: "bomy_admin" },
+          { id: seller, email: `${seller}@t`, role: "seller_owner" },
+          { id: buyer, email: `${buyer}@t`, role: "buyer" },
+        ])
+        await tx.insert(stores).values({
+          id: storeId,
+          ownerId: seller,
+          name: "S",
+          slug: `s-${storeId}`,
+          status: "active",
+        })
+        await tx.insert(brandSubscriptionPlans).values({
+          id: planId,
+          storeId,
+          termMonths: 3,
+          priceMyrSen: 3000n,
+          discountPct: 5,
+          isActive: true,
+        })
+        await tx.insert(brandSubscriptions).values({
+          userId: buyer,
+          storeId,
+          planId,
+          status: "pending",
+          priceMyrSen: 3000n,
+          discountPct: 5,
+          periodStart: new Date(),
+          periodEnd: sixWeeksFromNow(),
+          // No fee, zeroed split — webhook will populate on activation.
+          bomyCommissionSen: 0n,
+          brandPayoutSen: 0n,
+        })
+      },
+    )
     // No throw → pass.
     expect(true).toBe(true)
   })
@@ -571,20 +615,24 @@ describe.skipIf(!shouldRun)("Stage 4 — vouchers constraints", () => {
   it("rejects a 2nd voucher for the same user in the same issued_month", async () => {
     const adminId = randomUUID()
     const member = randomUUID()
-    await withAdmin(handle.db, { userId: adminId, reason: "seed" }, async (tx) => {
-      await tx.insert(users).values([
-        { id: adminId, email: `${adminId}@t`, role: "bomy_admin" },
-        { id: member, email: `${member}@t`, role: "buyer" },
-      ])
-      await tx.insert(vouchers).values({
-        userId: member,
-        code: `V-${randomUUID().slice(0, 8)}`,
-        type: "fixed_myr",
-        fixedAmountSen: 500n,
-        issuedMonth: "2026-05",
-        expiresAt: new Date("2026-05-31T23:59:59Z"),
-      })
-    })
+    await withAdmin(
+      handle.db,
+      { userId: "00000000-0000-0000-0000-000000000001", reason: "seed" },
+      async (tx) => {
+        await tx.insert(users).values([
+          { id: adminId, email: `${adminId}@t`, role: "bomy_admin" },
+          { id: member, email: `${member}@t`, role: "buyer" },
+        ])
+        await tx.insert(vouchers).values({
+          userId: member,
+          code: `V-${randomUUID().slice(0, 8)}`,
+          type: "fixed_myr",
+          fixedAmountSen: 500n,
+          issuedMonth: "2026-05",
+          expiresAt: new Date("2026-05-31T23:59:59Z"),
+        })
+      },
+    )
 
     await expect(
       withAdmin(handle.db, { userId: adminId, reason: "dup voucher" }, async (tx) => {
@@ -603,12 +651,16 @@ describe.skipIf(!shouldRun)("Stage 4 — vouchers constraints", () => {
   it("CHECK rejects fixed_myr voucher without fixed_amount_sen", async () => {
     const adminId = randomUUID()
     const member = randomUUID()
-    await withAdmin(handle.db, { userId: adminId, reason: "seed" }, async (tx) => {
-      await tx.insert(users).values([
-        { id: adminId, email: `${adminId}@t`, role: "bomy_admin" },
-        { id: member, email: `${member}@t`, role: "buyer" },
-      ])
-    })
+    await withAdmin(
+      handle.db,
+      { userId: "00000000-0000-0000-0000-000000000001", reason: "seed" },
+      async (tx) => {
+        await tx.insert(users).values([
+          { id: adminId, email: `${adminId}@t`, role: "bomy_admin" },
+          { id: member, email: `${member}@t`, role: "buyer" },
+        ])
+      },
+    )
 
     await expect(
       withAdmin(handle.db, { userId: adminId, reason: "bad voucher" }, async (tx) => {
@@ -626,12 +678,16 @@ describe.skipIf(!shouldRun)("Stage 4 — vouchers constraints", () => {
   it("CHECK rejects malformed issued_month", async () => {
     const adminId = randomUUID()
     const member = randomUUID()
-    await withAdmin(handle.db, { userId: adminId, reason: "seed" }, async (tx) => {
-      await tx.insert(users).values([
-        { id: adminId, email: `${adminId}@t`, role: "bomy_admin" },
-        { id: member, email: `${member}@t`, role: "buyer" },
-      ])
-    })
+    await withAdmin(
+      handle.db,
+      { userId: "00000000-0000-0000-0000-000000000001", reason: "seed" },
+      async (tx) => {
+        await tx.insert(users).values([
+          { id: adminId, email: `${adminId}@t`, role: "bomy_admin" },
+          { id: member, email: `${member}@t`, role: "buyer" },
+        ])
+      },
+    )
 
     await expect(
       withAdmin(handle.db, { userId: adminId, reason: "bad month" }, async (tx) => {
@@ -654,31 +710,35 @@ describe.skipIf(!shouldRun)("Stage 4 — vouchers constraints", () => {
     const codeA = `V-${randomUUID().slice(0, 8)}`
     const codeB = `V-${randomUUID().slice(0, 8)}`
 
-    await withAdmin(handle.db, { userId: adminId, reason: "seed" }, async (tx) => {
-      await tx.insert(users).values([
-        { id: adminId, email: `${adminId}@t`, role: "bomy_admin" },
-        { id: memberA, email: `${memberA}@t`, role: "buyer" },
-        { id: memberB, email: `${memberB}@t`, role: "buyer" },
-      ])
-      await tx.insert(vouchers).values([
-        {
-          userId: memberA,
-          code: codeA,
-          type: "fixed_myr",
-          fixedAmountSen: 500n,
-          issuedMonth: "2026-07",
-          expiresAt: new Date("2026-07-31T23:59:59Z"),
-        },
-        {
-          userId: memberB,
-          code: codeB,
-          type: "fixed_myr",
-          fixedAmountSen: 500n,
-          issuedMonth: "2026-07",
-          expiresAt: new Date("2026-07-31T23:59:59Z"),
-        },
-      ])
-    })
+    await withAdmin(
+      handle.db,
+      { userId: "00000000-0000-0000-0000-000000000001", reason: "seed" },
+      async (tx) => {
+        await tx.insert(users).values([
+          { id: adminId, email: `${adminId}@t`, role: "bomy_admin" },
+          { id: memberA, email: `${memberA}@t`, role: "buyer" },
+          { id: memberB, email: `${memberB}@t`, role: "buyer" },
+        ])
+        await tx.insert(vouchers).values([
+          {
+            userId: memberA,
+            code: codeA,
+            type: "fixed_myr",
+            fixedAmountSen: 500n,
+            issuedMonth: "2026-07",
+            expiresAt: new Date("2026-07-31T23:59:59Z"),
+          },
+          {
+            userId: memberB,
+            code: codeB,
+            type: "fixed_myr",
+            fixedAmountSen: 500n,
+            issuedMonth: "2026-07",
+            expiresAt: new Date("2026-07-31T23:59:59Z"),
+          },
+        ])
+      },
+    )
 
     const aView = await withTenant(handle.db, { userId: memberA, userRole: "buyer" }, async (tx) =>
       tx.select({ code: vouchers.code }).from(vouchers),
@@ -701,18 +761,22 @@ describe.skipIf(!shouldRun)("Stage 4 — goodie_box_dispatches constraints", () 
   it("rejects a 2nd dispatch for the same user in the same quarter", async () => {
     const adminId = randomUUID()
     const member = randomUUID()
-    await withAdmin(handle.db, { userId: adminId, reason: "seed" }, async (tx) => {
-      await tx.insert(users).values([
-        { id: adminId, email: `${adminId}@t`, role: "bomy_admin" },
-        { id: member, email: `${member}@t`, role: "buyer" },
-      ])
-      await tx.insert(goodieBoxDispatches).values({
-        userId: member,
-        quarter: "2026-Q2",
-        shippingName: "Charlie",
-        shippingAddress: { line1: "1 Main St", city: "KL", postcode: "50000" },
-      })
-    })
+    await withAdmin(
+      handle.db,
+      { userId: "00000000-0000-0000-0000-000000000001", reason: "seed" },
+      async (tx) => {
+        await tx.insert(users).values([
+          { id: adminId, email: `${adminId}@t`, role: "bomy_admin" },
+          { id: member, email: `${member}@t`, role: "buyer" },
+        ])
+        await tx.insert(goodieBoxDispatches).values({
+          userId: member,
+          quarter: "2026-Q2",
+          shippingName: "Charlie",
+          shippingAddress: { line1: "1 Main St", city: "KL", postcode: "50000" },
+        })
+      },
+    )
 
     await expect(
       withAdmin(handle.db, { userId: adminId, reason: "dup dispatch" }, async (tx) => {
@@ -729,12 +793,16 @@ describe.skipIf(!shouldRun)("Stage 4 — goodie_box_dispatches constraints", () 
   it("CHECK rejects malformed quarter", async () => {
     const adminId = randomUUID()
     const member = randomUUID()
-    await withAdmin(handle.db, { userId: adminId, reason: "seed" }, async (tx) => {
-      await tx.insert(users).values([
-        { id: adminId, email: `${adminId}@t`, role: "bomy_admin" },
-        { id: member, email: `${member}@t`, role: "buyer" },
-      ])
-    })
+    await withAdmin(
+      handle.db,
+      { userId: "00000000-0000-0000-0000-000000000001", reason: "seed" },
+      async (tx) => {
+        await tx.insert(users).values([
+          { id: adminId, email: `${adminId}@t`, role: "bomy_admin" },
+          { id: member, email: `${member}@t`, role: "buyer" },
+        ])
+      },
+    )
 
     await expect(
       withAdmin(handle.db, { userId: adminId, reason: "bad quarter" }, async (tx) => {
@@ -760,18 +828,22 @@ describe.skipIf(!shouldRun)("Stage 4 — revenue_source enum carries processing_
 
   it("accepts a ledger_entries insert with revenue_source = processing_fee", async () => {
     const adminId = randomUUID()
-    await withAdmin(handle.db, { userId: adminId, reason: "seed" }, async (tx) => {
-      await tx.insert(users).values({ id: adminId, email: `${adminId}@t`, role: "bomy_admin" })
-      await tx.insert(ledgerEntries).values({
-        transactionId: randomUUID(),
-        idempotencyKey: `psp-fee-${randomUUID()}`,
-        direction: "debit",
-        account: "psp_processing_fee",
-        amountMinor: 150n,
-        currency: "MYR",
-        revenueSource: "processing_fee",
-      })
-    })
+    await withAdmin(
+      handle.db,
+      { userId: "00000000-0000-0000-0000-000000000001", reason: "seed" },
+      async (tx) => {
+        await tx.insert(users).values({ id: adminId, email: `${adminId}@t`, role: "bomy_admin" })
+        await tx.insert(ledgerEntries).values({
+          transactionId: randomUUID(),
+          idempotencyKey: `psp-fee-${randomUUID()}`,
+          direction: "debit",
+          account: "psp_processing_fee",
+          amountMinor: 150n,
+          currency: "MYR",
+          revenueSource: "processing_fee",
+        })
+      },
+    )
     expect(true).toBe(true)
   })
 })
