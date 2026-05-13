@@ -241,9 +241,10 @@ RLS: user sees own (via session join); `bomy_admin/ops` see all.
 | discounted_subtotal_sen  | bigint NOT NULL                      | `retail_subtotal_sen − brand_discount_sen`            |
 | voucher_contribution_sen | bigint NOT NULL default 0            | Voucher amount allocated to this store (proportional) |
 | shipping_fee_sen         | bigint NOT NULL                      | Seller-set flat rate, snapshotted                     |
-| psp_fee_allocated_sen    | bigint nullable                      | Set by webhook when PSP fee is known. Default 0.      |
+| psp_fee_allocated_sen    | bigint NOT NULL default 0            | Updated by webhook when PSP fee is known.             |
 
 UNIQUE on `(checkout_session_id, store_id)`.
+CHECKs: `retail_subtotal_sen >= 0`, `shipping_fee_sen >= 0`, `brand_discount_sen >= 0`, `brand_discount_sen <= retail_subtotal_sen`, `discounted_subtotal_sen >= 0`, `voucher_contribution_sen >= 0`.
 Computed at checkout initiation; read by webhook for deterministic order fan-out.
 
 #### `inventory_reservations`
@@ -301,7 +302,12 @@ Adds `processed_webhook_events` (idempotency guard shared across all HitPay webh
 | created_at               | timestamptz NOT NULL defaultNow                       |                                                                 |
 | updated_at               | timestamptz NOT NULL defaultNow                       |                                                                 |
 
-CHECK: `seller_payout_sen + bomy_commission_sen + psp_fee_allocated_sen = discounted_subtotal_sen + shipping_fee_sen − voucher_contribution_sen`
+CHECKs:
+
+- `seller_payout_sen + bomy_commission_sen + psp_fee_allocated_sen = discounted_subtotal_sen + shipping_fee_sen − voucher_contribution_sen` (journal balance)
+- `retail_subtotal_sen >= 0`, `shipping_fee_sen >= 0`
+- `brand_discount_sen >= 0`, `brand_discount_sen <= retail_subtotal_sen`
+- `discounted_subtotal_sen >= 0`, `voucher_contribution_sen >= 0`
 
 RLS: buyer sees own orders; `seller_owner` sees orders for their store (fulfilment access only — no other buyer profile fields); `bomy_admin/ops/finance` see all.
 Indexes: index on `checkout_session_id`; index on `(store_id, fulfilment_status)`; index on `(buyer_id, payment_status)`.
@@ -354,6 +360,48 @@ RLS: `seller_owner` sees own store's payouts (read-only); `bomy_admin/finance` m
 | processed_at | timestamptz NOT NULL defaultNow |                                  |
 
 UNIQUE on `(psp_provider, psp_event_id)`.
+
+---
+
+### 3.5 Migration CHECK Reference
+
+Exact DB CHECK constraints to implement (implementation checklist for migrations 0010 and 0011):
+
+**`checkout_sessions` (migration 0010):**
+
+```sql
+CHECK (NOT (voucher_discount_sen > 0 AND brand_discount_total_sen > 0))
+CHECK (total_buyer_pays_sen > 0)
+CHECK (voucher_discount_sen >= 0)
+CHECK (brand_discount_total_sen >= 0)
+CHECK (total_catalog_sen >= 0)
+CHECK (total_shipping_sen >= 0)
+CHECK (voucher_discount_sen <= total_catalog_sen)
+```
+
+**`checkout_session_stores` (migration 0010):**
+
+```sql
+CHECK (retail_subtotal_sen >= 0)
+CHECK (shipping_fee_sen >= 0)
+CHECK (brand_discount_sen >= 0)
+CHECK (brand_discount_sen <= retail_subtotal_sen)
+CHECK (discounted_subtotal_sen >= 0)
+CHECK (voucher_contribution_sen >= 0)
+```
+
+**`orders` (migration 0011):**
+
+```sql
+CHECK (seller_payout_sen + bomy_commission_sen + psp_fee_allocated_sen
+       = discounted_subtotal_sen + shipping_fee_sen - voucher_contribution_sen)
+CHECK (retail_subtotal_sen >= 0)
+CHECK (shipping_fee_sen >= 0)
+CHECK (brand_discount_sen >= 0)
+CHECK (brand_discount_sen <= retail_subtotal_sen)
+CHECK (discounted_subtotal_sen >= 0)
+CHECK (voucher_contribution_sen >= 0)
+```
 
 ---
 
@@ -410,20 +458,20 @@ Distinguishing order payments from subscription payments: look up `psp_payment_r
 **Order payment path:**
 
 1. Verify HMAC signature → 401 if invalid (only valid non-2xx response)
-2. Validate payload amount matches `checkout_session.total_buyer_pays_sen`; if mismatch → ops alert, set session `payment_review_required`, return 200
-3. Begin transaction. Attempt idempotency claim:
+2. Look up `checkout_session` by `psp_payment_request_id`. Begin transaction. Claim idempotency immediately — every valid signed event must be recorded, including those parked into `payment_review_required`:
    ```sql
    INSERT INTO processed_webhook_events (psp_provider, psp_event_id, event_type, payload_hash)
    VALUES ($provider, $eventId, $eventType, $hash)
    ON CONFLICT (psp_provider, psp_event_id) DO NOTHING
    RETURNING id
    ```
-   If RETURNING yields 0 rows → event already processed. Run consistency checks (do NOT use raw unique constraint — that would abort the transaction):
-   - Verify `checkout_session.status = 'paid'`
+   If RETURNING yields 0 rows → event already processed. Run consistency checks:
+   - Verify `checkout_session.status IN ('paid', 'payment_review_required', 'payment_review_resolved')`
    - Verify `COUNT(orders WHERE checkout_session_id) = COUNT(checkout_session_stores WHERE checkout_session_id)` (one order per seller)
    - Verify all `inventory_reservations.status = 'converted'`
    - Verify ledger credit row exists for `checkout_session_id` (idempotency_key = `checkout:{session_id}:credit`)
    - If all pass → commit, return 200. If any fail → ops alert, commit, return 200 (do not re-process; flag for manual review).
+3. Validate payload amount matches `checkout_session.total_buyer_pays_sen`. If mismatch → set session `payment_review_required`, ops alert, commit, return 200. (Idempotency row already inserted in step 2 — duplicate delivery will hit the 0-rows path and pass consistency checks.)
 4. If `checkout_session.status ≠ 'pending_payment'` → commit, return 200
 5. Set `checkout_session.psp_fee_sen` from webhook payload
 6. **Fan-out** — for each `checkout_session_stores` row (sorted ascending by `store_id` for determinism):
