@@ -68,6 +68,10 @@ const MIGRATIONS = [
     name: "0007_renewal_notification_days_seed",
     file: join(__dirname, "../drizzle/0007_renewal_notification_days_seed.sql"),
   },
+  {
+    name: "0008_admin_bypass_audit",
+    file: join(__dirname, "../drizzle/0008_admin_bypass_audit.sql"),
+  },
 ]
 
 try {

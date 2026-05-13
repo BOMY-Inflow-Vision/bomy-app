@@ -31,6 +31,8 @@ import { auth } from "@/auth"
 import { HitPayClient } from "@bomy/hitpay"
 import { subscribeToBrand } from "../../src/app/brands/[slug]/subscribe/actions"
 
+const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
+
 const DATABASE_URL = process.env["DATABASE_APP_URL"] ?? process.env["DATABASE_URL"]
 const RLS_READY = process.env["BOMY_RLS_READY"] === "1"
 const shouldRun = Boolean(DATABASE_URL) && RLS_READY
@@ -69,7 +71,7 @@ describe.skipIf(!shouldRun)("subscribeToBrand", () => {
     storeId = randomUUID()
     planId = randomUUID()
 
-    await withAdmin(testDb.db, { userId: ownerId, reason: "test seed" }, async (tx) => {
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test seed" }, async (tx) => {
       await tx.insert(schema.users).values([
         { id: userId, email: `${userId}@test.bomy`, role: "buyer" },
         { id: ownerId, email: `${ownerId}@test.bomy`, role: "seller_owner" },

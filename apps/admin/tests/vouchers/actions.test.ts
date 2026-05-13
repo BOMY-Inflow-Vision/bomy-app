@@ -13,6 +13,8 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 import { auth } from "@/auth"
 import { createVoucher } from "../../src/app/vouchers/actions"
 
+const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
+
 const DATABASE_URL = process.env["DATABASE_APP_URL"] ?? process.env["DATABASE_URL"]
 const RLS_READY = process.env["BOMY_RLS_READY"] === "1"
 const shouldRun = Boolean(DATABASE_URL) && RLS_READY
@@ -30,7 +32,7 @@ describe.skipIf(!shouldRun)("createVoucher", () => {
     adminId = randomUUID()
     userId = randomUUID()
 
-    await withAdmin(testDb.db, { userId: adminId, reason: "test seed" }, async (tx) => {
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test seed" }, async (tx) => {
       await tx.insert(schema.users).values([
         { id: adminId, email: `${adminId}@test.bomy`, role: "bomy_admin" },
         { id: userId, email: `${userId}@test.bomy`, role: "buyer" },

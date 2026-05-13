@@ -48,28 +48,32 @@ describe.skipIf(!shouldRun)("RLS policies", () => {
     const storeAId = randomUUID()
     const storeBId = randomUUID()
 
-    await withAdmin(handle.db, { userId: randomUUID(), reason: "rls test seed" }, async (tx) => {
-      await tx.insert(users).values([
-        { id: sellerA, email: `${sellerA}@test.bomy`, role: "seller_owner" },
-        { id: sellerB, email: `${sellerB}@test.bomy`, role: "seller_owner" },
-      ])
-      await tx.insert(stores).values([
-        {
-          id: storeAId,
-          ownerId: sellerA,
-          name: "Store A",
-          slug: `a-${sellerA}`,
-          status: "pending",
-        },
-        {
-          id: storeBId,
-          ownerId: sellerB,
-          name: "Store B",
-          slug: `b-${sellerB}`,
-          status: "pending",
-        },
-      ])
-    })
+    await withAdmin(
+      handle.db,
+      { userId: "00000000-0000-0000-0000-000000000001", reason: "rls test seed" },
+      async (tx) => {
+        await tx.insert(users).values([
+          { id: sellerA, email: `${sellerA}@test.bomy`, role: "seller_owner" },
+          { id: sellerB, email: `${sellerB}@test.bomy`, role: "seller_owner" },
+        ])
+        await tx.insert(stores).values([
+          {
+            id: storeAId,
+            ownerId: sellerA,
+            name: "Store A",
+            slug: `a-${sellerA}`,
+            status: "pending",
+          },
+          {
+            id: storeBId,
+            ownerId: sellerB,
+            name: "Store B",
+            slug: `b-${sellerB}`,
+            status: "pending",
+          },
+        ])
+      },
+    )
 
     // Seller A's session: should see store A, not store B.
     const aView = await withTenant(
@@ -101,11 +105,10 @@ describe.skipIf(!shouldRun)("RLS policies", () => {
   })
 
   it("withAdmin sees cross-tenant rows the tenant wrapper hides", async () => {
-    const seeder = randomUUID()
     const others = [randomUUID(), randomUUID(), randomUUID()]
     await withAdmin(
       handle.db,
-      { userId: seeder, reason: "rls test cross-tenant seed" },
+      { userId: "00000000-0000-0000-0000-000000000001", reason: "rls test cross-tenant seed" },
       async (tx) => {
         await tx.insert(users).values(
           others.map((id) => ({
@@ -119,7 +122,7 @@ describe.skipIf(!shouldRun)("RLS policies", () => {
 
     const adminView = await withAdmin(
       handle.db,
-      { userId: seeder, reason: "rls test cross-tenant read" },
+      { userId: "00000000-0000-0000-0000-000000000001", reason: "rls test cross-tenant read" },
       async (tx) => tx.select({ id: users.id }).from(users),
     )
     for (const id of others) {
@@ -177,11 +180,15 @@ describe.skipIf(!shouldRun)("Stage 3 schema", () => {
 
   it("inserts a seller inquiry and reads it back via withAdmin", async () => {
     const adminId = randomUUID()
-    await withAdmin(handle.db, { userId: adminId, reason: "test seed user" }, async (tx) => {
-      await tx
-        .insert(users)
-        .values({ id: adminId, email: `${adminId}@test.bomy`, role: "bomy_admin" })
-    })
+    await withAdmin(
+      handle.db,
+      { userId: "00000000-0000-0000-0000-000000000001", reason: "test seed user" },
+      async (tx) => {
+        await tx
+          .insert(users)
+          .values({ id: adminId, email: `${adminId}@test.bomy`, role: "bomy_admin" })
+      },
+    )
 
     const inquiryId = randomUUID()
     await withAdmin(handle.db, { userId: adminId, reason: "test insert inquiry" }, async (tx) => {
@@ -214,20 +221,24 @@ describe.skipIf(!shouldRun)("Stage 3 schema", () => {
     const buyerId = randomUUID()
     const storeId = randomUUID()
 
-    await withAdmin(handle.db, { userId: adminId, reason: "test seed" }, async (tx) => {
-      await tx.insert(users).values([
-        { id: adminId, email: `admin-${adminId}@test.bomy`, role: "bomy_admin" },
-        { id: buyerId, email: `buyer-${buyerId}@test.bomy`, role: "buyer" },
-      ])
-      await tx.insert(stores).values({
-        id: storeId,
-        ownerId: buyerId,
-        name: "Desc Store",
-        slug: `desc-${storeId}`,
-        description: "A store with a description",
-        status: "pending",
-      })
-    })
+    await withAdmin(
+      handle.db,
+      { userId: "00000000-0000-0000-0000-000000000001", reason: "test seed" },
+      async (tx) => {
+        await tx.insert(users).values([
+          { id: adminId, email: `admin-${adminId}@test.bomy`, role: "bomy_admin" },
+          { id: buyerId, email: `buyer-${buyerId}@test.bomy`, role: "buyer" },
+        ])
+        await tx.insert(stores).values({
+          id: storeId,
+          ownerId: buyerId,
+          name: "Desc Store",
+          slug: `desc-${storeId}`,
+          description: "A store with a description",
+          status: "pending",
+        })
+      },
+    )
 
     const [before] = await withAdmin(
       handle.db,
@@ -279,19 +290,23 @@ describe.skipIf(!shouldRun)("Stage 3 schema", () => {
     const sellerId = randomUUID()
     const storeId = randomUUID()
 
-    await withAdmin(handle.db, { userId: adminId, reason: "test seed" }, async (tx) => {
-      await tx.insert(users).values([
-        { id: adminId, email: `admin2-${adminId}@test.bomy`, role: "bomy_admin" },
-        { id: sellerId, email: `seller-${sellerId}@test.bomy`, role: "seller_owner" },
-      ])
-      await tx.insert(stores).values({
-        id: storeId,
-        ownerId: sellerId,
-        name: "Suspend Store",
-        slug: `susp-${storeId}`,
-        status: "active",
-      })
-    })
+    await withAdmin(
+      handle.db,
+      { userId: "00000000-0000-0000-0000-000000000001", reason: "test seed" },
+      async (tx) => {
+        await tx.insert(users).values([
+          { id: adminId, email: `admin2-${adminId}@test.bomy`, role: "bomy_admin" },
+          { id: sellerId, email: `seller-${sellerId}@test.bomy`, role: "seller_owner" },
+        ])
+        await tx.insert(stores).values({
+          id: storeId,
+          ownerId: sellerId,
+          name: "Suspend Store",
+          slug: `susp-${storeId}`,
+          status: "active",
+        })
+      },
+    )
 
     await withAdmin(handle.db, { userId: adminId, reason: "test suspend" }, async (tx) => {
       await tx
@@ -316,11 +331,15 @@ describe.skipIf(!shouldRun)("Stage 3 schema", () => {
     const adminId = randomUUID()
     const inquiryId = randomUUID()
 
-    await withAdmin(handle.db, { userId: adminId, reason: "test seed admin" }, async (tx) => {
-      await tx
-        .insert(users)
-        .values({ id: adminId, email: `admin3-${adminId}@test.bomy`, role: "bomy_admin" })
-    })
+    await withAdmin(
+      handle.db,
+      { userId: "00000000-0000-0000-0000-000000000001", reason: "test seed admin" },
+      async (tx) => {
+        await tx
+          .insert(users)
+          .values({ id: adminId, email: `admin3-${adminId}@test.bomy`, role: "bomy_admin" })
+      },
+    )
 
     await withAdmin(handle.db, { userId: adminId, reason: "test insert" }, async (tx) => {
       await tx.insert(sellerInquiries).values({

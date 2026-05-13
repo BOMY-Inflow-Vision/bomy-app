@@ -119,6 +119,10 @@ ALTER TABLE vouchers FORCE ROW LEVEL SECURITY;
 ALTER TABLE goodie_box_dispatches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE goodie_box_dispatches FORCE ROW LEVEL SECURITY;
 
+-- Stage 5 PR #26: durable admin bypass audit.
+ALTER TABLE admin_bypass_audit ENABLE ROW LEVEL SECURITY;
+ALTER TABLE admin_bypass_audit FORCE ROW LEVEL SECURITY;
+
 -- ─── 4. Default-deny policies (RESTRICTIVE) ──────────────────────
 -- RESTRICTIVE policies are AND'd with PERMISSIVE ones, so this makes
 -- "no tenant context AND no admin bypass" = "nothing visible".
@@ -164,6 +168,10 @@ CREATE POLICY vouchers_default_deny ON vouchers
   USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
 
 CREATE POLICY goodie_box_dispatches_default_deny ON goodie_box_dispatches
+  AS RESTRICTIVE
+  USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
+
+CREATE POLICY admin_bypass_audit_default_deny ON admin_bypass_audit
   AS RESTRICTIVE
   USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
 
@@ -378,6 +386,19 @@ CREATE POLICY goodie_box_dispatches_staff_write ON goodie_box_dispatches
   FOR ALL
   USING (app.is_bomy_staff() OR app.is_admin_bypass())
   WITH CHECK (app.is_bomy_staff() OR app.is_admin_bypass());
+
+-- admin_bypass_audit: append-only forensic log. Staff read; INSERT only
+-- under an active bypass (the withAdmin wrapper sets app.bypass_rls=true
+-- before its own insert). No UPDATE or DELETE policy — FORCE RLS plus
+-- omission enforces append-only at the row layer.
+
+CREATE POLICY admin_bypass_audit_staff_read ON admin_bypass_audit
+  FOR SELECT
+  USING (app.is_bomy_staff() OR app.is_admin_bypass());
+
+CREATE POLICY admin_bypass_audit_bypass_insert ON admin_bypass_audit
+  FOR INSERT
+  WITH CHECK (app.is_admin_bypass());
 
 -- ─── 6. bomy_app role grants ─────────────────────────────────────
 -- bomy_app is the non-superuser application role used by the app and

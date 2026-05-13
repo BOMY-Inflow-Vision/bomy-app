@@ -24,6 +24,8 @@ import { HitPayClient } from "@bomy/hitpay"
 import { auth } from "@/auth"
 import { cancelMembership } from "../../src/app/memberships/actions"
 
+const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
+
 process.env["HITPAY_API_KEY"] = "test-key"
 process.env["HITPAY_API_URL"] = "https://sandbox.hit-pay.com"
 
@@ -44,7 +46,7 @@ describe.skipIf(!shouldRun)("cancelMembership", () => {
     adminId = randomUUID()
     userId = randomUUID()
 
-    await withAdmin(testDb.db, { userId: adminId, reason: "test seed" }, async (tx) => {
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test seed" }, async (tx) => {
       await tx.insert(schema.users).values([
         { id: adminId, email: `${adminId}@test.bomy`, role: "bomy_admin" },
         { id: userId, email: `${userId}@test.bomy`, role: "buyer" },

@@ -15,6 +15,8 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 
 import { notifyRenewalsDue } from "../../src/jobs/membership-renewal-notification.js"
 
+const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
+
 const DATABASE_URL = process.env["DATABASE_URL"]
 const RLS_READY = process.env["BOMY_RLS_READY"] === "1"
 const shouldRun = Boolean(DATABASE_URL) && RLS_READY
@@ -38,7 +40,7 @@ describe.skipIf(!shouldRun)("notifyRenewalsDue", () => {
     const subId = randomUUID()
     const now = new Date()
 
-    await withAdmin(testDb.db, { userId, reason: "test seed" }, async (tx) => {
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test seed" }, async (tx) => {
       await tx
         .insert(schema.users)
         .values({ id: userId, email: `${userId}@test.bomy`, role: "buyer" })

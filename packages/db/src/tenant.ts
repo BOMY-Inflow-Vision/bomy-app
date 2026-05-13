@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm"
 
 import type { Database } from "./client.js"
+import { adminBypassAudit } from "./schema/admin_bypass_audit.js"
 import { USER_ROLES, type UserRole } from "./types.js"
 
 export interface TenantContext {
@@ -79,9 +80,18 @@ export async function withTenant<T>(
  * Runs the callback inside a transaction under an explicit
  * `app.bypass_rls = true` flag (guardrail #3). This flag is paired
  * with RLS policies that allow a row only when either the tenant
- * clause matches OR `app.bypass_rls` is true. Every bypass MUST be
- * audited at the API layer — this helper deliberately takes a
- * `reason` string to make the audit site obvious at the call site.
+ * clause matches OR `app.bypass_rls` is true.
+ *
+ * Every invocation writes one row to `admin_bypass_audit` *inside the
+ * same transaction*, after `bypass_rls` is set so the insert is itself
+ * authorised by RLS. If the user callback throws, both the work and
+ * the audit row roll back together — which is correct, since no work
+ * actually happened.
+ *
+ * The audit insert FKs `actor_user_id` → `users.id`. Background jobs
+ * use the seeded system actor `00000000-0000-0000-0000-000000000001`
+ * (see migration 0008). Any new background actor must seed its own
+ * row before calling `withAdmin`.
  *
  * In production, connections that run admin workloads should use the
  * `bomy_admin` DB role (which has `BYPASSRLS` at the role level). For
@@ -102,6 +112,10 @@ export async function withAdmin<T>(
     await tx.execute(sql`SELECT set_config('app.current_user_id', ${adminCtx.userId}, true)`)
     await tx.execute(sql`SELECT set_config('app.current_user_role', 'bomy_admin', true)`)
     await tx.execute(sql`SELECT set_config('app.bypass_rls', 'true', true)`)
+    await (tx as Database).insert(adminBypassAudit).values({
+      actorUserId: adminCtx.userId,
+      reason: adminCtx.reason,
+    })
     return fn(tx as Database)
   })
 }
