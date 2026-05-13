@@ -201,4 +201,89 @@ describe.skipIf(!shouldRun)("admin_bypass_audit — withAdmin behavior", () => {
       ),
     ).rejects.toThrow()
   })
+
+  it("UPDATE on admin_bypass_audit is a no-op (append-only enforcement, even under bypass)", async () => {
+    const seedReason = `update-denial ${randomUUID()}`
+
+    // Seed one row via withAdmin and confirm it's there from a staff view.
+    await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: seedReason }, () =>
+      Promise.resolve(),
+    )
+
+    const beforeRows = await withAdmin(
+      handle.db,
+      { userId: SYSTEM_ACTOR, reason: "test: read before update attempt" },
+      async (tx) =>
+        tx
+          .select({ id: adminBypassAudit.id, reason: adminBypassAudit.reason })
+          .from(adminBypassAudit)
+          .where(sql`reason = ${seedReason}`),
+    )
+    expect(beforeRows).toHaveLength(1)
+    const seededId = beforeRows[0]?.id
+
+    // Attempt UPDATE under bypass. With no FOR UPDATE policy, this is a no-op
+    // (zero rows match the visibility predicate for UPDATE) — append-only.
+    await withAdmin(
+      handle.db,
+      { userId: SYSTEM_ACTOR, reason: "test: attempt update" },
+      async (tx) =>
+        tx
+          .update(adminBypassAudit)
+          .set({ reason: "TAMPERED" })
+          .where(sql`id = ${seededId}::uuid`),
+    )
+
+    // The reason must be unchanged.
+    const afterRows = await withAdmin(
+      handle.db,
+      { userId: SYSTEM_ACTOR, reason: "test: read after update attempt" },
+      async (tx) =>
+        tx
+          .select({ reason: adminBypassAudit.reason })
+          .from(adminBypassAudit)
+          .where(sql`id = ${seededId}::uuid`),
+    )
+    expect(afterRows).toHaveLength(1)
+    expect(afterRows[0]?.reason).toBe(seedReason)
+  })
+
+  it("DELETE on admin_bypass_audit is a no-op (append-only enforcement, even under bypass)", async () => {
+    const seedReason = `delete-denial ${randomUUID()}`
+
+    await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: seedReason }, () =>
+      Promise.resolve(),
+    )
+
+    const beforeRows = await withAdmin(
+      handle.db,
+      { userId: SYSTEM_ACTOR, reason: "test: read before delete attempt" },
+      async (tx) =>
+        tx
+          .select({ id: adminBypassAudit.id })
+          .from(adminBypassAudit)
+          .where(sql`reason = ${seedReason}`),
+    )
+    expect(beforeRows).toHaveLength(1)
+    const seededId = beforeRows[0]?.id
+
+    // Attempt DELETE under bypass. With no FOR DELETE policy, this is a no-op.
+    await withAdmin(
+      handle.db,
+      { userId: SYSTEM_ACTOR, reason: "test: attempt delete" },
+      async (tx) => tx.delete(adminBypassAudit).where(sql`id = ${seededId}::uuid`),
+    )
+
+    // The row must still exist.
+    const afterRows = await withAdmin(
+      handle.db,
+      { userId: SYSTEM_ACTOR, reason: "test: read after delete attempt" },
+      async (tx) =>
+        tx
+          .select({ id: adminBypassAudit.id })
+          .from(adminBypassAudit)
+          .where(sql`id = ${seededId}::uuid`),
+    )
+    expect(afterRows).toHaveLength(1)
+  })
 })
