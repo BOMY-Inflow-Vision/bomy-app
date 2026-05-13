@@ -19,6 +19,9 @@ const DATABASE_URL = process.env["DATABASE_URL"]
 const RLS_READY = process.env["BOMY_RLS_READY"] === "1"
 const shouldRun = Boolean(DATABASE_URL) && RLS_READY
 
+/** Pre-seeded system actor (migration 0008). Always exists in users table. */
+const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
+
 describe("generateCode", () => {
   it("returns an 8-character uppercase alphanumeric string", () => {
     const code = generateCode()
@@ -38,7 +41,9 @@ describe.skipIf(!shouldRun)("issueMonthlyVouchers", () => {
   beforeAll(async () => {
     testDb = makeDb({ url: DATABASE_URL as string })
     adminId = randomUUID()
-    await withAdmin(testDb.db, { userId: adminId, reason: "test seed" }, async (tx) => {
+    // Use SYSTEM_ACTOR to seed adminId — the new UUID doesn't exist in users yet
+    // so cannot be the audit actor itself.
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test seed admin" }, async (tx) => {
       await tx
         .insert(schema.users)
         .values({ id: adminId, email: `${adminId}@test.bomy`, role: "bomy_admin" })
@@ -88,7 +93,7 @@ describe.skipIf(!shouldRun)("issueMonthlyVouchers", () => {
     const subId = randomUUID()
     const now = new Date()
 
-    await withAdmin(testDb.db, { userId, reason: "test seed member" }, async (tx) => {
+    await withAdmin(testDb.db, { userId: adminId, reason: "test seed member" }, async (tx) => {
       await tx
         .insert(schema.users)
         .values({ id: userId, email: `${userId}@test.bomy`, role: "buyer" })
@@ -105,7 +110,7 @@ describe.skipIf(!shouldRun)("issueMonthlyVouchers", () => {
   }
 
   async function cleanupMember(userId: string, subId: string, issuedMonth: string) {
-    await withAdmin(testDb.db, { userId, reason: "test cleanup" }, async (tx) => {
+    await withAdmin(testDb.db, { userId: adminId, reason: "test cleanup" }, async (tx) => {
       await tx.delete(schema.vouchers).where(eq(schema.vouchers.userId, userId))
       await tx.delete(schema.memberSubscriptions).where(eq(schema.memberSubscriptions.id, subId))
       await tx.delete(schema.users).where(eq(schema.users.id, userId))
