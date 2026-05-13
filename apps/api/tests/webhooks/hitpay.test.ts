@@ -17,6 +17,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest"
 
 import { createApp } from "../../src/server.js"
 
+const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
+
 const DATABASE_URL = process.env["DATABASE_URL"]
 const RLS_READY = process.env["BOMY_RLS_READY"] === "1"
 const shouldRun = Boolean(DATABASE_URL) && RLS_READY
@@ -65,7 +67,7 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
 
   async function seedUser(role: "buyer" | "seller_owner" = "buyer") {
     const id = randomUUID()
-    await withAdmin(setupDb.db, { userId: id, reason: "test seed" }, async (tx) => {
+    await withAdmin(setupDb.db, { userId: SYSTEM_ACTOR, reason: "test seed" }, async (tx) => {
       await tx.insert(schema.users).values({ id, email: `${id}@test.bomy`, role })
     })
     return id
@@ -88,7 +90,7 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
   async function seedBrandPlan(storeId: string) {
     const id = randomUUID()
     const actorId = randomUUID()
-    await withAdmin(setupDb.db, { userId: actorId, reason: "test seed" }, async (tx) => {
+    await withAdmin(setupDb.db, { userId: SYSTEM_ACTOR, reason: "test seed" }, async (tx) => {
       await tx
         .insert(schema.users)
         .values({ id: actorId, email: `${actorId}@test.bomy`, role: "bomy_admin" })

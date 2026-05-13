@@ -35,6 +35,8 @@ import { auth } from "@/auth"
 import { HitPayClient } from "@bomy/hitpay"
 import { cancelMembership, joinMembership } from "../../src/app/(marketing)/membership/actions"
 
+const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
+
 // Prefer app role (exercises RLS); fall back to superuser for local dev
 const DATABASE_URL = process.env["DATABASE_APP_URL"] ?? process.env["DATABASE_URL"]
 const RLS_READY = process.env["BOMY_RLS_READY"] === "1"
@@ -73,7 +75,7 @@ describe.skipIf(!shouldRun)("membership actions", () => {
     testDb = makeDb({ url: DATABASE_URL as string })
     userId = randomUUID()
 
-    await withAdmin(testDb.db, { userId, reason: "test seed" }, async (tx) => {
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test seed" }, async (tx) => {
       await tx
         .insert(schema.users)
         .values({ id: userId, email: `${userId}@test.bomy`, role: "buyer" })
