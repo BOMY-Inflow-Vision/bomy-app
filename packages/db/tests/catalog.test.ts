@@ -427,6 +427,43 @@ describe.skipIf(!shouldRun)("catalog RLS", () => {
       )
     })
 
+    it("seller A cannot INSERT a variant into seller B's product", async () => {
+      const bProductId = randomUUID()
+      await withAdmin(
+        handle.db,
+        { userId: SYSTEM_ACTOR, reason: "seed B product for variant test" },
+        async (tx) => {
+          await tx.insert(products).values({
+            id: bProductId,
+            storeId: storeBId,
+            name: "B Variant Product",
+            slug: `bvp-${bProductId}`,
+            status: "active",
+          })
+        },
+      )
+
+      await expect(
+        withTenant(handle.db, { userId: sellerAId, userRole: "seller_owner" }, async (tx) =>
+          tx.insert(productVariants).values({
+            id: randomUUID(),
+            productId: bProductId,
+            name: "Hijack Variant",
+            priceMyrSen: 1999n,
+            stockCount: 1,
+          }),
+        ),
+      ).rejects.toThrow()
+
+      await withAdmin(
+        handle.db,
+        { userId: SYSTEM_ACTOR, reason: "cleanup B variant product" },
+        async (tx) => {
+          await tx.delete(products).where(eq(products.id, bProductId))
+        },
+      )
+    })
+
     it("CHECK constraint rejects price_myr_sen = 0", async () => {
       await expect(
         withAdmin(
@@ -459,6 +496,143 @@ describe.skipIf(!shouldRun)("catalog RLS", () => {
             }),
         ),
       ).rejects.toThrow()
+    })
+  })
+
+  // ── product_images ──────────────────────────────────────────────────────
+
+  describe("product_images", () => {
+    let activeProductId: string
+    let draftProductId: string
+    let activeImageId: string
+
+    beforeAll(async () => {
+      activeProductId = randomUUID()
+      draftProductId = randomUUID()
+      activeImageId = randomUUID()
+
+      await withAdmin(
+        handle.db,
+        { userId: SYSTEM_ACTOR, reason: "image test seed" },
+        async (tx) => {
+          await tx.insert(products).values([
+            {
+              id: activeProductId,
+              storeId: storeAId,
+              name: "Active Img P",
+              slug: `aip-${activeProductId}`,
+              status: "active",
+            },
+            {
+              id: draftProductId,
+              storeId: storeAId,
+              name: "Draft Img P",
+              slug: `dip-${draftProductId}`,
+              status: "draft",
+            },
+          ])
+          await tx.insert(productImages).values({
+            id: activeImageId,
+            productId: activeProductId,
+            url: "https://cdn.bomy.com/test.jpg",
+          })
+        },
+      )
+    })
+
+    afterAll(async () => {
+      await withAdmin(
+        handle.db,
+        { userId: SYSTEM_ACTOR, reason: "image test cleanup" },
+        async (tx) => {
+          await tx.delete(productImages).where(eq(productImages.productId, activeProductId))
+          await tx.delete(productImages).where(eq(productImages.productId, draftProductId))
+          await tx.delete(products).where(eq(products.id, activeProductId))
+          await tx.delete(products).where(eq(products.id, draftProductId))
+        },
+      )
+    })
+
+    it("authenticated user reads images of active products", async () => {
+      const rows = await withTenant(
+        handle.db,
+        { userId: sellerBId, userRole: "seller_owner" },
+        async (tx) =>
+          tx
+            .select({ id: productImages.id })
+            .from(productImages)
+            .where(eq(productImages.id, activeImageId)),
+      )
+      expect(rows).toHaveLength(1)
+    })
+
+    it("authenticated non-owner cannot read images of draft products", async () => {
+      const draftImageId = randomUUID()
+      await withAdmin(
+        handle.db,
+        { userId: SYSTEM_ACTOR, reason: "seed draft image" },
+        async (tx) => {
+          await tx.insert(productImages).values({
+            id: draftImageId,
+            productId: draftProductId,
+            url: "https://cdn.bomy.com/draft.jpg",
+          })
+        },
+      )
+
+      const rows = await withTenant(
+        handle.db,
+        { userId: sellerBId, userRole: "seller_owner" },
+        async (tx) =>
+          tx
+            .select({ id: productImages.id })
+            .from(productImages)
+            .where(eq(productImages.id, draftImageId)),
+      )
+      expect(rows).toHaveLength(0)
+
+      await withAdmin(
+        handle.db,
+        { userId: SYSTEM_ACTOR, reason: "cleanup draft image" },
+        async (tx) => {
+          await tx.delete(productImages).where(eq(productImages.id, draftImageId))
+        },
+      )
+    })
+
+    it("seller A cannot INSERT an image for seller B's product", async () => {
+      const bProductId = randomUUID()
+      await withAdmin(
+        handle.db,
+        { userId: SYSTEM_ACTOR, reason: "seed B product for images" },
+        async (tx) => {
+          await tx.insert(products).values({
+            id: bProductId,
+            storeId: storeBId,
+            name: "B Image Product",
+            slug: `bip-${bProductId}`,
+            status: "active",
+          })
+        },
+      )
+
+      await expect(
+        withTenant(handle.db, { userId: sellerAId, userRole: "seller_owner" }, async (tx) =>
+          tx.insert(productImages).values({
+            id: randomUUID(),
+            productId: bProductId,
+            url: "https://cdn.bomy.com/hijack.jpg",
+          }),
+        ),
+      ).rejects.toThrow()
+
+      await withAdmin(
+        handle.db,
+        { userId: SYSTEM_ACTOR, reason: "cleanup B image product" },
+        async (tx) => {
+          await tx.delete(products).where(eq(products.id, bProductId))
+        },
+      )
     })
   })
 })
