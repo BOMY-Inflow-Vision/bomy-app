@@ -168,6 +168,12 @@ DO $$ BEGIN
     USING  (app.is_bomy_staff() OR app.is_admin_bypass())
     WITH CHECK (app.is_bomy_staff() OR app.is_admin_bypass());
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+  CREATE POLICY categories_admin_delete ON categories
+    FOR DELETE
+    USING (app.is_bomy_staff() OR app.is_admin_bypass());
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- ─── 9. products: public active read + seller write + staff all ──────────
 --> statement-breakpoint
@@ -221,6 +227,12 @@ DO $$ BEGIN
       OR app.is_bomy_staff()
       OR app.is_admin_bypass()
     );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+  CREATE POLICY products_admin_delete ON products
+    FOR DELETE
+    USING (app.is_bomy_staff() OR app.is_admin_bypass());
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- ─── 10. product_variants: active variants of active products + seller ────
@@ -287,6 +299,12 @@ DO $$ BEGIN
       OR app.is_admin_bypass()
     );
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+  CREATE POLICY product_variants_admin_delete ON product_variants
+    FOR DELETE
+    USING (app.is_bomy_staff() OR app.is_admin_bypass());
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- ─── 11. product_images: mirrors products policies ───────────────────────
 --> statement-breakpoint
@@ -348,6 +366,12 @@ DO $$ BEGIN
       OR app.is_bomy_staff()
       OR app.is_admin_bypass()
     );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+  CREATE POLICY product_images_admin_delete ON product_images
+    FOR DELETE
+    USING (app.is_bomy_staff() OR app.is_admin_bypass());
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- ─── 12. bomy_app role grants on all 4 tables ────────────────────────────

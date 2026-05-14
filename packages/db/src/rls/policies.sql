@@ -458,6 +458,10 @@ CREATE POLICY categories_admin_update ON categories
   USING  (app.is_bomy_staff() OR app.is_admin_bypass())
   WITH CHECK (app.is_bomy_staff() OR app.is_admin_bypass());
 
+CREATE POLICY categories_admin_delete ON categories
+  FOR DELETE
+  USING (app.is_bomy_staff() OR app.is_admin_bypass());
+
 -- products: active = publicly visible. Seller owns via store FK.
 CREATE POLICY products_default_deny ON products
   AS RESTRICTIVE
@@ -492,6 +496,10 @@ CREATE POLICY products_seller_update ON products
     OR app.is_bomy_staff()
     OR app.is_admin_bypass()
   );
+
+CREATE POLICY products_admin_delete ON products
+  FOR DELETE
+  USING (app.is_bomy_staff() OR app.is_admin_bypass());
 
 -- product_variants: active variants of active products = publicly visible. Seller owns via product→store.
 CREATE POLICY product_variants_default_deny ON product_variants
@@ -528,6 +536,10 @@ CREATE POLICY product_variants_seller_update ON product_variants
     OR app.is_admin_bypass()
   );
 
+CREATE POLICY product_variants_admin_delete ON product_variants
+  FOR DELETE
+  USING (app.is_bomy_staff() OR app.is_admin_bypass());
+
 -- product_images: mirrors products policies (images are public if product is active).
 CREATE POLICY product_images_default_deny ON product_images
   AS RESTRICTIVE
@@ -562,3 +574,7 @@ CREATE POLICY product_images_seller_update ON product_images
     OR app.is_bomy_staff()
     OR app.is_admin_bypass()
   );
+
+CREATE POLICY product_images_admin_delete ON product_images
+  FOR DELETE
+  USING (app.is_bomy_staff() OR app.is_admin_bypass());
