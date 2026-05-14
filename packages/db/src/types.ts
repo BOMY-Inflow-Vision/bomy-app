@@ -55,3 +55,7 @@ export type VoucherType = (typeof VOUCHER_TYPES)[number]
 
 export const DISPATCH_STATUSES = ["pending", "dispatched", "delivered"] as const
 export type DispatchStatus = (typeof DISPATCH_STATUSES)[number]
+
+// Stage 5 catalog enums.
+export const PRODUCT_STATUSES = ["draft", "active", "archived"] as const
+export type ProductStatus = (typeof PRODUCT_STATUSES)[number]
