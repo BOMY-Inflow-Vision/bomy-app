@@ -10,7 +10,8 @@ export const metadata = { title: "Products — BOMY" }
 
 export default async function ProductsPage({ searchParams }: Props) {
   const { q, category, page: pageParam } = await searchParams
-  const page = Math.max(1, parseInt(pageParam ?? "1", 10))
+  const parsed = parseInt(pageParam ?? "1", 10)
+  const page = Number.isFinite(parsed) ? Math.max(1, parsed) : 1
 
   const [{ products, total, totalPages }, categories] = await Promise.all([
     getProducts({
@@ -40,7 +41,7 @@ export default async function ProductsPage({ searchParams }: Props) {
         </button>
         {q && (
           <Link
-            href={category ? `/products?category=${category}` : "/products"}
+            href={category ? `/products?category=${encodeURIComponent(category)}` : "/products"}
             className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
           >
             Clear
