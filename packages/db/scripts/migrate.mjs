@@ -72,6 +72,10 @@ const MIGRATIONS = [
     name: "0008_admin_bypass_audit",
     file: join(__dirname, "../drizzle/0008_admin_bypass_audit.sql"),
   },
+  {
+    name: "0009_catalog_schema",
+    file: join(__dirname, "../drizzle/0009_catalog_schema.sql"),
+  },
 ]
 
 try {
