@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { redirect } from "next/navigation"
 import { eq } from "drizzle-orm"
 
@@ -64,19 +65,19 @@ export default async function SellerDashboardPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        {[
-          { label: "Products", value: "—", note: "Coming soon" },
-          { label: "Orders", value: "—", note: "Coming soon" },
-        ].map((card) => (
-          <div
-            key={card.label}
-            className="rounded-xl border border-gray-200 bg-white p-6 text-center shadow-sm"
-          >
-            <div className="text-3xl font-bold text-slate-300">{card.value}</div>
-            <div className="mt-1 text-sm text-gray-500">{card.label}</div>
-            <div className="mt-1 text-xs text-indigo-400">{card.note}</div>
-          </div>
-        ))}
+        <Link
+          href="/seller/dashboard/products"
+          className="rounded-xl border border-gray-200 bg-white p-6 text-center shadow-sm hover:bg-gray-50"
+        >
+          <div className="text-3xl font-bold text-indigo-600">→</div>
+          <div className="mt-1 text-sm font-medium text-gray-700">Products</div>
+          <div className="mt-1 text-xs text-gray-400">Manage your listings</div>
+        </Link>
+        <div className="rounded-xl border border-gray-200 bg-white p-6 text-center shadow-sm">
+          <div className="text-3xl font-bold text-slate-300">—</div>
+          <div className="mt-1 text-sm text-gray-500">Orders</div>
+          <div className="mt-1 text-xs text-indigo-400">Coming soon</div>
+        </div>
       </div>
     </div>
   )
