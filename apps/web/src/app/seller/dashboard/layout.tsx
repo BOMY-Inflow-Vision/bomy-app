@@ -24,7 +24,9 @@ export default function SellerDashboardLayout({ children }: { children: React.Re
           {NAV.map((item) => {
             const active = item.exact ? pathname === item.href : pathname.startsWith(item.href)
             const isComingSoon =
-              item.href !== "/seller/dashboard" && item.href !== "/seller/dashboard/subscriptions"
+              item.href !== "/seller/dashboard" &&
+              item.href !== "/seller/dashboard/subscriptions" &&
+              item.href !== "/seller/dashboard/products"
             return (
               <Link
                 key={item.href}
