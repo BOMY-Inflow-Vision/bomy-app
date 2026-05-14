@@ -426,5 +426,158 @@ $$;
 --     directly; all public reads flow through apps/api and therefore
 --     always have a session user. If that changes we'll add a public
 --     allowlist policy here.
---   * DELETE policies — intentionally omitted for every table.
---     Soft-delete columns land when individual features need them.
+--   * DELETE policies — omitted for most tables; soft-delete columns land
+--     when individual features need them. Exception: catalog tables
+--     (categories, products, product_variants, product_images) carry
+--     admin-only DELETE policies (app.is_bomy_staff OR is_admin_bypass)
+--     so BOMY staff can moderate content. Sellers use status='archived'.
+
+-- ── Catalog tables (Stage 5 PR #28) ──────────────────────────────────────
+
+ALTER TABLE categories       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE categories       FORCE  ROW LEVEL SECURITY;
+ALTER TABLE products         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE products         FORCE  ROW LEVEL SECURITY;
+ALTER TABLE product_variants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE product_variants FORCE  ROW LEVEL SECURITY;
+ALTER TABLE product_images   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE product_images   FORCE  ROW LEVEL SECURITY;
+
+-- categories: authenticated users see active; BOMY staff manage all.
+CREATE POLICY categories_default_deny ON categories
+  AS RESTRICTIVE
+  USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
+
+CREATE POLICY categories_active_read ON categories
+  FOR SELECT
+  USING (is_active = true OR app.is_bomy_staff() OR app.is_admin_bypass());
+
+CREATE POLICY categories_admin_insert ON categories
+  FOR INSERT
+  WITH CHECK (app.is_bomy_staff() OR app.is_admin_bypass());
+
+CREATE POLICY categories_admin_update ON categories
+  FOR UPDATE
+  USING  (app.is_bomy_staff() OR app.is_admin_bypass())
+  WITH CHECK (app.is_bomy_staff() OR app.is_admin_bypass());
+
+CREATE POLICY categories_admin_delete ON categories
+  FOR DELETE
+  USING (app.is_bomy_staff() OR app.is_admin_bypass());
+
+-- products: active = publicly visible. Seller owns via store FK.
+CREATE POLICY products_default_deny ON products
+  AS RESTRICTIVE
+  USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
+
+CREATE POLICY products_read ON products
+  FOR SELECT
+  USING (
+    status = 'active'
+    OR EXISTS (SELECT 1 FROM stores WHERE stores.id = products.store_id AND stores.owner_id = app.current_user_id())
+    OR app.is_bomy_staff()
+    OR app.is_admin_bypass()
+  );
+
+CREATE POLICY products_seller_insert ON products
+  FOR INSERT
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM stores WHERE stores.id = products.store_id AND stores.owner_id = app.current_user_id())
+    OR app.is_bomy_staff()
+    OR app.is_admin_bypass()
+  );
+
+CREATE POLICY products_seller_update ON products
+  FOR UPDATE
+  USING (
+    EXISTS (SELECT 1 FROM stores WHERE stores.id = products.store_id AND stores.owner_id = app.current_user_id())
+    OR app.is_bomy_staff()
+    OR app.is_admin_bypass()
+  )
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM stores WHERE stores.id = products.store_id AND stores.owner_id = app.current_user_id())
+    OR app.is_bomy_staff()
+    OR app.is_admin_bypass()
+  );
+
+CREATE POLICY products_admin_delete ON products
+  FOR DELETE
+  USING (app.is_bomy_staff() OR app.is_admin_bypass());
+
+-- product_variants: active variants of active products = publicly visible. Seller owns via product→store.
+CREATE POLICY product_variants_default_deny ON product_variants
+  AS RESTRICTIVE
+  USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
+
+CREATE POLICY product_variants_read ON product_variants
+  FOR SELECT
+  USING (
+    (is_active = true AND EXISTS (SELECT 1 FROM products WHERE products.id = product_variants.product_id AND products.status = 'active'))
+    OR EXISTS (SELECT 1 FROM products p JOIN stores s ON s.id = p.store_id WHERE p.id = product_variants.product_id AND s.owner_id = app.current_user_id())
+    OR app.is_bomy_staff()
+    OR app.is_admin_bypass()
+  );
+
+CREATE POLICY product_variants_seller_insert ON product_variants
+  FOR INSERT
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM products p JOIN stores s ON s.id = p.store_id WHERE p.id = product_variants.product_id AND s.owner_id = app.current_user_id())
+    OR app.is_bomy_staff()
+    OR app.is_admin_bypass()
+  );
+
+CREATE POLICY product_variants_seller_update ON product_variants
+  FOR UPDATE
+  USING (
+    EXISTS (SELECT 1 FROM products p JOIN stores s ON s.id = p.store_id WHERE p.id = product_variants.product_id AND s.owner_id = app.current_user_id())
+    OR app.is_bomy_staff()
+    OR app.is_admin_bypass()
+  )
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM products p JOIN stores s ON s.id = p.store_id WHERE p.id = product_variants.product_id AND s.owner_id = app.current_user_id())
+    OR app.is_bomy_staff()
+    OR app.is_admin_bypass()
+  );
+
+CREATE POLICY product_variants_admin_delete ON product_variants
+  FOR DELETE
+  USING (app.is_bomy_staff() OR app.is_admin_bypass());
+
+-- product_images: mirrors products policies (images are public if product is active).
+CREATE POLICY product_images_default_deny ON product_images
+  AS RESTRICTIVE
+  USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
+
+CREATE POLICY product_images_read ON product_images
+  FOR SELECT
+  USING (
+    EXISTS (SELECT 1 FROM products WHERE products.id = product_images.product_id AND products.status = 'active')
+    OR EXISTS (SELECT 1 FROM products p JOIN stores s ON s.id = p.store_id WHERE p.id = product_images.product_id AND s.owner_id = app.current_user_id())
+    OR app.is_bomy_staff()
+    OR app.is_admin_bypass()
+  );
+
+CREATE POLICY product_images_seller_insert ON product_images
+  FOR INSERT
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM products p JOIN stores s ON s.id = p.store_id WHERE p.id = product_images.product_id AND s.owner_id = app.current_user_id())
+    OR app.is_bomy_staff()
+    OR app.is_admin_bypass()
+  );
+
+CREATE POLICY product_images_seller_update ON product_images
+  FOR UPDATE
+  USING (
+    EXISTS (SELECT 1 FROM products p JOIN stores s ON s.id = p.store_id WHERE p.id = product_images.product_id AND s.owner_id = app.current_user_id())
+    OR app.is_bomy_staff()
+    OR app.is_admin_bypass()
+  )
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM products p JOIN stores s ON s.id = p.store_id WHERE p.id = product_images.product_id AND s.owner_id = app.current_user_id())
+    OR app.is_bomy_staff()
+    OR app.is_admin_bypass()
+  );
+
+CREATE POLICY product_images_admin_delete ON product_images
+  FOR DELETE
+  USING (app.is_bomy_staff() OR app.is_admin_bypass());
