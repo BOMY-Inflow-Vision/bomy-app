@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { makeDb, schema, withAdmin } from "@bomy/db"
 
 import { getCategories, getProductBySlug, getProducts } from "@/app/products/queries"
+import { getStorePage } from "@/app/brands/[slug]/queries"
 
 const DATABASE_URL = process.env["DATABASE_APP_URL"] ?? process.env["DATABASE_URL"]
 const RLS_READY = process.env["BOMY_RLS_READY"] === "1"
@@ -149,6 +150,29 @@ describe.skipIf(!shouldRun)("storefront queries", () => {
     expect(product).toBeNull()
     await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test" }, (tx) =>
       tx.update(schema.products).set({ status: "active" }).where(eq(schema.products.id, productId)),
+    )
+  })
+
+  it("getStorePage returns store with active products", async () => {
+    const data = await getStorePage(storeSlug)
+    expect(data).not.toBeNull()
+    expect(data?.store.name).toBe("Test Store")
+    expect(data?.products.some((p) => p.id === productId)).toBe(true)
+  })
+
+  it("getStorePage returns null for unknown slug", async () => {
+    const data = await getStorePage("no-such-store")
+    expect(data).toBeNull()
+  })
+
+  it("getStorePage returns null for suspended store", async () => {
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test" }, (tx) =>
+      tx.update(schema.stores).set({ status: "suspended" }).where(eq(schema.stores.id, storeId)),
+    )
+    const data = await getStorePage(storeSlug)
+    expect(data).toBeNull()
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test" }, (tx) =>
+      tx.update(schema.stores).set({ status: "active" }).where(eq(schema.stores.id, storeId)),
     )
   })
 })
