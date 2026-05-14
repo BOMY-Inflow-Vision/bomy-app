@@ -683,6 +683,126 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       formData.set("variant_stock_0", "5")
       await expect(createProduct(formData)).rejects.toThrow("No active store found for this seller")
     })
+
+    it("updateVariant rejects for suspended store", async () => {
+      const suspProductId = randomUUID()
+      const suspVariantId = randomUUID()
+      await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test setup" }, async (tx) => {
+        await tx.insert(schema.products).values({
+          id: suspProductId,
+          storeId: suspendedStoreId,
+          name: "Susp Variant Product",
+          slug: `susp-var-prod-${suspProductId.slice(0, 8)}`,
+          status: "draft",
+        })
+        await tx.insert(schema.productVariants).values({
+          id: suspVariantId,
+          productId: suspProductId,
+          name: "Susp Variant",
+          priceMyrSen: 1000n,
+          stockCount: 1,
+        })
+      })
+
+      mockAuth.mockResolvedValue({
+        user: {
+          id: suspendedUserId,
+          role: "seller_owner",
+          email: `suspended-${suspendedUserId.slice(0, 8)}@test.bomy`,
+        },
+      })
+
+      const formData = new FormData()
+      formData.set("name", "Updated Name")
+      formData.set("price", "10.00")
+      formData.set("stock", "1")
+      formData.set("sku", "")
+      formData.set("attrs", "")
+
+      await expect(updateVariant(suspVariantId, formData)).rejects.toThrow(
+        "Variant not found or not authorized",
+      )
+
+      await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
+        await tx.delete(schema.productVariants).where(eq(schema.productVariants.id, suspVariantId))
+        await tx.delete(schema.products).where(eq(schema.products.id, suspProductId))
+      })
+    })
+
+    it("deactivateVariant rejects for suspended store", async () => {
+      const suspProductId = randomUUID()
+      const suspVariantId = randomUUID()
+      await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test setup" }, async (tx) => {
+        await tx.insert(schema.products).values({
+          id: suspProductId,
+          storeId: suspendedStoreId,
+          name: "Susp Deactivate Product",
+          slug: `susp-deact-prod-${suspProductId.slice(0, 8)}`,
+          status: "draft",
+        })
+        await tx.insert(schema.productVariants).values({
+          id: suspVariantId,
+          productId: suspProductId,
+          name: "Susp Deactivate Variant",
+          priceMyrSen: 1000n,
+          stockCount: 1,
+        })
+      })
+
+      mockAuth.mockResolvedValue({
+        user: {
+          id: suspendedUserId,
+          role: "seller_owner",
+          email: `suspended-${suspendedUserId.slice(0, 8)}@test.bomy`,
+        },
+      })
+
+      await expect(deactivateVariant(suspVariantId)).rejects.toThrow(
+        "Variant not found or not authorized",
+      )
+
+      await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
+        await tx.delete(schema.productVariants).where(eq(schema.productVariants.id, suspVariantId))
+        await tx.delete(schema.products).where(eq(schema.products.id, suspProductId))
+      })
+    })
+
+    it("removeProductImage rejects for suspended store", async () => {
+      const suspProductId = randomUUID()
+      const suspImageId = randomUUID()
+      await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test setup" }, async (tx) => {
+        await tx.insert(schema.products).values({
+          id: suspProductId,
+          storeId: suspendedStoreId,
+          name: "Susp Image Product",
+          slug: `susp-img-prod-${suspProductId.slice(0, 8)}`,
+          status: "draft",
+        })
+        await tx.insert(schema.productImages).values({
+          id: suspImageId,
+          productId: suspProductId,
+          url: "https://cdn.example.com/products/test.jpg",
+          sortOrder: 0,
+        })
+      })
+
+      mockAuth.mockResolvedValue({
+        user: {
+          id: suspendedUserId,
+          role: "seller_owner",
+          email: `suspended-${suspendedUserId.slice(0, 8)}@test.bomy`,
+        },
+      })
+
+      await expect(removeProductImage(suspImageId)).rejects.toThrow(
+        "Image not found or not authorized",
+      )
+
+      await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
+        await tx.delete(schema.productImages).where(eq(schema.productImages.id, suspImageId))
+        await tx.delete(schema.products).where(eq(schema.products.id, suspProductId))
+      })
+    })
   })
 
   // ─── getPresignedUploadUrl size enforcement ──────────────────────────────

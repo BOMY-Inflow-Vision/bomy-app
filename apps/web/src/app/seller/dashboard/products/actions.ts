@@ -266,7 +266,7 @@ export async function updateProduct(productId: string, formData: FormData): Prom
           ),
         )
         .limit(1)
-      if (!storeRows[0]) throw new Error("Store is not active or product not found")
+      if (!storeRows[0]) throw new Error("Product not found or not authorized")
 
       return tx
         .update(schema.products)
@@ -301,7 +301,7 @@ export async function archiveProduct(productId: string): Promise<void> {
           ),
         )
         .limit(1)
-      if (!storeRows[0]) throw new Error("Store is not active or product not found")
+      if (!storeRows[0]) throw new Error("Product not found or not authorized")
 
       return tx
         .update(schema.products)
@@ -395,12 +395,28 @@ export async function updateVariant(variantId: string, formData: FormData): Prom
   const updated = await withTenant(
     getDb(),
     { userId: session.user.id, userRole: session.user.role },
-    async (tx) =>
-      tx
+    async (tx) => {
+      const storeCheck = await tx
+        .select({ id: schema.stores.id })
+        .from(schema.productVariants)
+        .innerJoin(schema.products, eq(schema.products.id, schema.productVariants.productId))
+        .innerJoin(schema.stores, eq(schema.stores.id, schema.products.storeId))
+        .where(
+          and(
+            eq(schema.productVariants.id, variantId),
+            eq(schema.stores.ownerId, session.user.id),
+            eq(schema.stores.status, "active"),
+          ),
+        )
+        .limit(1)
+      if (!storeCheck[0]) throw new Error("Variant not found or not authorized")
+
+      return tx
         .update(schema.productVariants)
         .set({ name, sku, priceMyrSen, stockCount, attributes, updatedAt: new Date() })
         .where(eq(schema.productVariants.id, variantId))
-        .returning({ id: schema.productVariants.id, productId: schema.productVariants.productId }),
+        .returning({ id: schema.productVariants.id, productId: schema.productVariants.productId })
+    },
   )
 
   if (updated.length === 0) throw new Error("Variant not found or not authorized")
@@ -414,12 +430,28 @@ export async function deactivateVariant(variantId: string): Promise<void> {
   const updated = await withTenant(
     getDb(),
     { userId: session.user.id, userRole: session.user.role },
-    async (tx) =>
-      tx
+    async (tx) => {
+      const storeCheck = await tx
+        .select({ id: schema.stores.id })
+        .from(schema.productVariants)
+        .innerJoin(schema.products, eq(schema.products.id, schema.productVariants.productId))
+        .innerJoin(schema.stores, eq(schema.stores.id, schema.products.storeId))
+        .where(
+          and(
+            eq(schema.productVariants.id, variantId),
+            eq(schema.stores.ownerId, session.user.id),
+            eq(schema.stores.status, "active"),
+          ),
+        )
+        .limit(1)
+      if (!storeCheck[0]) throw new Error("Variant not found or not authorized")
+
+      return tx
         .update(schema.productVariants)
         .set({ isActive: false, updatedAt: new Date() })
         .where(eq(schema.productVariants.id, variantId))
-        .returning({ id: schema.productVariants.id, productId: schema.productVariants.productId }),
+        .returning({ id: schema.productVariants.id, productId: schema.productVariants.productId })
+    },
   )
 
   if (updated.length === 0) throw new Error("Variant not found or not authorized")
@@ -494,7 +526,11 @@ export async function removeProductImage(imageId: string): Promise<void> {
         .innerJoin(schema.products, eq(schema.products.id, schema.productImages.productId))
         .innerJoin(schema.stores, eq(schema.stores.id, schema.products.storeId))
         .where(
-          and(eq(schema.productImages.id, imageId), eq(schema.stores.ownerId, session.user.id)),
+          and(
+            eq(schema.productImages.id, imageId),
+            eq(schema.stores.ownerId, session.user.id),
+            eq(schema.stores.status, "active"),
+          ),
         )
         .limit(1),
   )
