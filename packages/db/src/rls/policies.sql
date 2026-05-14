@@ -449,8 +449,12 @@ CREATE POLICY categories_active_read ON categories
   FOR SELECT
   USING (is_active = true OR app.is_bomy_staff() OR app.is_admin_bypass());
 
-CREATE POLICY categories_admin_write ON categories
-  FOR ALL
+CREATE POLICY categories_admin_insert ON categories
+  FOR INSERT
+  WITH CHECK (app.is_bomy_staff() OR app.is_admin_bypass());
+
+CREATE POLICY categories_admin_update ON categories
+  FOR UPDATE
   USING  (app.is_bomy_staff() OR app.is_admin_bypass())
   WITH CHECK (app.is_bomy_staff() OR app.is_admin_bypass());
 
@@ -468,8 +472,16 @@ CREATE POLICY products_read ON products
     OR app.is_admin_bypass()
   );
 
-CREATE POLICY products_seller_write ON products
-  FOR ALL
+CREATE POLICY products_seller_insert ON products
+  FOR INSERT
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM stores WHERE stores.id = products.store_id AND stores.owner_id = app.current_user_id())
+    OR app.is_bomy_staff()
+    OR app.is_admin_bypass()
+  );
+
+CREATE POLICY products_seller_update ON products
+  FOR UPDATE
   USING (
     EXISTS (SELECT 1 FROM stores WHERE stores.id = products.store_id AND stores.owner_id = app.current_user_id())
     OR app.is_bomy_staff()
@@ -495,8 +507,16 @@ CREATE POLICY product_variants_read ON product_variants
     OR app.is_admin_bypass()
   );
 
-CREATE POLICY product_variants_seller_write ON product_variants
-  FOR ALL
+CREATE POLICY product_variants_seller_insert ON product_variants
+  FOR INSERT
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM products p JOIN stores s ON s.id = p.store_id WHERE p.id = product_variants.product_id AND s.owner_id = app.current_user_id())
+    OR app.is_bomy_staff()
+    OR app.is_admin_bypass()
+  );
+
+CREATE POLICY product_variants_seller_update ON product_variants
+  FOR UPDATE
   USING (
     EXISTS (SELECT 1 FROM products p JOIN stores s ON s.id = p.store_id WHERE p.id = product_variants.product_id AND s.owner_id = app.current_user_id())
     OR app.is_bomy_staff()
@@ -522,8 +542,16 @@ CREATE POLICY product_images_read ON product_images
     OR app.is_admin_bypass()
   );
 
-CREATE POLICY product_images_seller_write ON product_images
-  FOR ALL
+CREATE POLICY product_images_seller_insert ON product_images
+  FOR INSERT
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM products p JOIN stores s ON s.id = p.store_id WHERE p.id = product_images.product_id AND s.owner_id = app.current_user_id())
+    OR app.is_bomy_staff()
+    OR app.is_admin_bypass()
+  );
+
+CREATE POLICY product_images_seller_update ON product_images
+  FOR UPDATE
   USING (
     EXISTS (SELECT 1 FROM products p JOIN stores s ON s.id = p.store_id WHERE p.id = product_images.product_id AND s.owner_id = app.current_user_id())
     OR app.is_bomy_staff()

@@ -261,6 +261,26 @@ describe.skipIf(!shouldRun)("catalog RLS", () => {
       ).rejects.toThrow()
     })
 
+    it("seller_owner cannot DELETE their own product", async () => {
+      // RLS has no DELETE policy so the row is invisible to the tenant;
+      // Postgres silently returns 0 affected rows rather than throwing.
+      const result = await withTenant(
+        handle.db,
+        { userId: sellerAId, userRole: "seller_owner" },
+        async (tx) => tx.delete(products).where(eq(products.id, activeProductId)),
+      )
+      expect(result).toMatchObject([]) // 0 rows deleted
+
+      // Verify product still exists
+      const [row] = await withAdmin(
+        handle.db,
+        { userId: SYSTEM_ACTOR, reason: "verify product not deleted" },
+        async (tx) =>
+          tx.select({ id: products.id }).from(products).where(eq(products.id, activeProductId)),
+      )
+      expect(row?.id).toBe(activeProductId)
+    })
+
     it("seller A cannot UPDATE seller B's product", async () => {
       // Insert product in store B under admin
       const bProductId = randomUUID()
