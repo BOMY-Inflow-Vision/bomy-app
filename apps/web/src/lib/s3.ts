@@ -24,25 +24,29 @@ function getS3(): S3Client {
 }
 
 export async function createPresignedPutUrl(
-  filename: string,
   contentType: string,
+  contentLength: number,
 ): Promise<{ url: string; key: string }> {
   const bucket = process.env["S3_BUCKET"]
   if (!bucket) throw new Error("S3_BUCKET is required")
 
-  const rawExt = (filename.split(".").pop() ?? "").toLowerCase()
-  const ALLOWED_EXTS: Record<string, string> = {
-    jpg: "jpg",
-    jpeg: "jpg",
-    png: "png",
-    webp: "webp",
-    gif: "gif",
-    avif: "avif",
+  const MIME_TO_EXT: Record<string, string> = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "image/gif": "gif",
+    "image/avif": "avif",
   }
-  const ext = ALLOWED_EXTS[rawExt] ?? "bin"
+  const ext = MIME_TO_EXT[contentType]
+  if (!ext) throw new Error("Unsupported content type")
   const key = `products/${randomUUID()}.${ext}`
 
-  const command = new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType })
+  const command = new PutObjectCommand({
+    Bucket: bucket,
+    Key: key,
+    ContentType: contentType,
+    ContentLength: contentLength,
+  })
   const url = await getSignedUrl(getS3(), command, { expiresIn: 300 })
   return { url, key }
 }

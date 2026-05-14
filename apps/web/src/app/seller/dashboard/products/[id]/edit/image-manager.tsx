@@ -44,9 +44,9 @@ export function ImageManager({
     setUploading(true)
 
     try {
-      const result = await getPresignedUploadUrl(file.name, file.type)
+      const result = await getPresignedUploadUrl(file.type, file.size)
       if ("error" in result) throw new Error(result.error)
-      const { url, publicUrl } = result
+      const { url, key } = result
 
       const res = await fetch(url, {
         method: "PUT",
@@ -55,7 +55,7 @@ export function ImageManager({
       })
       if (!res.ok) throw new Error(`Upload failed: ${res.status}`)
 
-      await addProductImage(productId, publicUrl)
+      await addProductImage(productId, key)
 
       router.refresh()
     } catch (err) {

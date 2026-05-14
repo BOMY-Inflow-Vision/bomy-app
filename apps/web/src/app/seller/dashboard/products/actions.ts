@@ -60,9 +60,9 @@ async function resolveStore(tx: Database, userId: string): Promise<string> {
   const rows = await tx
     .select({ id: schema.stores.id })
     .from(schema.stores)
-    .where(eq(schema.stores.ownerId, userId))
+    .where(and(eq(schema.stores.ownerId, userId), eq(schema.stores.status, "active")))
     .limit(1)
-  if (!rows[0]) throw new Error("No store found for this seller")
+  if (!rows[0]) throw new Error("No active store found for this seller")
   return rows[0].id
 }
 
@@ -253,12 +253,27 @@ export async function updateProduct(productId: string, formData: FormData): Prom
   const updated = await withTenant(
     getDb(),
     { userId: session.user.id, userRole: session.user.role },
-    async (tx) =>
-      tx
+    async (tx) => {
+      const storeRows = await tx
+        .select({ id: schema.stores.id })
+        .from(schema.stores)
+        .innerJoin(schema.products, eq(schema.products.storeId, schema.stores.id))
+        .where(
+          and(
+            eq(schema.products.id, productId),
+            eq(schema.stores.ownerId, session.user.id),
+            eq(schema.stores.status, "active"),
+          ),
+        )
+        .limit(1)
+      if (!storeRows[0]) throw new Error("Store is not active or product not found")
+
+      return tx
         .update(schema.products)
         .set({ name, slug, categoryId, description, status, updatedAt: new Date() })
         .where(eq(schema.products.id, productId))
-        .returning({ id: schema.products.id }),
+        .returning({ id: schema.products.id })
+    },
   )
 
   if (updated.length === 0) throw new Error("Product not found or not authorized")
@@ -273,12 +288,27 @@ export async function archiveProduct(productId: string): Promise<void> {
   const updated = await withTenant(
     getDb(),
     { userId: session.user.id, userRole: session.user.role },
-    async (tx) =>
-      tx
+    async (tx) => {
+      const storeRows = await tx
+        .select({ id: schema.stores.id })
+        .from(schema.stores)
+        .innerJoin(schema.products, eq(schema.products.storeId, schema.stores.id))
+        .where(
+          and(
+            eq(schema.products.id, productId),
+            eq(schema.stores.ownerId, session.user.id),
+            eq(schema.stores.status, "active"),
+          ),
+        )
+        .limit(1)
+      if (!storeRows[0]) throw new Error("Store is not active or product not found")
+
+      return tx
         .update(schema.products)
         .set({ status: "archived", updatedAt: new Date() })
         .where(eq(schema.products.id, productId))
-        .returning({ id: schema.products.id }),
+        .returning({ id: schema.products.id })
+    },
   )
 
   if (updated.length === 0) throw new Error("Product not found or not authorized")
@@ -316,7 +346,13 @@ export async function addVariant(productId: string, formData: FormData): Promise
         .select({ id: schema.products.id })
         .from(schema.products)
         .innerJoin(schema.stores, eq(schema.stores.id, schema.products.storeId))
-        .where(and(eq(schema.products.id, productId), eq(schema.stores.ownerId, session.user.id)))
+        .where(
+          and(
+            eq(schema.products.id, productId),
+            eq(schema.stores.ownerId, session.user.id),
+            eq(schema.stores.status, "active"),
+          ),
+        )
         .limit(1)
       if (!rows[0]) throw new Error("Product not found or not authorized")
 
@@ -395,10 +431,17 @@ export async function deactivateVariant(variantId: string): Promise<void> {
 
 export async function addProductImage(
   productId: string,
-  url: string,
+  key: string,
   altText?: string,
   sortOrder?: number,
 ): Promise<void> {
+  const KEY_PATTERN =
+    /^products\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp|gif|avif)$/
+  if (!KEY_PATTERN.test(key)) throw new Error("Invalid image key")
+
+  const { buildPublicUrl } = await import("@/lib/s3")
+  const url = buildPublicUrl(key)
+
   const session = await requireSeller()
 
   await withTenant(
@@ -409,7 +452,13 @@ export async function addProductImage(
         .select({ id: schema.products.id })
         .from(schema.products)
         .innerJoin(schema.stores, eq(schema.stores.id, schema.products.storeId))
-        .where(and(eq(schema.products.id, productId), eq(schema.stores.ownerId, session.user.id)))
+        .where(
+          and(
+            eq(schema.products.id, productId),
+            eq(schema.stores.ownerId, session.user.id),
+            eq(schema.stores.status, "active"),
+          ),
+        )
         .limit(1)
       if (!rows[0]) throw new Error("Product not found or not authorized")
 
@@ -462,17 +511,33 @@ export async function removeProductImage(imageId: string): Promise<void> {
 // ─── Presigned upload URL ──────────────────────────────────────────────────
 
 export async function getPresignedUploadUrl(
-  filename: string,
   contentType: string,
-): Promise<{ url: string; key: string; publicUrl: string } | { error: string }> {
-  await requireSeller()
+  contentLength: number,
+): Promise<{ url: string; key: string } | { error: string }> {
+  const session = await requireSeller()
 
   const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"]
   if (!ALLOWED_IMAGE_TYPES.includes(contentType)) {
     return { error: "Unsupported image type" }
   }
 
-  const { createPresignedPutUrl, buildPublicUrl } = await import("@/lib/s3")
-  const { url, key } = await createPresignedPutUrl(filename, contentType)
-  return { url, key, publicUrl: buildPublicUrl(key) }
+  if (contentLength <= 0 || contentLength > 5 * 1024 * 1024) {
+    return { error: "File must be between 1 byte and 5 MB" }
+  }
+
+  const storeCheck = await withTenant(
+    getDb(),
+    { userId: session.user.id, userRole: session.user.role },
+    async (tx) =>
+      tx
+        .select({ id: schema.stores.id })
+        .from(schema.stores)
+        .where(and(eq(schema.stores.ownerId, session.user.id), eq(schema.stores.status, "active")))
+        .limit(1),
+  )
+  if (!storeCheck[0]) return { error: "Store is not active" }
+
+  const { createPresignedPutUrl } = await import("@/lib/s3")
+  const { url, key } = await createPresignedPutUrl(contentType, contentLength)
+  return { url, key }
 }

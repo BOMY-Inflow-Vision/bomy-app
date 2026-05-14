@@ -30,6 +30,7 @@ import {
   archiveProduct,
   createProduct,
   deactivateVariant,
+  getPresignedUploadUrl,
   removeProductImage,
   updateProduct,
   updateVariant,
@@ -547,8 +548,10 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       mockAuth.mockResolvedValue({
         user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
       })
+      process.env["S3_PUBLIC_URL"] = "https://cdn.example.com"
 
-      await addProductImage(productId, "https://cdn.example.com/img1.jpg")
+      const validKey = `products/00000000-0000-0000-0000-000000000002.jpg`
+      await addProductImage(productId, validKey)
 
       const images = await withAdmin(
         testDb.db,
@@ -560,7 +563,7 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
             .where(eq(schema.productImages.productId, productId)),
       )
       expect(images).toHaveLength(1)
-      expect(images[0]!.url).toBe("https://cdn.example.com/img1.jpg")
+      expect(images[0]!.url).toBe(`https://cdn.example.com/${validKey}`)
       imageId = images[0]!.id
     })
 
@@ -568,9 +571,10 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       mockAuth.mockResolvedValue({
         user: { id: otherSellerId, role: "seller_owner", email: "other@test.bomy" },
       })
+      process.env["S3_PUBLIC_URL"] = "https://cdn.example.com"
 
       await expect(
-        addProductImage(productId, "https://cdn.example.com/hacked.jpg"),
+        addProductImage(productId, "products/00000000-0000-0000-0000-000000000003.jpg"),
       ).rejects.toThrow("Product not found or not authorized")
     })
 
@@ -615,6 +619,81 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
             ),
       )
       expect(auditRows.length).toBeGreaterThan(0)
+    })
+
+    it("addProductImage rejects key not matching products/ pattern", async () => {
+      mockAuth.mockResolvedValue({
+        user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
+      })
+      await expect(addProductImage(productId, "https://cdn.evil.com/img.jpg")).rejects.toThrow(
+        "Invalid image key",
+      )
+      await expect(addProductImage(productId, "../escape/path.jpg")).rejects.toThrow(
+        "Invalid image key",
+      )
+    })
+  })
+
+  // ─── security: suspended store guard ────────────────────────────────────
+
+  describe("suspended store guard", () => {
+    let suspendedUserId: string
+    let suspendedStoreId: string
+
+    beforeAll(async () => {
+      suspendedUserId = randomUUID()
+      suspendedStoreId = randomUUID()
+      await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test setup" }, async (tx) => {
+        await tx.insert(schema.users).values({
+          id: suspendedUserId,
+          email: `suspended-${suspendedUserId.slice(0, 8)}@test.bomy`,
+          role: "seller_owner",
+          name: "Suspended",
+        })
+        await tx.insert(schema.stores).values({
+          id: suspendedStoreId,
+          ownerId: suspendedUserId,
+          name: "Suspended Store",
+          slug: `suspended-${suspendedStoreId.slice(0, 8)}`,
+          status: "suspended",
+        })
+      })
+    })
+
+    afterAll(async () => {
+      await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
+        await tx.delete(schema.stores).where(eq(schema.stores.id, suspendedStoreId))
+        await tx.delete(schema.users).where(eq(schema.users.id, suspendedUserId))
+      })
+    })
+
+    it("createProduct rejects for suspended store", async () => {
+      mockAuth.mockResolvedValue({
+        user: {
+          id: suspendedUserId,
+          role: "seller_owner",
+          email: `suspended-${suspendedUserId.slice(0, 8)}@test.bomy`,
+        },
+      })
+      const formData = new FormData()
+      formData.set("name", "Test Product")
+      formData.set("variant_count", "1")
+      formData.set("variant_name_0", "Default")
+      formData.set("variant_price_0", "10.00")
+      formData.set("variant_stock_0", "5")
+      await expect(createProduct(formData)).rejects.toThrow("No active store found for this seller")
+    })
+  })
+
+  // ─── getPresignedUploadUrl size enforcement ──────────────────────────────
+
+  describe("getPresignedUploadUrl", () => {
+    it("rejects contentLength over 5 MB", async () => {
+      mockAuth.mockResolvedValue({
+        user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
+      })
+      const result = await getPresignedUploadUrl("image/jpeg", 6 * 1024 * 1024)
+      expect(result).toEqual({ error: "File must be between 1 byte and 5 MB" })
     })
   })
 })
