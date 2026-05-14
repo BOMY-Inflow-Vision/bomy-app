@@ -91,12 +91,11 @@ describe.skipIf(!shouldRun)("membership actions", () => {
   })
 
   afterAll(async () => {
-    await withAdmin(testDb.db, { userId, reason: "test cleanup" }, async (tx) => {
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
+      await tx.delete(schema.vouchers).where(eq(schema.vouchers.userId, userId))
       await tx
         .delete(schema.memberSubscriptions)
         .where(eq(schema.memberSubscriptions.userId, userId))
-    })
-    await withAdmin(testDb.db, { userId, reason: "test cleanup" }, async (tx) => {
       await tx.delete(schema.users).where(eq(schema.users.id, userId))
     })
     await testDb.close()

@@ -51,7 +51,21 @@ describe.skipIf(!shouldRun)("issueMonthlyVouchers", () => {
   })
 
   afterAll(async () => {
-    await withAdmin(testDb.db, { userId: adminId, reason: "test cleanup" }, async (tx) => {
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
+      // Restore platform_config voucher keys to migration 0003 defaults so other
+      // packages' tests (e.g. @bomy/db memberships.test.ts) see a clean baseline.
+      for (const { key, value } of [
+        { key: "voucher_monthly_type", value: "fixed_myr" },
+        { key: "voucher_monthly_fixed_sen", value: 500 },
+        { key: "voucher_monthly_pct", value: 10 },
+        { key: "voucher_monthly_random_min_sen", value: 200 },
+        { key: "voucher_monthly_random_max_sen", value: 1000 },
+      ] as const) {
+        await tx
+          .update(schema.platformConfig)
+          .set({ value, updatedAt: new Date() })
+          .where(eq(schema.platformConfig.key, key))
+      }
       await tx.delete(schema.users).where(eq(schema.users.id, adminId))
     })
     await testDb.close()
