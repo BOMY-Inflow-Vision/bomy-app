@@ -1,6 +1,6 @@
 import { and, count, desc, eq, sql } from "drizzle-orm"
 
-import { makeDb, schema } from "@bomy/db"
+import { makeDb, schema, withPublicRead } from "@bomy/db"
 
 let _client: ReturnType<typeof makeDb> | null = null
 function getDb() {
@@ -13,15 +13,17 @@ export { formatMyrSen } from "@/lib/format"
 const PAGE_SIZE = 20
 
 export async function getCategories() {
-  return getDb()
-    .select({
-      id: schema.categories.id,
-      name: schema.categories.name,
-      slug: schema.categories.slug,
-    })
-    .from(schema.categories)
-    .where(eq(schema.categories.isActive, true))
-    .orderBy(schema.categories.name)
+  return withPublicRead(getDb(), (db) =>
+    db
+      .select({
+        id: schema.categories.id,
+        name: schema.categories.name,
+        slug: schema.categories.slug,
+      })
+      .from(schema.categories)
+      .where(eq(schema.categories.isActive, true))
+      .orderBy(schema.categories.name),
+  )
 }
 
 export async function getProducts({
@@ -33,8 +35,6 @@ export async function getProducts({
   categoryId?: string
   page?: number
 }) {
-  const db = getDb()
-
   const conditions = [eq(schema.products.status, "active"), eq(schema.stores.status, "active")]
   if (categoryId) conditions.push(eq(schema.products.categoryId, categoryId))
   if (query?.trim()) {
@@ -45,130 +45,132 @@ export async function getProducts({
 
   const where = and(...conditions)
 
-  const [countRow] = await db
-    .select({ total: count() })
-    .from(schema.products)
-    .innerJoin(schema.stores, eq(schema.stores.id, schema.products.storeId))
-    .where(where)
-
   const orderBy = query?.trim()
     ? sql`ts_rank(${schema.products.searchVector}, plainto_tsquery('english', ${query.trim()})) DESC`
     : desc(schema.products.createdAt)
 
-  const rows = await db
-    .select({
-      id: schema.products.id,
-      name: schema.products.name,
-      slug: schema.products.slug,
-      storeName: schema.stores.name,
-      storeSlug: schema.stores.slug,
-      storeId: schema.products.storeId,
-      coverImageUrl: schema.products.coverImageUrl,
-      minPriceSen: sql<string>`min(${schema.productVariants.priceMyrSen})`,
-    })
-    .from(schema.products)
-    .innerJoin(
-      schema.stores,
-      and(eq(schema.stores.id, schema.products.storeId), eq(schema.stores.status, "active")),
-    )
-    .leftJoin(
-      schema.productVariants,
-      and(
-        eq(schema.productVariants.productId, schema.products.id),
-        eq(schema.productVariants.isActive, true),
-      ),
-    )
-    .where(where)
-    .groupBy(
-      schema.products.id,
-      schema.products.name,
-      schema.products.slug,
-      schema.products.storeId,
-      schema.stores.id,
-      schema.stores.name,
-      schema.stores.slug,
-      schema.products.coverImageUrl,
-    )
-    .orderBy(orderBy)
-    .limit(PAGE_SIZE)
-    .offset((page - 1) * PAGE_SIZE)
+  return withPublicRead(getDb(), async (db) => {
+    const [countRow] = await db
+      .select({ total: count() })
+      .from(schema.products)
+      .innerJoin(schema.stores, eq(schema.stores.id, schema.products.storeId))
+      .where(where)
 
-  const total = Number(countRow?.total ?? 0)
-
-  return {
-    products: rows.map((r) => ({
-      ...r,
-      minPriceSen: r.minPriceSen != null ? Number(r.minPriceSen) : null,
-    })),
-    total,
-    page,
-    totalPages: Math.ceil(total / PAGE_SIZE),
-  }
-}
-
-export async function getProductBySlug(storeSlug: string, productSlug: string) {
-  const db = getDb()
-
-  const [product] = await db
-    .select({
-      id: schema.products.id,
-      name: schema.products.name,
-      slug: schema.products.slug,
-      description: schema.products.description,
-      coverImageUrl: schema.products.coverImageUrl,
-      storeId: schema.stores.id,
-      storeName: schema.stores.name,
-      storeSlug: schema.stores.slug,
-      categoryId: schema.products.categoryId,
-    })
-    .from(schema.products)
-    .innerJoin(
-      schema.stores,
-      and(
-        eq(schema.stores.id, schema.products.storeId),
-        eq(schema.stores.slug, storeSlug),
-        eq(schema.stores.status, "active"),
-      ),
-    )
-    .where(and(eq(schema.products.slug, productSlug), eq(schema.products.status, "active")))
-    .limit(1)
-
-  if (!product) return null
-
-  const [variants, images] = await Promise.all([
-    db
+    const rows = await db
       .select({
-        id: schema.productVariants.id,
-        name: schema.productVariants.name,
-        priceSen: schema.productVariants.priceMyrSen,
-        stockCount: schema.productVariants.stockCount,
-        sku: schema.productVariants.sku,
-        attributes: schema.productVariants.attributes,
-        sortOrder: schema.productVariants.sortOrder,
+        id: schema.products.id,
+        name: schema.products.name,
+        slug: schema.products.slug,
+        storeName: schema.stores.name,
+        storeSlug: schema.stores.slug,
+        storeId: schema.products.storeId,
+        coverImageUrl: schema.products.coverImageUrl,
+        minPriceSen: sql<string>`min(${schema.productVariants.priceMyrSen})`,
       })
-      .from(schema.productVariants)
-      .where(
+      .from(schema.products)
+      .innerJoin(
+        schema.stores,
+        and(eq(schema.stores.id, schema.products.storeId), eq(schema.stores.status, "active")),
+      )
+      .leftJoin(
+        schema.productVariants,
         and(
-          eq(schema.productVariants.productId, product.id),
+          eq(schema.productVariants.productId, schema.products.id),
           eq(schema.productVariants.isActive, true),
         ),
       )
-      .orderBy(schema.productVariants.sortOrder),
-    db
-      .select({
-        id: schema.productImages.id,
-        url: schema.productImages.url,
-        altText: schema.productImages.altText,
-        sortOrder: schema.productImages.sortOrder,
-      })
-      .from(schema.productImages)
-      .where(eq(schema.productImages.productId, product.id))
-      .orderBy(schema.productImages.sortOrder),
-  ])
+      .where(where)
+      .groupBy(
+        schema.products.id,
+        schema.products.name,
+        schema.products.slug,
+        schema.products.storeId,
+        schema.stores.id,
+        schema.stores.name,
+        schema.stores.slug,
+        schema.products.coverImageUrl,
+      )
+      .orderBy(orderBy)
+      .limit(PAGE_SIZE)
+      .offset((page - 1) * PAGE_SIZE)
 
-  return {
-    ...product,
-    variants: variants.map((v) => ({ ...v, priceSen: Number(v.priceSen) })),
-    images,
-  }
+    const total = Number(countRow?.total ?? 0)
+
+    return {
+      products: rows.map((r) => ({
+        ...r,
+        minPriceSen: r.minPriceSen != null ? Number(r.minPriceSen) : null,
+      })),
+      total,
+      page,
+      totalPages: Math.ceil(total / PAGE_SIZE),
+    }
+  })
+}
+
+export async function getProductBySlug(storeSlug: string, productSlug: string) {
+  return withPublicRead(getDb(), async (db) => {
+    const [product] = await db
+      .select({
+        id: schema.products.id,
+        name: schema.products.name,
+        slug: schema.products.slug,
+        description: schema.products.description,
+        coverImageUrl: schema.products.coverImageUrl,
+        storeId: schema.stores.id,
+        storeName: schema.stores.name,
+        storeSlug: schema.stores.slug,
+        categoryId: schema.products.categoryId,
+      })
+      .from(schema.products)
+      .innerJoin(
+        schema.stores,
+        and(
+          eq(schema.stores.id, schema.products.storeId),
+          eq(schema.stores.slug, storeSlug),
+          eq(schema.stores.status, "active"),
+        ),
+      )
+      .where(and(eq(schema.products.slug, productSlug), eq(schema.products.status, "active")))
+      .limit(1)
+
+    if (!product) return null
+
+    const [variants, images] = await Promise.all([
+      db
+        .select({
+          id: schema.productVariants.id,
+          name: schema.productVariants.name,
+          priceSen: schema.productVariants.priceMyrSen,
+          stockCount: schema.productVariants.stockCount,
+          sku: schema.productVariants.sku,
+          attributes: schema.productVariants.attributes,
+          sortOrder: schema.productVariants.sortOrder,
+        })
+        .from(schema.productVariants)
+        .where(
+          and(
+            eq(schema.productVariants.productId, product.id),
+            eq(schema.productVariants.isActive, true),
+          ),
+        )
+        .orderBy(schema.productVariants.sortOrder),
+      db
+        .select({
+          id: schema.productImages.id,
+          url: schema.productImages.url,
+          altText: schema.productImages.altText,
+          sortOrder: schema.productImages.sortOrder,
+        })
+        .from(schema.productImages)
+        .where(eq(schema.productImages.productId, product.id))
+        .orderBy(schema.productImages.sortOrder),
+    ])
+
+    return {
+      ...product,
+      variants: variants.map((v) => ({ ...v, priceSen: Number(v.priceSen) })),
+      images,
+    }
+  })
 }

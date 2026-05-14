@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm"
 
-import { makeDb, schema } from "@bomy/db"
+import { makeDb, schema, withPublicRead } from "@bomy/db"
 
 let _client: ReturnType<typeof makeDb> | null = null
 function getDb() {
@@ -9,32 +9,32 @@ function getDb() {
 }
 
 export async function getStorePage(slug: string) {
-  const db = getDb()
+  return withPublicRead(getDb(), async (db) => {
+    const [store] = await db
+      .select({
+        id: schema.stores.id,
+        name: schema.stores.name,
+        slug: schema.stores.slug,
+        description: schema.stores.description,
+      })
+      .from(schema.stores)
+      .where(and(eq(schema.stores.slug, slug), eq(schema.stores.status, "active")))
+      .limit(1)
 
-  const [store] = await db
-    .select({
-      id: schema.stores.id,
-      name: schema.stores.name,
-      slug: schema.stores.slug,
-      description: schema.stores.description,
-    })
-    .from(schema.stores)
-    .where(and(eq(schema.stores.slug, slug), eq(schema.stores.status, "active")))
-    .limit(1)
+    if (!store) return null
 
-  if (!store) return null
+    const products = await db
+      .select({
+        id: schema.products.id,
+        name: schema.products.name,
+        slug: schema.products.slug,
+        coverImageUrl: schema.products.coverImageUrl,
+      })
+      .from(schema.products)
+      .where(and(eq(schema.products.storeId, store.id), eq(schema.products.status, "active")))
+      .orderBy(schema.products.createdAt)
+      .limit(24)
 
-  const products = await db
-    .select({
-      id: schema.products.id,
-      name: schema.products.name,
-      slug: schema.products.slug,
-      coverImageUrl: schema.products.coverImageUrl,
-    })
-    .from(schema.products)
-    .where(and(eq(schema.products.storeId, store.id), eq(schema.products.status, "active")))
-    .orderBy(schema.products.createdAt)
-    .limit(24)
-
-  return { store, products }
+    return { store, products }
+  })
 }
