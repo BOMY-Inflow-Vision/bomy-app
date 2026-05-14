@@ -426,8 +426,11 @@ $$;
 --     directly; all public reads flow through apps/api and therefore
 --     always have a session user. If that changes we'll add a public
 --     allowlist policy here.
---   * DELETE policies — intentionally omitted for every table.
---     Soft-delete columns land when individual features need them.
+--   * DELETE policies — omitted for most tables; soft-delete columns land
+--     when individual features need them. Exception: catalog tables
+--     (categories, products, product_variants, product_images) carry
+--     admin-only DELETE policies (app.is_bomy_staff OR is_admin_bypass)
+--     so BOMY staff can moderate content. Sellers use status='archived'.
 
 -- ── Catalog tables (Stage 5 PR #28) ──────────────────────────────────────
 
