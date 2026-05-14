@@ -55,7 +55,8 @@ describe.skipIf(!shouldRun)("cancelMembership", () => {
   })
 
   afterAll(async () => {
-    await withAdmin(testDb.db, { userId: adminId, reason: "test cleanup" }, async (tx) => {
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
+      await tx.delete(schema.vouchers).where(eq(schema.vouchers.userId, userId))
       await tx
         .delete(schema.memberSubscriptions)
         .where(eq(schema.memberSubscriptions.userId, userId))
@@ -106,6 +107,7 @@ describe.skipIf(!shouldRun)("cancelMembership", () => {
     expect(row?.status).toBe("active")
 
     await withAdmin(testDb.db, { userId: adminId, reason: "test cleanup" }, async (tx) => {
+      await tx.delete(schema.vouchers).where(eq(schema.vouchers.userId, tUserId))
       await tx.delete(schema.memberSubscriptions).where(eq(schema.memberSubscriptions.id, tid))
       await tx.delete(schema.users).where(eq(schema.users.id, tUserId))
     })
@@ -151,6 +153,7 @@ describe.skipIf(!shouldRun)("cancelMembership", () => {
     expect(row?.status).toBe("active")
 
     await withAdmin(testDb.db, { userId: adminId, reason: "test cleanup" }, async (tx) => {
+      await tx.delete(schema.vouchers).where(eq(schema.vouchers.userId, tUserId))
       await tx.delete(schema.memberSubscriptions).where(eq(schema.memberSubscriptions.id, tid))
       await tx.delete(schema.users).where(eq(schema.users.id, tUserId))
     })

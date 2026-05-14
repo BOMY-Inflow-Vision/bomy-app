@@ -13,7 +13,7 @@
  */
 import { randomUUID } from "node:crypto"
 
-import { inArray, sql } from "drizzle-orm"
+import { eq, inArray, sql } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 
 import { makeDb, type Db } from "../src/client.js"
@@ -68,6 +68,24 @@ describe.skipIf(!shouldRun)("Stage 4 — platform_config seeds", () => {
       "voucher_monthly_random_min_sen",
       "voucher_monthly_random_max_sen",
     ]
+
+    // Re-apply migration 0003 defaults in case another test suite overwrote them
+    // (e.g. @bomy/api voucher-issuance tests use onConflictDoUpdate). This makes
+    // the assertion idempotent on a shared local DB.
+    await withAdmin(handle.db, { userId: adminId, reason: "restore seeds" }, async (tx) => {
+      for (const { key, value } of [
+        { key: "voucher_monthly_type", value: "fixed_myr" },
+        { key: "voucher_monthly_fixed_sen", value: 500 },
+        { key: "voucher_monthly_pct", value: 10 },
+        { key: "voucher_monthly_random_min_sen", value: 200 },
+        { key: "voucher_monthly_random_max_sen", value: 1000 },
+      ] as const) {
+        await tx
+          .update(platformConfig)
+          .set({ value, updatedAt: new Date() })
+          .where(eq(platformConfig.key, key))
+      }
+    })
 
     const rows = await withAdmin(handle.db, { userId: adminId, reason: "read seeds" }, async (tx) =>
       tx

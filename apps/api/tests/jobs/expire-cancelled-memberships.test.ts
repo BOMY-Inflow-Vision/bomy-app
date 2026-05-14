@@ -43,10 +43,9 @@ describe.skipIf(!shouldRun)("expireCancelledMemberships", () => {
   }
 
   async function cleanupUser(userId: string, subId: string) {
-    await withAdmin(testDb.db, { userId, reason: "test cleanup" }, async (tx) => {
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
+      await tx.delete(schema.vouchers).where(eq(schema.vouchers.userId, userId))
       await tx.delete(schema.memberSubscriptions).where(eq(schema.memberSubscriptions.id, subId))
-    })
-    await withAdmin(testDb.db, { userId, reason: "test cleanup" }, async (tx) => {
       await tx.delete(schema.users).where(eq(schema.users.id, userId))
     })
   }
