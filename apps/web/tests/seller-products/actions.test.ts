@@ -574,7 +574,15 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       ).rejects.toThrow("Product not found or not authorized")
     })
 
-    it("removes own product image via withAdmin (audit row written)", async () => {
+    it("rejects removeProductImage for another seller's image", async () => {
+      mockAuth.mockResolvedValue({
+        user: { id: otherSellerId, role: "seller_owner", email: "other@test.bomy" },
+      })
+
+      await expect(removeProductImage(imageId)).rejects.toThrow("Image not found or not authorized")
+    })
+
+    it("removes own product image (audit row written)", async () => {
       mockAuth.mockResolvedValue({
         user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
       })
@@ -591,6 +599,22 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
             .where(eq(schema.productImages.productId, productId)),
       )
       expect(images).toHaveLength(0)
+
+      const auditRows = await withAdmin(
+        testDb.db,
+        { userId: SYSTEM_ACTOR, reason: "verify audit" },
+        (tx) =>
+          tx
+            .select()
+            .from(schema.adminBypassAudit)
+            .where(
+              and(
+                eq(schema.adminBypassAudit.actorUserId, sellerId),
+                eq(schema.adminBypassAudit.reason, "seller image removal"),
+              ),
+            ),
+      )
+      expect(auditRows.length).toBeGreaterThan(0)
     })
   })
 })

@@ -30,7 +30,16 @@ export async function createPresignedPutUrl(
   const bucket = process.env["S3_BUCKET"]
   if (!bucket) throw new Error("S3_BUCKET is required")
 
-  const ext = filename.split(".").pop() ?? "bin"
+  const rawExt = (filename.split(".").pop() ?? "").toLowerCase()
+  const ALLOWED_EXTS: Record<string, string> = {
+    jpg: "jpg",
+    jpeg: "jpg",
+    png: "png",
+    webp: "webp",
+    gif: "gif",
+    avif: "avif",
+  }
+  const ext = ALLOWED_EXTS[rawExt] ?? "bin"
   const key = `products/${randomUUID()}.${ext}`
 
   const command = new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType })

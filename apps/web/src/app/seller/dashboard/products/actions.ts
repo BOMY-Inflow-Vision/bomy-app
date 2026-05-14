@@ -292,22 +292,6 @@ export async function archiveProduct(productId: string): Promise<void> {
 export async function addVariant(productId: string, formData: FormData): Promise<void> {
   const session = await requireSeller()
 
-  const ownedProductCheck = await withTenant(
-    getDb(),
-    { userId: session.user.id, userRole: session.user.role },
-    async (tx) => {
-      const rows = await tx
-        .select({ id: schema.products.id })
-        .from(schema.products)
-        .innerJoin(schema.stores, eq(schema.stores.id, schema.products.storeId))
-        .where(and(eq(schema.products.id, productId), eq(schema.stores.ownerId, session.user.id)))
-        .limit(1)
-      return rows[0] ?? null
-    },
-  )
-
-  if (!ownedProductCheck) throw new Error("Product not found or not authorized")
-
   const name = str(formData, "name").trim()
   if (!name) throw new Error("Variant name is required")
   const priceMyrSen = parseMyrToSen(str(formData, "price"))
@@ -328,6 +312,14 @@ export async function addVariant(productId: string, formData: FormData): Promise
     getDb(),
     { userId: session.user.id, userRole: session.user.role },
     async (tx) => {
+      const rows = await tx
+        .select({ id: schema.products.id })
+        .from(schema.products)
+        .innerJoin(schema.stores, eq(schema.stores.id, schema.products.storeId))
+        .where(and(eq(schema.products.id, productId), eq(schema.stores.ownerId, session.user.id)))
+        .limit(1)
+      if (!rows[0]) throw new Error("Product not found or not authorized")
+
       await tx.insert(schema.productVariants).values({
         productId,
         name,
@@ -409,7 +401,7 @@ export async function addProductImage(
 ): Promise<void> {
   const session = await requireSeller()
 
-  const ownedProductCheck = await withTenant(
+  await withTenant(
     getDb(),
     { userId: session.user.id, userRole: session.user.role },
     async (tx) => {
@@ -419,16 +411,8 @@ export async function addProductImage(
         .innerJoin(schema.stores, eq(schema.stores.id, schema.products.storeId))
         .where(and(eq(schema.products.id, productId), eq(schema.stores.ownerId, session.user.id)))
         .limit(1)
-      return rows[0] ?? null
-    },
-  )
+      if (!rows[0]) throw new Error("Product not found or not authorized")
 
-  if (!ownedProductCheck) throw new Error("Product not found or not authorized")
-
-  await withTenant(
-    getDb(),
-    { userId: session.user.id, userRole: session.user.role },
-    async (tx) => {
       await tx.insert(schema.productImages).values({
         productId,
         url,
@@ -480,8 +464,13 @@ export async function removeProductImage(imageId: string): Promise<void> {
 export async function getPresignedUploadUrl(
   filename: string,
   contentType: string,
-): Promise<{ url: string; key: string; publicUrl: string }> {
+): Promise<{ url: string; key: string; publicUrl: string } | { error: string }> {
   await requireSeller()
+
+  const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"]
+  if (!ALLOWED_IMAGE_TYPES.includes(contentType)) {
+    return { error: "Unsupported image type" }
+  }
 
   const { createPresignedPutUrl, buildPublicUrl } = await import("@/lib/s3")
   const { url, key } = await createPresignedPutUrl(filename, contentType)

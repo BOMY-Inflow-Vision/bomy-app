@@ -2,6 +2,8 @@
 
 import { useRef, useState } from "react"
 
+import { useRouter } from "next/navigation"
+
 import { addProductImage, getPresignedUploadUrl, removeProductImage } from "../../actions"
 
 type ProductImage = {
@@ -18,6 +20,7 @@ export function ImageManager({
   productId: string
   images: ProductImage[]
 }) {
+  const router = useRouter()
   const [images, setImages] = useState(initialImages)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -41,7 +44,9 @@ export function ImageManager({
     setUploading(true)
 
     try {
-      const { url, publicUrl } = await getPresignedUploadUrl(file.name, file.type)
+      const result = await getPresignedUploadUrl(file.name, file.type)
+      if ("error" in result) throw new Error(result.error)
+      const { url, publicUrl } = result
 
       const res = await fetch(url, {
         method: "PUT",
@@ -52,10 +57,7 @@ export function ImageManager({
 
       await addProductImage(productId, publicUrl)
 
-      setImages((prev) => [
-        ...prev,
-        { id: crypto.randomUUID(), url: publicUrl, altText: null, sortOrder: prev.length },
-      ])
+      router.refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed")
     } finally {
