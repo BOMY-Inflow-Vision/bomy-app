@@ -85,6 +85,10 @@ export async function getProducts({
     .where(where)
     .groupBy(
       schema.products.id,
+      schema.products.name,
+      schema.products.slug,
+      schema.products.storeId,
+      schema.stores.id,
       schema.stores.name,
       schema.stores.slug,
       schema.products.coverImageUrl,
@@ -140,7 +144,7 @@ export async function getProductBySlug(storeSlug: string, productSlug: string) {
       .select({
         id: schema.productVariants.id,
         name: schema.productVariants.name,
-        priceSen: sql<string>`${schema.productVariants.priceMyrSen}`,
+        priceSen: schema.productVariants.priceMyrSen,
         stockCount: schema.productVariants.stockCount,
         sku: schema.productVariants.sku,
         attributes: schema.productVariants.attributes,
