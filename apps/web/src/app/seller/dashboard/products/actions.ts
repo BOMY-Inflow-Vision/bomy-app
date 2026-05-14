@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 
 import { makeDb, schema, withAdmin, withTenant } from "@bomy/db"
+import type { Database } from "@bomy/db"
 
 import { auth } from "@/auth"
 
@@ -55,11 +56,8 @@ async function requireSeller() {
   return session
 }
 
-async function resolveStore(
-  tx: { select: (...args: unknown[]) => unknown },
-  userId: string,
-): Promise<string> {
-  const rows = await (tx as ReturnType<typeof makeDb>["db"])
+async function resolveStore(tx: Database, userId: string): Promise<string> {
+  const rows = await tx
     .select({ id: schema.stores.id })
     .from(schema.stores)
     .where(eq(schema.stores.ownerId, userId))
