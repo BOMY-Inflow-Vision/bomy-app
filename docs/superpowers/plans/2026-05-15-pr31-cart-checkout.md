@@ -62,11 +62,14 @@
 
 ---
 
-## Task 1: Migration 0011 — DDL (enums, ALTERs, tables, indexes)
+## Task 1: Migration 0011 — full migration (DDL + RLS + seed) in one commit
+
+**Why combined:** RLS and table DDL must land together. A partial migration leaves rows readable/writable by unauthorised paths during deploy. One file, one commit, one migration apply. The migration writes the policies inline (matching the codebase convention from 0008/0009); `packages/db/src/rls/policies.sql` is also updated so the policies are reflected in the canonical RLS doc.
 
 **Files:**
 
 - Create: `packages/db/drizzle/0011_cart_checkout.sql`
+- Modify: `packages/db/src/rls/policies.sql` (append matching policy definitions for canonical RLS reference)
 
 - [ ] **Step 1: Create the migration file with enums + ALTERs**
 
@@ -257,45 +260,13 @@ CREATE INDEX vouchers_available_user_idx
 COMMIT;
 ```
 
-**Note:** RLS and seed land in Task 2 inside this same migration file (do not close `COMMIT;` yet — actually keep the COMMIT and re-BEGIN; or merge in Task 2). Decision: keep one BEGIN/COMMIT pair for the whole migration — Task 2 will edit the COMMIT line down.
+**Important:** Do NOT close `COMMIT;` yet — remove the trailing `COMMIT;` line from Step 5 (or leave it and edit it down). Steps 6-11 below extend the same migration file with RLS ENABLE/FORCE, policies, and the `checkout_enabled = false` seed. The final `COMMIT;` lands at the end of Step 11.
 
-- [ ] **Step 6: Run the migration locally to verify DDL is valid**
+(Task 2 is absorbed into Task 1 — DDL + RLS + seed must land together to avoid any window where tables exist without policies.)
 
-```bash
-docker compose -f infra/docker/compose.yml up -d postgres
-DATABASE_URL=postgresql://bomy:changeme_local@localhost:5432/bomy \
-  psql $DATABASE_URL -f packages/db/drizzle/0011_cart_checkout.sql
-```
+- [ ] **Step 6: Append RLS ENABLE/FORCE for all 4 new tables**
 
-Expected: `BEGIN`, multiple `CREATE TYPE` / `CREATE TABLE` / `ALTER TABLE` / `CREATE INDEX`, `COMMIT` lines. No errors.
-
-If errors → fix and re-run. **Roll back before continuing:** drop the test DB and re-create from migrations 0000–0010 only.
-
-```bash
-docker compose -f infra/docker/compose.yml exec -T postgres psql -U bomy -c 'DROP DATABASE IF EXISTS bomy;'
-docker compose -f infra/docker/compose.yml exec -T postgres psql -U bomy -c 'CREATE DATABASE bomy;'
-# Re-apply 0000-0010 via your usual seeding script
-```
-
-- [ ] **Step 7: Commit DDL-only migration**
-
-```bash
-git add packages/db/drizzle/0011_cart_checkout.sql
-git commit -m "feat(db): migration 0011 DDL — checkout sessions, inventory reservations, voucher FKs, store shipping fee"
-```
-
----
-
-## Task 2: Migration 0011 — RLS policies + checkout_enabled seed
-
-**Files:**
-
-- Modify: `packages/db/drizzle/0011_cart_checkout.sql` (append before `COMMIT;`)
-- Modify: `packages/db/src/rls/policies.sql` (append definitions)
-
-- [ ] **Step 1: Edit the migration — move COMMIT down, append RLS enable + seed**
-
-Edit `0011_cart_checkout.sql`: remove the trailing `COMMIT;`, append the block below, then re-add `COMMIT;`.
+Open `0011_cart_checkout.sql`, remove the trailing `COMMIT;`, and append:
 
 ```sql
 -- 9. Enable + force RLS on all 4 new tables
@@ -1762,7 +1733,20 @@ export type PreviewResult =
       totalBuyerPaysSen: string
       availableVouchers: Array<{ id: string; type: string; label: string }>
     }
-  | { ok: false; error: "UNAUTHENTICATED" | "EMPTY_CART" | "TOTAL_NOT_PAYABLE" | "INVALID_CART" }
+  | {
+      ok: false
+      error: "INVALID_CART" | "TOTAL_NOT_PAYABLE"
+      invalidLines: Array<{ variantId: string; reason: InvalidLineReason }> // present so the UI can render the banner
+      availableVouchers: Array<{ id: string; type: string; label: string }>
+    }
+  | { ok: false; error: "UNAUTHENTICATED" | "EMPTY_CART" }
+
+export type InvalidLineReason =
+  | "missing"
+  | "variant_inactive"
+  | "product_not_active"
+  | "store_not_active"
+  | "insufficient_stock"
 
 export async function priceCheckoutPreview(input: {
   items: Array<{ variantId: string; quantity: number }>
@@ -1779,8 +1763,11 @@ export async function priceCheckoutPreview(input: {
     voucherId: input.voucherId,
   })
 
+  const availableVouchers = await loadAvailableVouchers(db, session.user.id)
+
   if (ctx.invalidLines.length > 0) {
-    return { ok: false, error: "INVALID_CART" }
+    // UI shows the invalid-line banner from this payload; pay button stays disabled.
+    return { ok: false, error: "INVALID_CART", invalidLines: ctx.invalidLines, availableVouchers }
   }
 
   const totals = computeCheckoutTotals({
@@ -1791,10 +1778,8 @@ export async function priceCheckoutPreview(input: {
   })
 
   if (totals.totalBuyerPaysSen <= 0n) {
-    return { ok: false, error: "TOTAL_NOT_PAYABLE" }
+    return { ok: false, error: "TOTAL_NOT_PAYABLE", invalidLines: [], availableVouchers }
   }
-
-  const availableVouchers = await loadAvailableVouchers(db, session.user.id)
 
   return {
     ok: true,
@@ -1806,6 +1791,8 @@ export async function priceCheckoutPreview(input: {
   }
 }
 ```
+
+**UI behaviour:** the `/checkout` client form treats `INVALID_CART` and `TOTAL_NOT_PAYABLE` like `ok: true` from a rendering standpoint — it renders the invalid-line banner from `invalidLines`, the voucher dropdown from `availableVouchers`, and disables the Pay button. Only `UNAUTHENTICATED` and `EMPTY_CART` short-circuit to a different page state. Per spec §4.2 invalid-line banner copy.
 
 `loadAvailableVouchers` reads `vouchers` under `withTenant`-buyer (own + unredeemed + unreserved + unexpired) and formats labels per spec §4.2 (no `voucher.code` exposed).
 
@@ -2026,11 +2013,45 @@ describe("initiateCheckout Phase 1", () => {
   test("TOTAL_NOT_PAYABLE when voucher covers full catalog + zero shipping", async () => {
     /* ... */
   })
-  test("stock race: two concurrent initiations for last unit → one wins, other OUT_OF_STOCK_RACE; stock ends at 0", async () => {
-    /* ... */
+  test("stock race: two *different* buyers initiating concurrently for the last unit → one wins, other OUT_OF_STOCK_RACE; stock ends at 0", async () => {
+    /* Two buyers (single-pending applies per-buyer, advisory lock keyed on buyer.id, so different buyers don't block each other).
+       Both have add-to-cart for the same variant with stock_count = 1.
+       Run both initiateCheckout calls concurrently with Promise.all.
+       Assertions: exactly one returns { ok: true }; the other returns { ok: false, error: "OUT_OF_STOCK_RACE" }.
+       Stock is 0 afterwards. Exactly one checkout_session in pending_payment with PSP id set. */
   })
-  test("voucher race: two concurrent initiations using same voucher → one wins, other VOUCHER_RACE", async () => {
-    /* ... */
+
+  test("voucher reservation race (seam-level): two concurrent transactions UPDATE the same voucher row — only one succeeds", async () => {
+    /* The full initiateCheckout single-pending lock makes a same-buyer voucher race
+       unreachable via the public API (second call hits PENDING_CHECKOUT_EXISTS;
+       vouchers are user-scoped so two buyers can't share one). To verify the atomic
+       guard at the reservation UPDATE level, exercise it directly:
+
+       1. Seed a voucher owned by buyer B with redeemed_at=NULL, reserved_*=NULL.
+       2. Seed two ephemeral checkout_sessions s1, s2 owned by B (status='pending_payment')
+          via direct withAdmin INSERT — these bypass single-pending which is only
+          enforced inside initiateCheckout.
+       3. In two concurrent withAdmin transactions, run:
+            UPDATE vouchers
+               SET reserved_checkout_session_id = $sX, reserved_at = now()
+             WHERE id = $voucherId
+               AND redeemed_at IS NULL
+               AND reserved_checkout_session_id IS NULL
+               AND expires_at > now()
+            RETURNING id
+       4. Promise.all both transactions.
+       5. Assert exactly one returns one row; the other returns zero rows.
+       6. Assert vouchers.reserved_checkout_session_id is now one of s1/s2 (not null, not both).
+
+       This validates the WHERE-clause-as-lock guarantee. */
+  })
+
+  test("voucher race (end-to-end, single-pending interaction): same-buyer second call returns PENDING_CHECKOUT_EXISTS, not VOUCHER_RACE", async () => {
+    /* Document the interaction: single-pending enforcement prevents same-buyer
+       voucher races from surfacing as VOUCHER_RACE. Run initiateCheckout once
+       successfully; run again with same voucher — assert PENDING_CHECKOUT_EXISTS
+       (not VOUCHER_RACE). This is intentional: VOUCHER_RACE is reachable only via
+       the seam-level path above. */
   })
 })
 ```
@@ -2056,7 +2077,7 @@ import {
 } from "@bomy/db"
 import { ShippingAddressSchema, type ShippingAddressInput } from "@/lib/shipping-address-schema"
 import { CheckoutError, type CheckoutErrorCode } from "@/lib/checkout-errors"
-import { readPlatformConfig } from "@bomy/db/platform-config" // create helper if missing — see note below
+import { readPlatformConfig } from "@bomy/db/platform-config" // see helper definition below
 import { fetchCheckoutContext, computeCheckoutTotals } from "./queries"
 import { hitpayClient } from "@bomy/hitpay"
 import { senToMyr } from "@/lib/money"
@@ -2072,7 +2093,10 @@ export async function initiateCheckout(input: {
   const session = await getServerSession()
   if (!session?.user?.id) return { ok: false, error: "UNAUTHENTICATED" }
 
-  const enabled = await readPlatformConfig<boolean>("checkout_enabled")
+  const enabled = await readPlatformConfig<boolean>(db, "checkout_enabled", {
+    actorUserId: session.user.id,
+    reason: "checkout_enabled gate check",
+  })
   if (enabled !== true) return { ok: false, error: "CHECKOUT_DISABLED" }
 
   if (input.items.length === 0) return { ok: false, error: "EMPTY_CART" }
@@ -2227,22 +2251,42 @@ export async function initiateCheckout(input: {
 
 Helper `loadContextForInitiation` is a near-clone of `fetchCheckoutContext` that runs **inside** the existing transaction (no `withTenant` wrapper) and adds `.for("update")` on `product_variants` and `vouchers` rows. Place it next to `fetchCheckoutContext` in `queries.ts`.
 
-`readPlatformConfig` helper — if not already in `@bomy/db`, add a tiny helper:
+`readPlatformConfig` helper — `platform_config` is staff-only at the RLS layer. Raw `db.select(...)` returns 0 rows under buyer context. Use `withAdmin` with the real session user (or `SYSTEM_ACTOR` if no user), matching the existing pattern in `apps/web/src/app/(marketing)/membership/page.tsx:13-27` and `membership/actions.ts:60-72`. The audit-row cost per config read is the accepted convention.
 
 ```ts
 // packages/db/src/platform-config.ts
 import { eq } from "drizzle-orm"
-import { db as defaultDb } from "./client.js"
+import type { Database } from "./client.js"
+import { withAdmin } from "./tenant.js"
 import { platformConfig } from "./schema/platform_config.js"
-export async function readPlatformConfig<T>(key: string, db = defaultDb): Promise<T | null> {
-  const rows = await db
-    .select({ value: platformConfig.value })
-    .from(platformConfig)
-    .where(eq(platformConfig.key, key))
-    .limit(1)
-  return rows.length === 1 ? (rows[0].value as T) : null
+import { SYSTEM_ACTOR } from "./constants.js" // existing constant from PR #26
+
+export async function readPlatformConfig<T>(
+  db: Database,
+  key: string,
+  opts: { actorUserId?: string; reason: string },
+): Promise<T | null> {
+  return withAdmin(
+    db,
+    { userId: opts.actorUserId ?? SYSTEM_ACTOR, reason: opts.reason },
+    async (tx) => {
+      const rows = await tx
+        .select({ value: platformConfig.value })
+        .from(platformConfig)
+        .where(eq(platformConfig.key, key))
+        .limit(1)
+      return rows.length === 1 ? (rows[0]!.value as T) : null
+    },
+  )
 }
 ```
+
+Update call sites accordingly:
+
+- Inside `initiateCheckout` (this task): `const enabled = await readPlatformConfig<boolean>(db, "checkout_enabled", { actorUserId: session.user.id, reason: "checkout_enabled gate check (initiateCheckout)" })`
+- Inside `/checkout` server shell (Task 15): `const enabled = await readPlatformConfig<boolean>(db, "checkout_enabled", { actorUserId: session.user.id, reason: "checkout_enabled gate check (/checkout render)" })`
+
+Test impact: tests asserting "CHECKOUT_DISABLED, no side effects" should now also verify that **only the readPlatformConfig audit row is written** (no checkout_session, no items, no reservations, no compensation). The audit row from the gate-read is expected.
 
 - [ ] **Step 4: Run tests until green**
 
@@ -2497,7 +2541,10 @@ export default async function CheckoutPage() {
     redirect("/login?next=/checkout")
   }
 
-  const enabled = await readPlatformConfig<boolean>("checkout_enabled")
+  const enabled = await readPlatformConfig<boolean>(db, "checkout_enabled", {
+    actorUserId: session.user.id,
+    reason: "checkout_enabled gate check",
+  })
   if (enabled !== true) {
     return (
       <main className="mx-auto max-w-3xl px-4 py-8">
