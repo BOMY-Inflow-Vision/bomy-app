@@ -334,6 +334,190 @@ export async function fetchCheckoutContext(input: {
 }
 
 // ───────────────────────────────────────────────────────────────────────
+// In-transaction loader for initiateCheckout (Phase 1)
+//
+// Near-clone of fetchCheckoutContext that runs INSIDE an already-open
+// withAdmin transaction (RLS bypassed). Two important differences:
+//
+//   1. Active/status filters are applied server-side. The buyer-RLS path
+//      lets the public-read policies hide inactive products/variants/
+//      stores; under withAdmin we see everything, so we must filter.
+//   2. FOR UPDATE on product_variants rows locks them for the atomic
+//      stock decrement that follows; FOR UPDATE on the voucher row
+//      contends with concurrent reservations from another transaction.
+// ───────────────────────────────────────────────────────────────────────
+
+export async function loadContextForInitiation(input: {
+  tx: Database
+  buyerId: string
+  items: Array<{ variantId: string; quantity: number }>
+  voucherId: string | null
+}): Promise<CheckoutContext> {
+  const { tx, buyerId, items, voucherId } = input
+
+  if (items.length === 0) {
+    return {
+      validLines: [],
+      invalidLines: [],
+      storeShipping: new Map<string, bigint>(),
+      brandSubs: new Map<string, number>(),
+      voucher: null,
+    }
+  }
+
+  // Identical input normalisation to fetchCheckoutContext (Bob R12):
+  // aggregate duplicate variantIds, surface invalid quantities up front.
+  const aggregated = new Map<string, number>()
+  const invalidQuantityVariants = new Set<string>()
+  for (const { variantId, quantity } of items) {
+    if (
+      typeof quantity !== "number" ||
+      !Number.isInteger(quantity) ||
+      !Number.isFinite(quantity) ||
+      quantity <= 0
+    ) {
+      invalidQuantityVariants.add(variantId)
+      continue
+    }
+    aggregated.set(variantId, (aggregated.get(variantId) ?? 0) + quantity)
+  }
+
+  const validInputs = [...aggregated.entries()].map(([variantId, quantity]) => ({
+    variantId,
+    quantity,
+  }))
+  const variantIds = validInputs.map((i) => i.variantId)
+
+  const rows =
+    variantIds.length === 0
+      ? []
+      : await tx
+          .select({
+            variantId: schema.productVariants.id,
+            variantActive: schema.productVariants.isActive,
+            unitPriceSen: schema.productVariants.priceMyrSen,
+            stockCount: schema.productVariants.stockCount,
+            productId: schema.products.id,
+            productStatus: schema.products.status,
+            productName: schema.products.name,
+            productSlug: schema.products.slug,
+            productCoverUrl: schema.products.coverImageUrl,
+            variantName: schema.productVariants.name,
+            storeId: schema.stores.id,
+            storeStatus: schema.stores.status,
+            storeName: schema.stores.name,
+            storeSlug: schema.stores.slug,
+            flatShippingFeeSen: schema.stores.flatShippingFeeSen,
+          })
+          .from(schema.productVariants)
+          .innerJoin(schema.products, eq(schema.products.id, schema.productVariants.productId))
+          .innerJoin(schema.stores, eq(schema.stores.id, schema.products.storeId))
+          .where(inArray(schema.productVariants.id, variantIds))
+          .for("update", { of: [schema.productVariants] })
+
+  const byVariant = new Map(rows.map((r) => [r.variantId, r]))
+
+  const validLines: CheckoutLine[] = []
+  const invalidLines: CheckoutContext["invalidLines"] = []
+  const storeShipping = new Map<string, bigint>()
+
+  for (const variantId of invalidQuantityVariants) {
+    invalidLines.push({ variantId, reason: "invalid_quantity" })
+  }
+
+  for (const { variantId, quantity } of validInputs) {
+    const r = byVariant.get(variantId)
+    if (!r) {
+      invalidLines.push({ variantId, reason: "missing" })
+      continue
+    }
+    if (!r.variantActive) {
+      invalidLines.push({ variantId, reason: "variant_inactive" })
+      continue
+    }
+    if (r.productStatus !== "active") {
+      invalidLines.push({ variantId, reason: "product_not_active" })
+      continue
+    }
+    if (r.storeStatus !== "active") {
+      invalidLines.push({ variantId, reason: "store_not_active" })
+      continue
+    }
+    if (r.stockCount < quantity) {
+      invalidLines.push({ variantId, reason: "insufficient_stock" })
+      continue
+    }
+    validLines.push({
+      variantId,
+      storeId: r.storeId,
+      quantity,
+      unitPriceSen: r.unitPriceSen,
+      productSnapshot: {
+        id: r.productId,
+        name: r.productName,
+        slug: r.productSlug,
+        coverImageUrl: r.productCoverUrl,
+        storeName: r.storeName,
+        storeSlug: r.storeSlug,
+      },
+      variantSnapshot: {
+        id: variantId,
+        name: r.variantName,
+        priceMyrSen: r.unitPriceSen.toString(),
+      },
+    })
+    storeShipping.set(r.storeId, r.flatShippingFeeSen)
+  }
+
+  // Voucher — FOR UPDATE so a concurrent reservation transaction contends here.
+  let voucher: VoucherInput | null = null
+  if (voucherId) {
+    const vRows = await tx
+      .select({
+        type: schema.vouchers.type,
+        fixedAmountSen: schema.vouchers.fixedAmountSen,
+        percentage: schema.vouchers.percentage,
+        randomResolvedSen: schema.vouchers.randomResolvedSen,
+      })
+      .from(schema.vouchers)
+      .where(
+        and(
+          eq(schema.vouchers.id, voucherId),
+          eq(schema.vouchers.userId, buyerId),
+          isNull(schema.vouchers.redeemedAt),
+          isNull(schema.vouchers.reservedCheckoutSessionId),
+          gt(schema.vouchers.expiresAt, sql`now()`),
+        ),
+      )
+      .for("update")
+      .limit(1)
+    if (vRows.length === 1) voucher = vRows[0]!
+  }
+
+  const brandSubs = new Map<string, number>()
+  if (!voucher && validLines.length > 0) {
+    const distinctStoreIds = [...new Set(validLines.map((l) => l.storeId))]
+    const subs = await tx
+      .select({
+        storeId: schema.brandSubscriptions.storeId,
+        discountPct: schema.brandSubscriptions.discountPct,
+      })
+      .from(schema.brandSubscriptions)
+      .where(
+        and(
+          eq(schema.brandSubscriptions.userId, buyerId),
+          inArray(schema.brandSubscriptions.storeId, distinctStoreIds),
+          eq(schema.brandSubscriptions.status, "active"),
+          gt(schema.brandSubscriptions.periodEnd, sql`now()`),
+        ),
+      )
+    for (const s of subs) brandSubs.set(s.storeId, s.discountPct)
+  }
+
+  return { validLines, invalidLines, storeShipping, brandSubs, voucher }
+}
+
+// ───────────────────────────────────────────────────────────────────────
 // Available-vouchers loader (UI dropdown)
 // ───────────────────────────────────────────────────────────────────────
 

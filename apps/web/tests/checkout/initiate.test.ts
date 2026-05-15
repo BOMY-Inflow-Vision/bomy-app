@@ -1,0 +1,735 @@
+/**
+ * Integration tests — initiateCheckout Phase 1 (PR #31 Task 11).
+ *
+ *   docker compose up postgres
+ *   pnpm --filter @bomy/db migrate
+ *   DATABASE_URL=postgresql://bomy:changeme_local@localhost:5432/bomy \
+ *   DATABASE_APP_URL=postgresql://bomy_app:changeme_local@localhost:5432/bomy \
+ *   BOMY_RLS_READY=1 pnpm --filter @bomy/web test initiate.test.ts
+ *
+ * Covers spec §6.2 tests 14-25 (the Phase 1-reachable subset). Tests 26-27
+ * (HitPay createPaymentRequest failure paths) defer to Task 12.
+ */
+import { randomUUID } from "node:crypto"
+
+import { makeDb, schema, withAdmin, withTenant } from "@bomy/db"
+import { and, eq, sql } from "drizzle-orm"
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi, type Mock } from "vitest"
+
+vi.mock("@/auth", () => ({ auth: vi.fn() }))
+vi.mock("@bomy/hitpay", () => ({ HitPayClient: vi.fn() }))
+
+import { auth } from "@/auth"
+
+import { initiateCheckout } from "../../src/app/checkout/actions"
+
+const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
+
+const DATABASE_URL = process.env["DATABASE_APP_URL"] ?? process.env["DATABASE_URL"]
+const RLS_READY = process.env["BOMY_RLS_READY"] === "1"
+const shouldRun = Boolean(DATABASE_URL) && RLS_READY
+
+const mockAuth = auth as unknown as Mock
+
+const VALID_ADDRESS = {
+  name: "Ali Ahmad",
+  phone: "+60123456789",
+  line1: "123 Jalan Merdeka",
+  city: "Kuala Lumpur",
+  postcode: "50000",
+  state: "Kuala Lumpur",
+  country: "MY",
+} as const
+
+describe.skipIf(!shouldRun)("initiateCheckout Phase 1", () => {
+  let testDb: ReturnType<typeof makeDb>
+  let buyerAId: string
+  let buyerBId: string
+  let sellerId: string
+  let storeId: string
+  let productId: string
+  let variantId: string
+
+  beforeAll(async () => {
+    process.env["DATABASE_URL"] = DATABASE_URL as string
+    testDb = makeDb({ url: DATABASE_URL as string })
+
+    buyerAId = randomUUID()
+    buyerBId = randomUUID()
+    sellerId = randomUUID()
+    storeId = randomUUID()
+    productId = randomUUID()
+    variantId = randomUUID()
+
+    await withAdmin(
+      testDb.db,
+      { userId: SYSTEM_ACTOR, reason: "initiate test seed" },
+      async (tx) => {
+        await tx.insert(schema.users).values([
+          { id: buyerAId, email: `${buyerAId}@test.bomy`, role: "buyer" },
+          { id: buyerBId, email: `${buyerBId}@test.bomy`, role: "buyer" },
+          { id: sellerId, email: `${sellerId}@test.bomy`, role: "seller_owner" },
+        ])
+        await tx.insert(schema.stores).values({
+          id: storeId,
+          ownerId: sellerId,
+          name: "Initiate Store",
+          slug: `init-${storeId}`,
+          status: "active",
+          flatShippingFeeSen: 500n,
+        })
+        await tx.insert(schema.products).values({
+          id: productId,
+          storeId,
+          name: "Initiate Product",
+          slug: `init-${productId}`,
+          status: "active",
+        })
+        await tx.insert(schema.productVariants).values({
+          id: variantId,
+          productId,
+          name: "Single",
+          priceMyrSen: 5000n,
+          stockCount: 10,
+          isActive: true,
+        })
+      },
+    )
+  })
+
+  afterAll(async () => {
+    await withAdmin(
+      testDb.db,
+      { userId: SYSTEM_ACTOR, reason: "initiate test teardown" },
+      async (tx) => {
+        await tx.delete(schema.inventoryReservations)
+        await tx.delete(schema.checkoutSessionItems)
+        await tx.delete(schema.checkoutSessionStores)
+        await tx.delete(schema.vouchers).where(eq(schema.vouchers.userId, buyerAId))
+        await tx.delete(schema.vouchers).where(eq(schema.vouchers.userId, buyerBId))
+        await tx.delete(schema.checkoutSessions).where(eq(schema.checkoutSessions.userId, buyerAId))
+        await tx.delete(schema.checkoutSessions).where(eq(schema.checkoutSessions.userId, buyerBId))
+        await tx.delete(schema.productVariants).where(eq(schema.productVariants.id, variantId))
+        await tx.delete(schema.products).where(eq(schema.products.id, productId))
+        await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
+        await tx.delete(schema.users).where(eq(schema.users.id, buyerAId))
+        await tx.delete(schema.users).where(eq(schema.users.id, buyerBId))
+        await tx.delete(schema.users).where(eq(schema.users.id, sellerId))
+      },
+    )
+    await testDb.close()
+  })
+
+  beforeEach(async () => {
+    mockAuth.mockReset()
+    await withAdmin(
+      testDb.db,
+      { userId: SYSTEM_ACTOR, reason: "initiate test reset" },
+      async (tx) => {
+        await tx.delete(schema.inventoryReservations)
+        await tx.delete(schema.checkoutSessionItems)
+        await tx.delete(schema.checkoutSessionStores)
+        await tx.delete(schema.vouchers).where(eq(schema.vouchers.userId, buyerAId))
+        await tx.delete(schema.vouchers).where(eq(schema.vouchers.userId, buyerBId))
+        await tx.delete(schema.checkoutSessions).where(eq(schema.checkoutSessions.userId, buyerAId))
+        await tx.delete(schema.checkoutSessions).where(eq(schema.checkoutSessions.userId, buyerBId))
+        // Restore variant stock + active flags so previous tests don't leak state
+        await tx
+          .update(schema.productVariants)
+          .set({ stockCount: 10, isActive: true })
+          .where(eq(schema.productVariants.id, variantId))
+        await tx
+          .update(schema.products)
+          .set({ status: "active" })
+          .where(eq(schema.products.id, productId))
+        await tx
+          .update(schema.stores)
+          .set({ status: "active" })
+          .where(eq(schema.stores.id, storeId))
+        // Reset checkout_enabled to true for all tests except the disabled one
+        await tx
+          .update(schema.platformConfig)
+          .set({ value: true })
+          .where(eq(schema.platformConfig.key, "checkout_enabled"))
+      },
+    )
+  })
+
+  function asBuyer(id: string) {
+    mockAuth.mockResolvedValue({ user: { id, role: "buyer" } })
+  }
+
+  async function countCheckoutTables(): Promise<{
+    sessions: number
+    items: number
+    stores: number
+    reservations: number
+  }> {
+    return withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test count" }, async (tx) => {
+      const s = await tx.select({ c: sql<number>`count(*)::int` }).from(schema.checkoutSessions)
+      const i = await tx.select({ c: sql<number>`count(*)::int` }).from(schema.checkoutSessionItems)
+      const st = await tx
+        .select({ c: sql<number>`count(*)::int` })
+        .from(schema.checkoutSessionStores)
+      const r = await tx
+        .select({ c: sql<number>`count(*)::int` })
+        .from(schema.inventoryReservations)
+      return {
+        sessions: Number(s[0]!.c),
+        items: Number(i[0]!.c),
+        stores: Number(st[0]!.c),
+        reservations: Number(r[0]!.c),
+      }
+    })
+  }
+
+  // ─── 14: CHECKOUT_DISABLED — no side effects ─────────────────────────
+
+  it("checkout_enabled=false returns CHECKOUT_DISABLED with no side effects", async () => {
+    asBuyer(buyerAId)
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "disable" }, async (tx) => {
+      await tx
+        .update(schema.platformConfig)
+        .set({ value: false })
+        .where(eq(schema.platformConfig.key, "checkout_enabled"))
+    })
+    const before = await countCheckoutTables()
+    const r = await initiateCheckout({
+      items: [{ variantId, quantity: 1 }],
+      voucherId: null,
+      shippingAddress: VALID_ADDRESS,
+    })
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.error).toBe("CHECKOUT_DISABLED")
+    const after = await countCheckoutTables()
+    expect(after).toEqual(before)
+  })
+
+  // ─── 15: happy path ──────────────────────────────────────────────────
+
+  it("happy path: session+items+stores+reservations inserted; stock decremented; voucher reserved; audit row written", async () => {
+    asBuyer(buyerAId)
+    const voucherId = randomUUID()
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "seed voucher" }, async (tx) => {
+      await tx.insert(schema.vouchers).values({
+        id: voucherId,
+        userId: buyerAId,
+        code: `vc-${voucherId}`,
+        type: "fixed_myr",
+        fixedAmountSen: 1000n,
+        issuedMonth: "2026-05",
+        expiresAt: new Date(Date.now() + 30 * 86400_000),
+      })
+    })
+
+    const auditBefore = await withAdmin(
+      testDb.db,
+      { userId: SYSTEM_ACTOR, reason: "test count audit" },
+      async (tx) => tx.select({ c: sql<number>`count(*)::int` }).from(schema.adminBypassAudit),
+    )
+    const r = await initiateCheckout({
+      items: [{ variantId, quantity: 2 }],
+      voucherId,
+      shippingAddress: VALID_ADDRESS,
+    })
+
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.redirectUrl).toMatch(/^\/checkout\/success\?session=/)
+
+    const sessionId = r.redirectUrl.split("=")[1]!
+
+    // Verify session row
+    const sessionRows = await withAdmin(
+      testDb.db,
+      { userId: SYSTEM_ACTOR, reason: "test read session" },
+      async (tx) =>
+        tx.select().from(schema.checkoutSessions).where(eq(schema.checkoutSessions.id, sessionId)),
+    )
+    expect(sessionRows).toHaveLength(1)
+    const sess = sessionRows[0]!
+    expect(sess.userId).toBe(buyerAId)
+    expect(sess.status).toBe("pending_payment")
+    expect(sess.pspProvider).toBe("hitpay")
+    expect(sess.voucherId).toBe(voucherId)
+    expect(sess.totalCatalogSen).toBe(10000n) // 2 * 5000
+    expect(sess.totalShippingSen).toBe(500n)
+    expect(sess.voucherDiscountSen).toBe(1000n)
+    expect(sess.brandDiscountTotalSen).toBe(0n) // voucher suppresses
+    expect(sess.totalBuyerPaysSen).toBe(9500n) // 10000 + 500 - 1000
+
+    // Items / stores / reservations
+    const items = await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "r" }, async (tx) =>
+      tx
+        .select()
+        .from(schema.checkoutSessionItems)
+        .where(eq(schema.checkoutSessionItems.checkoutSessionId, sessionId)),
+    )
+    expect(items).toHaveLength(1)
+    expect(items[0]!.quantity).toBe(2)
+    expect(items[0]!.unitPriceSen).toBe(5000n)
+    expect(items[0]!.lineTotalSen).toBe(10000n)
+
+    const stores = await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "r" }, async (tx) =>
+      tx
+        .select()
+        .from(schema.checkoutSessionStores)
+        .where(eq(schema.checkoutSessionStores.checkoutSessionId, sessionId)),
+    )
+    expect(stores).toHaveLength(1)
+    expect(stores[0]!.retailSubtotalSen).toBe(10000n)
+    expect(stores[0]!.voucherContributionSen).toBe(1000n)
+    expect(stores[0]!.shippingFeeSen).toBe(500n)
+
+    const reservations = await withAdmin(
+      testDb.db,
+      { userId: SYSTEM_ACTOR, reason: "r" },
+      async (tx) =>
+        tx
+          .select()
+          .from(schema.inventoryReservations)
+          .where(eq(schema.inventoryReservations.checkoutSessionId, sessionId)),
+    )
+    expect(reservations).toHaveLength(1)
+    expect(reservations[0]!.quantity).toBe(2)
+    expect(reservations[0]!.status).toBe("active")
+
+    // Stock decremented
+    const variantRows = await withAdmin(
+      testDb.db,
+      { userId: SYSTEM_ACTOR, reason: "r" },
+      async (tx) =>
+        tx.select().from(schema.productVariants).where(eq(schema.productVariants.id, variantId)),
+    )
+    expect(variantRows[0]!.stockCount).toBe(8) // 10 - 2
+
+    // Voucher reserved
+    const voucherRows = await withAdmin(
+      testDb.db,
+      { userId: SYSTEM_ACTOR, reason: "r" },
+      async (tx) => tx.select().from(schema.vouchers).where(eq(schema.vouchers.id, voucherId)),
+    )
+    expect(voucherRows[0]!.reservedCheckoutSessionId).toBe(sessionId)
+    expect(voucherRows[0]!.reservedAt).not.toBeNull()
+    expect(voucherRows[0]!.redeemedAt).toBeNull()
+
+    // At least one new audit row (checkout_enabled read + initiation = 2)
+    const auditAfter = await withAdmin(
+      testDb.db,
+      { userId: SYSTEM_ACTOR, reason: "test count audit" },
+      async (tx) => tx.select({ c: sql<number>`count(*)::int` }).from(schema.adminBypassAudit),
+    )
+    expect(Number(auditAfter[0]!.c)).toBeGreaterThan(Number(auditBefore[0]!.c))
+
+    // Initiation-specific audit row exists with the sessionId in reason
+    const initRow = await withAdmin(
+      testDb.db,
+      { userId: SYSTEM_ACTOR, reason: "test find audit" },
+      async (tx) =>
+        tx
+          .select()
+          .from(schema.adminBypassAudit)
+          .where(eq(schema.adminBypassAudit.reason, `checkout_initiation:${sessionId}`)),
+    )
+    expect(initRow).toHaveLength(1)
+  })
+
+  // ─── 16-20: validation failures (no side effects) ────────────────────
+
+  it("empty cart returns EMPTY_CART", async () => {
+    asBuyer(buyerAId)
+    const before = await countCheckoutTables()
+    const r = await initiateCheckout({
+      items: [],
+      voucherId: null,
+      shippingAddress: VALID_ADDRESS,
+    })
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.error).toBe("EMPTY_CART")
+    expect(await countCheckoutTables()).toEqual(before)
+  })
+
+  it("INVALID_CART when variant inactive", async () => {
+    asBuyer(buyerAId)
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "deactivate" }, async (tx) => {
+      await tx
+        .update(schema.productVariants)
+        .set({ isActive: false })
+        .where(eq(schema.productVariants.id, variantId))
+    })
+    const before = await countCheckoutTables()
+    const r = await initiateCheckout({
+      items: [{ variantId, quantity: 1 }],
+      voucherId: null,
+      shippingAddress: VALID_ADDRESS,
+    })
+    expect(r.ok).toBe(false)
+    if (!r.ok) {
+      expect(r.error).toBe("INVALID_CART")
+      const lines = r.details?.["invalidLines"] as Array<{ variantId: string; reason: string }>
+      expect(lines[0]!.reason).toBe("variant_inactive")
+    }
+    expect(await countCheckoutTables()).toEqual(before)
+  })
+
+  it("INVALID_CART when product archived", async () => {
+    asBuyer(buyerAId)
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "archive" }, async (tx) => {
+      await tx
+        .update(schema.products)
+        .set({ status: "archived" })
+        .where(eq(schema.products.id, productId))
+    })
+    const r = await initiateCheckout({
+      items: [{ variantId, quantity: 1 }],
+      voucherId: null,
+      shippingAddress: VALID_ADDRESS,
+    })
+    expect(r.ok).toBe(false)
+    if (!r.ok) {
+      expect(r.error).toBe("INVALID_CART")
+      const lines = r.details?.["invalidLines"] as Array<{ variantId: string; reason: string }>
+      expect(lines[0]!.reason).toBe("product_not_active")
+    }
+  })
+
+  it("INVALID_CART when store suspended", async () => {
+    asBuyer(buyerAId)
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "suspend" }, async (tx) => {
+      await tx
+        .update(schema.stores)
+        .set({ status: "suspended" })
+        .where(eq(schema.stores.id, storeId))
+    })
+    const r = await initiateCheckout({
+      items: [{ variantId, quantity: 1 }],
+      voucherId: null,
+      shippingAddress: VALID_ADDRESS,
+    })
+    expect(r.ok).toBe(false)
+    if (!r.ok) {
+      expect(r.error).toBe("INVALID_CART")
+      const lines = r.details?.["invalidLines"] as Array<{ variantId: string; reason: string }>
+      expect(lines[0]!.reason).toBe("store_not_active")
+    }
+  })
+
+  it("INVALID_CART when stock < requested", async () => {
+    asBuyer(buyerAId)
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "low stock" }, async (tx) => {
+      await tx
+        .update(schema.productVariants)
+        .set({ stockCount: 1 })
+        .where(eq(schema.productVariants.id, variantId))
+    })
+    const r = await initiateCheckout({
+      items: [{ variantId, quantity: 5 }],
+      voucherId: null,
+      shippingAddress: VALID_ADDRESS,
+    })
+    expect(r.ok).toBe(false)
+    if (!r.ok) {
+      expect(r.error).toBe("INVALID_CART")
+      const lines = r.details?.["invalidLines"] as Array<{ variantId: string; reason: string }>
+      expect(lines[0]!.reason).toBe("insufficient_stock")
+    }
+  })
+
+  it("INVALID_ADDRESS rejects bad MY phone format", async () => {
+    asBuyer(buyerAId)
+    const r = await initiateCheckout({
+      items: [{ variantId, quantity: 1 }],
+      voucherId: null,
+      shippingAddress: { ...VALID_ADDRESS, phone: "1234" },
+    })
+    expect(r.ok).toBe(false)
+    if (!r.ok) {
+      expect(r.error).toBe("INVALID_ADDRESS")
+      const fieldErrors = r.details?.["fieldErrors"] as Record<string, string>
+      expect(fieldErrors["phone"]).toBeDefined()
+    }
+  })
+
+  // ─── 22: PENDING_CHECKOUT_EXISTS ─────────────────────────────────────
+
+  it("PENDING_CHECKOUT_EXISTS returns existing sessionId when buyer has unexpired pending session", async () => {
+    asBuyer(buyerAId)
+    // First initiation succeeds
+    const r1 = await initiateCheckout({
+      items: [{ variantId, quantity: 1 }],
+      voucherId: null,
+      shippingAddress: VALID_ADDRESS,
+    })
+    expect(r1.ok).toBe(true)
+    if (!r1.ok) return
+    const sessionId1 = r1.redirectUrl.split("=")[1]!
+
+    // Second initiation surfaces the existing one
+    const r2 = await initiateCheckout({
+      items: [{ variantId, quantity: 1 }],
+      voucherId: null,
+      shippingAddress: VALID_ADDRESS,
+    })
+    expect(r2.ok).toBe(false)
+    if (!r2.ok) {
+      expect(r2.error).toBe("PENDING_CHECKOUT_EXISTS")
+      expect(r2.details?.["sessionId"]).toBe(sessionId1)
+    }
+  })
+
+  // ─── 23: TOTAL_NOT_PAYABLE ───────────────────────────────────────────
+
+  it("TOTAL_NOT_PAYABLE when voucher covers catalog and shipping is zero", async () => {
+    asBuyer(buyerAId)
+    const voucherId = randomUUID()
+    await withAdmin(
+      testDb.db,
+      { userId: SYSTEM_ACTOR, reason: "free ship + big voucher" },
+      async (tx) => {
+        await tx
+          .update(schema.stores)
+          .set({ flatShippingFeeSen: 0n })
+          .where(eq(schema.stores.id, storeId))
+        await tx.insert(schema.vouchers).values({
+          id: voucherId,
+          userId: buyerAId,
+          code: `vc-${voucherId}`,
+          type: "fixed_myr",
+          fixedAmountSen: 99999n,
+          issuedMonth: "2026-05",
+          expiresAt: new Date(Date.now() + 30 * 86400_000),
+        })
+      },
+    )
+    try {
+      const before = await countCheckoutTables()
+      const r = await initiateCheckout({
+        items: [{ variantId, quantity: 1 }],
+        voucherId,
+        shippingAddress: VALID_ADDRESS,
+      })
+      expect(r.ok).toBe(false)
+      if (!r.ok) expect(r.error).toBe("TOTAL_NOT_PAYABLE")
+      // Transaction rolled back — no rows written
+      expect(await countCheckoutTables()).toEqual(before)
+    } finally {
+      await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "restore ship" }, async (tx) => {
+        await tx
+          .update(schema.stores)
+          .set({ flatShippingFeeSen: 500n })
+          .where(eq(schema.stores.id, storeId))
+      })
+    }
+  })
+
+  // ─── 24: stock race — two different buyers, last unit ────────────────
+
+  it("stock race: two buyers initiate concurrently for the last unit — one wins, other OUT_OF_STOCK_RACE", async () => {
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "set stock=1" }, async (tx) => {
+      await tx
+        .update(schema.productVariants)
+        .set({ stockCount: 1 })
+        .where(eq(schema.productVariants.id, variantId))
+    })
+
+    // FIFO call ordering — Promise.all kicks off both calls in source order,
+    // so the first auth() lookup gets buyerA and the second gets buyerB.
+    mockAuth
+      .mockResolvedValueOnce({ user: { id: buyerAId, role: "buyer" } })
+      .mockResolvedValueOnce({ user: { id: buyerBId, role: "buyer" } })
+
+    const [r1, r2] = await Promise.all([
+      initiateCheckout({
+        items: [{ variantId, quantity: 1 }],
+        voucherId: null,
+        shippingAddress: VALID_ADDRESS,
+      }),
+      initiateCheckout({
+        items: [{ variantId, quantity: 1 }],
+        voucherId: null,
+        shippingAddress: VALID_ADDRESS,
+      }),
+    ])
+
+    const okCount = [r1, r2].filter((r) => r.ok).length
+    const failed = [r1, r2].find((r) => !r.ok)
+    expect(okCount).toBe(1)
+    expect(failed).toBeDefined()
+    if (failed && !failed.ok) {
+      // Either OUT_OF_STOCK_RACE (got the lock, lost the decrement) or
+      // INVALID_CART/insufficient_stock (validation saw stock=0). Both are
+      // valid; the gate is "no double-sale". Stock must end at 0.
+      expect(["OUT_OF_STOCK_RACE", "INVALID_CART"]).toContain(failed.error)
+    }
+
+    const variantRows = await withAdmin(
+      testDb.db,
+      { userId: SYSTEM_ACTOR, reason: "r" },
+      async (tx) =>
+        tx.select().from(schema.productVariants).where(eq(schema.productVariants.id, variantId)),
+    )
+    expect(variantRows[0]!.stockCount).toBe(0)
+
+    const sessions = await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "r" }, async (tx) =>
+      tx
+        .select()
+        .from(schema.checkoutSessions)
+        .where(eq(schema.checkoutSessions.status, "pending_payment")),
+    )
+    expect(sessions).toHaveLength(1)
+  })
+
+  // ─── 25a: seam-level voucher reservation race ────────────────────────
+
+  it("seam-level voucher reservation race: only one of two concurrent UPDATEs succeeds", async () => {
+    const voucherId = randomUUID()
+    const sessionId1 = randomUUID()
+    const sessionId2 = randomUUID()
+
+    await withAdmin(
+      testDb.db,
+      { userId: SYSTEM_ACTOR, reason: "seed voucher + 2 sessions" },
+      async (tx) => {
+        await tx.insert(schema.vouchers).values({
+          id: voucherId,
+          userId: buyerAId,
+          code: `vc-${voucherId}`,
+          type: "fixed_myr",
+          fixedAmountSen: 500n,
+          issuedMonth: "2026-05",
+          expiresAt: new Date(Date.now() + 30 * 86400_000),
+        })
+        await tx.insert(schema.checkoutSessions).values([
+          {
+            id: sessionId1,
+            userId: buyerAId,
+            status: "pending_payment",
+            pspProvider: "hitpay",
+            shippingAddress: VALID_ADDRESS,
+            totalCatalogSen: 1000n,
+            totalShippingSen: 0n,
+            voucherDiscountSen: 0n,
+            brandDiscountTotalSen: 0n,
+            totalBuyerPaysSen: 1000n,
+            expiresAt: new Date(Date.now() + 30 * 60_000),
+          },
+          {
+            id: sessionId2,
+            userId: buyerAId,
+            status: "pending_payment",
+            pspProvider: "hitpay",
+            shippingAddress: VALID_ADDRESS,
+            totalCatalogSen: 1000n,
+            totalShippingSen: 0n,
+            voucherDiscountSen: 0n,
+            brandDiscountTotalSen: 0n,
+            totalBuyerPaysSen: 1000n,
+            expiresAt: new Date(Date.now() + 30 * 60_000),
+          },
+        ])
+      },
+    )
+
+    async function tryReserve(targetSessionId: string): Promise<number> {
+      const rows = await withAdmin(
+        testDb.db,
+        { userId: SYSTEM_ACTOR, reason: `seam reserve ${targetSessionId}` },
+        async (tx) =>
+          tx
+            .update(schema.vouchers)
+            .set({ reservedCheckoutSessionId: targetSessionId, reservedAt: new Date() })
+            .where(
+              and(
+                eq(schema.vouchers.id, voucherId),
+                eq(schema.vouchers.userId, buyerAId),
+                sql`${schema.vouchers.redeemedAt} IS NULL`,
+                sql`${schema.vouchers.reservedCheckoutSessionId} IS NULL`,
+                sql`${schema.vouchers.expiresAt} > now()`,
+              ),
+            )
+            .returning({ id: schema.vouchers.id }),
+      )
+      return rows.length
+    }
+
+    const [r1, r2] = await Promise.all([tryReserve(sessionId1), tryReserve(sessionId2)])
+    expect(r1 + r2).toBe(1)
+
+    const v = await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "r" }, async (tx) =>
+      tx.select().from(schema.vouchers).where(eq(schema.vouchers.id, voucherId)),
+    )
+    expect(v[0]!.reservedCheckoutSessionId).toBeTruthy()
+    expect([sessionId1, sessionId2]).toContain(v[0]!.reservedCheckoutSessionId)
+  })
+
+  // ─── 25b: same-buyer voucher retry → PENDING_CHECKOUT_EXISTS, not VOUCHER_RACE ──
+
+  it("same-buyer second call with same voucher returns PENDING_CHECKOUT_EXISTS (single-pending preempts VOUCHER_RACE)", async () => {
+    asBuyer(buyerAId)
+    const voucherId = randomUUID()
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "seed voucher" }, async (tx) => {
+      await tx.insert(schema.vouchers).values({
+        id: voucherId,
+        userId: buyerAId,
+        code: `vc-${voucherId}`,
+        type: "fixed_myr",
+        fixedAmountSen: 500n,
+        issuedMonth: "2026-05",
+        expiresAt: new Date(Date.now() + 30 * 86400_000),
+      })
+    })
+
+    const r1 = await initiateCheckout({
+      items: [{ variantId, quantity: 1 }],
+      voucherId,
+      shippingAddress: VALID_ADDRESS,
+    })
+    expect(r1.ok).toBe(true)
+
+    const r2 = await initiateCheckout({
+      items: [{ variantId, quantity: 1 }],
+      voucherId,
+      shippingAddress: VALID_ADDRESS,
+    })
+    expect(r2.ok).toBe(false)
+    if (!r2.ok) expect(r2.error).toBe("PENDING_CHECKOUT_EXISTS")
+  })
+
+  // ─── Auth gate ───────────────────────────────────────────────────────
+
+  it("UNAUTHENTICATED when no session", async () => {
+    mockAuth.mockResolvedValue(null)
+    const before = await countCheckoutTables()
+    const r = await initiateCheckout({
+      items: [{ variantId, quantity: 1 }],
+      voucherId: null,
+      shippingAddress: VALID_ADDRESS,
+    })
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.error).toBe("UNAUTHENTICATED")
+    expect(await countCheckoutTables()).toEqual(before)
+  })
+
+  // ─── Buyer SELECT under withTenant works for own session ─────────────
+
+  it("buyer can SELECT own checkout_session under withTenant after a successful initiation", async () => {
+    asBuyer(buyerAId)
+    const r = await initiateCheckout({
+      items: [{ variantId, quantity: 1 }],
+      voucherId: null,
+      shippingAddress: VALID_ADDRESS,
+    })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    const sessionId = r.redirectUrl.split("=")[1]!
+
+    const rows = await withTenant(testDb.db, { userId: buyerAId, userRole: "buyer" }, async (tx) =>
+      tx
+        .select({ id: schema.checkoutSessions.id, status: schema.checkoutSessions.status })
+        .from(schema.checkoutSessions)
+        .where(eq(schema.checkoutSessions.id, sessionId)),
+    )
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.status).toBe("pending_payment")
+  })
+})
