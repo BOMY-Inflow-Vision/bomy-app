@@ -579,6 +579,131 @@ describe.skipIf(!shouldRun)("initiateCheckout Phase 1", () => {
     expect(sessions).toHaveLength(1)
   })
 
+  // ─── Bob R13: VOUCHER_UNAVAILABLE coverage ───────────────────────────
+  // Each filter in loadContextForInitiation's SELECT must reject the voucher;
+  // the resulting null voucher must surface as VOUCHER_UNAVAILABLE (not
+  // silently dropped) and roll back any partial state.
+
+  it("VOUCHER_UNAVAILABLE when voucher belongs to a different buyer", async () => {
+    asBuyer(buyerAId)
+    const voucherId = randomUUID()
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "seed B voucher" }, async (tx) => {
+      await tx.insert(schema.vouchers).values({
+        id: voucherId,
+        userId: buyerBId,
+        code: `vc-${voucherId}`,
+        type: "fixed_myr",
+        fixedAmountSen: 500n,
+        issuedMonth: "2026-05",
+        expiresAt: new Date(Date.now() + 30 * 86400_000),
+      })
+    })
+    const before = await countCheckoutTables()
+    const r = await initiateCheckout({
+      items: [{ variantId, quantity: 1 }],
+      voucherId,
+      shippingAddress: VALID_ADDRESS,
+    })
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.error).toBe("VOUCHER_UNAVAILABLE")
+    expect(await countCheckoutTables()).toEqual(before)
+  })
+
+  it("VOUCHER_UNAVAILABLE when voucher is expired", async () => {
+    asBuyer(buyerAId)
+    const voucherId = randomUUID()
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "seed expired" }, async (tx) => {
+      await tx.insert(schema.vouchers).values({
+        id: voucherId,
+        userId: buyerAId,
+        code: `vc-${voucherId}`,
+        type: "fixed_myr",
+        fixedAmountSen: 500n,
+        issuedMonth: "2026-04",
+        expiresAt: new Date(Date.now() - 86400_000),
+      })
+    })
+    const before = await countCheckoutTables()
+    const r = await initiateCheckout({
+      items: [{ variantId, quantity: 1 }],
+      voucherId,
+      shippingAddress: VALID_ADDRESS,
+    })
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.error).toBe("VOUCHER_UNAVAILABLE")
+    expect(await countCheckoutTables()).toEqual(before)
+  })
+
+  it("VOUCHER_UNAVAILABLE when voucher is already redeemed", async () => {
+    asBuyer(buyerAId)
+    const voucherId = randomUUID()
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "seed redeemed" }, async (tx) => {
+      await tx.insert(schema.vouchers).values({
+        id: voucherId,
+        userId: buyerAId,
+        code: `vc-${voucherId}`,
+        type: "fixed_myr",
+        fixedAmountSen: 500n,
+        issuedMonth: "2026-05",
+        expiresAt: new Date(Date.now() + 30 * 86400_000),
+        redeemedAt: new Date(Date.now() - 3600_000),
+      })
+    })
+    const before = await countCheckoutTables()
+    const r = await initiateCheckout({
+      items: [{ variantId, quantity: 1 }],
+      voucherId,
+      shippingAddress: VALID_ADDRESS,
+    })
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.error).toBe("VOUCHER_UNAVAILABLE")
+    expect(await countCheckoutTables()).toEqual(before)
+  })
+
+  it("VOUCHER_UNAVAILABLE when voucher is already reserved to another session", async () => {
+    asBuyer(buyerAId)
+    const voucherId = randomUUID()
+    const otherSessionId = randomUUID()
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "seed reserved" }, async (tx) => {
+      // Ephemeral non-pending session so it doesn't trip single-pending guard;
+      // it only exists to satisfy the voucher.reserved_checkout_session_id FK.
+      await tx.insert(schema.checkoutSessions).values({
+        id: otherSessionId,
+        userId: buyerAId,
+        status: "cancelled",
+        pspProvider: "hitpay",
+        shippingAddress: VALID_ADDRESS,
+        totalCatalogSen: 1000n,
+        totalShippingSen: 0n,
+        voucherDiscountSen: 0n,
+        brandDiscountTotalSen: 0n,
+        totalBuyerPaysSen: 1000n,
+        expiresAt: new Date(Date.now() + 30 * 60_000),
+      })
+      await tx.insert(schema.vouchers).values({
+        id: voucherId,
+        userId: buyerAId,
+        code: `vc-${voucherId}`,
+        type: "fixed_myr",
+        fixedAmountSen: 500n,
+        issuedMonth: "2026-05",
+        expiresAt: new Date(Date.now() + 30 * 86400_000),
+        reservedCheckoutSessionId: otherSessionId,
+        reservedAt: new Date(Date.now() - 60_000),
+      })
+    })
+    const before = await countCheckoutTables()
+    const r = await initiateCheckout({
+      items: [{ variantId, quantity: 1 }],
+      voucherId,
+      shippingAddress: VALID_ADDRESS,
+    })
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.error).toBe("VOUCHER_UNAVAILABLE")
+    // before snapshot has the seeded session; after must equal it (no NEW rows)
+    expect(await countCheckoutTables()).toEqual(before)
+  })
+
   // ─── 25a: seam-level voucher reservation race ────────────────────────
 
   it("seam-level voucher reservation race: only one of two concurrent UPDATEs succeeds", async () => {
