@@ -348,6 +348,99 @@ describe.skipIf(!shouldRun)("priceCheckoutPreview", () => {
     }
   })
 
+  it("duplicate variantId lines are aggregated; combined quantity over stock → insufficient_stock", async () => {
+    asBuyerA()
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "set low stock" }, async (tx) => {
+      await tx
+        .update(schema.productVariants)
+        .set({ stockCount: 3 })
+        .where(eq(schema.productVariants.id, variantId))
+    })
+    // 2 + 2 = 4 combined > stockCount=3. Per-line each 2 would pass.
+    const r = await priceCheckoutPreview({
+      items: [
+        { variantId, quantity: 2 },
+        { variantId, quantity: 2 },
+      ],
+      voucherId: null,
+    })
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.error).toBe("INVALID_CART")
+    if (r.error === "INVALID_CART") {
+      expect(r.invalidLines).toHaveLength(1)
+      expect(r.invalidLines[0]!.variantId).toBe(variantId)
+      expect(r.invalidLines[0]!.reason).toBe("insufficient_stock")
+    }
+  })
+
+  it("duplicate variantId aggregates within stock → valid; single item row with summed quantity", async () => {
+    asBuyerA()
+    const r = await priceCheckoutPreview({
+      items: [
+        { variantId, quantity: 2 },
+        { variantId, quantity: 3 },
+      ],
+      voucherId: null,
+    })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    // 5 units total. 5 * 5000 = 25000 catalog + 500 shipping = 25500
+    expect(r.totalCatalogSen).toBe("25000")
+    expect(r.totalShippingSen).toBe("500")
+    expect(r.totalBuyerPaysSen).toBe("25500")
+    expect(r.itemRows).toHaveLength(1) // aggregated to one row
+    expect(r.itemRows[0]!.quantity).toBe(5)
+  })
+
+  it("invalid quantity (0) → invalid_quantity in invalidLines", async () => {
+    asBuyerA()
+    const r = await priceCheckoutPreview({
+      items: [{ variantId, quantity: 0 }],
+      voucherId: null,
+    })
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.error).toBe("INVALID_CART")
+    if (r.error === "INVALID_CART") {
+      expect(r.invalidLines).toHaveLength(1)
+      expect(r.invalidLines[0]!.reason).toBe("invalid_quantity")
+    }
+  })
+
+  it("invalid quantity (negative) → invalid_quantity in invalidLines", async () => {
+    asBuyerA()
+    const r = await priceCheckoutPreview({
+      items: [{ variantId, quantity: -3 }],
+      voucherId: null,
+    })
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    if (r.error === "INVALID_CART") expect(r.invalidLines[0]!.reason).toBe("invalid_quantity")
+  })
+
+  it("invalid quantity (fractional) → invalid_quantity in invalidLines", async () => {
+    asBuyerA()
+    const r = await priceCheckoutPreview({
+      items: [{ variantId, quantity: 1.5 }],
+      voucherId: null,
+    })
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    if (r.error === "INVALID_CART") expect(r.invalidLines[0]!.reason).toBe("invalid_quantity")
+  })
+
+  it("invalid quantity (NaN) → invalid_quantity in invalidLines", async () => {
+    asBuyerA()
+    const r = await priceCheckoutPreview({
+      items: [{ variantId, quantity: Number.NaN }],
+      voucherId: null,
+    })
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    if (r.error === "INVALID_CART") expect(r.invalidLines[0]!.reason).toBe("invalid_quantity")
+  })
+
   it("voucher owned by another buyer is rejected — INVALID_CART avoided; voucher just not applied", async () => {
     asBuyerA()
     const otherVoucherId = randomUUID()

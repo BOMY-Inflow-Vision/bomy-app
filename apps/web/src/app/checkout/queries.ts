@@ -140,6 +140,7 @@ export type InvalidLineReason =
   | "product_not_active"
   | "store_not_active"
   | "insufficient_stock"
+  | "invalid_quantity"
 
 export type CheckoutContext = {
   validLines: CheckoutLine[]
@@ -174,29 +175,59 @@ export async function fetchCheckoutContext(input: {
       }
     }
 
-    const variantIds = input.items.map((i) => i.variantId)
-    const rows = await tx
-      .select({
-        variantId: schema.productVariants.id,
-        variantActive: schema.productVariants.isActive,
-        unitPriceSen: schema.productVariants.priceMyrSen,
-        stockCount: schema.productVariants.stockCount,
-        productId: schema.products.id,
-        productStatus: schema.products.status,
-        productName: schema.products.name,
-        productSlug: schema.products.slug,
-        productCoverUrl: schema.products.coverImageUrl,
-        variantName: schema.productVariants.name,
-        storeId: schema.stores.id,
-        storeStatus: schema.stores.status,
-        storeName: schema.stores.name,
-        storeSlug: schema.stores.slug,
-        flatShippingFeeSen: schema.stores.flatShippingFeeSen,
-      })
-      .from(schema.productVariants)
-      .innerJoin(schema.products, eq(schema.products.id, schema.productVariants.productId))
-      .innerJoin(schema.stores, eq(schema.stores.id, schema.products.storeId))
-      .where(inArray(schema.productVariants.id, variantIds))
+    // ── Normalise input ──────────────────────────────────────────────
+    // 1. Aggregate duplicate variantId entries (sum quantities) so the
+    //    stock check sees the combined demand, not per-line slices.
+    // 2. Validate each input quantity is a positive integer; otherwise
+    //    the variantId surfaces as an invalid line (invalid_quantity).
+    // This must happen BEFORE the DB lookup so Phase 1 never sees a
+    // quantity it can't validate.
+    const aggregated = new Map<string, number>()
+    const invalidQuantityVariants = new Set<string>()
+    for (const { variantId, quantity } of input.items) {
+      if (
+        typeof quantity !== "number" ||
+        !Number.isInteger(quantity) ||
+        !Number.isFinite(quantity) ||
+        quantity <= 0
+      ) {
+        invalidQuantityVariants.add(variantId)
+        continue
+      }
+      aggregated.set(variantId, (aggregated.get(variantId) ?? 0) + quantity)
+    }
+
+    const validInputs = [...aggregated.entries()].map(([variantId, quantity]) => ({
+      variantId,
+      quantity,
+    }))
+    const variantIds = validInputs.map((i) => i.variantId)
+
+    const rows =
+      variantIds.length === 0
+        ? []
+        : await tx
+            .select({
+              variantId: schema.productVariants.id,
+              variantActive: schema.productVariants.isActive,
+              unitPriceSen: schema.productVariants.priceMyrSen,
+              stockCount: schema.productVariants.stockCount,
+              productId: schema.products.id,
+              productStatus: schema.products.status,
+              productName: schema.products.name,
+              productSlug: schema.products.slug,
+              productCoverUrl: schema.products.coverImageUrl,
+              variantName: schema.productVariants.name,
+              storeId: schema.stores.id,
+              storeStatus: schema.stores.status,
+              storeName: schema.stores.name,
+              storeSlug: schema.stores.slug,
+              flatShippingFeeSen: schema.stores.flatShippingFeeSen,
+            })
+            .from(schema.productVariants)
+            .innerJoin(schema.products, eq(schema.products.id, schema.productVariants.productId))
+            .innerJoin(schema.stores, eq(schema.stores.id, schema.products.storeId))
+            .where(inArray(schema.productVariants.id, variantIds))
 
     const byVariant = new Map(rows.map((r) => [r.variantId, r]))
 
@@ -204,7 +235,12 @@ export async function fetchCheckoutContext(input: {
     const invalidLines: CheckoutContext["invalidLines"] = []
     const storeShipping = new Map<string, bigint>()
 
-    for (const { variantId, quantity } of input.items) {
+    // Surface invalid-quantity entries first; one row per offending variantId
+    for (const variantId of invalidQuantityVariants) {
+      invalidLines.push({ variantId, reason: "invalid_quantity" })
+    }
+
+    for (const { variantId, quantity } of validInputs) {
       const r = byVariant.get(variantId)
       if (!r) {
         invalidLines.push({ variantId, reason: "missing" })
