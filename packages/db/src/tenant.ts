@@ -98,6 +98,34 @@ export async function withTenant<T>(
  * API-layer admin flows against the app role, `app.bypass_rls` is the
  * mechanism.
  */
+/**
+ * Run `fn` inside a read-only transaction with a nil-UUID public context.
+ *
+ * Sets `app.current_user_id` to the nil UUID (`00000000-…-0000`) so that
+ * the RESTRICTIVE `*_default_deny` policies (which require IS NOT NULL) are
+ * satisfied. The nil UUID will never match any real `owner_id`, so ownership-
+ * gated policies remain false — callers can only see rows whose PERMISSIVE
+ * SELECT policies explicitly allow unauthenticated access (e.g. active stores,
+ * active products, active categories).
+ *
+ * Used by the Next.js server-component storefront pages, which access the DB
+ * directly (no API hop) and have no session user.
+ */
+export async function withPublicRead<T>(
+  db: Database,
+  fn: (tx: Database) => Promise<T>,
+): Promise<T> {
+  const PUBLIC_READER_ID = "00000000-0000-0000-0000-000000000000"
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`SET TRANSACTION READ ONLY`)
+    await tx.execute(sql`SELECT set_config('app.current_user_id', ${PUBLIC_READER_ID}, true)`)
+    await tx.execute(sql`SELECT set_config('app.current_user_role', 'buyer', true)`)
+    await tx.execute(sql`SELECT set_config('app.current_seller_id', '', true)`)
+    await tx.execute(sql`SELECT set_config('app.bypass_rls', 'false', true)`)
+    return fn(tx as Database)
+  })
+}
+
 export async function withAdmin<T>(
   db: Database,
   adminCtx: { userId: string; reason: string },

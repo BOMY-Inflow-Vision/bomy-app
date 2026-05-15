@@ -473,8 +473,19 @@ CREATE POLICY products_default_deny ON products
 CREATE POLICY products_read ON products
   FOR SELECT
   USING (
-    status = 'active'
-    OR EXISTS (SELECT 1 FROM stores WHERE stores.id = products.store_id AND stores.owner_id = app.current_user_id())
+    (
+      status = 'active'
+      AND EXISTS (
+        SELECT 1 FROM stores
+        WHERE stores.id = products.store_id
+          AND stores.status = 'active'
+      )
+    )
+    OR EXISTS (
+      SELECT 1 FROM stores
+      WHERE stores.id = products.store_id
+        AND stores.owner_id = app.current_user_id()
+    )
     OR app.is_bomy_staff()
     OR app.is_admin_bypass()
   );
@@ -512,8 +523,22 @@ CREATE POLICY product_variants_default_deny ON product_variants
 CREATE POLICY product_variants_read ON product_variants
   FOR SELECT
   USING (
-    (is_active = true AND EXISTS (SELECT 1 FROM products WHERE products.id = product_variants.product_id AND products.status = 'active'))
-    OR EXISTS (SELECT 1 FROM products p JOIN stores s ON s.id = p.store_id WHERE p.id = product_variants.product_id AND s.owner_id = app.current_user_id())
+    (
+      is_active = true
+      AND EXISTS (
+        SELECT 1 FROM products
+        JOIN stores ON stores.id = products.store_id
+        WHERE products.id = product_variants.product_id
+          AND products.status = 'active'
+          AND stores.status = 'active'
+      )
+    )
+    OR EXISTS (
+      SELECT 1 FROM products p
+      JOIN stores s ON s.id = p.store_id
+      WHERE p.id = product_variants.product_id
+        AND s.owner_id = app.current_user_id()
+    )
     OR app.is_bomy_staff()
     OR app.is_admin_bypass()
   );
@@ -551,8 +576,19 @@ CREATE POLICY product_images_default_deny ON product_images
 CREATE POLICY product_images_read ON product_images
   FOR SELECT
   USING (
-    EXISTS (SELECT 1 FROM products WHERE products.id = product_images.product_id AND products.status = 'active')
-    OR EXISTS (SELECT 1 FROM products p JOIN stores s ON s.id = p.store_id WHERE p.id = product_images.product_id AND s.owner_id = app.current_user_id())
+    EXISTS (
+      SELECT 1 FROM products
+      JOIN stores ON stores.id = products.store_id
+      WHERE products.id = product_images.product_id
+        AND products.status = 'active'
+        AND stores.status = 'active'
+    )
+    OR EXISTS (
+      SELECT 1 FROM products p
+      JOIN stores s ON s.id = p.store_id
+      WHERE p.id = product_images.product_id
+        AND s.owner_id = app.current_user_id()
+    )
     OR app.is_bomy_staff()
     OR app.is_admin_bypass()
   );
