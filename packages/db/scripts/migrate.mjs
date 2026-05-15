@@ -76,6 +76,14 @@ const MIGRATIONS = [
     name: "0009_catalog_schema",
     file: join(__dirname, "../drizzle/0009_catalog_schema.sql"),
   },
+  {
+    name: "0010_storefront_rls_fix",
+    file: join(__dirname, "../drizzle/0010_storefront_rls_fix.sql"),
+  },
+  {
+    name: "0011_cart_checkout",
+    file: join(__dirname, "../drizzle/0011_cart_checkout.sql"),
+  },
 ]
 
 try {
