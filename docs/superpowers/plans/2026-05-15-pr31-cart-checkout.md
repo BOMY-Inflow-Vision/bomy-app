@@ -62,6 +62,44 @@
 
 ---
 
+## Implementation conventions (overrides any conflicting snippet below)
+
+**`@bomy/db` import shape** — the root only exports `client`, `tenant`, `types`, and a namespaced `schema`. Tables are NOT named root exports. Use the existing pattern from `apps/web/src/app/seller/dashboard/products/actions.ts:7`:
+
+```ts
+import { makeDb, schema, withAdmin, withTenant } from "@bomy/db"
+import type { Database } from "@bomy/db"
+
+let _client: ReturnType<typeof makeDb> | null = null
+function getDb() {
+  if (!_client) _client = makeDb()
+  return _client
+}
+// Usage: getDb().db inside withAdmin; schema.checkoutSessions, schema.vouchers, …
+```
+
+Do **not** write `import { db, checkoutSessions } from "@bomy/db"` — those exports don't exist.
+
+**`SYSTEM_ACTOR`** is NOT exported from `@bomy/db`. Define locally per-file (existing convention; see `apps/api/src/jobs/expire-cancelled-memberships.ts:6`, `apps/web/src/app/(marketing)/membership/page.tsx:9`):
+
+```ts
+const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001" as const
+```
+
+**Shipping address validator** — `validateShippingAddress(raw): { ok: true, value } | { ok: false, errors }`. The codebase does not use Zod; do not introduce `safeParse`. Example call sites:
+
+```ts
+const parsed = validateShippingAddress(input.shippingAddress)
+if (!parsed.ok) return { ok: false, error: "INVALID_ADDRESS", details: parsed.errors }
+// parsed.value is the normalised ShippingAddressInput
+```
+
+Wherever an old snippet shows `ShippingAddressSchema.safeParse(...)` or `ShippingAddressSchema.parse(...)`, substitute `validateShippingAddress(...)` and adapt the success/error branches accordingly.
+
+**`readPlatformConfig` signature** (per Bob revision 2): `readPlatformConfig<T>(db, key, { actorUserId, reason })` — see Task 11 helper definition.
+
+---
+
 ## Task 1: Migration 0011 — full migration (DDL + RLS + seed) in one commit
 
 **Why combined:** RLS and table DDL must land together. A partial migration leaves rows readable/writable by unauthorised paths during deploy. One file, one commit, one migration apply. The migration writes the policies inline (matching the codebase convention from 0008/0009); `packages/db/src/rls/policies.sql` is also updated so the policies are reflected in the canonical RLS doc.
