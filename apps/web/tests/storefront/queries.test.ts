@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto"
 import { eq } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 
-import { makeDb, schema, withAdmin } from "@bomy/db"
+import { makeDb, schema, withAdmin, withPublicRead } from "@bomy/db"
 
 import { getCategories, getProductBySlug, getProducts } from "@/app/products/queries"
 import { getStorePage } from "@/app/brands/[slug]/queries"
@@ -174,5 +174,35 @@ describe.skipIf(!shouldRun)("storefront queries", () => {
     await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test" }, (tx) =>
       tx.update(schema.stores).set({ status: "active" }).where(eq(schema.stores.id, storeId)),
     )
+  })
+
+  it("getProducts returns empty for suspended store's active product (RLS gap closed)", async () => {
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test" }, (tx) =>
+      tx.update(schema.stores).set({ status: "suspended" }).where(eq(schema.stores.id, storeId)),
+    )
+    const result = await getProducts({})
+    const found = result.products.find((p) => p.id === productId)
+    expect(found).toBeUndefined()
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test" }, (tx) =>
+      tx.update(schema.stores).set({ status: "active" }).where(eq(schema.stores.id, storeId)),
+    )
+  })
+
+  it("getProducts ignores malformed categoryId without throwing", async () => {
+    const result = await getProducts({ categoryId: "not-a-uuid" })
+    expect(result.products).toBeDefined()
+    expect(Array.isArray(result.products)).toBe(true)
+  })
+
+  it("withPublicRead rejects writes (read-only transaction)", async () => {
+    await expect(
+      withPublicRead(testDb.db, async (db) => {
+        await db.insert(schema.categories).values({
+          name: "Should Fail",
+          slug: "should-fail",
+          isActive: true,
+        })
+      }),
+    ).rejects.toThrow()
   })
 })

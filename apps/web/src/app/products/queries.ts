@@ -2,6 +2,8 @@ import { and, count, desc, eq, sql } from "drizzle-orm"
 
 import { makeDb, schema, withPublicRead } from "@bomy/db"
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 let _client: ReturnType<typeof makeDb> | null = null
 function getDb() {
   if (!_client) _client = makeDb()
@@ -35,8 +37,9 @@ export async function getProducts({
   categoryId?: string
   page?: number
 }) {
+  const safeCategory = categoryId && UUID_RE.test(categoryId) ? categoryId : undefined
   const conditions = [eq(schema.products.status, "active"), eq(schema.stores.status, "active")]
-  if (categoryId) conditions.push(eq(schema.products.categoryId, categoryId))
+  if (safeCategory) conditions.push(eq(schema.products.categoryId, safeCategory))
   if (query?.trim()) {
     conditions.push(
       sql`${schema.products.searchVector} @@ plainto_tsquery('english', ${query.trim()})`,

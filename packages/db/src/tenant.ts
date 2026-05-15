@@ -117,8 +117,11 @@ export async function withPublicRead<T>(
 ): Promise<T> {
   const PUBLIC_READER_ID = "00000000-0000-0000-0000-000000000000"
   return db.transaction(async (tx) => {
+    await tx.execute(sql`SET TRANSACTION READ ONLY`)
     await tx.execute(sql`SELECT set_config('app.current_user_id', ${PUBLIC_READER_ID}, true)`)
     await tx.execute(sql`SELECT set_config('app.current_user_role', 'buyer', true)`)
+    await tx.execute(sql`SELECT set_config('app.current_seller_id', '', true)`)
+    await tx.execute(sql`SELECT set_config('app.bypass_rls', 'false', true)`)
     return fn(tx as Database)
   })
 }
