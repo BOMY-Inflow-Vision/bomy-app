@@ -59,3 +59,27 @@ export type DispatchStatus = (typeof DISPATCH_STATUSES)[number]
 // Stage 5 catalog enums.
 export const PRODUCT_STATUSES = ["draft", "active", "archived"] as const
 export type ProductStatus = (typeof PRODUCT_STATUSES)[number]
+
+// Stage 5 PR #31 cart-checkout enums.
+export const CHECKOUT_SESSION_STATUSES = [
+  "pending_payment",
+  "paid",
+  "failed",
+  "expired",
+  "cancelled",
+  "payment_review_required",
+  "payment_review_resolved",
+] as const
+export type CheckoutSessionStatus = (typeof CHECKOUT_SESSION_STATUSES)[number]
+
+export const INVENTORY_RESERVATION_STATUSES = [
+  "active",
+  "released",
+  "expired",
+  "converted",
+] as const
+export type InventoryReservationStatus = (typeof INVENTORY_RESERVATION_STATUSES)[number]
+
+// Dual-PSP seam. PR #31 only writes 'hitpay'; 'stripe' is reserved.
+export const PSP_PROVIDERS = ["hitpay", "stripe"] as const
+export type PspProvider = (typeof PSP_PROVIDERS)[number]
