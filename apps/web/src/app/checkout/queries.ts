@@ -1,13 +1,26 @@
 /**
- * Stage 5 PR #31 — checkout pure-computation helpers.
+ * Stage 5 PR #31 — checkout computation + DB read helpers.
  *
- * Pure functions only — no DB access here. DB-reading helpers
- * (fetchCheckoutContext, loadAvailableVouchers, loadContextForInitiation)
- * land in Task 9 alongside priceCheckoutPreview.
+ * - `computeCheckoutTotals` is a pure function (no DB).
+ * - `fetchCheckoutContext` reads product / store / voucher / brand-sub
+ *   state from the DB under buyer-scoped RLS (`withTenant`). Pricing,
+ *   stock, and validity are recomputed server-side every time — the
+ *   client cart is advisory only.
+ * - `loadAvailableVouchers` returns the buyer's redeemable vouchers
+ *   for the /checkout dropdown. No `voucher.code` exposed (per Q3 lock).
  *
- * All money is integer sen (bigint). Deterministic iteration ascending by
- * store_id; last store absorbs rounding remainder per spec §3.4.
+ * All money is integer sen (bigint). Deterministic iteration ascending
+ * by store_id; last store absorbs rounding remainder per spec §3.4.
  */
+
+import { and, eq, gt, inArray, isNull, sql } from "drizzle-orm"
+
+import { schema, withTenant } from "@bomy/db"
+import type { Database } from "@bomy/db"
+
+// ───────────────────────────────────────────────────────────────────────
+// Pure types + computation
+// ───────────────────────────────────────────────────────────────────────
 
 export type VoucherInput = {
   type: "fixed_myr" | "percentage" | "random_myr"
@@ -53,7 +66,7 @@ export function computeCheckoutTotals(input: {
   const voucherSuppressesBrand = input.voucher !== null
   const effectiveBrandSubs = voucherSuppressesBrand ? new Map<string, number>() : input.brandSubs
 
-  // Per-line: line_total + brand_discount
+  // Per-line: line_total + brand_discount (floor per line; sum into store)
   const itemRows = input.lines.map((l) => {
     const lineTotalSen = l.unitPriceSen * BigInt(l.quantity)
     const pct = effectiveBrandSubs.get(l.storeId)
@@ -61,7 +74,6 @@ export function computeCheckoutTotals(input: {
     return { ...l, lineTotalSen, brandDiscountSen }
   })
 
-  // Group by store, ASC store_id
   const distinctStoreIds = [...new Set(itemRows.map((r) => r.storeId))].sort()
   const storeRowsPre = distinctStoreIds.map((storeId) => {
     const lines = itemRows.filter((r) => r.storeId === storeId)
@@ -88,7 +100,7 @@ export function computeCheckoutTotals(input: {
     voucherDiscountSen = raw < totalCatalogSen ? raw : totalCatalogSen
   }
 
-  // Per-store voucher allocation: proportional, last-store-absorbs remainder
+  // Per-store voucher allocation: proportional, last-store absorbs remainder
   let runningAllocated = 0n
   const storeRows = storeRowsPre.map((s, idx) => {
     let voucherContributionSen: bigint
@@ -116,4 +128,256 @@ export function computeCheckoutTotals(input: {
     itemRows,
     storeRows,
   }
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// DB-reading helpers
+// ───────────────────────────────────────────────────────────────────────
+
+export type InvalidLineReason =
+  | "missing"
+  | "variant_inactive"
+  | "product_not_active"
+  | "store_not_active"
+  | "insufficient_stock"
+
+export type CheckoutContext = {
+  validLines: CheckoutLine[]
+  invalidLines: Array<{ variantId: string; reason: InvalidLineReason }>
+  storeShipping: Map<string, bigint>
+  brandSubs: Map<string, number>
+  voucher: VoucherInput | null
+}
+
+/**
+ * Read-only checkout context. Runs under `withTenant` so RLS is enforced:
+ *   - Active products / variants / active stores via public-read policy
+ *   - Buyer's own vouchers via tenant policy
+ *   - Buyer's own brand_subscriptions via tenant policy
+ *
+ * No writes. No HitPay. No reservations. Safe to call repeatedly.
+ */
+export async function fetchCheckoutContext(input: {
+  db: Database
+  buyerId: string
+  items: Array<{ variantId: string; quantity: number }>
+  voucherId: string | null
+}): Promise<CheckoutContext> {
+  return withTenant(input.db, { userId: input.buyerId, userRole: "buyer" }, async (tx) => {
+    if (input.items.length === 0) {
+      return {
+        validLines: [],
+        invalidLines: [],
+        storeShipping: new Map<string, bigint>(),
+        brandSubs: new Map<string, number>(),
+        voucher: null,
+      }
+    }
+
+    const variantIds = input.items.map((i) => i.variantId)
+    const rows = await tx
+      .select({
+        variantId: schema.productVariants.id,
+        variantActive: schema.productVariants.isActive,
+        unitPriceSen: schema.productVariants.priceMyrSen,
+        stockCount: schema.productVariants.stockCount,
+        productId: schema.products.id,
+        productStatus: schema.products.status,
+        productName: schema.products.name,
+        productSlug: schema.products.slug,
+        productCoverUrl: schema.products.coverImageUrl,
+        variantName: schema.productVariants.name,
+        storeId: schema.stores.id,
+        storeStatus: schema.stores.status,
+        storeName: schema.stores.name,
+        storeSlug: schema.stores.slug,
+        flatShippingFeeSen: schema.stores.flatShippingFeeSen,
+      })
+      .from(schema.productVariants)
+      .innerJoin(schema.products, eq(schema.products.id, schema.productVariants.productId))
+      .innerJoin(schema.stores, eq(schema.stores.id, schema.products.storeId))
+      .where(inArray(schema.productVariants.id, variantIds))
+
+    const byVariant = new Map(rows.map((r) => [r.variantId, r]))
+
+    const validLines: CheckoutLine[] = []
+    const invalidLines: CheckoutContext["invalidLines"] = []
+    const storeShipping = new Map<string, bigint>()
+
+    for (const { variantId, quantity } of input.items) {
+      const r = byVariant.get(variantId)
+      if (!r) {
+        invalidLines.push({ variantId, reason: "missing" })
+        continue
+      }
+      if (!r.variantActive) {
+        invalidLines.push({ variantId, reason: "variant_inactive" })
+        continue
+      }
+      if (r.productStatus !== "active") {
+        invalidLines.push({ variantId, reason: "product_not_active" })
+        continue
+      }
+      if (r.storeStatus !== "active") {
+        invalidLines.push({ variantId, reason: "store_not_active" })
+        continue
+      }
+      if (r.stockCount < quantity) {
+        invalidLines.push({ variantId, reason: "insufficient_stock" })
+        continue
+      }
+      validLines.push({
+        variantId,
+        storeId: r.storeId,
+        quantity,
+        unitPriceSen: r.unitPriceSen,
+        productSnapshot: {
+          id: r.productId,
+          name: r.productName,
+          slug: r.productSlug,
+          coverImageUrl: r.productCoverUrl,
+          storeName: r.storeName,
+          storeSlug: r.storeSlug,
+        },
+        variantSnapshot: {
+          id: variantId,
+          name: r.variantName,
+          priceMyrSen: r.unitPriceSen.toString(),
+        },
+      })
+      storeShipping.set(r.storeId, r.flatShippingFeeSen)
+    }
+
+    // Voucher (only if id provided AND available AND owned)
+    let voucher: VoucherInput | null = null
+    if (input.voucherId) {
+      const vRows = await tx
+        .select({
+          type: schema.vouchers.type,
+          fixedAmountSen: schema.vouchers.fixedAmountSen,
+          percentage: schema.vouchers.percentage,
+          randomResolvedSen: schema.vouchers.randomResolvedSen,
+        })
+        .from(schema.vouchers)
+        .where(
+          and(
+            eq(schema.vouchers.id, input.voucherId),
+            eq(schema.vouchers.userId, input.buyerId),
+            isNull(schema.vouchers.redeemedAt),
+            isNull(schema.vouchers.reservedCheckoutSessionId),
+            gt(schema.vouchers.expiresAt, sql`now()`),
+          ),
+        )
+        .limit(1)
+      if (vRows.length === 1) voucher = vRows[0]!
+    }
+
+    // Brand subs — suppressed when voucher is selected
+    const brandSubs = new Map<string, number>()
+    if (!voucher && validLines.length > 0) {
+      const distinctStoreIds = [...new Set(validLines.map((l) => l.storeId))]
+      const subs = await tx
+        .select({
+          storeId: schema.brandSubscriptions.storeId,
+          discountPct: schema.brandSubscriptions.discountPct,
+        })
+        .from(schema.brandSubscriptions)
+        .where(
+          and(
+            eq(schema.brandSubscriptions.userId, input.buyerId),
+            inArray(schema.brandSubscriptions.storeId, distinctStoreIds),
+            eq(schema.brandSubscriptions.status, "active"),
+            gt(schema.brandSubscriptions.periodEnd, sql`now()`),
+          ),
+        )
+      for (const s of subs) brandSubs.set(s.storeId, s.discountPct)
+    }
+
+    return { validLines, invalidLines, storeShipping, brandSubs, voucher }
+  })
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Available-vouchers loader (UI dropdown)
+// ───────────────────────────────────────────────────────────────────────
+
+export type AvailableVoucher = {
+  id: string
+  type: "fixed_myr" | "percentage" | "random_myr"
+  label: string
+  expiresAt: string // ISO
+}
+
+function formatExpiry(d: Date): string {
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+}
+
+function labelForVoucher(v: {
+  id: string
+  type: "fixed_myr" | "percentage" | "random_myr"
+  fixedAmountSen: bigint | null
+  percentage: number | null
+  randomResolvedSen: bigint | null
+  expiresAt: Date
+}): string {
+  const exp = formatExpiry(v.expiresAt)
+  switch (v.type) {
+    case "fixed_myr": {
+      const sen = v.fixedAmountSen ?? 0n
+      return `RM${(Number(sen) / 100).toFixed(2)} off — expires ${exp}`
+    }
+    case "random_myr": {
+      const sen = v.randomResolvedSen ?? 0n
+      return `RM${(Number(sen) / 100).toFixed(2)} off — expires ${exp}`
+    }
+    case "percentage":
+      return `${v.percentage ?? 0}% off — expires ${exp}`
+  }
+}
+
+/**
+ * Returns the buyer's available (unredeemed, unreserved, unexpired) vouchers
+ * sorted by expires_at ASC. Labels per spec §4.2 — no voucher.code exposed.
+ * Tied labels get a short id suffix `(#abc12345)` for disambiguation.
+ */
+export async function loadAvailableVouchers(
+  db: Database,
+  buyerId: string,
+): Promise<AvailableVoucher[]> {
+  return withTenant(db, { userId: buyerId, userRole: "buyer" }, async (tx) => {
+    const rows = await tx
+      .select({
+        id: schema.vouchers.id,
+        type: schema.vouchers.type,
+        fixedAmountSen: schema.vouchers.fixedAmountSen,
+        percentage: schema.vouchers.percentage,
+        randomResolvedSen: schema.vouchers.randomResolvedSen,
+        expiresAt: schema.vouchers.expiresAt,
+      })
+      .from(schema.vouchers)
+      .where(
+        and(
+          eq(schema.vouchers.userId, buyerId),
+          isNull(schema.vouchers.redeemedAt),
+          isNull(schema.vouchers.reservedCheckoutSessionId),
+          gt(schema.vouchers.expiresAt, sql`now()`),
+        ),
+      )
+      .orderBy(schema.vouchers.expiresAt)
+
+    const baseLabels = rows.map((r) => labelForVoucher(r))
+    const counts = new Map<string, number>()
+    for (const lbl of baseLabels) counts.set(lbl, (counts.get(lbl) ?? 0) + 1)
+
+    return rows.map((r, i) => {
+      const label = baseLabels[i]!
+      const needsSuffix = counts.get(label)! > 1
+      return {
+        id: r.id,
+        type: r.type,
+        label: needsSuffix ? `${label} (#${r.id.slice(0, 8)})` : label,
+        expiresAt: r.expiresAt.toISOString(),
+      }
+    })
+  })
 }
