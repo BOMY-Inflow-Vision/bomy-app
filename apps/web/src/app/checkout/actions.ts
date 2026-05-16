@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto"
 
 import { and, eq, gt, isNull, sql } from "drizzle-orm"
 
-import { makeDb, schema, withAdmin } from "@bomy/db"
+import { makeDb, schema, withAdmin, withTenant, type CheckoutSessionStatus } from "@bomy/db"
 import { HitPayClient, HitPayError, type PaymentRequestResponse } from "@bomy/hitpay"
 
 import { auth } from "@/auth"
@@ -488,4 +488,70 @@ export async function initiateCheckout(input: {
   }
 
   return { ok: true, redirectUrl: paymentRequest.url }
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// cancelPendingCheckout — buyer-initiated cancel (Task 13).
+//
+// Auth-gated; ownership + idempotency + terminal-state no-op are all
+// delegated to compensateInitiation, which filters on
+// `WHERE user_id = buyerId AND status = 'pending_payment'`. Callers
+// always see `{ ok: true }` after a successful auth: whether the
+// helper actually rolled anything back is internal — the buyer just
+// wanted the session gone.
+//
+// The /checkout/cancelled GET route never mutates; it loads the
+// cancellation UI and (per Task 14) invokes this server action via
+// POST after the buyer confirms.
+// ───────────────────────────────────────────────────────────────────────
+
+export type CancelPendingCheckoutResult = { ok: true } | { ok: false; error: "UNAUTHENTICATED" }
+
+export async function cancelPendingCheckout(
+  sessionId: string,
+): Promise<CancelPendingCheckoutResult> {
+  const session = await auth()
+  if (!session?.user?.id) return { ok: false, error: "UNAUTHENTICATED" }
+
+  await compensateInitiation(getDb(), {
+    sessionId,
+    buyerId: session.user.id,
+    reason: "buyer_cancelled",
+  })
+
+  return { ok: true }
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// getCheckoutSessionStatus — buyer-scoped status read (Task 13).
+//
+// Used by the /checkout/success poller. `withTenant` with `userRole:
+// "buyer"` runs under RLS that only matches the buyer's own sessions,
+// so a foreign or non-existent sessionId both yield zero rows and
+// collapse into a single `NOT_FOUND` (no info leak).
+// ───────────────────────────────────────────────────────────────────────
+
+export type GetCheckoutSessionStatusResult =
+  | { ok: true; status: CheckoutSessionStatus }
+  | { ok: false; error: "UNAUTHENTICATED" | "NOT_FOUND" }
+
+export async function getCheckoutSessionStatus(
+  sessionId: string,
+): Promise<GetCheckoutSessionStatusResult> {
+  const session = await auth()
+  if (!session?.user?.id) return { ok: false, error: "UNAUTHENTICATED" }
+
+  const rows = await withTenant(
+    getDb(),
+    { userId: session.user.id, userRole: "buyer" },
+    async (tx) =>
+      tx
+        .select({ status: schema.checkoutSessions.status })
+        .from(schema.checkoutSessions)
+        .where(eq(schema.checkoutSessions.id, sessionId))
+        .limit(1),
+  )
+
+  if (rows.length === 0) return { ok: false, error: "NOT_FOUND" }
+  return { ok: true, status: rows[0]!.status }
 }
