@@ -5,11 +5,14 @@ import { randomUUID } from "node:crypto"
 import { and, eq, gt, isNull, sql } from "drizzle-orm"
 
 import { makeDb, schema, withAdmin } from "@bomy/db"
+import { HitPayClient, HitPayError, type PaymentRequestResponse } from "@bomy/hitpay"
 
 import { auth } from "@/auth"
 import { CheckoutError, type CheckoutErrorCode } from "@/lib/checkout-errors"
+import { senToMyr } from "@/lib/money"
 import { validateShippingAddress } from "@/lib/shipping-address-schema"
 
+import { compensateInitiation } from "./compensate"
 import {
   computeCheckoutTotals,
   fetchCheckoutContext,
@@ -25,6 +28,32 @@ let _client: ReturnType<typeof makeDb> | null = null
 function getDb() {
   if (!_client) _client = makeDb()
   return _client.db
+}
+
+function hitpayClient(): HitPayClient {
+  const apiKey = process.env["HITPAY_API_KEY"]
+  const apiUrl = process.env["HITPAY_API_URL"]
+  if (!apiKey) throw new Error("HITPAY_API_KEY is required")
+  if (!apiUrl) throw new Error("HITPAY_API_URL is required")
+  return new HitPayClient({ apiKey, baseUrl: apiUrl })
+}
+
+// Short, audit-friendly code derived from a HitPay error class name.
+//   HitPayAuthError       → "auth"
+//   HitPayValidationError → "validation"
+//   HitPayNotFoundError   → "notfound"
+//   HitPayRateLimitError  → "ratelimit"
+//   plain HitPayError     → "error"
+//   anything else         → "unknown"
+function hitpayErrCode(err: unknown): string {
+  if (err instanceof HitPayError) {
+    const stripped = err.name
+      .replace(/^HitPay/, "")
+      .replace(/Error$/, "")
+      .toLowerCase()
+    return stripped || "error"
+  }
+  return "unknown"
 }
 
 // ───────────────────────────────────────────────────────────────────────
@@ -165,10 +194,10 @@ export async function readCheckoutEnabled(actorUserId?: string): Promise<boolean
 }
 
 // ───────────────────────────────────────────────────────────────────────
-// initiateCheckout — Phase 1 only (Task 11).
+// initiateCheckout — Phase 1 (Task 11) + Phase 1b (Task 12).
 //
 // Pre-txn guards: auth → checkout_enabled gate → non-empty cart →
-// shipping address. Then a single withAdmin transaction:
+// shipping address. Then a single withAdmin transaction (Phase 1):
 //
 //   advisory_xact_lock(buyer) → single-pending guard →
 //   loadContextForInitiation (FOR UPDATE on variants + voucher) →
@@ -176,11 +205,16 @@ export async function readCheckoutEnabled(actorUserId?: string): Promise<boolean
 //   atomic stock decrement (UPDATE … WHERE stock_count >= qty RETURNING) →
 //   insert reservations → conditional voucher reservation
 //
+// After commit, Phase 1b runs outside any transaction:
+//
+//   HitPay createPaymentRequest → Transaction 2: store PSP ref under
+//   `WHERE status = 'pending_payment'` row-count guard → return HitPay
+//   URL. Any failure (HitPay throw, T2 zero rows, T2 exception) triggers
+//   compensateInitiation, which is idempotent so a concurrently-cancelled
+//   session is handled safely.
+//
 // All money fields stay as bigint server-side; the response shape carries
-// only strings/booleans across the server-action boundary. Phase 1b
-// (HitPay redirect + PSP-ref persistence + compensation triggers) lands
-// in Task 12 — for now we return a placeholder redirect to /checkout/
-// success?session=… so callers can be wired before HitPay is live.
+// only strings/booleans across the server-action boundary.
 // ───────────────────────────────────────────────────────────────────────
 
 export type InitiateCheckoutResult =
@@ -211,8 +245,19 @@ export async function initiateCheckout(input: {
     }
   }
 
+  // Validate Phase 1b config BEFORE mutating any state. A missing env var
+  // post-commit would leak a pending session + stock decrement + voucher
+  // reservation because the throw would skip compensation.
+  const webBaseUrl = process.env["WEB_BASE_URL"]
+  const apiBaseUrl = process.env["API_BASE_URL"]
+  if (!webBaseUrl) throw new Error("WEB_BASE_URL is required for checkout")
+  if (!apiBaseUrl) throw new Error("API_BASE_URL is required for checkout")
+
   const sessionId = randomUUID()
   const db = getDb()
+  // Captured inside the Phase 1 closure so Phase 1b can build the HitPay
+  // payment-request amount without re-reading the session row.
+  let phaseTotalBuyerPaysSen: bigint | null = null
 
   try {
     await withAdmin(
@@ -355,6 +400,8 @@ export async function initiateCheckout(input: {
             .returning({ id: schema.vouchers.id })
           if (r.length === 0) throw new CheckoutError("VOUCHER_RACE")
         }
+
+        phaseTotalBuyerPaysSen = totals.totalBuyerPaysSen
       },
     )
   } catch (err) {
@@ -364,6 +411,81 @@ export async function initiateCheckout(input: {
     throw err
   }
 
-  // Phase 1b lands in Task 12 (HitPay redirect + PSP-ref persistence).
-  return { ok: true, redirectUrl: `/checkout/success?session=${sessionId}` }
+  // Defensive invariant — Phase 1 commit without the assignment above is
+  // unreachable, but the null check satisfies the type system across the
+  // async-closure boundary.
+  if (phaseTotalBuyerPaysSen === null) {
+    throw new Error("initiateCheckout invariant: Phase 1 committed without total")
+  }
+  const totalBuyerPaysSen: bigint = phaseTotalBuyerPaysSen
+
+  // ── Phase 1b ────────────────────────────────────────────────────────
+  // Outside any transaction — HitPay is a slow third-party call, and the
+  // PSP-ref UPDATE that follows is its own short Transaction 2.
+  // (webBaseUrl / apiBaseUrl validated above pre-Phase-1.)
+
+  let paymentRequest: PaymentRequestResponse
+  try {
+    paymentRequest = await hitpayClient().createPaymentRequest({
+      amount: senToMyr(totalBuyerPaysSen),
+      currency: "MYR",
+      email: session.user.email ?? "",
+      purpose: `BOMY order #${sessionId.slice(0, 8)}`,
+      reference_number: sessionId,
+      redirect_url: `${webBaseUrl}/checkout/success?session=${sessionId}`,
+      cancel_url: `${webBaseUrl}/checkout/cancelled?session=${sessionId}`,
+      webhook: `${apiBaseUrl}/webhooks/hitpay`,
+    })
+  } catch (err) {
+    // HitPay call failed before any PSP ref was stored. Roll back Phase 1.
+    await compensateInitiation(db, {
+      sessionId,
+      buyerId,
+      reason: `hitpay_create_failed:${hitpayErrCode(err)}`,
+    })
+    return { ok: false, error: "PAYMENT_INIT_FAILED" }
+  }
+
+  // Transaction 2 — store PSP reference. The WHERE clause requires the
+  // session to still be `pending_payment`; a concurrent cancel (expiry
+  // job, buyer cancel) flips status and the UPDATE returns zero rows,
+  // surfacing as PAYMENT_INIT_FAILED with compensation triggered.
+  try {
+    const updated = await withAdmin(
+      db,
+      { userId: buyerId, reason: `checkout_store_psp_ref:${sessionId}` },
+      async (tx) =>
+        tx
+          .update(schema.checkoutSessions)
+          .set({
+            pspPaymentRequestId: paymentRequest.id,
+            pspPaymentUrl: paymentRequest.url,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(schema.checkoutSessions.id, sessionId),
+              eq(schema.checkoutSessions.status, "pending_payment"),
+            ),
+          )
+          .returning({ id: schema.checkoutSessions.id }),
+    )
+    if (updated.length !== 1) {
+      await compensateInitiation(db, {
+        sessionId,
+        buyerId,
+        reason: "store_psp_ref_zero_rows",
+      })
+      return { ok: false, error: "PAYMENT_INIT_FAILED" }
+    }
+  } catch {
+    await compensateInitiation(db, {
+      sessionId,
+      buyerId,
+      reason: "store_psp_ref_failed",
+    })
+    return { ok: false, error: "PAYMENT_INIT_FAILED" }
+  }
+
+  return { ok: true, redirectUrl: paymentRequest.url }
 }
