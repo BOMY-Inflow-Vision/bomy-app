@@ -443,4 +443,40 @@ describe.skipIf(!shouldRun)("cancelPendingCheckout + getCheckoutSessionStatus", 
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.error).toBe("UNAUTHENTICATED")
   })
+
+  // ─── UUID hardening ──────────────────────────────────────────────────
+  // Query-string sessionIds (Task 17 success poller) reach these actions
+  // verbatim. A malformed UUID must not surface as a 500 — cancel no-ops
+  // and status returns NOT_FOUND, matching the foreign/missing semantics.
+
+  it("cancel: malformed sessionId → ok:true no-op; no DB writes", async () => {
+    asBuyer(buyerAId)
+    const before = await withAdmin(
+      testDb.db,
+      { userId: SYSTEM_ACTOR, reason: "count audit" },
+      async (tx) => tx.select({ c: sql<number>`count(*)::int` }).from(schema.adminBypassAudit),
+    )
+
+    const r = await cancelPendingCheckout("not-a-uuid")
+    expect(r.ok).toBe(true)
+
+    // No compensation audit row written for a malformed id (guard fires
+    // before withAdmin is entered).
+    const after = await withAdmin(
+      testDb.db,
+      { userId: SYSTEM_ACTOR, reason: "count audit" },
+      async (tx) => tx.select({ c: sql<number>`count(*)::int` }).from(schema.adminBypassAudit),
+    )
+    // `before` already sees its own withAdmin's audit row; the diff is
+    // exactly 1 (the `after` withAdmin's own row). A regression where the
+    // guard failed would add a third row from compensateInitiation → diff=2.
+    expect(Number(after[0]!.c) - Number(before[0]!.c)).toBe(1)
+  })
+
+  it("status: malformed sessionId → NOT_FOUND", async () => {
+    asBuyer(buyerAId)
+    const r = await getCheckoutSessionStatus("not-a-uuid")
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.error).toBe("NOT_FOUND")
+  })
 })

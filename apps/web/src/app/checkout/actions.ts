@@ -38,6 +38,16 @@ function hitpayClient(): HitPayClient {
   return new HitPayClient({ apiKey, baseUrl: apiUrl })
 }
 
+// Validates that a string is a v4-shaped UUID (the same shape Postgres
+// uses on the wire). Used by the buyer-facing cancel/status actions to
+// no-op on garbage query-string input rather than surfacing a
+// PostgresError. Schema/tenant.ts has its own internal regex; we keep
+// this one local so callers don't depend on a private module.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+function isUuid(s: string): boolean {
+  return UUID_RE.test(s)
+}
+
 // Short, audit-friendly code derived from a HitPay error class name.
 //   HitPayAuthError       → "auth"
 //   HitPayValidationError → "validation"
@@ -513,6 +523,12 @@ export async function cancelPendingCheckout(
   const session = await auth()
   if (!session?.user?.id) return { ok: false, error: "UNAUTHENTICATED" }
 
+  // Garbage query-string input → no-op. compensateInitiation's
+  // ownership/state filter already collapses unknown UUIDs to a no-op,
+  // and Postgres would 500 on a non-UUID literal, so we short-circuit
+  // before the DB sees it.
+  if (!isUuid(sessionId)) return { ok: true }
+
   await compensateInitiation(getDb(), {
     sessionId,
     buyerId: session.user.id,
@@ -540,6 +556,11 @@ export async function getCheckoutSessionStatus(
 ): Promise<GetCheckoutSessionStatusResult> {
   const session = await auth()
   if (!session?.user?.id) return { ok: false, error: "UNAUTHENTICATED" }
+
+  // Malformed UUID collapses into the same NOT_FOUND bucket as a foreign
+  // or non-existent session — prevents a PostgresError from leaking out
+  // of a query-string handler.
+  if (!isUuid(sessionId)) return { ok: false, error: "NOT_FOUND" }
 
   const rows = await withTenant(
     getDb(),
