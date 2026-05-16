@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation"
 
 import type { CheckoutSessionStatus } from "@bomy/db"
 
+import { useCart } from "@/lib/cart"
+
 import { getCheckoutSessionStatus } from "../actions"
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -20,6 +22,7 @@ type PollerState =
 
 export function SuccessPoller() {
   const router = useRouter()
+  const { clearCart } = useCart()
   const searchParams = useSearchParams()
   const rawId = searchParams.get("session") ?? ""
   const sessionId = UUID_RE.test(rawId) ? rawId : null
@@ -52,6 +55,7 @@ export function SuccessPoller() {
       }
 
       if (r.status !== "pending_payment") {
+        if (r.status === "paid") clearCart()
         setState({ phase: "done", status: r.status })
         return
       }
@@ -68,7 +72,7 @@ export function SuccessPoller() {
     return () => {
       cancelled = true
     }
-  }, [sessionId, router])
+  }, [sessionId, router, clearCart])
 
   if (state.phase === "polling") {
     return (
@@ -121,10 +125,10 @@ function DoneView({ status }: { status: CheckoutSessionStatus }) {
           Your order has been placed. You&apos;ll receive a confirmation email shortly.
         </p>
         <Link
-          href="/account/orders"
+          href="/account"
           className="inline-block rounded-xl bg-gray-900 px-6 py-3 text-sm font-semibold text-white hover:bg-gray-700"
         >
-          View orders
+          Go to my account
         </Link>
       </main>
     )
