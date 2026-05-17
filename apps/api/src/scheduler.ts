@@ -3,6 +3,7 @@ import { Queue, Worker } from "bullmq"
 import type { Database } from "@bomy/db"
 
 import { expireSubscriptions } from "./jobs/brand-subscription-expiry.js"
+import { runInventoryReservationExpiryJob } from "./jobs/inventory-reservation-expiry.js"
 import { notifyRenewalsDue } from "./jobs/membership-renewal-notification.js"
 import { issueMonthlyVouchers } from "./jobs/voucher-issuance.js"
 
@@ -11,6 +12,7 @@ import { issueMonthlyVouchers } from "./jobs/voucher-issuance.js"
 const VOUCHER_ISSUANCE_CRON = "0 8 1 * *" // 08:00 MYT on 1st of month
 const RENEWAL_NOTIFICATION_CRON = "0 9 * * *" // 09:00 MYT daily
 const BRAND_EXPIRY_CRON = "5 0 * * *" // 00:05 MYT daily
+const INV_EXPIRY_CRON = "*/10 * * * *" // every 10 minutes MYT
 
 const TZ = "Asia/Kuala_Lumpur"
 
@@ -43,6 +45,7 @@ export async function createScheduler(
   const voucherQueue = new Queue(VOUCHER_QUEUE_NAME, { connection })
   const renewalQueue = new Queue("membership-renewal-notification", { connection })
   const expiryQueue = new Queue("brand-subscription-expiry", { connection })
+  const invExpiryQueue = new Queue("inventory-reservation-expiry", { connection })
 
   // --- Register repeatable cron jobs ---
   await voucherQueue.upsertJobScheduler(
@@ -59,6 +62,11 @@ export async function createScheduler(
     "daily-brand-expiry",
     { pattern: BRAND_EXPIRY_CRON, tz: TZ },
     { name: "expire-subscriptions" },
+  )
+  await invExpiryQueue.upsertJobScheduler(
+    "every-10min-inv-expiry",
+    { pattern: INV_EXPIRY_CRON, tz: TZ },
+    { name: "expire-reservations" },
   )
 
   // --- Workers ---
@@ -91,7 +99,20 @@ export async function createScheduler(
     { connection },
   )
 
-  for (const worker of [voucherWorker, renewalWorker, expiryWorker]) {
+  const invExpiryWorker = new Worker(
+    "inventory-reservation-expiry",
+    async () => {
+      await runInventoryReservationExpiryJob({
+        db,
+        log: {
+          info: (obj, msg) => logger.info(`${msg} ${JSON.stringify(obj)}`),
+        },
+      })
+    },
+    { connection },
+  )
+
+  for (const worker of [voucherWorker, renewalWorker, expiryWorker, invExpiryWorker]) {
     worker.on("failed", (job, err) => {
       logger.error({ err, jobId: job?.id }, `jobs: worker failed — ${job?.name ?? "unknown"}`)
     })
@@ -107,9 +128,11 @@ export async function createScheduler(
         voucherWorker.close(),
         renewalWorker.close(),
         expiryWorker.close(),
+        invExpiryWorker.close(),
         voucherQueue.close(),
         renewalQueue.close(),
         expiryQueue.close(),
+        invExpiryQueue.close(),
       ])
     },
   }
