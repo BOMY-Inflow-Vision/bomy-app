@@ -3,7 +3,7 @@
 **Date:** 2026-05-17
 **Author:** Andy (AI technical lead)
 **Reviewer:** Bob (strategist developer)
-**Status:** Draft R1 — Bob R1 revisions applied (RLS shape, PSP fee capture, failed-path ordering, idempotency status guard, ledger semantics, event-id collision detection, zero-payout leg gating)
+**Status:** Draft R2 — Bob R2 revisions applied (stale `USING (false)` block removed; completed-event `paymentId` guard added; `order_payouts_select` role predicate; ON CONFLICT DO NOTHING on `orders` for duplicate-fan-out tolerance; test 29 wording clarified; observability table markdown fixed)
 **Builds on:** Stage 5 spec (`2026-05-13-stage5-products-orders-design.md`) §3.4, §4.3, §6.1, §12; PR #31 spec (`2026-05-15-pr31-cart-checkout-design.md`) §5
 **Branch:** `feat/order-webhook-ledger` (design branch: `design/pr32-order-webhook-ledger`)
 **Migration number:** `0012_order_webhook_ledger.sql`
@@ -330,17 +330,22 @@ CREATE POLICY order_payouts_default_deny ON order_payouts
   AS RESTRICTIVE
   USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
 
--- SELECT: seller sees own store's payouts; staff sees all; admin bypass.
--- Buyer never sees payouts (not joined to buyer at all).
+-- SELECT: seller_owner sees own store's payouts; staff sees all; admin bypass.
+-- Buyer never sees payouts. The seller branch REQUIRES role = 'seller_owner'
+-- (Bob R2) — without the role predicate, a user acting in buyer context who
+-- happens to own a store would satisfy the ownership EXISTS and leak payout data.
 CREATE POLICY order_payouts_select ON order_payouts
   FOR SELECT
   USING (
     app.is_admin_bypass()
     OR app.is_bomy_staff()
-    OR EXISTS (
-      SELECT 1 FROM orders o JOIN stores s ON s.id = o.store_id
-       WHERE o.id = order_payouts.order_id
-         AND s.owner_id = app.current_user_id()
+    OR (
+      app.current_user_role() = 'seller_owner'
+      AND EXISTS (
+        SELECT 1 FROM orders o JOIN stores s ON s.id = o.store_id
+         WHERE o.id = order_payouts.order_id
+           AND s.owner_id = app.current_user_id()
+      )
     )
   );
 
@@ -377,11 +382,6 @@ CREATE POLICY processed_webhook_events_admin_select ON processed_webhook_events
 CREATE POLICY processed_webhook_events_admin_insert ON processed_webhook_events
   FOR INSERT WITH CHECK (app.is_admin_bypass());
 -- No UPDATE / DELETE policies at all — append-only by omission + RLS.
-```
-
-```sql
-CREATE POLICY pwe_force_default_deny ON processed_webhook_events AS RESTRICTIVE FOR ALL USING (false);
--- No permissive policies — every read or write goes through withAdmin.
 ```
 
 `bomy_app` role grants on all four tables in the migration's role-grant section (mirrors PR #31 `0011` §15).
@@ -618,6 +618,20 @@ export async function handleOrderPayment(args: OrderPaymentArgs): Promise<void> 
         return
       }
 
+      // (Bob R2) Missing payment_id on a successful event is a HitPay payload
+      // bug — fan-out would write blank psp_payment_id and break future
+      // idempotency / refund lookups. Stage 4 brand-subscription handler
+      // (`apps/api/src/routes/webhooks/hitpay.ts:362`) fails closed on the same
+      // condition; mirror it. Park into review for ops.
+      if (!args.paymentId) {
+        args.app.log.error(
+          { sessionId: session.id, paymentRequestId: args.paymentRequestId },
+          "hitpay webhook: order payment completed but payment_id missing — parking for review",
+        )
+        await parkPaymentReview(tx, session, "amount_mismatch", args) // closest reason
+        return
+      }
+
       let amountSen: bigint
       try {
         amountSen = parseSen(args.amountStr)
@@ -741,7 +755,7 @@ Inside the locked transaction (lock order per §3.3):
 
    This is the same expression the `orders` CHECK enforces; doing it in JS first surfaces bugs as a thrown error in tests rather than a Postgres `check_violation` at insert time.
 
-7. **Insert one `orders` row per store** (ascending `store_id`), then for each order insert its `order_items` (from `checkout_session_items WHERE store_id = $storeId`). Field-by-field mapping:
+7. **Insert one `orders` row per store** (ascending `store_id`) using `ON CONFLICT (checkout_session_id, store_id) DO NOTHING RETURNING id` so a stale duplicate-fan-out attempt (Step F bypassed by a future bug) fails gracefully without aborting the transaction. If the INSERT returns 0 rows for any store, this is a duplicate fan-out — `webhook_duplicate_fanout_blocked` at `level: error` with `{ sessionId, storeId }`, **commit the transaction so the `admin_bypass_audit` row persists**, and `return` from the handler. No `order_items`, no ledger writes, no voucher claim, no session status update for that path. The locked Step F status guard should make this branch unreachable in correct code; this is the belt-and-braces (Bob R2). Field-by-field mapping for the normal insert:
 
    ```ts
    orders.checkout_session_id = session.id
@@ -1026,16 +1040,17 @@ Why a new `apps/api/src/webhooks/` directory rather than inlining into the route
 
 ### 6.1 Pino logs (one line per branch)
 
-| Event                               | Level   | Fields                                                                                                                                                         |
-| ----------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| `event: order_payment_paid`         | `info`  | `sessionId`, `paymentId`, `eventId`, `ordersCount`, `bomyCommissionSen`, `pspFeeSen`, `voucherClaimed: boolean`                                                |
-| `event: order_payment_failed`       | `info`  | `sessionId`, `paymentId`, `eventId`, `reservationsReleased`, `voucherReleased: boolean`                                                                        |
-| `event: order_payment_review`       | `error` | `sessionId`, `paymentId`, `eventId`, `reason`, `expectedAmount`, `receivedAmount?` (for amount_mismatch)                                                       |
-| `event: order_payment_idempotent`   | `info`  | `sessionId`, `eventId`, `previousStatus`, `consistencyCheck: 'pass'                                                                                            | 'fail'` |
-| `event: voucher_claim_failed`       | `error` | `sessionId`, `voucherId`, `paymentId` — ops-critical                                                                                                           |
-| `event: consistency_check_failed`   | `error` | `sessionId`, `eventId`, `mismatchType` (e.g. `orders_count`, `ledger_credit_missing`, `reservations_not_converted`)                                            |
-| `event: webhook_event_id_collision` | `error` | `pspEventId`, `existingHash`, `newHash`, `existingType`, `newType` — emitted by §3.2 when a duplicate `psp_event_id` carries a different payload or event type |
-| `event: bomy_commission_negative`   | `warn`  | `sessionId`, `orderId`, `bomyCommissionSen` — emitted per-order when `bomy_commission_sen < 0` (open question #1 default: allow + log)                         |
+| Event                                     | Level   | Fields                                                                                                                                                         |
+| ----------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `event: order_payment_paid`               | `info`  | `sessionId`, `paymentId`, `eventId`, `ordersCount`, `bomyCommissionSen`, `pspFeeSen`, `voucherClaimed: boolean`                                                |
+| `event: order_payment_failed`             | `info`  | `sessionId`, `paymentId`, `eventId`, `reservationsReleased`, `voucherReleased: boolean`                                                                        |
+| `event: order_payment_review`             | `error` | `sessionId`, `paymentId`, `eventId`, `reason`, `expectedAmount`, `receivedAmount?` (for amount_mismatch)                                                       |
+| `event: order_payment_idempotent`         | `info`  | `sessionId`, `eventId`, `previousStatus`, `consistencyCheck` (one of `pass` / `fail`)                                                                          |
+| `event: voucher_claim_failed`             | `error` | `sessionId`, `voucherId`, `paymentId` — ops-critical                                                                                                           |
+| `event: consistency_check_failed`         | `error` | `sessionId`, `eventId`, `mismatchType` (e.g. `orders_count`, `ledger_credit_missing`, `reservations_not_converted`)                                            |
+| `event: webhook_event_id_collision`       | `error` | `pspEventId`, `existingHash`, `newHash`, `existingType`, `newType` — emitted by §3.2 when a duplicate `psp_event_id` carries a different payload or event type |
+| `event: webhook_duplicate_fanout_blocked` | `error` | `sessionId`, `storeId`, `eventId` — emitted when `orders` INSERT `ON CONFLICT DO NOTHING` returns 0 rows (Step F status guard bypassed by a future bug)        |
+| `event: bomy_commission_negative`         | `warn`  | `sessionId`, `orderId`, `bomyCommissionSen` — emitted per-order when `bomy_commission_sen < 0` (open question #1 default: allow + log)                         |
 
 Ops-critical alerts are anything `level: error`. The notifications/alerting wiring lands in PR #34; here we just write the structured logs so PR #34's wire-up has everything it needs.
 
@@ -1066,7 +1081,8 @@ All integration tests run against real Postgres with `BOMY_RLS_READY=1` and the 
 8. RLS: staff (`bomy_admin`, `bomy_ops`, `bomy_finance`) SELECT all orders.
 9. RLS: NO role (`buyer`, `seller_owner`, `bomy_ops`, `bomy_admin`, `bomy_finance`) can INSERT/UPDATE/DELETE on `orders` / `order_items` / `order_payouts` / `processed_webhook_events` under `withTenant`. Each role tested individually to catch the kind of policy regression Bob caught on the first draft (e.g. an `order_payouts_admin_finance_all FOR ALL` permissive policy would let finance write via `withTenant` and skip the audit row).
 10. RLS: `processed_webhook_events` not readable under any `withTenant` context; only `withAdmin`.
-    10a. RLS: default-deny restrictive policy: any of the four tables with `app.current_user_id` unset AND `app.bypass_rls` unset → SELECT returns zero rows. (Regression for Bob R0: the prior draft used `USING (false)` which would have denied everything; this test would have caught it.)
+    10a. RLS: default-deny restrictive policy: any of the four tables with `app.current_user_id` unset AND `app.bypass_rls` unset → SELECT returns zero rows. (Regression for Bob R1 R0: the prior draft used `USING (false)` which would have denied everything; this test would have caught it.)
+    10b. **(Bob R2 R3)** `order_payouts` role-predicate guard: a user who owns a store but is acting under `withTenant(..., { userRole: 'buyer' })` cannot SELECT any `order_payouts` row, including rows for their own store. Re-issuing the same query under `withTenant(..., { userRole: 'seller_owner' })` returns the store's rows. Regression for the missing role predicate Bob caught — `s.owner_id = app.current_user_id()` alone would have leaked payout data to buyer-context callers.
 
 ### 7.2 `apps/api/tests/webhooks/hitpay-order.test.ts` — handler behaviour
 
@@ -1084,7 +1100,7 @@ All integration tests run against real Postgres with `BOMY_RLS_READY=1` and the 
     16a. **(Bob R5) Duplicate `Hitpay-Event-Id` with different `payload_hash`** (forge two events with the same id but different bodies; verify both signatures) → second delivery emits `event: webhook_event_id_collision` at `level: error` with both hashes; no side effects.
     16b. **(Bob R5) Duplicate `Hitpay-Event-Id` with same hash but different `event_type`** → same collision log; no side effects.
     16c. **(Bob R4) Two `payment_request.completed` deliveries with DIFFERENT `psp_event_id` for the same `payment_request_id`** → first claims, fans out, sets session `paid`. Second claims a fresh `processed_webhook_events` row, locks the session, sees `status = 'paid'` and short-circuits via the §3.4 step F status guard. Exactly one set of orders + ledger. The DB-level `orders_session_store_unique` index never fires (the second event never reaches INSERT) but stands as the belt-and-braces.
-    16d. **(Bob R4 belt-and-braces) Manually force the second event past the status guard** (test fixture sets session back to `pending_payment` between deliveries to simulate buggy code) → second INSERT into `orders` fails with unique violation `orders_session_store_unique`; tx rolls back; ops sees a `level: error` from withAdmin's audit row.
+    16d. **(Bob R4 belt-and-braces) Manually force the second event past the status guard** (test fixture flips the session back to `pending_payment` between deliveries to simulate buggy code) → second fan-out's `INSERT ... ON CONFLICT (checkout_session_id, store_id) DO NOTHING RETURNING id` returns 0 rows. Handler emits `event: webhook_duplicate_fanout_blocked` at `level: error` and commits. Final state: original orders + ledger unchanged; **second `admin_bypass_audit` row persists** (the tx commits cleanly, not throws — Bob R2-medium fix); no duplicate ledger legs (unique `(idempotency_key, direction)` would have caught them anyway, but the orders INSERT never reaches the ledger step).
 
 #### Paid happy path
 
@@ -1097,8 +1113,9 @@ All integration tests run against real Postgres with `BOMY_RLS_READY=1` and the 
 #### Review-state guards
 
 22. Webhook amount ≠ `total_buyer_pays_sen` → session `payment_review_required`, reason `amount_mismatch`; no orders; no ledger; reservations untouched; voucher untouched; `psp_payment_id` not set.
-    22a. **(Bob R2) Webhook `feesStr` unparseable on `payment_request.completed`** (e.g. `"abc"`) → session `payment_review_required`, reason `amount_mismatch`; no orders; ops log mentions PSP-fee parse failure.
-    22b. **(Bob R2) Webhook `feesStr = "1000.00"` with `total_buyer_pays_sen = 50000` (fee > gross)** → review state, reason `amount_mismatch`; no orders.
+    22a. **(Bob R1 R2) Webhook `feesStr` unparseable on `payment_request.completed`** (e.g. `"abc"`) → session `payment_review_required`, reason `amount_mismatch`; no orders; ops log mentions PSP-fee parse failure.
+    22b. **(Bob R1 R2) Webhook `feesStr = "1000.00"` with `total_buyer_pays_sen = 50000` (fee > gross)** → review state, reason `amount_mismatch`; no orders.
+    22c. **(Bob R2 R2) `payment_request.completed` with empty `payment_id`** → session `payment_review_required`, reason `amount_mismatch`; no orders; no ledger; `psp_payment_id` not set; ops `level: error` "payment_id missing" log. Mirrors Stage 4 brand-sub handler's fail-closed behaviour at `apps/api/src/routes/webhooks/hitpay.ts:362`.
 23. `platform_config.regular_order_commission_pct` missing → review state, reason `invalid_commission_config`; no orders; ops-critical log.
 24. `platform_config.regular_order_commission_pct = '125'::jsonb` (out of range) → same as #23.
 25. `platform_config.regular_order_commission_pct = '"twenty-five"'::jsonb` (non-integer) → same as #23.
@@ -1108,7 +1125,7 @@ All integration tests run against real Postgres with `BOMY_RLS_READY=1` and the 
 
 27. `payment_request.failed` → reservations `released`; stock restored; voucher released; session `failed`; no orders; no ledger.
 28. `payment_request.failed` on already-expired session → no-op; no log.error.
-29. `payment_request.failed` arrives after `payment_request.completed` (out-of-order from HitPay) → second event hits idempotency, runs consistency check, passes (session already `paid`). No state change.
+29. `payment_request.failed` arrives after `payment_request.completed` (out-of-order from HitPay; **different `psp_event_id`**) → second event claims a new `processed_webhook_events` row (idempotency does NOT apply across different event ids — clarified per Bob R2-low). Locked session lookup sees `status = 'paid'`. `runFailureRelease`'s own `status = 'pending_payment'` guard short-circuits at its Step 1 — no reservations touched, no stock changes, no voucher release, session stays `paid`. Sibling case: same `payment_request.failed` event id delivered twice → second is idempotency-collapsed at `claimEvent`.
     29a. **(Bob R3) `payment_request.failed` with `amountStr = ""`** (missing amount in failed event) → routed to `runFailureRelease` BEFORE amount validation; reservations released; stock restored; voucher released; session `failed`. **Not** parked as `amount_mismatch`.
     29b. **(Bob R3) `payment_request.failed` with `amountStr = "0.00"`** → same as 29a; release proceeds.
     29c. **(Bob R3) `payment_request.failed` with `amountStr = "abc"` (unparseable)** → same as 29a; release proceeds. No `parseSen` throw escapes the handler.
