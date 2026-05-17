@@ -102,7 +102,16 @@ export default function CartPage() {
               <span className="text-sm font-medium text-gray-700">Subtotal</span>
               <span className="text-lg font-bold text-gray-900">{formatMyrSen(subtotal)}</span>
             </div>
-            <p className="mt-1 text-xs text-gray-400">Checkout coming soon.</p>
+            <p className="mt-1 text-xs text-gray-500">
+              Shipping, vouchers, and any brand-subscription discounts are applied at checkout — the
+              final price you pay will be shown there.
+            </p>
+            <Link
+              href="/checkout"
+              className="mt-4 block w-full rounded-md bg-indigo-600 px-4 py-2 text-center text-sm font-medium text-white hover:bg-indigo-500"
+            >
+              Continue to checkout
+            </Link>
           </div>
         </div>
       )}

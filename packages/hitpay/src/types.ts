@@ -6,6 +6,8 @@ export interface CreatePaymentRequestInput {
   email: string
   purpose: string
   redirect_url: string
+  /** URL HitPay redirects the buyer to when they cancel on HitPay's page. */
+  cancel_url?: string
   webhook?: string
   name?: string
   reference_number?: string

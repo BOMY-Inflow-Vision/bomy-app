@@ -617,3 +617,120 @@ CREATE POLICY product_images_seller_update ON product_images
 CREATE POLICY product_images_admin_delete ON product_images
   FOR DELETE
   USING (app.is_bomy_staff() OR app.is_admin_bypass());
+
+-- ─── Stage 5 PR #31: Cart + Checkout ──────────────────────────────
+-- All writes to checkout-related tables go through withAdmin
+-- (app.is_admin_bypass()). Buyer-scoped withTenant paths get SELECT
+-- only. Staff may SELECT for admin views in PR #33.
+-- inventory_reservations: staff/admin SELECT; admin-only writes.
+-- See migration 0011 for the authoritative copy.
+
+-- Enable + force RLS
+ALTER TABLE checkout_sessions       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE checkout_sessions       FORCE  ROW LEVEL SECURITY;
+ALTER TABLE checkout_session_items  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE checkout_session_items  FORCE  ROW LEVEL SECURITY;
+ALTER TABLE checkout_session_stores ENABLE ROW LEVEL SECURITY;
+ALTER TABLE checkout_session_stores FORCE  ROW LEVEL SECURITY;
+ALTER TABLE inventory_reservations  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE inventory_reservations  FORCE  ROW LEVEL SECURITY;
+
+-- Default-deny RESTRICTIVE
+CREATE POLICY checkout_sessions_default_deny ON checkout_sessions
+  AS RESTRICTIVE
+  USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
+
+CREATE POLICY checkout_session_items_default_deny ON checkout_session_items
+  AS RESTRICTIVE
+  USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
+
+CREATE POLICY checkout_session_stores_default_deny ON checkout_session_stores
+  AS RESTRICTIVE
+  USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
+
+CREATE POLICY inventory_reservations_default_deny ON inventory_reservations
+  AS RESTRICTIVE
+  USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
+
+-- checkout_sessions: buyer SELECT own; admin writes only
+CREATE POLICY checkout_sessions_buyer_select ON checkout_sessions
+  FOR SELECT
+  USING (
+    app.current_user_id() = user_id
+    OR app.is_bomy_staff()
+    OR app.is_admin_bypass()
+  );
+
+CREATE POLICY checkout_sessions_admin_insert ON checkout_sessions
+  FOR INSERT WITH CHECK (app.is_admin_bypass());
+
+CREATE POLICY checkout_sessions_admin_update ON checkout_sessions
+  FOR UPDATE
+  USING (app.is_admin_bypass())
+  WITH CHECK (app.is_admin_bypass());
+
+CREATE POLICY checkout_sessions_admin_delete ON checkout_sessions
+  FOR DELETE USING (app.is_admin_bypass());
+
+-- checkout_session_items: buyer SELECT via parent join; admin writes only
+CREATE POLICY checkout_session_items_buyer_select ON checkout_session_items
+  FOR SELECT
+  USING (
+    app.is_admin_bypass()
+    OR app.is_bomy_staff()
+    OR EXISTS (
+      SELECT 1 FROM checkout_sessions cs
+      WHERE cs.id = checkout_session_items.checkout_session_id
+        AND cs.user_id = app.current_user_id()
+    )
+  );
+
+CREATE POLICY checkout_session_items_admin_insert ON checkout_session_items
+  FOR INSERT WITH CHECK (app.is_admin_bypass());
+
+CREATE POLICY checkout_session_items_admin_update ON checkout_session_items
+  FOR UPDATE
+  USING (app.is_admin_bypass())
+  WITH CHECK (app.is_admin_bypass());
+
+CREATE POLICY checkout_session_items_admin_delete ON checkout_session_items
+  FOR DELETE USING (app.is_admin_bypass());
+
+-- checkout_session_stores: buyer SELECT via parent join; admin writes only
+CREATE POLICY checkout_session_stores_buyer_select ON checkout_session_stores
+  FOR SELECT
+  USING (
+    app.is_admin_bypass()
+    OR app.is_bomy_staff()
+    OR EXISTS (
+      SELECT 1 FROM checkout_sessions cs
+      WHERE cs.id = checkout_session_stores.checkout_session_id
+        AND cs.user_id = app.current_user_id()
+    )
+  );
+
+CREATE POLICY checkout_session_stores_admin_insert ON checkout_session_stores
+  FOR INSERT WITH CHECK (app.is_admin_bypass());
+
+CREATE POLICY checkout_session_stores_admin_update ON checkout_session_stores
+  FOR UPDATE
+  USING (app.is_admin_bypass())
+  WITH CHECK (app.is_admin_bypass());
+
+CREATE POLICY checkout_session_stores_admin_delete ON checkout_session_stores
+  FOR DELETE USING (app.is_admin_bypass());
+
+-- inventory_reservations: staff/admin SELECT; admin-only writes
+CREATE POLICY inventory_reservations_staff_select ON inventory_reservations
+  FOR SELECT USING (app.is_admin_bypass() OR app.is_bomy_staff());
+
+CREATE POLICY inventory_reservations_admin_insert ON inventory_reservations
+  FOR INSERT WITH CHECK (app.is_admin_bypass());
+
+CREATE POLICY inventory_reservations_admin_update ON inventory_reservations
+  FOR UPDATE
+  USING (app.is_admin_bypass())
+  WITH CHECK (app.is_admin_bypass());
+
+CREATE POLICY inventory_reservations_admin_delete ON inventory_reservations
+  FOR DELETE USING (app.is_admin_bypass());

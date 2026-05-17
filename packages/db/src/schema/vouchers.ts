@@ -19,9 +19,11 @@ import { users } from "./users.js"
 // stamped with `random_resolved_sen` the moment the row is inserted.
 // Buyer always sees the actual amount from day one (locked decision §2).
 //
-// `redeemed_order_id` is a soft FK — orders table lands in Stage 5 — so
-// it is intentionally NOT a foreign key here. We'll add the FK in a
-// later migration once the orders table exists.
+// Stage 5 PR #31 added reserved_*/redeemed_checkout_session_id columns
+// (proper FKs to checkout_sessions) and dropped the placeholder
+// redeemed_order_id. The redeemed_checkout_session_id is set at the
+// payment-confirmation webhook (PR #32); reserved_checkout_session_id
+// is set during checkout initiation and released on cancel/expiry.
 export const vouchers = pgTable(
   "vouchers",
   {
@@ -37,7 +39,12 @@ export const vouchers = pgTable(
     issuedMonth: text("issued_month").notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     redeemedAt: timestamp("redeemed_at", { withTimezone: true }),
-    redeemedOrderId: uuid("redeemed_order_id"),
+    // FKs are encoded in the migration (vouchers ↔ checkout_sessions
+    // would create a circular import here, so the Drizzle definition
+    // omits .references() — the migration enforces the FK).
+    reservedCheckoutSessionId: uuid("reserved_checkout_session_id"),
+    reservedAt: timestamp("reserved_at", { withTimezone: true }),
+    redeemedCheckoutSessionId: uuid("redeemed_checkout_session_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
