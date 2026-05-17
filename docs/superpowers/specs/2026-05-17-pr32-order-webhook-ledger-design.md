@@ -3,7 +3,7 @@
 **Date:** 2026-05-17
 **Author:** Andy (AI technical lead)
 **Reviewer:** Bob (strategist developer)
-**Status:** Draft R2 — Bob R2 revisions applied (stale `USING (false)` block removed; completed-event `paymentId` guard added; `order_payouts_select` role predicate; ON CONFLICT DO NOTHING on `orders` for duplicate-fan-out tolerance; test 29 wording clarified; observability table markdown fixed)
+**Status:** Draft R3 — Bob R3 revisions applied (conditional `psp_payment_id` set on failed-path mirrors membership handler; `orders` + `order_items` SELECT policies role-gated on the seller branch; `orders_session_store_unique` comment corrected)
 **Builds on:** Stage 5 spec (`2026-05-13-stage5-products-orders-design.md`) §3.4, §4.3, §6.1, §12; PR #31 spec (`2026-05-15-pr31-cart-checkout-design.md`) §5
 **Branch:** `feat/order-webhook-ledger` (design branch: `design/pr32-order-webhook-ledger`)
 **Migration number:** `0012_order_webhook_ledger.sql`
@@ -212,9 +212,13 @@ CREATE INDEX orders_checkout_session_idx ON orders (checkout_session_id);
 CREATE INDEX orders_store_fulfilment_idx ON orders (store_id, fulfilment_status);
 CREATE INDEX orders_buyer_payment_idx    ON orders (buyer_id, payment_status);
 
--- Belt-and-braces against duplicate fan-out (Bob R3): one order per (session, store).
--- Any second insert with the same pair fails with a unique-constraint error,
--- aborting the withAdmin transaction.
+-- Belt-and-braces against duplicate fan-out: one order per (session, store).
+-- The handler in §3.6 step 7 uses INSERT ... ON CONFLICT (checkout_session_id,
+-- store_id) DO NOTHING RETURNING id and treats a 0-row return as a duplicate-
+-- fan-out alert (logs `webhook_duplicate_fanout_blocked` + commits cleanly so
+-- the admin_bypass_audit row persists). Do NOT remove ON CONFLICT and let the
+-- index abort the withAdmin transaction — that would roll back the audit row
+-- (Bob R2 R4).
 CREATE UNIQUE INDEX orders_session_store_unique ON orders (checkout_session_id, store_id);
 
 -- order_items
@@ -253,17 +257,26 @@ CREATE POLICY orders_default_deny ON orders
   AS RESTRICTIVE
   USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
 
--- Permissive SELECT: buyer sees own; seller sees own store's; staff sees all; admin bypass.
+-- Permissive SELECT. Both branches are role-gated (Bob R3) so a user who
+-- owns both buyer and seller hats only sees what their current role context
+-- allows — the seller branch must NOT fire when current_user_role is
+-- 'buyer', otherwise shipping_address snapshots leak across the role boundary.
 CREATE POLICY orders_select ON orders
   FOR SELECT
   USING (
     app.is_admin_bypass()
     OR app.is_bomy_staff()
-    OR buyer_id = app.current_user_id()
-    OR EXISTS (
-      SELECT 1 FROM stores s
-       WHERE s.id = orders.store_id
-         AND s.owner_id = app.current_user_id()
+    OR (
+      app.current_user_role() = 'buyer'
+      AND buyer_id = app.current_user_id()
+    )
+    OR (
+      app.current_user_role() = 'seller_owner'
+      AND EXISTS (
+        SELECT 1 FROM stores s
+         WHERE s.id = orders.store_id
+           AND s.owner_id = app.current_user_id()
+      )
     )
   );
 
@@ -290,7 +303,9 @@ CREATE POLICY order_items_default_deny ON order_items
   AS RESTRICTIVE
   USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
 
--- SELECT via parent-order ownership (matches checkout_session_items pattern).
+-- SELECT via parent-order ownership. Same role-gating as orders_select
+-- (Bob R3) — a store owner acting as buyer must NOT see other buyers'
+-- order_items for their store. Each branch checks the role explicitly.
 CREATE POLICY order_items_select ON order_items
   FOR SELECT
   USING (
@@ -299,12 +314,16 @@ CREATE POLICY order_items_select ON order_items
     OR EXISTS (
       SELECT 1 FROM orders o
        WHERE o.id = order_items.order_id
-         AND (o.buyer_id = app.current_user_id()
-              OR EXISTS (
-                SELECT 1 FROM stores s
-                 WHERE s.id = o.store_id
-                   AND s.owner_id = app.current_user_id()
-              ))
+         AND (
+           (app.current_user_role() = 'buyer'
+             AND o.buyer_id = app.current_user_id())
+           OR (app.current_user_role() = 'seller_owner'
+             AND EXISTS (
+               SELECT 1 FROM stores s
+                WHERE s.id = o.store_id
+                  AND s.owner_id = app.current_user_id()
+             ))
+         )
     )
   );
 
@@ -917,13 +936,33 @@ Inside the locked transaction (same lock order):
       AND redeemed_at IS NULL
    ```
 
-5. **Mark session failed:**
+5. **Mark session failed.** `psp_payment_id` is **conditionally included** in the SET list — only when `args.paymentId` is a non-empty string. The unique index `checkout_sessions_psp_payment_id_unique_idx` (PR #31 `0011_cart_checkout.sql:113`) is partial `WHERE psp_payment_id IS NOT NULL`, so writing `""` IS indexed. Two failed sessions with empty `paymentId` would collide on the unique index, abort the transaction, and **roll back the reservation release / stock restore / voucher release** done in steps 2–4 (Bob R3). Mirror the membership handler's conditional-set pattern at `apps/api/src/routes/webhooks/hitpay.ts:263`.
+
+   Drizzle expression (the conditional spread is what guarantees the empty-string write is impossible):
+
+   ```ts
+   await tx
+     .update(schema.checkoutSessions)
+     .set({
+       status: "failed",
+       ...(args.paymentId ? { pspPaymentId: args.paymentId } : {}),
+       updatedAt: sql`now()`,
+     })
+     .where(
+       and(
+         eq(schema.checkoutSessions.id, session.id),
+         eq(schema.checkoutSessions.status, "pending_payment"),
+       ),
+     )
+   ```
+
+   Raw-SQL form is similar — the SET list excludes the column when `paymentId` is empty/null:
 
    ```sql
+   -- with payment_id: SET status='failed', psp_payment_id=$paymentId, updated_at=now()
+   -- without:         SET status='failed',                             updated_at=now()
    UPDATE checkout_sessions
-      SET status = 'failed',
-          psp_payment_id = $paymentId,  -- nullable in failed events; only set when present
-          updated_at = now()
+      SET status = 'failed', ...
     WHERE id = $sessionId
       AND status = 'pending_payment'
    ```
@@ -1083,6 +1122,7 @@ All integration tests run against real Postgres with `BOMY_RLS_READY=1` and the 
 10. RLS: `processed_webhook_events` not readable under any `withTenant` context; only `withAdmin`.
     10a. RLS: default-deny restrictive policy: any of the four tables with `app.current_user_id` unset AND `app.bypass_rls` unset → SELECT returns zero rows. (Regression for Bob R1 R0: the prior draft used `USING (false)` which would have denied everything; this test would have caught it.)
     10b. **(Bob R2 R3)** `order_payouts` role-predicate guard: a user who owns a store but is acting under `withTenant(..., { userRole: 'buyer' })` cannot SELECT any `order_payouts` row, including rows for their own store. Re-issuing the same query under `withTenant(..., { userRole: 'seller_owner' })` returns the store's rows. Regression for the missing role predicate Bob caught — `s.owner_id = app.current_user_id()` alone would have leaked payout data to buyer-context callers.
+    10c. **(Bob R3)** `orders` + `order_items` role-predicate guard: seed a store owned by user `U`, then seed an order placed by a different buyer `B` against that store. Under `withTenant(..., { userId: U, userRole: 'buyer' })`, SELECT on `orders` for that store's rows returns zero rows, and SELECT on `order_items` for the same orders returns zero rows. Under `withTenant(..., { userId: U, userRole: 'seller_owner' })`, both return the seeded rows. This proves the seller branch's role gate prevents a store-owner-acting-as-buyer from seeing other buyers' orders, shipping snapshots, and items.
 
 ### 7.2 `apps/api/tests/webhooks/hitpay-order.test.ts` — handler behaviour
 
@@ -1128,7 +1168,8 @@ All integration tests run against real Postgres with `BOMY_RLS_READY=1` and the 
 29. `payment_request.failed` arrives after `payment_request.completed` (out-of-order from HitPay; **different `psp_event_id`**) → second event claims a new `processed_webhook_events` row (idempotency does NOT apply across different event ids — clarified per Bob R2-low). Locked session lookup sees `status = 'paid'`. `runFailureRelease`'s own `status = 'pending_payment'` guard short-circuits at its Step 1 — no reservations touched, no stock changes, no voucher release, session stays `paid`. Sibling case: same `payment_request.failed` event id delivered twice → second is idempotency-collapsed at `claimEvent`.
     29a. **(Bob R3) `payment_request.failed` with `amountStr = ""`** (missing amount in failed event) → routed to `runFailureRelease` BEFORE amount validation; reservations released; stock restored; voucher released; session `failed`. **Not** parked as `amount_mismatch`.
     29b. **(Bob R3) `payment_request.failed` with `amountStr = "0.00"`** → same as 29a; release proceeds.
-    29c. **(Bob R3) `payment_request.failed` with `amountStr = "abc"` (unparseable)** → same as 29a; release proceeds. No `parseSen` throw escapes the handler.
+    29c. **(Bob R1 R3) `payment_request.failed` with `amountStr = "abc"` (unparseable)** → same as 29a; release proceeds. No `parseSen` throw escapes the handler.
+    29d. **(Bob R3 R1) Two failed order payments with empty `payment_id`.** Seed two independent `checkout_sessions` in `pending_payment` (different `psp_payment_request_id`, both with `psp_payment_id IS NULL`). Deliver `payment_request.failed` with empty `paymentId` for each. Both webhooks must succeed: each session ends `failed`, each session keeps `psp_payment_id IS NULL` (never set to `""`), each set of reservations is released and stock restored, each voucher released. The partial unique index on `psp_payment_id IS NOT NULL` is **not** violated because no `""` write occurred. Without the conditional-set fix, the second failed delivery would unique-conflict on `""` and roll back the transaction, leaving reservations active and stock under-counted.
 
 #### Lock + race
 
