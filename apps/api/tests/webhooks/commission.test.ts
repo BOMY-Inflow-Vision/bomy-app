@@ -10,7 +10,9 @@ import { describe, expect, it } from "vitest"
 import {
   allocatePspFee,
   assertJournalBalance,
+  assertNonNegativeSellerPayout,
   computeStoreSplit,
+  NegativeSellerPayoutError,
   type StorePspInput,
 } from "../../src/webhooks/hitpay/commission.js"
 
@@ -236,5 +238,110 @@ describe("assertJournalBalance", () => {
   it("throws when seller_payout is off by one", () => {
     // LHS = 4177 + 1229 + 95 = 5501; RHS = 5500; diff = 1
     expect(() => assertJournalBalance(4177n, 1229n, 95n, 5000n, 500n, 0n)).toThrow(/diff=1/)
+  })
+})
+
+describe("assertNonNegativeSellerPayout (Bob R1 — PSP-fee over-allocation guard)", () => {
+  it("passes on non-negative seller payout (0n included)", () => {
+    expect(() => assertNonNegativeSellerPayout(0n, "s1")).not.toThrow()
+    expect(() => assertNonNegativeSellerPayout(1n)).not.toThrow()
+    expect(() => assertNonNegativeSellerPayout(9999999n, "s1")).not.toThrow()
+  })
+
+  it("throws NegativeSellerPayoutError on negative seller payout", () => {
+    expect(() => assertNonNegativeSellerPayout(-1n, "s1")).toThrow(NegativeSellerPayoutError)
+  })
+
+  it("error carries storeId and amount for review parking", () => {
+    try {
+      assertNonNegativeSellerPayout(-42n, "store-id-xyz")
+      throw new Error("should have thrown")
+    } catch (e) {
+      expect(e).toBeInstanceOf(NegativeSellerPayoutError)
+      const err = e as NegativeSellerPayoutError
+      expect(err.sellerPayoutSen).toBe(-42n)
+      expect(err.storeId).toBe("store-id-xyz")
+      expect(err.message).toMatch(/store store-id-xyz/)
+    }
+  })
+
+  it("error works without storeId (degenerate path)", () => {
+    try {
+      assertNonNegativeSellerPayout(-1n)
+      throw new Error("should have thrown")
+    } catch (e) {
+      expect(e).toBeInstanceOf(NegativeSellerPayoutError)
+      const err = e as NegativeSellerPayoutError
+      expect(err.storeId).toBeUndefined()
+    }
+  })
+
+  // Bob's exact example: four 1-sen stores, pspFeeSen = 3.
+  // The "last store absorbs remainder" rule over-allocates the fee to
+  // the last store, producing negative seller_payout. The journal still
+  // balances (BOMY commission absorbs the difference), but the planned
+  // ledger gate `seller_payout > 0n` would SKIP the debit leg and the
+  // reconciliation invariant in spec §3.6 step 8 would break.
+  it("detects the four-equal-1-sen / pspFee=3 over-allocation that breaks the ledger gate", () => {
+    const stores: StorePspInput[] = [
+      { storeId: "s1", net: 1n },
+      { storeId: "s2", net: 1n },
+      { storeId: "s3", net: 1n },
+      { storeId: "s4", net: 1n },
+    ]
+    const allocs = allocatePspFee(stores, 3n, 4n)
+    // First three stores: floor(3 * 1 / 4) = 0 each; last absorbs all 3.
+    expect(allocs.map((a) => a.pspFeeAllocatedSen)).toEqual([0n, 0n, 0n, 3n])
+    expect(allocs.reduce((acc, a) => acc + a.pspFeeAllocatedSen, 0n)).toBe(3n)
+
+    // Compute the last store's split — discounted=1, shipping=0, voucher=0, psp=3, pct=25.
+    // catalog_psp = floor(3 * 1 / 1) = 3; shipping_psp = 0
+    // net_catalog = 1 - 3 = -2
+    // seller_share = (-2 * 75) / 100 → bigint truncates toward zero → -1
+    // seller_payout = -1 + 0 - 0 = -1  ← NEGATIVE; the bug case
+    // bomy = -2 - (-1) - 0 = -1
+    // journal: -1 + -1 + 3 = 1 = discounted 1 + shipping 0 - voucher 0 ✓
+    const last = stores[3]!
+    const lastAlloc = allocs[3]!.pspFeeAllocatedSen
+    const split = computeStoreSplit({
+      discountedSubtotalSen: last.net, // 1n (no shipping, no voucher)
+      shippingFeeSen: 0n,
+      voucherContributionSen: 0n,
+      pspFeeAllocatedSen: lastAlloc,
+      commissionPct: 25,
+    })
+    expect(split.sellerPayoutSen).toBe(-1n)
+    expect(split.bomyCommissionSen).toBe(-1n)
+    // Journal still balances despite negative legs.
+    assertJournalBalance(
+      split.sellerPayoutSen,
+      split.bomyCommissionSen,
+      lastAlloc,
+      last.net,
+      0n,
+      0n,
+    )
+    // But the seller-payout guard catches it. fanOutPaid (Task 10) will catch
+    // this and park the session in payment_review_required.
+    expect(() => assertNonNegativeSellerPayout(split.sellerPayoutSen, last.storeId)).toThrow(
+      NegativeSellerPayoutError,
+    )
+  })
+
+  it("first three stores in the same over-allocation scenario pass the guard", () => {
+    // Sanity check that only the LAST store trips on the over-allocation;
+    // the floor-allocated stores get pspFeeAllocated = 0 and produce
+    // valid seller payouts.
+    const split = computeStoreSplit({
+      discountedSubtotalSen: 1n,
+      shippingFeeSen: 0n,
+      voucherContributionSen: 0n,
+      pspFeeAllocatedSen: 0n, // floor allocation
+      commissionPct: 25,
+    })
+    // catalog_psp=0, shipping_psp=0, net_catalog=1, seller_share=(1*75)/100=0
+    // seller_payout=0+0-0=0; bomy=1-0-0=1; journal 0+1+0=1 ✓
+    expect(split.sellerPayoutSen).toBe(0n)
+    expect(() => assertNonNegativeSellerPayout(split.sellerPayoutSen, "s1")).not.toThrow()
   })
 })

@@ -140,3 +140,53 @@ export function assertJournalBalance(
     )
   }
 }
+
+/**
+ * Custom error thrown by {@link assertNonNegativeSellerPayout} so the
+ * fan-out handler (Task 10) can catch it specifically and park the
+ * session in `payment_review_required` instead of letting it bubble.
+ *
+ * Why this exists (Bob R1 on Task 6): the PSP fee allocator's
+ * "last-store absorbs remainder" rule can over-allocate a per-store
+ * `psp_fee_allocated_sen` greater than that store's gross. Example:
+ * four 1-sen stores, pspFeeSen = 3 → last store gets psp_fee = 3
+ * against gross = 1, producing `sellerPayoutSen = -1`. The journal
+ * still balances (BOMY absorbs the difference into its own commission),
+ * but the planned ledger gate `seller_payout > 0n → debit` would SKIP
+ * the leg, breaking the spec §3.6-8 reconciliation invariant
+ * `sum(debits) == sum(orders.seller_payout_sen + psp_fee_allocated_sen)`.
+ *
+ * Negative `bomy_commission_sen` is fine (open question #1 default:
+ * allow + warn). Negative seller payout is NOT — sellers must never
+ * appear to owe BOMY. The webhook handler treats this as a math edge
+ * that ops must reconcile manually.
+ */
+export class NegativeSellerPayoutError extends Error {
+  readonly storeId: string | undefined
+  readonly sellerPayoutSen: bigint
+  constructor(sellerPayoutSen: bigint, storeId?: string) {
+    super(
+      `negative seller_payout_sen=${sellerPayoutSen}` +
+        (storeId !== undefined ? ` for store ${storeId}` : ""),
+    )
+    this.name = "NegativeSellerPayoutError"
+    this.storeId = storeId
+    this.sellerPayoutSen = sellerPayoutSen
+  }
+}
+
+/**
+ * Throws {@link NegativeSellerPayoutError} if `sellerPayoutSen < 0n`.
+ * Call once per store split, BEFORE any orders/ledger INSERT — the
+ * fan-out handler catches this and parks the session in
+ * `payment_review_required`.
+ *
+ * Sibling to {@link assertJournalBalance}: both are pre-INSERT
+ * invariants. This one is application-level (no DB CHECK constrains
+ * `orders.seller_payout_sen`), so the only place it can fire is here.
+ */
+export function assertNonNegativeSellerPayout(sellerPayoutSen: bigint, storeId?: string): void {
+  if (sellerPayoutSen < 0n) {
+    throw new NegativeSellerPayoutError(sellerPayoutSen, storeId)
+  }
+}
