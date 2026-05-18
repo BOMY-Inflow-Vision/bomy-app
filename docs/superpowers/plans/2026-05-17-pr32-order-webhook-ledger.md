@@ -562,7 +562,7 @@ export const orderPayoutStatusEnum = pgEnum("order_payout_status", [
 import { bigint, check, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
-import { currencyCodeEnum, orderFulfilmentStatusEnum, orderPaymentStatusEnum } from "./enums.js"
+import { currencyEnum, orderFulfilmentStatusEnum, orderPaymentStatusEnum } from "./enums.js"
 import { checkoutSessions } from "./checkout_sessions.js"
 import { stores } from "./stores.js"
 import { users } from "./users.js"
@@ -580,7 +580,7 @@ export const orders = pgTable(
     buyerId: uuid("buyer_id")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
-    currency: currencyCodeEnum("currency").notNull().default("MYR"),
+    currency: currencyEnum("currency").notNull().default("MYR"),
     shippingAddress: jsonb("shipping_address").notNull(),
     shippingFeeSen: bigint("shipping_fee_sen", { mode: "bigint" }).notNull(),
     retailSubtotalSen: bigint("retail_subtotal_sen", { mode: "bigint" }).notNull(),
@@ -635,7 +635,7 @@ export const orders = pgTable(
 import { bigint, check, integer, jsonb, pgTable, timestamp, uuid } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
-import { currencyCodeEnum } from "./enums.js"
+import { currencyEnum } from "./enums.js"
 import { orders } from "./orders.js"
 import { productVariants } from "./product_variants.js"
 import { stores } from "./stores.js"
@@ -651,7 +651,7 @@ export const orderItems = pgTable(
       .notNull()
       .references(() => stores.id, { onDelete: "restrict" }),
     variantId: uuid("variant_id").references(() => productVariants.id, { onDelete: "set null" }),
-    currency: currencyCodeEnum("currency").notNull().default("MYR"),
+    currency: currencyEnum("currency").notNull().default("MYR"),
     productSnapshot: jsonb("product_snapshot").notNull(),
     variantSnapshot: jsonb("variant_snapshot").notNull(),
     quantity: integer("quantity").notNull(),
@@ -672,7 +672,7 @@ export const orderItems = pgTable(
 // packages/db/src/schema/order_payouts.ts
 import { bigint, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core"
 
-import { currencyCodeEnum, orderPayoutStatusEnum, pspProviderEnum } from "./enums.js"
+import { currencyEnum, orderPayoutStatusEnum, pspProviderEnum } from "./enums.js"
 import { orders } from "./orders.js"
 import { users } from "./users.js"
 
@@ -682,7 +682,7 @@ export const orderPayouts = pgTable("order_payouts", {
     .notNull()
     .references(() => orders.id, { onDelete: "restrict" }),
   amountSen: bigint("amount_sen", { mode: "bigint" }).notNull(),
-  currency: currencyCodeEnum("currency").notNull().default("MYR"),
+  currency: currencyEnum("currency").notNull().default("MYR"),
   pspProvider: pspProviderEnum("psp_provider"),
   pspTransferId: text("psp_transfer_id"),
   manualRef: text("manual_ref"),
@@ -785,25 +785,38 @@ Tests 1–10c from spec §7.1. Mirror the pattern of `packages/db/tests/cart_che
 
 ```ts
 // packages/db/tests/order_webhook.test.ts
-import { sql } from "drizzle-orm"
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest"
+// Mirror the pattern of cart_checkout.test.ts: makeDb + withAdmin/withTenant.
+import { randomUUID } from "node:crypto"
 
-import { schema, withAdmin, withTenant } from "@bomy/db"
+import { eq, sql } from "drizzle-orm"
+import { afterAll, beforeAll, describe, expect, test } from "vitest"
 
-import { setupTestDb, type TestDb } from "./helpers/setup"
+import { makeDb, type Db } from "../src/client.js"
+import {
+  orders,
+  orderItems,
+  orderPayouts,
+  processedWebhookEvents,
+  checkoutSessions,
+  stores,
+  users,
+} from "../src/schema/index.js"
+import { withAdmin, withTenant } from "../src/tenant.js"
 
-const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001" as const
+const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
 
-describe("order_webhook migration", () => {
-  let db: TestDb
+const DATABASE_URL = process.env["DATABASE_APP_URL"] ?? process.env["DATABASE_URL"]
+const RLS_READY = process.env["BOMY_RLS_READY"] === "1"
+const shouldRun = Boolean(DATABASE_URL) && RLS_READY
+
+describe.skipIf(!shouldRun)("order_webhook migration", () => {
+  let handle: Db
+
   beforeAll(async () => {
-    db = await setupTestDb()
+    handle = makeDb({ url: DATABASE_URL as string })
   })
   afterAll(async () => {
-    await db.cleanup()
-  })
-  beforeEach(async () => {
-    await db.truncateAll()
+    await handle.pool.end()
   })
 
   // ── tests 1–5: schema CHECKs ────────────────────────────────────────────────
@@ -1049,7 +1062,35 @@ git commit -m "feat(api): commission.ts — allocatePspFee, computeStoreSplit, a
 
 Implement per spec §3.2. Key invariants: B11 (`claimEvent` returns `ClaimResult`, caller must compare hash + type on conflict and log `webhook_event_id_collision` at error).
 
-- [ ] **Step 1: Create idempotency.ts**
+- [ ] **Step 1: Create `apps/api/src/webhooks/hitpay/types.ts`**
+
+This file exports the shared types consumed by `failure-release.ts`, `park-review.ts`, and `order-fanout.ts`. Creating it here (before those files) means each subsequent module can import from `./types.js` without a circular dependency or missing-file error at typecheck time.
+
+```ts
+// apps/api/src/webhooks/hitpay/types.ts
+import type { InferSelectModel } from "drizzle-orm"
+import type { FastifyInstance } from "fastify"
+
+import type { checkoutSessions } from "@bomy/db"
+
+import type { EventIdentity } from "./idempotency.js"
+
+// Full Drizzle-inferred row type for checkout_sessions.
+// Avoids importing from order-fanout.ts (which would create a circular dep).
+export type CheckoutSessionRow = InferSelectModel<typeof checkoutSessions>
+
+export interface OrderPaymentArgs {
+  app: FastifyInstance
+  paymentRequestId: string
+  paymentId: string
+  status: string
+  amountStr: string
+  feesStr: string
+  eventIdentity: EventIdentity
+}
+```
+
+- [ ] **Step 2: Create idempotency.ts**
 
 Copy the spec §3.2 code exactly into `apps/api/src/webhooks/hitpay/idempotency.ts`. The module exports:
 
@@ -1067,22 +1108,286 @@ Verify these details match the spec literally:
 - On conflict: SELECT the existing row to return `{ owned: false, existing }` for caller collision detection (B11)
 - If the post-conflict SELECT returns no row (impossible race): `throw new Error(...)` — this is the only throw inside `claimEvent`
 
+- [ ] **Step 3: Typecheck**
+
+```bash
+pnpm --filter @bomy/api typecheck
+```
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add apps/api/src/webhooks/hitpay/idempotency.ts apps/api/src/webhooks/hitpay/types.ts
+git commit -m "feat(api): idempotency.ts + shared types.ts (OrderPaymentArgs, CheckoutSessionRow)"
+```
+
+---
+
+## Task 8: failure-release.ts — runFailureRelease
+
+> **Model: Sonnet 4.6** (plan) / **Opus 4.7** (implementation)
+
+**Why before order-fanout.ts:** `order-fanout.ts` imports `runFailureRelease` from this file. Creating failure-release.ts first means Task 10's (order-fanout.ts) typecheck passes without needing a combined commit. `failure-release.ts` has no import from `order-fanout.ts`.
+
+**Files:**
+
+- Create: `apps/api/src/webhooks/hitpay/failure-release.ts`
+
+Implement per spec §3.7. Key invariant: B9 — conditional `psp_payment_id` set (Drizzle spread) prevents empty-string collision on partial unique index.
+
+- [ ] **Step 1: Create failure-release.ts**
+
+Import shared types from `./types.js` (created in Task 7) — **not** from `./order-fanout.js`. 6 steps per spec §3.7:
+
+```ts
+// apps/api/src/webhooks/hitpay/failure-release.ts
+import { and, eq, sql } from "drizzle-orm"
+
+import { schema } from "@bomy/db"
+import type { Database } from "@bomy/db"
+
+import type { CheckoutSessionRow, OrderPaymentArgs } from "./types.js"
+
+export async function runFailureRelease(
+  tx: Database,
+  session: CheckoutSessionRow,
+  args: Pick<OrderPaymentArgs, "app" | "paymentId" | "eventIdentity">,
+): Promise<void> {
+  // Step 1: no-op if session already terminal
+  if (session.status !== "pending_payment") {
+    args.app.log.info(
+      { sessionId: session.id, status: session.status, eventId: args.eventIdentity.pspEventId },
+      "hitpay webhook: failed event arrived after session already terminal — skipping release",
+    )
+    return
+  }
+
+  // Step 2: release reservations
+  const released = await tx
+    .update(schema.inventoryReservations)
+    .set({ status: "released", updatedAt: sql`now()` })
+    .where(
+      and(
+        eq(schema.inventoryReservations.checkoutSessionId, session.id),
+        eq(schema.inventoryReservations.status, "active"),
+      ),
+    )
+    .returning({
+      variantId: schema.inventoryReservations.variantId,
+      quantity: schema.inventoryReservations.quantity,
+    })
+
+  // Step 3: restore stock per released reservation
+  for (const r of released) {
+    await tx
+      .update(schema.productVariants)
+      .set({ stockCount: sql`stock_count + ${r.quantity}`, updatedAt: sql`now()` })
+      .where(eq(schema.productVariants.id, r.variantId))
+  }
+
+  // Step 4: release voucher (if any)
+  if (session.voucherId) {
+    await tx
+      .update(schema.vouchers)
+      .set({ reservedCheckoutSessionId: null, reservedAt: null })
+      .where(
+        and(
+          eq(schema.vouchers.id, session.voucherId),
+          eq(schema.vouchers.reservedCheckoutSessionId, session.id),
+          sql`${schema.vouchers.redeemedAt} IS NULL`,
+        ),
+      )
+  }
+
+  // Step 5 (B9): mark session failed. Conditional psp_payment_id set.
+  // An empty paymentId must NOT be written — the partial unique index
+  // (WHERE psp_payment_id IS NOT NULL) would treat "" as a real value
+  // and collide on concurrent failed events with missing paymentId.
+  await tx
+    .update(schema.checkoutSessions)
+    .set({
+      status: "failed",
+      ...(args.paymentId ? { pspPaymentId: args.paymentId } : {}),
+      updatedAt: sql`now()`,
+    })
+    .where(
+      and(
+        eq(schema.checkoutSessions.id, session.id),
+        eq(schema.checkoutSessions.status, "pending_payment"),
+      ),
+    )
+
+  // Step 6: log
+  args.app.log.info(
+    {
+      event: "order_payment_failed",
+      sessionId: session.id,
+      paymentId: args.paymentId || null,
+      eventId: args.eventIdentity.pspEventId,
+      reservationsReleased: released.length,
+      voucherReleased: Boolean(session.voucherId),
+    },
+    "hitpay webhook: order payment failed — reservations released",
+  )
+}
+```
+
 - [ ] **Step 2: Typecheck**
 
 ```bash
 pnpm --filter @bomy/api typecheck
 ```
 
+Expected: clean (failure-release.ts only depends on `@bomy/db`, `drizzle-orm`, and `./types.js` — all exist).
+
 - [ ] **Step 3: Commit**
 
 ```bash
-git add apps/api/src/webhooks/hitpay/idempotency.ts
-git commit -m "feat(api): idempotency.ts — deriveEventIdentity, claimEvent, ClaimResult (event-id collision detection)"
+git add apps/api/src/webhooks/hitpay/failure-release.ts
+git commit -m "feat(api): failure-release.ts — runFailureRelease (6-step release: reservations → stock → voucher → session failed, conditional psp_payment_id)"
 ```
 
 ---
 
-## Task 8: order-fanout.ts — handleOrderPayment + fanOutPaid
+## Task 9: park-review.ts — parkPaymentReview + runConsistencyCheck + warnOnEventCollision
+
+> **Model: Sonnet 4.6** (plan) / **Opus 4.7** (implementation)
+
+**Why before order-fanout.ts:** `order-fanout.ts` imports `parkPaymentReview`, `runConsistencyCheck`, and `warnOnEventCollision` from this file. `park-review.ts` has no import from `order-fanout.ts`.
+
+**Files:**
+
+- Create: `apps/api/src/webhooks/hitpay/park-review.ts`
+
+- [ ] **Step 1: Create park-review.ts**
+
+Import shared types from `./types.js` (Task 7) — **not** from `./order-fanout.js`:
+
+```ts
+// apps/api/src/webhooks/hitpay/park-review.ts
+import { and, eq, sql } from "drizzle-orm"
+
+import { schema } from "@bomy/db"
+import type { Database } from "@bomy/db"
+
+import type { CheckoutSessionRow, OrderPaymentArgs } from "./types.js"
+
+// Emit webhook_event_id_collision error log when duplicate event id carries different content.
+// Returns without throwing — 2xx contract must hold.
+export function warnOnEventCollision(
+  args: Pick<OrderPaymentArgs, "app" | "eventIdentity">,
+  existing: { payloadHash: string; eventType: string },
+): void {
+  const { eventIdentity } = args
+  if (
+    existing.payloadHash !== eventIdentity.payloadHash ||
+    existing.eventType !== eventIdentity.eventType
+  ) {
+    args.app.log.error(
+      {
+        event: "webhook_event_id_collision",
+        pspEventId: eventIdentity.pspEventId,
+        existingHash: existing.payloadHash,
+        newHash: eventIdentity.payloadHash,
+        existingType: existing.eventType,
+        newType: eventIdentity.eventType,
+      },
+      "hitpay webhook: duplicate event_id with different payload — possible replay or HitPay bug",
+    )
+  }
+}
+
+// Read-only consistency check run on idempotency hits (spec §3.5).
+// Emits consistency_check_failed at error on mismatches; never throws.
+export async function runConsistencyCheck(
+  tx: Database,
+  session: CheckoutSessionRow,
+  args: Pick<OrderPaymentArgs, "app" | "eventIdentity">,
+): Promise<void> {
+  try {
+    // Verify the session/orders/ledger are in the expected steady state
+    // per the table in spec §3.5. Implementation mirrors the status profiles:
+    // 'paid': orders exist, reservations converted, ledger credit present
+    // 'failed': no orders, reservations released/expired, no ledger credit
+    // 'payment_review_required': no orders (unless voucher_claim_failed), no ledger (unless voucher_claim_failed)
+    // Implement each case with SELECT COUNT / EXISTS queries against locked rows.
+    // Mismatches → log.error({ event: "consistency_check_failed", ... }); return 200.
+    args.app.log.info(
+      {
+        event: "order_payment_idempotent",
+        sessionId: session.id,
+        eventId: args.eventIdentity.pspEventId,
+        previousStatus: session.status,
+        consistencyCheck: "pass",
+      },
+      "hitpay webhook: idempotency hit — consistency OK",
+    )
+  } catch (err) {
+    args.app.log.error(
+      {
+        event: "consistency_check_failed",
+        sessionId: session.id,
+        eventId: args.eventIdentity.pspEventId,
+        err,
+      },
+      "hitpay webhook: consistency check error",
+    )
+  }
+}
+
+// Sets session to payment_review_required. Guard on pending_payment status.
+// Caller is responsible for emitting the ops-critical log before calling this.
+export async function parkPaymentReview(
+  tx: Database,
+  session: CheckoutSessionRow,
+  reason: "amount_mismatch" | "invalid_commission_config" | "voucher_claim_failed",
+  args: Pick<OrderPaymentArgs, "paymentId">,
+): Promise<void> {
+  await tx
+    .update(schema.checkoutSessions)
+    .set({
+      status: "payment_review_required",
+      paymentReviewReason: reason,
+      ...(args.paymentId ? { pspPaymentId: args.paymentId } : {}),
+      updatedAt: sql`now()`,
+    })
+    .where(
+      and(
+        eq(schema.checkoutSessions.id, session.id),
+        eq(schema.checkoutSessions.status, "pending_payment"),
+      ),
+    )
+}
+```
+
+- [ ] **Step 2: Flesh out `runConsistencyCheck`**
+
+Per spec §3.5, implement each status profile check:
+
+- `paid`: assert `COUNT(orders WHERE checkout_session_id = session.id)` = number of stores; assert ledger credit exists with `idempotency_key = checkout:${session.id}:credit`; assert all reservations `status = 'converted'`.
+- `failed`: assert no orders; assert no ledger credit; assert reservations `status IN ('released', 'expired')`.
+- `payment_review_required` reason=`voucher_claim_failed`: assert orders exist; assert ledger credit exists; assert voucher `redeemed_checkout_session_id IS NULL`.
+- `payment_review_required` other reasons: assert no orders; assert no ledger credit.
+- Any other status: `log.error({ event: "consistency_check_failed", mismatchType: "unexpected_status" })`.
+
+- [ ] **Step 3: Typecheck**
+
+```bash
+pnpm --filter @bomy/api typecheck
+```
+
+Expected: clean (park-review.ts depends only on `@bomy/db`, `drizzle-orm`, and `./types.js`).
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add apps/api/src/webhooks/hitpay/park-review.ts
+git commit -m "feat(api): park-review.ts — parkPaymentReview, runConsistencyCheck, warnOnEventCollision (§3.5, §3.8, §3.2 mismatch detection)"
+```
+
+---
+
+## Task 10: order-fanout.ts — handleOrderPayment + fanOutPaid
 
 > **Model: Sonnet 4.6** (plan) / **Opus 4.7** (implementation)
 
@@ -1090,43 +1395,30 @@ git commit -m "feat(api): idempotency.ts — deriveEventIdentity, claimEvent, Cl
 
 - Create: `apps/api/src/webhooks/hitpay/order-fanout.ts`
 
-This is the most critical file. All Bob correctness invariants B4–B11 surface here.
+This is the most critical file. All Bob correctness invariants B4–B11 surface here. Created after Tasks 8 and 9 so imports resolve cleanly at typecheck time.
 
-- [ ] **Step 1: Create order-fanout.ts with helper definitions**
-
-File preamble and types (per spec §3.4):
+- [ ] **Step 1: Create order-fanout.ts with preamble and `selectSessionForUpdate`**
 
 ```ts
 // apps/api/src/webhooks/hitpay/order-fanout.ts
-import { and, asc, eq, sql } from "drizzle-orm"
-import type { FastifyInstance } from "fastify"
+import { and, eq, sql } from "drizzle-orm"
 
-import { makeDb, schema, withAdmin } from "@bomy/db"
+import { schema, withAdmin } from "@bomy/db"
 import type { Database } from "@bomy/db"
 
 import { allocatePspFee, assertJournalBalance, computeStoreSplit } from "./commission.js"
-import { claimEvent, type EventIdentity } from "./idempotency.js"
-import { runConsistencyCheck, warnOnEventCollision } from "./park-review.js"
+import { claimEvent } from "./idempotency.js"
+import { runConsistencyCheck, warnOnEventCollision, parkPaymentReview } from "./park-review.js"
 import { runFailureRelease } from "./failure-release.js"
-import { parkPaymentReview } from "./park-review.js"
+import type { CheckoutSessionRow, OrderPaymentArgs } from "./types.js"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001" as const
 
-export interface OrderPaymentArgs {
-  app: FastifyInstance
-  paymentRequestId: string
-  paymentId: string
-  status: string
-  amountStr: string
-  feesStr: string
-  eventIdentity: EventIdentity
-}
-```
-
-- [ ] **Step 2: Implement `selectSessionForUpdate`**
-
-```ts
-async function selectSessionForUpdate(tx: Database, paymentRequestId: string) {
+// Exported so tests and integration wiring can reference the return type.
+export async function selectSessionForUpdate(
+  tx: Database,
+  paymentRequestId: string,
+): Promise<CheckoutSessionRow | null> {
   const rows = await tx
     .select()
     .from(schema.checkoutSessions)
@@ -1137,22 +1429,128 @@ async function selectSessionForUpdate(tx: Database, paymentRequestId: string) {
 }
 ```
 
-- [ ] **Step 3: Implement `handleOrderPayment` — steps A–G exactly as spec §3.4**
+- [ ] **Step 2: Implement `handleOrderPayment` — returns `"handled" | "not_order"`**
 
-Copy the `handleOrderPayment` function body from spec §3.4 lines 588–688. Verify these invariants are present:
+`handleOrderPayment` now returns `"handled" | "not_order"` so the route dispatcher can fall through to brand-sub without a separate (RLS-broken) pre-dispatch lookup. The checkout_sessions lookup runs as step 0 inside the single `withAdmin` transaction (admin bypass reads checkout_sessions regardless of buyer). Per Bob R1: the dispatch lookup moves inside one withAdmin transaction, before `claimEvent`.
 
-- **Step A** — `claimEvent(tx, args.eventIdentity)`. On `{ owned: false }`: `warnOnEventCollision(args, claim.existing)` then `runConsistencyCheck(tx, session, args)` then `return`. (B11)
-- **Step B** — `selectSessionForUpdate(tx, args.paymentRequestId)`. Missing session → `log.error` + `return`.
-- **Step C** — `if (!claim.owned)` → consistency check + return. (Uses session from step B.)
-- **Step D (B5)** — `if (args.status === "failed")` → `runFailureRelease(tx, session, args)` + `return`. This fires BEFORE any amount or paymentId validation.
-- **Step E** — unknown (non-completed, non-failed) status → `log.error` + `parkPaymentReview(tx, session, "amount_mismatch", args)` + `return`.
-- **paymentId guard (B8)** — `if (!args.paymentId)` → `log.error` + `parkPaymentReview("amount_mismatch")` + `return`. (After step D, before amount parse.)
-- **Amount parse** — `parseSen(args.amountStr)`. On catch: `log.error` + `parkPaymentReview("amount_mismatch")` + `return`.
-- **Amount match** — `if (amountSen !== session.totalBuyerPaysSen)` → `parkPaymentReview("amount_mismatch")` + `return`.
-- **Step F (B6)** — `if (session.status !== "pending_payment")` → `log.info` + `runConsistencyCheck` + `return`. (Second barrier — even a fresh event id short-circuits if session is not pending.)
-- **Step G** — `fanOutPaid(tx, session, args)`.
+```ts
+export async function handleOrderPayment(args: OrderPaymentArgs): Promise<"handled" | "not_order"> {
+  let result: "handled" | "not_order" = "not_order"
 
-- [ ] **Step 4: Implement `fanOutPaid` — 12 steps per spec §3.6**
+  await withAdmin(
+    args.app.db.db,
+    {
+      userId: SYSTEM_ACTOR,
+      reason: `hitpay webhook: order payment ${args.eventIdentity.pspEventId}`,
+    },
+    async (tx) => {
+      // Step 0 (new, Bob R1): dispatch lookup under admin bypass.
+      // withPublicRead cannot see checkout_sessions (nil buyer ≠ session's buyer_id).
+      // withAdmin bypasses RLS — safe to look up any session by payment_request_id.
+      const session0 = await tx
+        .select({ id: schema.checkoutSessions.id })
+        .from(schema.checkoutSessions)
+        .where(eq(schema.checkoutSessions.pspPaymentRequestId, args.paymentRequestId))
+        .limit(1)
+      if (session0.length === 0) {
+        // Not an order-payment event; let route fall through to brand-sub.
+        return
+      }
+
+      // Step A: claim idempotency. If already processed, run consistency check then return.
+      const claim = await claimEvent(tx, args.eventIdentity)
+
+      // Step B: lock session row FOR UPDATE (re-reads full row with lock).
+      const session = await selectSessionForUpdate(tx, args.paymentRequestId)
+      if (!session) {
+        args.app.log.error(
+          { paymentRequestId: args.paymentRequestId },
+          "hitpay webhook: order payment for unknown checkout_session",
+        )
+        result = "handled"
+        return
+      }
+
+      // Step C: idempotency hit.
+      if (!claim.owned) {
+        warnOnEventCollision(args, claim.existing) // §3.2 mismatch detection (B11)
+        await runConsistencyCheck(tx, session, args)
+        result = "handled"
+        return
+      }
+
+      // Step D (B5): route by status FIRST. Failed events skip amount validation entirely.
+      if (args.status === "failed") {
+        await runFailureRelease(tx, session, args)
+        result = "handled"
+        return
+      }
+
+      // Step E: unknown non-failed status.
+      if (args.status !== "completed" && args.status !== "succeeded") {
+        args.app.log.error(
+          { status: args.status, sessionId: session.id },
+          "hitpay webhook: unknown payment_request status",
+        )
+        await parkPaymentReview(tx, session, "amount_mismatch", args)
+        result = "handled"
+        return
+      }
+
+      // paymentId guard (B8): missing payment_id on completed → park for review.
+      if (!args.paymentId) {
+        args.app.log.error(
+          { sessionId: session.id, paymentRequestId: args.paymentRequestId },
+          "hitpay webhook: order payment completed but payment_id missing — parking for review",
+        )
+        await parkPaymentReview(tx, session, "amount_mismatch", args)
+        result = "handled"
+        return
+      }
+
+      // Amount parse + match.
+      let amountSen: bigint
+      try {
+        amountSen = parseSen(args.amountStr)
+      } catch {
+        args.app.log.error(
+          { amountStr: args.amountStr, sessionId: session.id },
+          "hitpay webhook: order payment amount unparseable — parking for review",
+        )
+        await parkPaymentReview(tx, session, "amount_mismatch", args)
+        result = "handled"
+        return
+      }
+      if (amountSen !== session.totalBuyerPaysSen) {
+        await parkPaymentReview(tx, session, "amount_mismatch", args)
+        result = "handled"
+        return
+      }
+
+      // Step F (B6): second-barrier idempotency guard on session status.
+      if (session.status !== "pending_payment") {
+        args.app.log.info(
+          { sessionId: session.id, status: session.status, eventId: args.eventIdentity.pspEventId },
+          "hitpay webhook: session already in terminal/review state — skipping fan-out",
+        )
+        await runConsistencyCheck(tx, session, args)
+        result = "handled"
+        return
+      }
+
+      // Step G: paid-path fan-out.
+      await fanOutPaid(tx, session, args)
+      result = "handled"
+    },
+  )
+
+  return result
+}
+```
+
+`parseSen` is the existing helper in `apps/api/src/routes/webhooks/hitpay.ts`. Import it at the top of the file, or copy it locally if it is not exported.
+
+- [ ] **Step 3: Implement `fanOutPaid` — 12 steps per spec §3.6**
 
 Implement the 12 numbered steps. Key steps to verify explicitly:
 
@@ -1268,7 +1666,7 @@ for (const order of insertedOrders) {
 
 **Step 12** — Log `event: order_payment_paid` at info (per §6.1 observability table).
 
-- [ ] **Step 5: Add lock-order comment block (spec §3.3)**
+- [ ] **Step 4: Add lock-order comment block (spec §3.3)**
 
 Near the top of `fanOutPaid`, add a brief comment:
 
@@ -1278,287 +1676,17 @@ Near the top of `fanOutPaid`, add a brief comment:
 // See spec §3.3 and pr31-cart-checkout-design.md §5.1. Do not deviate.
 ```
 
-- [ ] **Step 6: Typecheck**
+- [ ] **Step 5: Typecheck**
 
 ```bash
 pnpm --filter @bomy/api typecheck
 ```
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add apps/api/src/webhooks/hitpay/order-fanout.ts
 git commit -m "feat(api): order-fanout.ts — handleOrderPayment (steps A–G), fanOutPaid (12 steps), lock-order comment"
-```
-
----
-
-## Task 9: failure-release.ts — runFailureRelease
-
-> **Model: Sonnet 4.6** (plan) / **Opus 4.7** (implementation)
-
-**Files:**
-
-- Create: `apps/api/src/webhooks/hitpay/failure-release.ts`
-
-Implement per spec §3.7. Key invariant: B9 — conditional `psp_payment_id` set (Drizzle spread) prevents empty-string collision on partial unique index.
-
-- [ ] **Step 1: Create failure-release.ts**
-
-6 steps per spec §3.7:
-
-```ts
-// apps/api/src/webhooks/hitpay/failure-release.ts
-import { and, eq, sql } from "drizzle-orm"
-import type { FastifyInstance } from "fastify"
-
-import { schema } from "@bomy/db"
-import type { Database } from "@bomy/db"
-
-import type { OrderPaymentArgs } from "./order-fanout.js"
-
-type Session = Awaited<ReturnType<typeof import("./order-fanout.js").selectSessionForUpdate>>
-
-export async function runFailureRelease(
-  tx: Database,
-  session: NonNullable<Session>,
-  args: Pick<OrderPaymentArgs, "app" | "paymentId" | "eventIdentity">,
-): Promise<void> {
-  // Step 1: no-op if session already terminal
-  if (session.status !== "pending_payment") {
-    args.app.log.info(
-      { sessionId: session.id, status: session.status, eventId: args.eventIdentity.pspEventId },
-      "hitpay webhook: failed event arrived after session already terminal — skipping release",
-    )
-    return
-  }
-
-  // Step 2: release reservations
-  const released = await tx
-    .update(schema.inventoryReservations)
-    .set({ status: "released", updatedAt: sql`now()` })
-    .where(
-      and(
-        eq(schema.inventoryReservations.checkoutSessionId, session.id),
-        eq(schema.inventoryReservations.status, "active"),
-      ),
-    )
-    .returning({
-      variantId: schema.inventoryReservations.variantId,
-      quantity: schema.inventoryReservations.quantity,
-    })
-
-  // Step 3: restore stock per released reservation
-  for (const r of released) {
-    await tx
-      .update(schema.productVariants)
-      .set({ stockCount: sql`stock_count + ${r.quantity}`, updatedAt: sql`now()` })
-      .where(eq(schema.productVariants.id, r.variantId))
-  }
-
-  // Step 4: release voucher (if any)
-  if (session.voucherId) {
-    await tx
-      .update(schema.vouchers)
-      .set({ reservedCheckoutSessionId: null, reservedAt: null })
-      .where(
-        and(
-          eq(schema.vouchers.id, session.voucherId),
-          eq(schema.vouchers.reservedCheckoutSessionId, session.id),
-          // redeemed_at IS NULL handled by SQL null check
-          sql`${schema.vouchers.redeemedAt} IS NULL`,
-        ),
-      )
-  }
-
-  // Step 5 (B9): mark session failed. Conditional psp_payment_id set.
-  // An empty paymentId must NOT be written — the partial unique index
-  // (WHERE psp_payment_id IS NOT NULL) would treat "" as a real value
-  // and collide on concurrent failed events with missing paymentId.
-  await tx
-    .update(schema.checkoutSessions)
-    .set({
-      status: "failed",
-      ...(args.paymentId ? { pspPaymentId: args.paymentId } : {}),
-      updatedAt: sql`now()`,
-    })
-    .where(
-      and(
-        eq(schema.checkoutSessions.id, session.id),
-        eq(schema.checkoutSessions.status, "pending_payment"),
-      ),
-    )
-
-  // Step 6: log
-  args.app.log.info(
-    {
-      event: "order_payment_failed",
-      sessionId: session.id,
-      paymentId: args.paymentId || null,
-      eventId: args.eventIdentity.pspEventId,
-      reservationsReleased: released.length,
-      voucherReleased: Boolean(session.voucherId),
-    },
-    "hitpay webhook: order payment failed — reservations released",
-  )
-}
-```
-
-- [ ] **Step 2: Typecheck**
-
-```bash
-pnpm --filter @bomy/api typecheck
-```
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add apps/api/src/webhooks/hitpay/failure-release.ts
-git commit -m "feat(api): failure-release.ts — runFailureRelease (6-step release: reservations → stock → voucher → session failed, conditional psp_payment_id)"
-```
-
----
-
-## Task 10: park-review.ts — parkPaymentReview + runConsistencyCheck + warnOnEventCollision
-
-> **Model: Sonnet 4.6** (plan) / **Opus 4.7** (implementation)
-
-**Files:**
-
-- Create: `apps/api/src/webhooks/hitpay/park-review.ts`
-
-- [ ] **Step 1: Create park-review.ts**
-
-Three exports (per spec §3.5, §3.8, and §3.2 mismatch detection):
-
-```ts
-// apps/api/src/webhooks/hitpay/park-review.ts
-import { and, count, eq, sql } from "drizzle-orm"
-import type { FastifyInstance } from "fastify"
-
-import { schema } from "@bomy/db"
-import type { Database } from "@bomy/db"
-
-import type { OrderPaymentArgs } from "./order-fanout.js"
-import type { EventIdentity } from "./idempotency.js"
-
-type Session = NonNullable<{
-  id: string
-  status: string
-  paymentReviewReason: string | null
-  userId: string
-  voucherId: string | null
-}>
-
-// Emit webhook_event_id_collision error log when duplicate event id carries different content.
-// Returns without throwing — 2xx contract must hold.
-export function warnOnEventCollision(
-  args: Pick<OrderPaymentArgs, "app" | "eventIdentity">,
-  existing: { payloadHash: string; eventType: string },
-): void {
-  const { eventIdentity } = args
-  if (
-    existing.payloadHash !== eventIdentity.payloadHash ||
-    existing.eventType !== eventIdentity.eventType
-  ) {
-    args.app.log.error(
-      {
-        event: "webhook_event_id_collision",
-        pspEventId: eventIdentity.pspEventId,
-        existingHash: existing.payloadHash,
-        newHash: eventIdentity.payloadHash,
-        existingType: existing.eventType,
-        newType: eventIdentity.eventType,
-      },
-      "hitpay webhook: duplicate event_id with different payload — possible replay or HitPay bug",
-    )
-  }
-}
-
-// Read-only consistency check run on idempotency hits (spec §3.5).
-// Emits consistency_check_failed at error on mismatches; never throws.
-export async function runConsistencyCheck(
-  tx: Database,
-  session: Session,
-  args: Pick<OrderPaymentArgs, "app" | "eventIdentity">,
-): Promise<void> {
-  try {
-    // Verify the session/orders/ledger are in the expected steady state
-    // per the table in spec §3.5. Implementation mirrors the status profiles:
-    // 'paid': orders exist, reservations converted, ledger credit present
-    // 'failed': no orders, reservations released/expired, no ledger credit
-    // 'payment_review_required': no orders (unless voucher_claim_failed), no ledger (unless voucher_claim_failed)
-    // Implement each case with SELECT COUNT / EXISTS queries against locked rows.
-    // Mismatches → log.error({ event: "consistency_check_failed", ... }); return 200.
-    args.app.log.info(
-      {
-        event: "order_payment_idempotent",
-        sessionId: session.id,
-        eventId: args.eventIdentity.pspEventId,
-        previousStatus: session.status,
-        consistencyCheck: "pass",
-      },
-      "hitpay webhook: idempotency hit — consistency OK",
-    )
-  } catch (err) {
-    args.app.log.error(
-      {
-        event: "consistency_check_failed",
-        sessionId: session.id,
-        eventId: args.eventIdentity.pspEventId,
-        err,
-      },
-      "hitpay webhook: consistency check error",
-    )
-  }
-}
-
-// Sets session to payment_review_required. Guard on pending_payment status.
-// Caller is responsible for emitting the ops-critical log before calling this.
-export async function parkPaymentReview(
-  tx: Database,
-  session: Session,
-  reason: "amount_mismatch" | "invalid_commission_config" | "voucher_claim_failed",
-  args: Pick<OrderPaymentArgs, "paymentId">,
-): Promise<void> {
-  await tx
-    .update(schema.checkoutSessions)
-    .set({
-      status: "payment_review_required",
-      paymentReviewReason: reason,
-      ...(args.paymentId ? { pspPaymentId: args.paymentId } : {}),
-      updatedAt: sql`now()`,
-    })
-    .where(
-      and(
-        eq(schema.checkoutSessions.id, session.id),
-        eq(schema.checkoutSessions.status, "pending_payment"),
-      ),
-    )
-}
-```
-
-- [ ] **Step 2: Flesh out `runConsistencyCheck`**
-
-Per spec §3.5, implement each status profile check:
-
-- `paid`: assert `COUNT(orders WHERE checkout_session_id = session.id)` = number of stores; assert ledger credit exists with `idempotency_key = checkout:${session.id}:credit`; assert all reservations `status = 'converted'`.
-- `failed`: assert no orders; assert no ledger credit; assert reservations `status IN ('released', 'expired')`.
-- `payment_review_required` reason=`voucher_claim_failed`: assert orders exist; assert ledger credit exists; assert voucher `redeemed_checkout_session_id IS NULL`.
-- `payment_review_required` other reasons: assert no orders; assert no ledger credit.
-- Any other status: `log.error({ event: "consistency_check_failed", mismatchType: "unexpected_status" })`.
-
-- [ ] **Step 3: Typecheck**
-
-```bash
-pnpm --filter @bomy/api typecheck
-```
-
-- [ ] **Step 4: Commit**
-
-```bash
-git add apps/api/src/webhooks/hitpay/park-review.ts
-git commit -m "feat(api): park-review.ts — parkPaymentReview, runConsistencyCheck, warnOnEventCollision (§3.5, §3.8, §3.2 mismatch detection)"
 ```
 
 ---
@@ -1572,47 +1700,41 @@ git commit -m "feat(api): park-review.ts — parkPaymentReview, runConsistencyCh
 - Modify: `apps/api/src/routes/webhooks/hitpay.ts` (add order-payment dispatcher branch)
 - Modify: `apps/api/tests/webhooks/hitpay.test.ts` (add tests 11–13, 36–38)
 
-- [ ] **Step 1: Add order-payment dispatcher branch to the route plugin**
+- [ ] **Step 1: Extend the order-payment dispatcher branch in the route plugin**
 
-Open `apps/api/src/routes/webhooks/hitpay.ts`. Locate the `if (eventType === 'charge.updated')` dispatcher block.
+Open `apps/api/src/routes/webhooks/hitpay.ts`. Locate the existing `else if` block that dispatches `payment_request.completed` / `payment_request.failed` events (currently routes directly to `handleBrandSubscriptionPayment`).
 
-Insert a new branch as the **first** branch (before `charge.updated`), per spec §3.1:
+Replace that block so `handleOrderPayment` is tried first; it returns `"handled" | "not_order"` after doing its own admin-bypass dispatch lookup internally. Only on `"not_order"` fall through to brand-sub:
 
 ```ts
-// New branch: order payment events. Must fire BEFORE the brand-sub branch because
-// checkout_sessions and brand_subscriptions share the payment_request_id namespace.
-if (
-  (eventType === "payment_request.completed" || eventType === "payment_request.failed") &&
-  !recurringBillingId // recurring events always go to brand-sub branch
+// Inside the existing else-if block for payment_request.* events (after refund/membership branches).
+// handleOrderPayment internally does an admin-bypass checkout_sessions lookup (Step 0) so no
+// withPublicRead pre-check is needed here — withPublicRead cannot see checkout_sessions (nil buyer).
+} else if (
+  eventType === "payment_request.completed" ||
+  eventType === "payment_request.failed" ||
+  paymentRequestId
 ) {
-  // One cheap indexed lookup to decide dispatcher (no lock; lock happens inside handleOrderPayment).
-  const checkoutSession = await withPublicRead(getDb(), (db) =>
-    db
-      .select({ id: schema.checkoutSessions.id })
-      .from(schema.checkoutSessions)
-      .where(eq(schema.checkoutSessions.pspPaymentRequestId, paymentRequestId))
-      .limit(1),
+  const identity = deriveEventIdentity(
+    rawBody,
+    request.headers as Record<string, string | undefined>,
   )
-
-  if (checkoutSession.length > 0) {
-    const identity = deriveEventIdentity(
-      rawBody,
-      request.headers as Record<string, string | undefined>,
-    )
-    await handleOrderPayment({
-      app: fastify,
-      paymentRequestId,
-      paymentId: body.payment_id ?? "",
-      status: body.status ?? "",
-      amountStr: body.amount ?? "0.00",
-      feesStr: body.fees ?? "0.00",
-      eventIdentity: identity,
-    })
-    return reply.send({ received: true })
+  const orderResult = await handleOrderPayment({
+    app: fastify,
+    paymentRequestId,
+    paymentId: body.payment_id ?? "",
+    status: body.status ?? "",
+    amountStr: body.amount ?? "0.00",
+    feesStr: body.fees ?? "0.00",
+    eventIdentity: identity,
+  })
+  if (orderResult === "not_order") {
+    await handleBrandSubscriptionPayment({ ... })
   }
-  // Fall through to brand-sub branch below.
-}
+} else {
 ```
+
+> **Branch position note (Bob R1):** This block must remain AFTER the `charge.updated` (refund) and `charge.created` / `recurring_billing` (membership) branches — not before them. Do not move it ahead of `charge.updated`.
 
 Add the necessary imports at the top:
 
@@ -1688,11 +1810,34 @@ Mirror the existing `hitpay.test.ts` for:
 // apps/api/tests/webhooks/hitpay-order.test.ts
 // Real Postgres, real HMAC signing, no HitPay outbound calls.
 
+import { createHmac } from "node:crypto"
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest"
-import { buildApp } from "../../src/app.js"
-import { setupTestDb } from "../helpers/setup.js"
+import { createApp } from "../../src/server.js"
 
-// ... setup ...
+const DATABASE_URL = process.env["DATABASE_URL"]
+const shouldRun = Boolean(DATABASE_URL)
+
+// Mirror hitpay.test.ts: createApp, inject with HMAC-signed body, real DB.
+describe.skipIf(!shouldRun)("hitpay order-payment integration", () => {
+  let app: Awaited<ReturnType<typeof createApp>>
+
+  beforeAll(async () => {
+    app = await createApp()
+  })
+
+  afterAll(async () => {
+    await app.close()
+  })
+
+  // HMAC signing helper (mirrors hitpay.test.ts)
+  function sign(body: string): string {
+    return createHmac("sha256", process.env["HITPAY_SALT"] ?? "test-salt")
+      .update(body)
+      .digest("hex")
+  }
+
+  // ... tests ...
+})
 ```
 
 - [ ] **Step 2: Implement tests 14–16d (idempotency)**
@@ -1865,12 +2010,12 @@ Create `app/log/2026-05-17_PR32_order-webhook-ledger.md` per log cadence gate (m
 | §2.7 Drizzle modules              | Task 4         |
 | §3.1 Dispatcher routing           | Task 11        |
 | §3.2 claimEvent + CollisionResult | Task 7         |
-| §3.3 Lock order comment           | Task 8         |
-| §3.4 handleOrderPayment steps A–G | Task 8         |
-| §3.5 Consistency check            | Task 10        |
-| §3.6 fanOutPaid 12 steps          | Task 8         |
-| §3.7 runFailureRelease 6 steps    | Task 9         |
-| §3.8 parkPaymentReview            | Task 10        |
+| §3.3 Lock order comment           | Task 10        |
+| §3.4 handleOrderPayment steps A–G | Task 10        |
+| §3.5 Consistency check            | Task 9         |
+| §3.6 fanOutPaid 12 steps          | Task 10        |
+| §3.7 runFailureRelease 6 steps    | Task 8         |
+| §3.8 parkPaymentReview            | Task 9         |
 | §6.1 Observability log events     | Tasks 8, 9, 10 |
 | §6.2 OTel attributes              | Task 11        |
 | §7.1 Schema + RLS tests 1–10c     | Task 5         |
@@ -1880,19 +2025,19 @@ Create `app/log/2026-05-17_PR32_order-webhook-ledger.md` per log cadence gate (m
 
 **Bob-flagged invariants — surfaced in plan steps:**
 
-| Invariant                                                      | Plan step                         |
-| -------------------------------------------------------------- | --------------------------------- |
-| B1: RESTRICTIVE `IS NOT NULL OR is_admin_bypass()`             | Task 2 Step 1                     |
-| B2: SELECT seller branches role-gated                          | Task 2 Step 1                     |
-| B3: INSERT/UPDATE/DELETE requires `is_admin_bypass()`          | Task 2 Step 1                     |
-| B4: PSP fee parse strict + persisted before split math         | Task 8 Step 4 (fanOutPaid step 2) |
-| B5: Failed-path routing before amount validation               | Task 8 Step 3 (step D)            |
-| B6: Session status guard second barrier                        | Task 8 Step 3 (step F)            |
-| B7: `ON CONFLICT DO NOTHING`; 0 rows = log + commit, not throw | Task 8 Step 4 (fanOutPaid step 7) |
-| B8: `paymentId` guard on completed events                      | Task 8 Step 3 (paymentId guard)   |
-| B9: Conditional `psp_payment_id` spread on failed path         | Task 9 Step 1                     |
-| B10: Ledger legs gated on `> 0n`                               | Task 8 Step 4 (fanOutPaid step 8) |
-| B11: ClaimResult + collision detection + error log             | Task 7 Step 1                     |
+| Invariant                                                      | Plan step                          |
+| -------------------------------------------------------------- | ---------------------------------- |
+| B1: RESTRICTIVE `IS NOT NULL OR is_admin_bypass()`             | Task 2 Step 1                      |
+| B2: SELECT seller branches role-gated                          | Task 2 Step 1                      |
+| B3: INSERT/UPDATE/DELETE requires `is_admin_bypass()`          | Task 2 Step 1                      |
+| B4: PSP fee parse strict + persisted before split math         | Task 10 Step 3 (fanOutPaid step 2) |
+| B5: Failed-path routing before amount validation               | Task 10 Step 2 (step D)            |
+| B6: Session status guard second barrier                        | Task 10 Step 2 (step F)            |
+| B7: `ON CONFLICT DO NOTHING`; 0 rows = log + commit, not throw | Task 10 Step 3 (fanOutPaid step 7) |
+| B8: `paymentId` guard on completed events                      | Task 10 Step 2 (paymentId guard)   |
+| B9: Conditional `psp_payment_id` spread on failed path         | Task 8 Step 1                      |
+| B10: Ledger legs gated on `> 0n`                               | Task 10 Step 3 (fanOutPaid step 8) |
+| B11: ClaimResult + collision detection + error log             | Task 7 Step 2                      |
 
 **Test coverage — all 56 test IDs from spec §7:**
 
