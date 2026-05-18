@@ -482,37 +482,154 @@ describe.skipIf(!shouldRun)("PR #32 order webhook schema & RLS", () => {
       }
     })
 
-    it("UPDATE / DELETE on orders is denied (silent 0-row return) for every tenant role", async () => {
+    it("UPDATE / DELETE on every table is denied (silent 0-row return) for every tenant role — incl. processed_webhook_events append-only", async () => {
       const sessionId = await insertSession(buyerAId)
       const orderId = await insertOrder(sessionId, storeS1Id, buyerAId)
+      const orderItemId = randomUUID()
+      const orderPayoutId = randomUUID()
+      const eventId = randomUUID()
+      const eventPspId = `evt-${eventId}`
+
+      await withAdmin(
+        handle.db,
+        { userId: SYSTEM_ACTOR, reason: "test 9 update/delete seed" },
+        async (tx) => {
+          await tx.insert(orderItems).values({
+            id: orderItemId,
+            orderId,
+            storeId: storeS1Id,
+            variantId: variantV1Id,
+            productSnapshot: { initial: true },
+            variantSnapshot: { initial: true },
+            quantity: 1,
+            unitPriceSen: 5000n,
+            lineTotalSen: 5000n,
+          })
+          await tx.insert(orderPayouts).values({
+            id: orderPayoutId,
+            orderId,
+            amountSen: 4000n,
+            triggeredBy: SYSTEM_ACTOR,
+          })
+          await tx.insert(processedWebhookEvents).values({
+            id: eventId,
+            pspProvider: "hitpay",
+            pspEventId: eventPspId,
+            eventType: "payment_request.completed",
+            payloadHash: "deadbeef",
+          })
+        },
+      )
 
       for (const { id, role } of allRoles) {
         const userId = id()
-        const updated = await withTenant(handle.db, { userId, userRole: role }, async (tx) =>
-          tx
-            .update(orders)
-            .set({ fulfilmentStatus: "shipped" })
-            .where(eq(orders.id, orderId))
-            .returning({ id: orders.id }),
-        )
-        expect(updated).toHaveLength(0)
 
-        const deleted = await withTenant(handle.db, { userId, userRole: role }, async (tx) =>
-          tx.delete(orders).where(eq(orders.id, orderId)).returning({ id: orders.id }),
-        )
-        expect(deleted).toHaveLength(0)
+        // orders
+        expect(
+          await withTenant(handle.db, { userId, userRole: role }, async (tx) =>
+            tx
+              .update(orders)
+              .set({ fulfilmentStatus: "shipped" })
+              .where(eq(orders.id, orderId))
+              .returning({ id: orders.id }),
+          ),
+        ).toHaveLength(0)
+        expect(
+          await withTenant(handle.db, { userId, userRole: role }, async (tx) =>
+            tx.delete(orders).where(eq(orders.id, orderId)).returning({ id: orders.id }),
+          ),
+        ).toHaveLength(0)
+
+        // order_items
+        expect(
+          await withTenant(handle.db, { userId, userRole: role }, async (tx) =>
+            tx
+              .update(orderItems)
+              .set({ productSnapshot: { tampered: true } })
+              .where(eq(orderItems.id, orderItemId))
+              .returning({ id: orderItems.id }),
+          ),
+        ).toHaveLength(0)
+        expect(
+          await withTenant(handle.db, { userId, userRole: role }, async (tx) =>
+            tx
+              .delete(orderItems)
+              .where(eq(orderItems.id, orderItemId))
+              .returning({ id: orderItems.id }),
+          ),
+        ).toHaveLength(0)
+
+        // order_payouts — even bomy_admin/bomy_finance under withTenant are denied.
+        // PR #33's admin UI must call withAdmin to land the audit row (Bob B3).
+        expect(
+          await withTenant(handle.db, { userId, userRole: role }, async (tx) =>
+            tx
+              .update(orderPayouts)
+              .set({ status: "completed" })
+              .where(eq(orderPayouts.id, orderPayoutId))
+              .returning({ id: orderPayouts.id }),
+          ),
+        ).toHaveLength(0)
+        expect(
+          await withTenant(handle.db, { userId, userRole: role }, async (tx) =>
+            tx
+              .delete(orderPayouts)
+              .where(eq(orderPayouts.id, orderPayoutId))
+              .returning({ id: orderPayouts.id }),
+          ),
+        ).toHaveLength(0)
+
+        // processed_webhook_events — append-only by RLS (no UPDATE/DELETE
+        // policies at all). Every role's attempts must silently no-op.
+        expect(
+          await withTenant(handle.db, { userId, userRole: role }, async (tx) =>
+            tx
+              .update(processedWebhookEvents)
+              .set({ eventType: "tampered" })
+              .where(eq(processedWebhookEvents.id, eventId))
+              .returning({ id: processedWebhookEvents.id }),
+          ),
+        ).toHaveLength(0)
+        expect(
+          await withTenant(handle.db, { userId, userRole: role }, async (tx) =>
+            tx
+              .delete(processedWebhookEvents)
+              .where(eq(processedWebhookEvents.id, eventId))
+              .returning({ id: processedWebhookEvents.id }),
+          ),
+        ).toHaveLength(0)
       }
-      // And verify the row is intact + unchanged.
-      const after = await withAdmin(
-        handle.db,
-        { userId: SYSTEM_ACTOR, reason: "verify intact" },
-        async (tx) =>
-          tx
-            .select({ fulfilment: orders.fulfilmentStatus })
-            .from(orders)
-            .where(eq(orders.id, orderId)),
-      )
-      expect(after[0]?.fulfilment).toBe("processing")
+
+      // Verify every seeded row survived intact and unchanged.
+      await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "verify intact" }, async (tx) => {
+        const ord = await tx
+          .select({
+            fulfilment: orders.fulfilmentStatus,
+            payment: orders.paymentStatus,
+          })
+          .from(orders)
+          .where(eq(orders.id, orderId))
+        expect(ord[0]?.fulfilment).toBe("processing")
+        expect(ord[0]?.payment).toBe("paid")
+
+        const item = await tx
+          .select({ snapshot: orderItems.productSnapshot })
+          .from(orderItems)
+          .where(eq(orderItems.id, orderItemId))
+        expect(item[0]?.snapshot).toEqual({ initial: true })
+
+        const payout = await tx
+          .select({ status: orderPayouts.status })
+          .from(orderPayouts)
+          .where(eq(orderPayouts.id, orderPayoutId))
+        expect(payout[0]?.status).toBe("pending")
+
+        const event = await tx
+          .select({ eventType: processedWebhookEvents.eventType })
+          .from(processedWebhookEvents)
+          .where(eq(processedWebhookEvents.id, eventId))
+        expect(event[0]?.eventType).toBe("payment_request.completed")
+      })
     })
   })
 
