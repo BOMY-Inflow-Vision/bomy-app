@@ -734,3 +734,136 @@ CREATE POLICY inventory_reservations_admin_update ON inventory_reservations
 
 CREATE POLICY inventory_reservations_admin_delete ON inventory_reservations
   FOR DELETE USING (app.is_admin_bypass());
+
+-- ── PR #32: orders / order_items / order_payouts / processed_webhook_events ──
+-- See migration 0012 for the authoritative copy. Mirrored here so this file
+-- stays the canonical RLS doc for the codebase.
+--
+-- Pattern (Bob B1): RESTRICTIVE default-deny uses IS NOT NULL OR is_admin_bypass(),
+-- NEVER USING (false). Bob B2: SELECT seller/buyer branches require explicit
+-- role check so a user with multiple roles cannot leak data across contexts.
+-- Bob B3: every INSERT/UPDATE/DELETE requires is_admin_bypass().
+
+ALTER TABLE orders                   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE orders                   FORCE  ROW LEVEL SECURITY;
+ALTER TABLE order_items              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE order_items              FORCE  ROW LEVEL SECURITY;
+ALTER TABLE order_payouts            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE order_payouts            FORCE  ROW LEVEL SECURITY;
+ALTER TABLE processed_webhook_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE processed_webhook_events FORCE  ROW LEVEL SECURITY;
+
+-- orders: default-deny + role-gated SELECT + admin-only writes
+CREATE POLICY orders_default_deny ON orders
+  AS RESTRICTIVE
+  USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
+
+CREATE POLICY orders_select ON orders
+  FOR SELECT
+  USING (
+    app.is_admin_bypass()
+    OR app.is_bomy_staff()
+    OR (
+      app.current_user_role() = 'buyer'
+      AND buyer_id = app.current_user_id()
+    )
+    OR (
+      app.current_user_role() = 'seller_owner'
+      AND EXISTS (
+        SELECT 1 FROM stores s
+         WHERE s.id = orders.store_id
+           AND s.owner_id = app.current_user_id()
+      )
+    )
+  );
+
+CREATE POLICY orders_admin_insert ON orders
+  FOR INSERT WITH CHECK (app.is_admin_bypass());
+
+CREATE POLICY orders_admin_update ON orders
+  FOR UPDATE
+  USING     (app.is_admin_bypass())
+  WITH CHECK (app.is_admin_bypass());
+
+CREATE POLICY orders_admin_delete ON orders
+  FOR DELETE USING (app.is_admin_bypass());
+
+-- order_items: default-deny + parent-order ownership (role-gated) + admin writes
+CREATE POLICY order_items_default_deny ON order_items
+  AS RESTRICTIVE
+  USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
+
+CREATE POLICY order_items_select ON order_items
+  FOR SELECT
+  USING (
+    app.is_admin_bypass()
+    OR app.is_bomy_staff()
+    OR EXISTS (
+      SELECT 1 FROM orders o
+       WHERE o.id = order_items.order_id
+         AND (
+           (app.current_user_role() = 'buyer'
+             AND o.buyer_id = app.current_user_id())
+           OR (app.current_user_role() = 'seller_owner'
+             AND EXISTS (
+               SELECT 1 FROM stores s
+                WHERE s.id = o.store_id
+                  AND s.owner_id = app.current_user_id()
+             ))
+         )
+    )
+  );
+
+CREATE POLICY order_items_admin_insert ON order_items
+  FOR INSERT WITH CHECK (app.is_admin_bypass());
+
+CREATE POLICY order_items_admin_update ON order_items
+  FOR UPDATE
+  USING     (app.is_admin_bypass())
+  WITH CHECK (app.is_admin_bypass());
+
+CREATE POLICY order_items_admin_delete ON order_items
+  FOR DELETE USING (app.is_admin_bypass());
+
+-- order_payouts: seller_owner-only SELECT + admin writes; buyer never sees rows
+CREATE POLICY order_payouts_default_deny ON order_payouts
+  AS RESTRICTIVE
+  USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
+
+CREATE POLICY order_payouts_select ON order_payouts
+  FOR SELECT
+  USING (
+    app.is_admin_bypass()
+    OR app.is_bomy_staff()
+    OR (
+      app.current_user_role() = 'seller_owner'
+      AND EXISTS (
+        SELECT 1 FROM orders o JOIN stores s ON s.id = o.store_id
+         WHERE o.id = order_payouts.order_id
+           AND s.owner_id = app.current_user_id()
+      )
+    )
+  );
+
+CREATE POLICY order_payouts_admin_insert ON order_payouts
+  FOR INSERT WITH CHECK (app.is_admin_bypass());
+
+CREATE POLICY order_payouts_admin_update ON order_payouts
+  FOR UPDATE
+  USING     (app.is_admin_bypass())
+  WITH CHECK (app.is_admin_bypass());
+
+CREATE POLICY order_payouts_admin_delete ON order_payouts
+  FOR DELETE USING (app.is_admin_bypass());
+
+-- processed_webhook_events: append-only, admin-only. No tenant access.
+CREATE POLICY processed_webhook_events_default_deny ON processed_webhook_events
+  AS RESTRICTIVE
+  USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
+
+CREATE POLICY processed_webhook_events_admin_select ON processed_webhook_events
+  FOR SELECT USING (app.is_admin_bypass());
+
+CREATE POLICY processed_webhook_events_admin_insert ON processed_webhook_events
+  FOR INSERT WITH CHECK (app.is_admin_bypass());
+-- No UPDATE / DELETE policies — append-only by omission + RLS.

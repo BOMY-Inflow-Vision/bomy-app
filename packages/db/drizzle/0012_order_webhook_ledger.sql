@@ -139,4 +139,158 @@ CREATE UNIQUE INDEX processed_webhook_events_unique
 CREATE INDEX processed_webhook_events_processed_at_idx
   ON processed_webhook_events (processed_at);
 
--- RLS and seeds appended by Tasks 2 and 3. COMMIT deferred to Task 3.
+-- ── Row-Level Security ────────────────────────────────────────────────────────
+-- Pattern (Bob B1): RESTRICTIVE default-deny uses IS NOT NULL OR is_admin_bypass(),
+-- NEVER USING (false). Bob B2: SELECT seller branches require explicit role check.
+-- Bob B3: Every INSERT/UPDATE/DELETE requires is_admin_bypass() — no tenant writes.
+
+-- orders
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE orders FORCE  ROW LEVEL SECURITY;
+
+CREATE POLICY orders_default_deny ON orders
+  AS RESTRICTIVE
+  USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
+
+-- Both SELECT branches are role-gated (Bob B2): a store owner in buyer context
+-- must NOT see other buyers' orders / shipping snapshots.
+CREATE POLICY orders_select ON orders
+  FOR SELECT
+  USING (
+    app.is_admin_bypass()
+    OR app.is_bomy_staff()
+    OR (
+      app.current_user_role() = 'buyer'
+      AND buyer_id = app.current_user_id()
+    )
+    OR (
+      app.current_user_role() = 'seller_owner'
+      AND EXISTS (
+        SELECT 1 FROM stores s
+         WHERE s.id = orders.store_id
+           AND s.owner_id = app.current_user_id()
+      )
+    )
+  );
+
+CREATE POLICY orders_admin_insert ON orders
+  FOR INSERT WITH CHECK (app.is_admin_bypass());
+
+CREATE POLICY orders_admin_update ON orders
+  FOR UPDATE
+  USING     (app.is_admin_bypass())
+  WITH CHECK (app.is_admin_bypass());
+
+CREATE POLICY orders_admin_delete ON orders
+  FOR DELETE USING (app.is_admin_bypass());
+
+-- order_items
+ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE order_items FORCE  ROW LEVEL SECURITY;
+
+CREATE POLICY order_items_default_deny ON order_items
+  AS RESTRICTIVE
+  USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
+
+-- Same role-gating as orders_select (Bob B2).
+CREATE POLICY order_items_select ON order_items
+  FOR SELECT
+  USING (
+    app.is_admin_bypass()
+    OR app.is_bomy_staff()
+    OR EXISTS (
+      SELECT 1 FROM orders o
+       WHERE o.id = order_items.order_id
+         AND (
+           (app.current_user_role() = 'buyer'
+             AND o.buyer_id = app.current_user_id())
+           OR (app.current_user_role() = 'seller_owner'
+             AND EXISTS (
+               SELECT 1 FROM stores s
+                WHERE s.id = o.store_id
+                  AND s.owner_id = app.current_user_id()
+             ))
+         )
+    )
+  );
+
+CREATE POLICY order_items_admin_insert ON order_items
+  FOR INSERT WITH CHECK (app.is_admin_bypass());
+
+CREATE POLICY order_items_admin_update ON order_items
+  FOR UPDATE
+  USING     (app.is_admin_bypass())
+  WITH CHECK (app.is_admin_bypass());
+
+CREATE POLICY order_items_admin_delete ON order_items
+  FOR DELETE USING (app.is_admin_bypass());
+
+-- order_payouts
+ALTER TABLE order_payouts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE order_payouts FORCE  ROW LEVEL SECURITY;
+
+CREATE POLICY order_payouts_default_deny ON order_payouts
+  AS RESTRICTIVE
+  USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
+
+-- Buyer never sees payouts. Seller branch requires role = 'seller_owner' (Bob B2):
+-- without this, a buyer-context user who owns a store would satisfy the EXISTS.
+CREATE POLICY order_payouts_select ON order_payouts
+  FOR SELECT
+  USING (
+    app.is_admin_bypass()
+    OR app.is_bomy_staff()
+    OR (
+      app.current_user_role() = 'seller_owner'
+      AND EXISTS (
+        SELECT 1 FROM orders o JOIN stores s ON s.id = o.store_id
+         WHERE o.id = order_payouts.order_id
+           AND s.owner_id = app.current_user_id()
+      )
+    )
+  );
+
+CREATE POLICY order_payouts_admin_insert ON order_payouts
+  FOR INSERT WITH CHECK (app.is_admin_bypass());
+
+CREATE POLICY order_payouts_admin_update ON order_payouts
+  FOR UPDATE
+  USING     (app.is_admin_bypass())
+  WITH CHECK (app.is_admin_bypass());
+
+CREATE POLICY order_payouts_admin_delete ON order_payouts
+  FOR DELETE USING (app.is_admin_bypass());
+
+-- processed_webhook_events: append-only, admin-only. No tenant access at all.
+ALTER TABLE processed_webhook_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE processed_webhook_events FORCE  ROW LEVEL SECURITY;
+
+CREATE POLICY processed_webhook_events_default_deny ON processed_webhook_events
+  AS RESTRICTIVE
+  USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
+
+CREATE POLICY processed_webhook_events_admin_select ON processed_webhook_events
+  FOR SELECT USING (app.is_admin_bypass());
+
+CREATE POLICY processed_webhook_events_admin_insert ON processed_webhook_events
+  FOR INSERT WITH CHECK (app.is_admin_bypass());
+-- No UPDATE / DELETE policies — append-only by omission + RLS.
+
+-- ── Role grants ───────────────────────────────────────────────────────────────
+-- Mirror 0011_cart_checkout.sql §15: grant to bomy_app so the limited role
+-- can reach these tables (RLS then enforces the actual access control). The
+-- DO $$ guard skips silently when the role does not exist (fresh dev DBs
+-- before infra/docker/init-bomy-app.sql has been applied).
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'bomy_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON "orders"                   TO bomy_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON "order_items"              TO bomy_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON "order_payouts"            TO bomy_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON "processed_webhook_events" TO bomy_app';
+  END IF;
+END
+$$;
+
+-- Seeds appended by Task 3. COMMIT deferred to Task 3.
