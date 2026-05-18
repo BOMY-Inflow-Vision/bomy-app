@@ -1560,7 +1560,18 @@ Implement the 12 numbered steps. Key steps to verify explicitly:
 **Step 2 (B4)** — Parse `feesStr` with `parseSen`. On fail: `parkPaymentReview("amount_mismatch")` + `return`. On `pspFeeSen > session.totalBuyerPaysSen`: same. UPDATE `checkout_sessions.psp_fee_sen = pspFeeSen`. Re-read in-memory value from the just-set local var (do not use the pre-update `session.psp_fee_sen`).
 
 ```ts
-const pspFeeSen = parseSen(args.feesStr) // throws if unparseable → caller catches + parks
+let pspFeeSen: bigint
+try {
+  pspFeeSen = parseSen(args.feesStr)
+} catch {
+  args.app.log.error(
+    { feesStr: args.feesStr, sessionId: session.id },
+    "hitpay webhook: psp fee unparseable — parking for review",
+  )
+  await parkPaymentReview(tx, session, "amount_mismatch", args)
+  return
+}
+// pspFeeSen is now defined
 // ... validation ...
 await tx
   .update(schema.checkoutSessions)
@@ -2077,7 +2088,7 @@ Commission unit tests (Task 6): not numbered in spec §7 matrix; separate commis
 
 ## Placeholder scan
 
-No "TBD" or "TODO" steps in this plan. Steps that require the implementer to flesh out test bodies (Tasks 5 Step 2 and 12 Steps 2–8) are explicitly framed with the spec test ID, the assertion shape, and which seeding helpers to mirror. Each test body is scaffolded — "flesh out" means add seed calls and assertions, not leave a blank. The lock-order comment in Task 8 Step 5 is a required code comment, not a planning placeholder.
+No "TBD" or "TODO" steps in this plan. Steps that require the implementer to flesh out test bodies (Tasks 5 Step 2 and 12 Steps 2–8) are explicitly framed with the spec test ID, the assertion shape, and which seeding helpers to mirror. Each test body is scaffolded — "flesh out" means add seed calls and assertions, not leave a blank. The lock-order comment in Task 10 Step 4 is a required code comment, not a planning placeholder.
 
 ---
 
@@ -2087,7 +2098,7 @@ No "TBD" or "TODO" steps in this plan. Steps that require the implementer to fle
 
 **Two execution options:**
 
-**1. Subagent-Driven (recommended)** — Fresh Opus 4.7 subagent per task, Bob review after each commit. RLS (Task 2), handler (Tasks 8–9), and tests (Task 12) are load-bearing and benefit from Opus 4.7's stronger reasoning.
+**1. Subagent-Driven (recommended)** — Fresh Opus 4.7 subagent per task, Bob review after each commit. RLS (Task 2), handler (Task 10), and tests (Task 12) are load-bearing and benefit from Opus 4.7's stronger reasoning.
 
 **2. Inline Execution** — Execute tasks in a single Opus 4.7 session using executing-plans, checkpoint after each commit.
 
