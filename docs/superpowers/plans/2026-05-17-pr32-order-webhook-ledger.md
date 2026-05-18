@@ -25,19 +25,19 @@
 
 These were caught across Bob R1–R3. They must appear in the relevant task checklist steps, not just be implied by "follow the spec."
 
-| #   | Invariant                                                                                                                                                            | Task     |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| B1  | RLS RESTRICTIVE uses `IS NOT NULL OR is_admin_bypass()`, never `USING (false)`                                                                                       | Task 2   |
-| B2  | `orders`/`order_items`/`order_payouts` SELECT policies require explicit `current_user_role()` on seller branch                                                       | Task 2   |
-| B3  | Every INSERT/UPDATE/DELETE policy requires `is_admin_bypass()` — no tenant writes                                                                                    | Task 2   |
-| B4  | PSP fee parsed strictly and persisted on session before split math; park on unparseable or fee > gross                                                               | Task 8   |
-| B5  | Failed-path routing fires BEFORE amount validation; `payment_request.failed` with missing/bad amount still releases                                                  | Task 8/9 |
-| B6  | Session status guard (`pending_payment` check) fires BEFORE fan-out; second barrier even with fresh event id                                                         | Task 8   |
-| B7  | DB-level belt-and-braces: `orders_session_store_unique` + `ON CONFLICT DO NOTHING RETURNING id`; 0 rows = log error + commit (never throw)                           | Task 8   |
-| B8  | `paymentId` guard on completed events: empty `paymentId` → `parkPaymentReview("amount_mismatch")`                                                                    | Task 8   |
-| B9  | Failed-path `psp_payment_id` conditional set: Drizzle spread only when `args.paymentId` is non-empty                                                                 | Task 9   |
-| B10 | Seller-payout and processing-fee ledger legs gated on `> 0n`; `orders.seller_payout_sen` still writes 0                                                              | Task 8   |
-| B11 | `claimEvent` returns `ClaimResult`; on `owned: false` compare `payload_hash` + `event_type`; log `webhook_event_id_collision` at error on mismatch; still return 200 | Task 7   |
+| #   | Invariant                                                                                                                                                            | Task    |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| B1  | RLS RESTRICTIVE uses `IS NOT NULL OR is_admin_bypass()`, never `USING (false)`                                                                                       | Task 2  |
+| B2  | `orders`/`order_items`/`order_payouts` SELECT policies require explicit `current_user_role()` on seller branch                                                       | Task 2  |
+| B3  | Every INSERT/UPDATE/DELETE policy requires `is_admin_bypass()` — no tenant writes                                                                                    | Task 2  |
+| B4  | PSP fee parsed strictly and persisted on session before split math; park on unparseable or fee > gross                                                               | Task 10 |
+| B5  | Failed-path routing fires BEFORE amount validation; `payment_request.failed` with missing/bad amount still releases                                                  | Task 10 |
+| B6  | Session status guard (`pending_payment` check) fires BEFORE fan-out; second barrier even with fresh event id                                                         | Task 10 |
+| B7  | DB-level belt-and-braces: `orders_session_store_unique` + `ON CONFLICT DO NOTHING RETURNING id`; 0 rows = log error + commit (never throw)                           | Task 10 |
+| B8  | `paymentId` guard on completed events: empty `paymentId` → `parkPaymentReview("amount_mismatch")`                                                                    | Task 10 |
+| B9  | Failed-path `psp_payment_id` conditional set: Drizzle spread only when `args.paymentId` is non-empty                                                                 | Task 8  |
+| B10 | Seller-payout and processing-fee ledger legs gated on `> 0n`; `orders.seller_payout_sen` still writes 0                                                              | Task 10 |
+| B11 | `claimEvent` returns `ClaimResult`; on `owned: false` compare `payload_hash` + `event_type`; log `webhook_event_id_collision` at error on mismatch; still return 200 | Task 7  |
 
 ---
 
@@ -816,7 +816,7 @@ describe.skipIf(!shouldRun)("order_webhook migration", () => {
     handle = makeDb({ url: DATABASE_URL as string })
   })
   afterAll(async () => {
-    await handle.pool.end()
+    await handle.close()
   })
 
   // ── tests 1–5: schema CHECKs ────────────────────────────────────────────────
@@ -1068,16 +1068,17 @@ This file exports the shared types consumed by `failure-release.ts`, `park-revie
 
 ```ts
 // apps/api/src/webhooks/hitpay/types.ts
-import type { InferSelectModel } from "drizzle-orm"
 import type { FastifyInstance } from "fastify"
 
-import type { checkoutSessions } from "@bomy/db"
+import type { Schema } from "@bomy/db"
 
 import type { EventIdentity } from "./idempotency.js"
 
 // Full Drizzle-inferred row type for checkout_sessions.
-// Avoids importing from order-fanout.ts (which would create a circular dep).
-export type CheckoutSessionRow = InferSelectModel<typeof checkoutSessions>
+// @bomy/db exports `schema` as a namespace (export * as schema); individual table
+// symbols are not re-exported from the package root. Use Schema["checkoutSessions"]["$inferSelect"]
+// — a pure type reference with no runtime import — to avoid a missing-symbol error.
+export type CheckoutSessionRow = Schema["checkoutSessions"]["$inferSelect"]
 
 export interface OrderPaymentArgs {
   app: FastifyInstance
@@ -1707,29 +1708,40 @@ Open `apps/api/src/routes/webhooks/hitpay.ts`. Locate the existing `else if` blo
 Replace that block so `handleOrderPayment` is tried first; it returns `"handled" | "not_order"` after doing its own admin-bypass dispatch lookup internally. Only on `"not_order"` fall through to brand-sub:
 
 ```ts
-// Inside the existing else-if block for payment_request.* events (after refund/membership branches).
+// Replace the existing else-if block for payment_request.* events.
+// All locals (app, rawBody, request, paymentRequestId, paymentId, status, amountStr, feesStr)
+// are already extracted at the top of the handler — use them directly; do NOT redeclare.
 // handleOrderPayment internally does an admin-bypass checkout_sessions lookup (Step 0) so no
-// withPublicRead pre-check is needed here — withPublicRead cannot see checkout_sessions (nil buyer).
+// withPublicRead pre-check is needed — withPublicRead cannot see checkout_sessions (nil buyer).
 } else if (
   eventType === "payment_request.completed" ||
   eventType === "payment_request.failed" ||
-  paymentRequestId
+  typeof paymentRequestId === "string"
 ) {
-  const identity = deriveEventIdentity(
-    rawBody,
-    request.headers as Record<string, string | undefined>,
-  )
-  const orderResult = await handleOrderPayment({
-    app: fastify,
-    paymentRequestId,
-    paymentId: body.payment_id ?? "",
-    status: body.status ?? "",
-    amountStr: body.amount ?? "0.00",
-    feesStr: body.fees ?? "0.00",
-    eventIdentity: identity,
-  })
-  if (orderResult === "not_order") {
-    await handleBrandSubscriptionPayment({ ... })
+  if (typeof paymentRequestId === "string") {
+    const identity = deriveEventIdentity(
+      rawBody,
+      request.headers as Record<string, string | undefined>,
+    )
+    const orderResult = await handleOrderPayment({
+      app,
+      paymentRequestId,
+      paymentId,
+      status,
+      amountStr,
+      feesStr,
+      eventIdentity: identity,
+    })
+    if (orderResult === "not_order") {
+      await handleBrandSubscriptionPayment({
+        app,
+        paymentRequestId,
+        paymentId,
+        status,
+        amountStr,
+        feesStr,
+      })
+    }
   }
 } else {
 ```
@@ -1815,14 +1827,20 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest"
 import { createApp } from "../../src/server.js"
 
 const DATABASE_URL = process.env["DATABASE_URL"]
-const shouldRun = Boolean(DATABASE_URL)
+const RLS_READY = process.env["BOMY_RLS_READY"] === "1"
+const shouldRun = Boolean(DATABASE_URL) && RLS_READY
 
-// Mirror hitpay.test.ts: createApp, inject with HMAC-signed body, real DB.
+// Must be set BEFORE createApp() — the route plugin reads HITPAY_SALT at registration
+// time and throws if missing (hitpay.ts:29). The fallback inside sign() is too late.
+const TEST_SALT = "test-webhook-salt"
+
 describe.skipIf(!shouldRun)("hitpay order-payment integration", () => {
   let app: Awaited<ReturnType<typeof createApp>>
 
   beforeAll(async () => {
+    process.env["HITPAY_SALT"] = TEST_SALT
     app = await createApp()
+    await app.ready()
   })
 
   afterAll(async () => {
@@ -1831,9 +1849,7 @@ describe.skipIf(!shouldRun)("hitpay order-payment integration", () => {
 
   // HMAC signing helper (mirrors hitpay.test.ts)
   function sign(body: string): string {
-    return createHmac("sha256", process.env["HITPAY_SALT"] ?? "test-salt")
-      .update(body)
-      .digest("hex")
+    return createHmac("sha256", TEST_SALT).update(body).digest("hex")
   }
 
   // ... tests ...
