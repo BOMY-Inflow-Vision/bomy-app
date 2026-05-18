@@ -6,6 +6,9 @@ import {
   DISPATCH_STATUSES,
   INVENTORY_RESERVATION_STATUSES,
   LEDGER_DIRECTIONS,
+  ORDER_FULFILMENT_STATUSES,
+  ORDER_PAYMENT_STATUSES,
+  ORDER_PAYOUT_STATUSES,
   PRODUCT_STATUSES,
   PSP_PROVIDERS,
   REVENUE_SOURCES,
@@ -33,3 +36,9 @@ export const inventoryReservationStatusEnum = pgEnum(
   INVENTORY_RESERVATION_STATUSES,
 )
 export const pspProviderEnum = pgEnum("psp_provider", PSP_PROVIDERS)
+export const orderPaymentStatusEnum = pgEnum("order_payment_status", ORDER_PAYMENT_STATUSES)
+export const orderFulfilmentStatusEnum = pgEnum(
+  "order_fulfilment_status",
+  ORDER_FULFILMENT_STATUSES,
+)
+export const orderPayoutStatusEnum = pgEnum("order_payout_status", ORDER_PAYOUT_STATUSES)

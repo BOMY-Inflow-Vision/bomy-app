@@ -83,3 +83,30 @@ export type InventoryReservationStatus = (typeof INVENTORY_RESERVATION_STATUSES)
 // Dual-PSP seam. PR #31 only writes 'hitpay'; 'stripe' is reserved.
 export const PSP_PROVIDERS = ["hitpay", "stripe"] as const
 export type PspProvider = (typeof PSP_PROVIDERS)[number]
+
+// Stage 5 PR #32 order enums.
+// `pending` is reserved for the refund / chargeback flow (Stage 6+); the
+// webhook fan-out in PR #32 always inserts orders at `payment_status='paid'`.
+export const ORDER_PAYMENT_STATUSES = [
+  "pending",
+  "paid",
+  "failed",
+  "refunded",
+  "partially_refunded",
+] as const
+export type OrderPaymentStatus = (typeof ORDER_PAYMENT_STATUSES)[number]
+
+// `processing` is the default at row insert; shipped/delivered/completed
+// transitions ship in PR #33; `cancelled` is reserved for refund flow.
+export const ORDER_FULFILMENT_STATUSES = [
+  "processing",
+  "shipped",
+  "delivered",
+  "completed",
+  "cancelled",
+] as const
+export type OrderFulfilmentStatus = (typeof ORDER_FULFILMENT_STATUSES)[number]
+
+// Admin-driven transitions; UI lands in PR #33's /payouts page.
+export const ORDER_PAYOUT_STATUSES = ["pending", "processing", "completed", "failed"] as const
+export type OrderPayoutStatus = (typeof ORDER_PAYOUT_STATUSES)[number]
