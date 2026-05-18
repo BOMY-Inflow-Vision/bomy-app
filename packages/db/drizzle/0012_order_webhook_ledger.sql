@@ -293,4 +293,29 @@ BEGIN
 END
 $$;
 
--- Seeds appended by Task 3. COMMIT deferred to Task 3.
+-- ── platform_config seeds ─────────────────────────────────────────────────────
+
+INSERT INTO platform_config (key, value, description) VALUES
+  (
+    'regular_order_commission_pct',
+    '25'::jsonb,
+    'BOMY platform commission for regular (non-brand-subscription) orders. ' ||
+    'Applied at webhook fan-out time. Net-of-PSP-fees. Snapshot stored on orders.bomy_commission_pct. ' ||
+    'Editing this rate is gated behind MFA / two-admin approval (Stage 5 §8).'
+  ),
+  (
+    'order_auto_complete_days',
+    '7'::jsonb,
+    'Days from delivered_at before OrderAutoCompleteJob (PR #33) transitions delivered → completed.'
+  ),
+  (
+    'order_auto_delivered_days',
+    '30'::jsonb,
+    'Days from shipped_at before OrderAutoCompleteJob assumes delivery (shipped → delivered fallback).'
+  )
+ON CONFLICT (key) DO NOTHING;
+
+-- checkout_enabled is NOT seeded here. It stays at false (PR #31 seed value)
+-- until the post-deploy runbook (spec §1.3) flips it.
+
+COMMIT;
