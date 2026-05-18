@@ -84,12 +84,19 @@ export function allocatePspFee(
  * voucher exceeds BOMY's share (open question #1 in the design spec:
  * allow + warn log at fan-out time).
  *
- * Degenerate `discounted_subtotal + shipping_fee = 0` (a zero-cost
- * order — should never reach the webhook because total_buyer_pays > 0
- * is CHECKed at checkout, but kept defensive here) attributes the
- * whole psp_fee_allocated to shipping_psp_fee, which produces a
- * negative seller_payout. The caller (fanOutPaid) gates the ledger
- * legs on > 0 so this stays internally consistent.
+ * `seller_payout_sen` can also compute negative under PSP-fee over-
+ * allocation (e.g. last-store-absorbs-remainder gives a tiny store a
+ * fee larger than its gross — see {@link NegativeSellerPayoutError}).
+ * The journal still balances mathematically, but the caller MUST run
+ * {@link assertNonNegativeSellerPayout} for each per-store split BEFORE
+ * any orders/ledger INSERT — on `< 0n` the fan-out handler catches the
+ * thrown error and parks the session in `payment_review_required` with
+ * reason `invalid_commission_config`. The `> 0n` ledger-leg gate in
+ * Task 10 only handles the approved zero-payout edge (commission_pct
+ * = 100 + zero shipping → seller_payout = 0); it must never be relied
+ * on to silently skip a negative leg, because that breaks the spec
+ * §3.6-8 reconciliation invariant
+ * `sum(debits) == sum(orders.seller_payout_sen + psp_fee_allocated_sen)`.
  */
 export function computeStoreSplit(input: StoreSplitInput): StoreSplitResult {
   const {
