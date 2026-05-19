@@ -114,6 +114,13 @@ interface ConsistencyProfile {
   reservationStatuses: Set<string>
   /** True if the session's voucher has been redeemed; null if no voucher_id on the session. */
   voucherRedeemed: boolean | null
+  /**
+   * True if the voucher's `reserved_checkout_session_id` still points
+   * at this session. Bob R1 on Task 9: failed/cancelled/expired states
+   * must verify the voucher reservation was actually released by the
+   * upstream path. Null if no voucher_id on the session.
+   */
+  voucherReservedToThisSession: boolean | null
 }
 
 async function readConsistencyProfile(
@@ -146,13 +153,19 @@ async function readConsistencyProfile(
   ])
 
   let voucherRedeemed: boolean | null = null
+  let voucherReservedToThisSession: boolean | null = null
   if (session.voucherId) {
     const voucherRows = await tx
-      .select({ redeemedAt: schema.vouchers.redeemedAt })
+      .select({
+        redeemedAt: schema.vouchers.redeemedAt,
+        reservedCheckoutSessionId: schema.vouchers.reservedCheckoutSessionId,
+      })
       .from(schema.vouchers)
       .where(eq(schema.vouchers.id, session.voucherId))
       .limit(1)
-    voucherRedeemed = voucherRows[0] ? voucherRows[0].redeemedAt !== null : false
+    const row = voucherRows[0]
+    voucherRedeemed = row ? row.redeemedAt !== null : false
+    voucherReservedToThisSession = row ? row.reservedCheckoutSessionId === session.id : false
   }
 
   return {
@@ -161,6 +174,7 @@ async function readConsistencyProfile(
     creditExists: creditRows.length > 0,
     reservationStatuses: new Set(reservationRows.map((r) => r.status)),
     voucherRedeemed,
+    voucherReservedToThisSession,
   }
 }
 
@@ -228,6 +242,12 @@ function findMismatches(session: CheckoutSessionRow, p: ConsistencyProfile): str
           mismatches.push(`reservation_status_on_failed(${s})`)
         }
       }
+      // Bob R1: voucher must be released. runFailureRelease cleared
+      // the reservation; if it still points at this session something
+      // raced (e.g. a parallel completed path) and ops should see it.
+      if (session.voucherId && p.voucherReservedToThisSession === true) {
+        mismatches.push("voucher_not_released_on_failed")
+      }
       break
 
     case "payment_review_required":
@@ -245,9 +265,19 @@ function findMismatches(session: CheckoutSessionRow, p: ConsistencyProfile): str
           mismatches.push("voucher_redeemed_on_voucher_claim_failed")
         }
       } else if (reason === "amount_mismatch" || reason === "invalid_commission_config") {
-        // Fan-out never ran for these reasons; no orders, no ledger.
+        // Fan-out never ran for these reasons; no orders, no ledger,
+        // and reservations must be untouched by fan-out / compensation
+        // (still 'active', or 'expired' if the expiry job has run
+        // since parking). Bob R2: a partial-fan-out bug that converted
+        // or released reservations BEFORE parking would otherwise sneak
+        // past this consistency check.
         expectNoOrders(reason)
         expectNoLedger(reason)
+        for (const s of p.reservationStatuses) {
+          if (s !== "active" && s !== "expired") {
+            mismatches.push(`reservation_status_on_${reason}(${s})`)
+          }
+        }
       } else if (reason === null) {
         // CHECK constraint should prevent this state, but log defensively.
         mismatches.push(`payment_review_state_without_reason`)
@@ -262,6 +292,11 @@ function findMismatches(session: CheckoutSessionRow, p: ConsistencyProfile): str
       // Buyer cancel or expiry job. No orders, no ledger credit.
       expectNoOrders(session.status)
       expectNoLedger(session.status)
+      // Bob R1: voucher reservation should have been released by the
+      // compensation helper (cancelled) or the expiry job (expired).
+      if (session.voucherId && p.voucherReservedToThisSession === true) {
+        mismatches.push(`voucher_not_released_on_${session.status}`)
+      }
       break
     }
 
@@ -333,6 +368,7 @@ export async function runConsistencyCheck(
           creditExists: profile.creditExists,
           reservationStatuses: [...profile.reservationStatuses],
           voucherRedeemed: profile.voucherRedeemed,
+          voucherReservedToThisSession: profile.voucherReservedToThisSession,
         },
       },
       "hitpay webhook: idempotency hit — consistency mismatch",

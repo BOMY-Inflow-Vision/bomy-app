@@ -248,7 +248,13 @@ describe.skipIf(!shouldRun)("park-review (integration)", () => {
     status?: CheckoutSessionStatus
     paymentReviewReason?: string | null
     withVoucher?: boolean
-    voucherRedeemed?: boolean
+    /**
+     * Voucher state once seeded:
+     *   "reserved" (default) — reservedCheckoutSessionId = sessionId
+     *   "redeemed"           — redeemed_checkout_session_id set, redeemed_at set
+     *   "released"           — both reservation and redemption cleared
+     */
+    voucherState?: "reserved" | "redeemed" | "released"
     pspPaymentRequestId?: string | null
     pspPaymentId?: string | null
   }
@@ -287,13 +293,14 @@ describe.skipIf(!shouldRun)("park-review (integration)", () => {
         expiresAt: new Date(Date.now() + 30 * 60 * 1000),
       })
       if (voucherId) {
+        const state = opts.voucherState ?? "reserved"
         await tx
           .update(schema.vouchers)
           .set({
-            reservedCheckoutSessionId: opts.voucherRedeemed ? null : sessionId,
-            reservedAt: opts.voucherRedeemed ? null : new Date(),
-            redeemedCheckoutSessionId: opts.voucherRedeemed ? sessionId : null,
-            redeemedAt: opts.voucherRedeemed ? new Date() : null,
+            reservedCheckoutSessionId: state === "reserved" ? sessionId : null,
+            reservedAt: state === "reserved" ? new Date() : null,
+            redeemedCheckoutSessionId: state === "redeemed" ? sessionId : null,
+            redeemedAt: state === "redeemed" ? new Date() : null,
           })
           .where(eq(schema.vouchers.id, voucherId))
       }
@@ -572,13 +579,71 @@ describe.skipIf(!shouldRun)("park-review (integration)", () => {
       expect(mismatches.some((m) => m.startsWith("orders_present_on_failed"))).toBe(true)
     })
 
+    // Bob R1: failed session with voucher must verify voucher was released.
+    it("failed session with voucher still reserved → voucher_not_released_on_failed mismatch", async () => {
+      const { sessionId } = await seedSession({
+        status: "failed",
+        withVoucher: true,
+        voucherState: "reserved", // BUG: should be "released" on a failed session
+      })
+      await seedReservation(sessionId, "released")
+      const session = await readSession(sessionId)
+      await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "check" }, async (tx) => {
+        await runConsistencyCheck(tx, session, {
+          app: makeFakeApp(),
+          eventIdentity: makeIdentity(),
+        })
+      })
+      const obj = expectMismatch()
+      const mismatches = obj["mismatches"] as string[]
+      expect(mismatches).toContain("voucher_not_released_on_failed")
+    })
+
+    it("failed session with voucher properly released → pass", async () => {
+      const { sessionId } = await seedSession({
+        status: "failed",
+        withVoucher: true,
+        voucherState: "released",
+      })
+      await seedReservation(sessionId, "released")
+      const session = await readSession(sessionId)
+      await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "check" }, async (tx) => {
+        await runConsistencyCheck(tx, session, {
+          app: makeFakeApp(),
+          eventIdentity: makeIdentity(),
+        })
+      })
+      expectIdempotentPass("failed")
+    })
+
+    // Bob R1: cancelled / expired must also verify voucher release.
+    for (const terminal of ["cancelled", "expired"] as const) {
+      it(`${terminal} session with voucher still reserved → voucher_not_released_on_${terminal} mismatch`, async () => {
+        const { sessionId } = await seedSession({
+          status: terminal,
+          withVoucher: true,
+          voucherState: "reserved",
+        })
+        const session = await readSession(sessionId)
+        await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "check" }, async (tx) => {
+          await runConsistencyCheck(tx, session, {
+            app: makeFakeApp(),
+            eventIdentity: makeIdentity(),
+          })
+        })
+        const obj = expectMismatch()
+        const mismatches = obj["mismatches"] as string[]
+        expect(mismatches).toContain(`voucher_not_released_on_${terminal}`)
+      })
+    }
+
     it("payment_review_required + voucher_claim_failed: orders+ledger+unredeemed voucher → pass", async () => {
       const { sessionId } = await seedSession({
         status: "payment_review_required",
         paymentReviewReason: "voucher_claim_failed",
         pspPaymentId: "pay-x",
         withVoucher: true,
-        voucherRedeemed: false,
+        voucherState: "reserved",
       })
       await seedOrder(sessionId)
       await seedLedgerCredit(sessionId)
@@ -599,7 +664,7 @@ describe.skipIf(!shouldRun)("park-review (integration)", () => {
         paymentReviewReason: "voucher_claim_failed",
         pspPaymentId: "pay-x",
         withVoucher: true,
-        voucherRedeemed: false,
+        voucherState: "reserved",
       })
       // No order seeded — should be a mismatch (fan-out completed before parking)
       await seedLedgerCredit(sessionId)
@@ -664,6 +729,80 @@ describe.skipIf(!shouldRun)("park-review (integration)", () => {
       expectIdempotentPass("payment_review_required")
     })
 
+    // Bob R2: amount_mismatch / invalid_commission_config must verify
+    // reservations were NOT touched by fan-out or compensation (no
+    // 'converted' or 'released' rows allowed). The expiry job can
+    // still turn 'active' into 'expired' after parking — both pass.
+    for (const reason of ["amount_mismatch", "invalid_commission_config"] as const) {
+      it(`${reason}: reservation 'active' → pass`, async () => {
+        const { sessionId } = await seedSession({
+          status: "payment_review_required",
+          paymentReviewReason: reason,
+        })
+        await seedReservation(sessionId, "active")
+        const session = await readSession(sessionId)
+        await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "check" }, async (tx) => {
+          await runConsistencyCheck(tx, session, {
+            app: makeFakeApp(),
+            eventIdentity: makeIdentity(),
+          })
+        })
+        expectIdempotentPass("payment_review_required")
+      })
+
+      it(`${reason}: reservation 'expired' → pass (expiry job ran after parking)`, async () => {
+        const { sessionId } = await seedSession({
+          status: "payment_review_required",
+          paymentReviewReason: reason,
+        })
+        await seedReservation(sessionId, "expired")
+        const session = await readSession(sessionId)
+        await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "check" }, async (tx) => {
+          await runConsistencyCheck(tx, session, {
+            app: makeFakeApp(),
+            eventIdentity: makeIdentity(),
+          })
+        })
+        expectIdempotentPass("payment_review_required")
+      })
+
+      it(`${reason}: reservation 'converted' → mismatch (fan-out shouldn't have run)`, async () => {
+        const { sessionId } = await seedSession({
+          status: "payment_review_required",
+          paymentReviewReason: reason,
+        })
+        await seedReservation(sessionId, "converted")
+        const session = await readSession(sessionId)
+        await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "check" }, async (tx) => {
+          await runConsistencyCheck(tx, session, {
+            app: makeFakeApp(),
+            eventIdentity: makeIdentity(),
+          })
+        })
+        const obj = expectMismatch()
+        const mismatches = obj["mismatches"] as string[]
+        expect(mismatches).toContain(`reservation_status_on_${reason}(converted)`)
+      })
+
+      it(`${reason}: reservation 'released' → mismatch (compensation shouldn't have run)`, async () => {
+        const { sessionId } = await seedSession({
+          status: "payment_review_required",
+          paymentReviewReason: reason,
+        })
+        await seedReservation(sessionId, "released")
+        const session = await readSession(sessionId)
+        await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "check" }, async (tx) => {
+          await runConsistencyCheck(tx, session, {
+            app: makeFakeApp(),
+            eventIdentity: makeIdentity(),
+          })
+        })
+        const obj = expectMismatch()
+        const mismatches = obj["mismatches"] as string[]
+        expect(mismatches).toContain(`reservation_status_on_${reason}(released)`)
+      })
+    }
+
     it("cancelled session: no orders, no ledger → pass", async () => {
       const { sessionId } = await seedSession({ status: "cancelled" })
       const session = await readSession(sessionId)
@@ -710,7 +849,7 @@ describe.skipIf(!shouldRun)("park-review (integration)", () => {
         paymentReviewReason: "voucher_claim_failed",
         pspPaymentId: "pay-x",
         withVoucher: true,
-        voucherRedeemed: false,
+        voucherState: "reserved",
       })
       await seedOrder(sessionId)
       await seedLedgerCredit(sessionId)
