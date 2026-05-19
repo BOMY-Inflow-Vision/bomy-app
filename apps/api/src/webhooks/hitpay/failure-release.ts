@@ -112,8 +112,15 @@ export async function runFailureRelease(
   // Combined with the session-UPDATE gate above, this is doubly
   // protected against the voucher_claim_failed → payment_review_required
   // state.
+  // Capture the UPDATE row count via RETURNING so the structured log
+  // reflects the actual mutation, not the attempt. The conservative
+  // predicates can legitimately produce 0 rows (voucher belongs to
+  // another session, or redeemed_at IS NOT NULL); §6.1 observability
+  // requires voucherReleased to mean "this UPDATE cleared the row",
+  // not "this session had a voucher_id" (Bob R1).
+  let voucherReleased = false
   if (session.voucherId) {
-    await tx
+    const releasedVouchers = await tx
       .update(schema.vouchers)
       .set({ reservedCheckoutSessionId: null, reservedAt: null })
       .where(
@@ -123,6 +130,8 @@ export async function runFailureRelease(
           isNull(schema.vouchers.redeemedAt),
         ),
       )
+      .returning({ id: schema.vouchers.id })
+    voucherReleased = releasedVouchers.length > 0
   }
 
   args.app.log.info(
@@ -132,7 +141,7 @@ export async function runFailureRelease(
       paymentId: args.paymentId || null,
       eventId: args.eventIdentity.pspEventId,
       reservationsReleased: released.length,
-      voucherReleased: Boolean(session.voucherId),
+      voucherReleased,
     },
     "hitpay webhook: order payment failed — reservations released",
   )

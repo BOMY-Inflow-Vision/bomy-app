@@ -547,6 +547,12 @@ describe.skipIf(!shouldRun)("runFailureRelease (integration)", () => {
     // matched zero rows for sessionA.
     const voucher = await readVoucher(voucherIdA)
     expect(voucher?.reservedSessionId).toBe(otherSessionId)
+
+    // Bob R1: the structured log MUST reflect the actual mutation. Even
+    // though the session had a voucher_id, the conservative predicates
+    // matched 0 rows — voucherReleased must be `false`.
+    const successLog = logCalls.find((l) => l.msg.includes("order payment failed"))
+    expect((successLog?.obj as Record<string, unknown>)["voucherReleased"]).toBe(false)
   })
 
   it("conservative voucher release: when voucher.redeemed_at is NOT NULL, this helper does not clear the reservation", async () => {
@@ -583,5 +589,10 @@ describe.skipIf(!shouldRun)("runFailureRelease (integration)", () => {
     // The reserved_at + reserved_session_id remain whatever they were
     // (we mark redeemed but didn't change reservation pointers).
     expect(voucher?.reservedSessionId).toBe(sessionId)
+
+    // Bob R1: log reflects actual mutation — voucherReleased is false
+    // because the redeemed_at IS NULL predicate matched 0 rows.
+    const successLog = logCalls.find((l) => l.msg.includes("order payment failed"))
+    expect((successLog?.obj as Record<string, unknown>)["voucherReleased"]).toBe(false)
   })
 })
