@@ -5,6 +5,7 @@ import { verifyWebhookSignature } from "@bomy/hitpay"
 import { and, desc, eq } from "drizzle-orm"
 import type { FastifyPluginAsync } from "fastify"
 
+import { trace } from "@opentelemetry/api"
 import { deriveEventIdentity } from "../../webhooks/hitpay/idempotency.js"
 import { handleOrderPayment } from "../../webhooks/hitpay/order-fanout.js"
 
@@ -107,6 +108,7 @@ export const hitpayWebhookRoutes: FastifyPluginAsync = async (app) => {
           feesStr,
           eventIdentity: identity,
         })
+        trace.getActiveSpan()?.setAttribute("bomy.psp_event_id", identity.pspEventId)
         if (orderResult === "not_order") {
           await handleBrandSubscriptionPayment({
             app,

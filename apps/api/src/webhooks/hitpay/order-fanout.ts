@@ -24,6 +24,7 @@
  * and compensateInitiation. See spec §3.3 and pr31-cart-checkout-design.md
  * §5.1. Do not deviate.
  */
+import { trace } from "@opentelemetry/api"
 import { schema, withAdmin, type Database } from "@bomy/db"
 import { and, eq, isNull, sql } from "drizzle-orm"
 
@@ -110,6 +111,9 @@ export async function handleOrderPayment(args: OrderPaymentArgs): Promise<"handl
         )
         return
       }
+
+      // OTel: tag the active span so traces correlate to a specific checkout session.
+      trace.getActiveSpan()?.setAttribute("bomy.checkout_session_id", session.id)
 
       // Step C: idempotency hit — collision check + consistency audit.
       if (!claim.owned) {

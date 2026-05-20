@@ -874,17 +874,62 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
   // ── routing — order dispatcher (tests 11–13, 36–38) ───────────────────────
 
   describe("routing — order dispatcher (tests 11–13, 36–38)", () => {
-    async function seedCheckoutSession(paymentRequestId: string, buyerId: string) {
-      const id = randomUUID()
+    // Seeds a minimal but fan-out-valid checkout: session + one store row +
+    // one item + one active reservation. Fan-out will produce exactly one
+    // order and one converted reservation, satisfying the consistency check
+    // on idempotency replay. If storeId is supplied (Tests 11/36) the product
+    // and variant are created under it; otherwise a fresh seller + store are
+    // created internally (Test 13).
+    async function seedCheckoutSession(
+      paymentRequestId: string,
+      buyerId: string,
+      opts: { storeId?: string } = {},
+    ): Promise<{ sessionId: string; storeId: string; variantId: string }> {
+      const sessionId = randomUUID()
+      const productId = randomUUID()
+      const variantId = randomUUID()
       const expiresAt = new Date(Date.now() + 30 * 60 * 1000)
+
+      const resolvedStoreId = opts.storeId ?? randomUUID()
+
       await withAdmin(setupDb.db, { userId: SYSTEM_ACTOR, reason: "test seed" }, async (tx) => {
+        if (!opts.storeId) {
+          const sellerId = randomUUID()
+          await tx.insert(schema.users).values({
+            id: sellerId,
+            email: `${sellerId}@test.bomy`,
+            role: "seller_owner",
+          })
+          await tx.insert(schema.stores).values({
+            id: resolvedStoreId,
+            ownerId: sellerId,
+            name: "Routing Store",
+            slug: `routing-${resolvedStoreId}`,
+            status: "active",
+          })
+        }
+        await tx.insert(schema.products).values({
+          id: productId,
+          storeId: resolvedStoreId,
+          name: "Routing Product",
+          slug: `routing-${productId}`,
+          status: "active",
+        })
+        await tx.insert(schema.productVariants).values({
+          id: variantId,
+          productId,
+          name: "V",
+          priceMyrSen: 5000n,
+          stockCount: 100,
+          isActive: true,
+        })
         await tx.insert(schema.checkoutSessions).values({
-          id,
+          id: sessionId,
           userId: buyerId,
           shippingAddress: {
-            name: "Test User",
-            line1: "1 Jalan Test",
-            city: "Kuala Lumpur",
+            name: "Test",
+            line1: "1 Test St",
+            city: "KL",
             state: "WP",
             postcode: "50000",
             country: "MY",
@@ -895,8 +940,41 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
           pspPaymentRequestId: paymentRequestId,
           expiresAt,
         })
+        await tx.insert(schema.checkoutSessionStores).values({
+          checkoutSessionId: sessionId,
+          storeId: resolvedStoreId,
+          retailSubtotalSen: 5000n,
+          brandDiscountSen: 0n,
+          discountedSubtotalSen: 5000n,
+          voucherContributionSen: 0n,
+          shippingFeeSen: 0n,
+        })
+        await tx.insert(schema.checkoutSessionItems).values({
+          checkoutSessionId: sessionId,
+          storeId: resolvedStoreId,
+          variantId,
+          productSnapshot: { id: productId, name: "Routing Product" },
+          variantSnapshot: { id: variantId, name: "V" },
+          quantity: 1,
+          unitPriceSen: 5000n,
+          lineTotalSen: 5000n,
+        })
+        await tx.insert(schema.inventoryReservations).values({
+          checkoutSessionId: sessionId,
+          variantId,
+          quantity: 1,
+          status: "active",
+          expiresAt,
+        })
       })
-      return id
+
+      return { sessionId, storeId: resolvedStoreId, variantId }
+    }
+
+    async function readOrders(sessionId: string) {
+      return withAdmin(setupDb.db, { userId: SYSTEM_ACTOR, reason: "verify" }, async (tx) =>
+        tx.select().from(schema.orders).where(eq(schema.orders.checkoutSessionId, sessionId)),
+      )
     }
 
     it("11 — payment_request_id matching checkout_session routes to order handler, not brand-sub", async () => {
@@ -905,7 +983,7 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
       const storeId = await seedStore(sellerId)
       const planId = await seedBrandPlan(storeId)
       const paymentRequestId = `pr_${randomUUID()}`
-      await seedCheckoutSession(paymentRequestId, buyerId)
+      const { sessionId } = await seedCheckoutSession(paymentRequestId, buyerId, { storeId })
 
       // Seed brand_sub with same paymentRequestId — must NOT be activated
       const brandSubId = randomUUID()
@@ -952,6 +1030,9 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
             .where(eq(schema.processedWebhookEvents.pspEventId, eventId)),
       )
       expect(events).toHaveLength(1)
+
+      // Fan-out created exactly 1 order
+      expect(await readOrders(sessionId)).toHaveLength(1)
 
       // Brand-sub handler was NOT invoked — sub remains pending
       const sub = await withAdmin(
@@ -1026,7 +1107,7 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
     it("13 — missing Hitpay-Event-Id uses derived:SHA256(body); same body is idempotent", async () => {
       const buyerId = await seedUser()
       const paymentRequestId = `pr_${randomUUID()}`
-      await seedCheckoutSession(paymentRequestId, buyerId)
+      const { sessionId } = await seedCheckoutSession(paymentRequestId, buyerId)
 
       const bodyObj = {
         payment_request_id: paymentRequestId,
@@ -1065,7 +1146,10 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
       expect(events1).toHaveLength(1)
       expect(events1[0]?.pspEventId).toMatch(/^derived:/)
 
-      // Replay identical body → deduped; still exactly 1 row
+      // Fan-out created exactly 1 order on first delivery
+      expect(await readOrders(sessionId)).toHaveLength(1)
+
+      // Replay identical body → idempotency hit; consistency check must pass (paid session, 1 order, converted reservation)
       const res2 = await app.inject({
         method: "POST",
         url: "/webhooks/hitpay",
@@ -1084,6 +1168,8 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
             .where(eq(schema.processedWebhookEvents.pspEventId, expectedEventId)),
       )
       expect(events2).toHaveLength(1)
+      // No duplicate fan-out — order count unchanged
+      expect(await readOrders(sessionId)).toHaveLength(1)
     })
 
     it("36 — order handler 'handled' suppresses brand-sub invocation (§3.1 regression)", async () => {
@@ -1092,7 +1178,7 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
       const storeId = await seedStore(sellerId)
       const planId = await seedBrandPlan(storeId)
       const paymentRequestId = `pr_${randomUUID()}`
-      await seedCheckoutSession(paymentRequestId, buyerId)
+      const { sessionId } = await seedCheckoutSession(paymentRequestId, buyerId, { storeId })
 
       const brandSubId = randomUUID()
       const now = new Date()
@@ -1128,6 +1214,10 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
         },
       )
 
+      // Fan-out ran for the order path — exactly 1 order created
+      expect(await readOrders(sessionId)).toHaveLength(1)
+
+      // Brand-sub handler was NOT invoked — sub remains pending
       const sub = await withAdmin(
         setupDb.db,
         { userId: SYSTEM_ACTOR, reason: "verify" },
@@ -1165,7 +1255,7 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
     it("38 — bad signature on order-shaped event → 401; no idempotency row; session unchanged", async () => {
       const buyerId = await seedUser()
       const paymentRequestId = `pr_${randomUUID()}`
-      const sessionId = await seedCheckoutSession(paymentRequestId, buyerId)
+      const { sessionId } = await seedCheckoutSession(paymentRequestId, buyerId)
       const eventId = `evt_${randomUUID()}`
 
       const res = await app.inject({
