@@ -5,6 +5,9 @@ import { verifyWebhookSignature } from "@bomy/hitpay"
 import { and, desc, eq } from "drizzle-orm"
 import type { FastifyPluginAsync } from "fastify"
 
+import { deriveEventIdentity } from "../../webhooks/hitpay/idempotency.js"
+import { handleOrderPayment } from "../../webhooks/hitpay/order-fanout.js"
+
 // Sentinel UUID identifying the HitPay webhook system as the audit actor
 // for all withAdmin writes. No user session exists for inbound webhooks.
 // Future: define system principals in a dedicated table (ADR-08).
@@ -91,14 +94,29 @@ export const hitpayWebhookRoutes: FastifyPluginAsync = async (app) => {
       typeof paymentRequestId === "string"
     ) {
       if (typeof paymentRequestId === "string") {
-        await handleBrandSubscriptionPayment({
+        const identity = deriveEventIdentity(
+          rawBody,
+          request.headers as Record<string, string | undefined>,
+        )
+        const orderResult = await handleOrderPayment({
           app,
           paymentRequestId,
           paymentId,
           status,
           amountStr,
           feesStr,
+          eventIdentity: identity,
         })
+        if (orderResult === "not_order") {
+          await handleBrandSubscriptionPayment({
+            app,
+            paymentRequestId,
+            paymentId,
+            status,
+            amountStr,
+            feesStr,
+          })
+        }
       }
     } else {
       request.log.warn({ eventType, paymentId }, "hitpay webhook: unrecognised event shape")
