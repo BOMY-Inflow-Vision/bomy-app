@@ -84,6 +84,10 @@ const MIGRATIONS = [
     name: "0011_cart_checkout",
     file: join(__dirname, "../drizzle/0011_cart_checkout.sql"),
   },
+  {
+    name: "0012_order_webhook_ledger",
+    file: join(__dirname, "../drizzle/0012_order_webhook_ledger.sql"),
+  },
 ]
 
 try {

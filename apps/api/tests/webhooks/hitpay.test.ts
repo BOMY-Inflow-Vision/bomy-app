@@ -9,7 +9,7 @@
  *   pnpm --filter @bomy/db migrate
  *   DATABASE_URL=... BOMY_RLS_READY=1 pnpm --filter @bomy/api test
  */
-import { createHmac, randomUUID } from "node:crypto"
+import { createHash, createHmac, randomUUID } from "node:crypto"
 
 import { makeDb, schema, withAdmin } from "@bomy/db"
 import { and, eq } from "drizzle-orm"
@@ -868,6 +868,436 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
           ),
       )
       expect(legs).toHaveLength(0)
+    })
+  })
+
+  // ── routing — order dispatcher (tests 11–13, 36–38) ───────────────────────
+
+  describe("routing — order dispatcher (tests 11–13, 36–38)", () => {
+    // Seeds a minimal but fan-out-valid checkout: session + one store row +
+    // one item + one active reservation. Fan-out will produce exactly one
+    // order and one converted reservation, satisfying the consistency check
+    // on idempotency replay. If storeId is supplied (Tests 11/36) the product
+    // and variant are created under it; otherwise a fresh seller + store are
+    // created internally (Test 13).
+    async function seedCheckoutSession(
+      paymentRequestId: string,
+      buyerId: string,
+      opts: { storeId?: string } = {},
+    ): Promise<{ sessionId: string; storeId: string; variantId: string }> {
+      const sessionId = randomUUID()
+      const productId = randomUUID()
+      const variantId = randomUUID()
+      const expiresAt = new Date(Date.now() + 30 * 60 * 1000)
+
+      const resolvedStoreId = opts.storeId ?? randomUUID()
+
+      await withAdmin(setupDb.db, { userId: SYSTEM_ACTOR, reason: "test seed" }, async (tx) => {
+        if (!opts.storeId) {
+          const sellerId = randomUUID()
+          await tx.insert(schema.users).values({
+            id: sellerId,
+            email: `${sellerId}@test.bomy`,
+            role: "seller_owner",
+          })
+          await tx.insert(schema.stores).values({
+            id: resolvedStoreId,
+            ownerId: sellerId,
+            name: "Routing Store",
+            slug: `routing-${resolvedStoreId}`,
+            status: "active",
+          })
+        }
+        await tx.insert(schema.products).values({
+          id: productId,
+          storeId: resolvedStoreId,
+          name: "Routing Product",
+          slug: `routing-${productId}`,
+          status: "active",
+        })
+        await tx.insert(schema.productVariants).values({
+          id: variantId,
+          productId,
+          name: "V",
+          priceMyrSen: 5000n,
+          stockCount: 100,
+          isActive: true,
+        })
+        await tx.insert(schema.checkoutSessions).values({
+          id: sessionId,
+          userId: buyerId,
+          shippingAddress: {
+            name: "Test",
+            line1: "1 Test St",
+            city: "KL",
+            state: "WP",
+            postcode: "50000",
+            country: "MY",
+          },
+          totalCatalogSen: 5000n,
+          totalShippingSen: 0n,
+          totalBuyerPaysSen: 5000n,
+          pspPaymentRequestId: paymentRequestId,
+          expiresAt,
+        })
+        await tx.insert(schema.checkoutSessionStores).values({
+          checkoutSessionId: sessionId,
+          storeId: resolvedStoreId,
+          retailSubtotalSen: 5000n,
+          brandDiscountSen: 0n,
+          discountedSubtotalSen: 5000n,
+          voucherContributionSen: 0n,
+          shippingFeeSen: 0n,
+        })
+        await tx.insert(schema.checkoutSessionItems).values({
+          checkoutSessionId: sessionId,
+          storeId: resolvedStoreId,
+          variantId,
+          productSnapshot: { id: productId, name: "Routing Product" },
+          variantSnapshot: { id: variantId, name: "V" },
+          quantity: 1,
+          unitPriceSen: 5000n,
+          lineTotalSen: 5000n,
+        })
+        await tx.insert(schema.inventoryReservations).values({
+          checkoutSessionId: sessionId,
+          variantId,
+          quantity: 1,
+          status: "active",
+          expiresAt,
+        })
+      })
+
+      return { sessionId, storeId: resolvedStoreId, variantId }
+    }
+
+    async function readOrders(sessionId: string) {
+      return withAdmin(setupDb.db, { userId: SYSTEM_ACTOR, reason: "verify" }, async (tx) =>
+        tx.select().from(schema.orders).where(eq(schema.orders.checkoutSessionId, sessionId)),
+      )
+    }
+
+    it("11 — payment_request_id matching checkout_session routes to order handler, not brand-sub", async () => {
+      const buyerId = await seedUser()
+      const sellerId = await seedUser("seller_owner")
+      const storeId = await seedStore(sellerId)
+      const planId = await seedBrandPlan(storeId)
+      const paymentRequestId = `pr_${randomUUID()}`
+      const { sessionId } = await seedCheckoutSession(paymentRequestId, buyerId, { storeId })
+
+      // Seed brand_sub with same paymentRequestId — must NOT be activated
+      const brandSubId = randomUUID()
+      const now = new Date()
+      await withAdmin(setupDb.db, { userId: SYSTEM_ACTOR, reason: "test seed" }, async (tx) => {
+        await tx.insert(schema.brandSubscriptions).values({
+          id: brandSubId,
+          userId: buyerId,
+          storeId,
+          planId,
+          status: "pending",
+          priceMyrSen: 5000n,
+          discountPct: 5,
+          periodStart: now,
+          periodEnd: new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000),
+          hitpayPaymentRequestId: paymentRequestId,
+          bomyCommissionSen: 0n,
+          brandPayoutSen: 0n,
+        })
+      })
+
+      const eventId = `evt_${randomUUID()}`
+      const res = await webhookInject(
+        app,
+        {
+          payment_request_id: paymentRequestId,
+          payment_id: `pay_${randomUUID()}`,
+          status: "completed",
+          amount: "50.00",
+          fees: "0.95",
+        },
+        { "hitpay-event-type": "payment_request.completed", "hitpay-event-id": eventId },
+      )
+      expect(res.statusCode).toBe(200)
+
+      // Order handler claimed idempotency
+      const events = await withAdmin(
+        setupDb.db,
+        { userId: SYSTEM_ACTOR, reason: "verify" },
+        async (tx) =>
+          tx
+            .select()
+            .from(schema.processedWebhookEvents)
+            .where(eq(schema.processedWebhookEvents.pspEventId, eventId)),
+      )
+      expect(events).toHaveLength(1)
+
+      // Fan-out created exactly 1 order
+      expect(await readOrders(sessionId)).toHaveLength(1)
+
+      // Brand-sub handler was NOT invoked — sub remains pending
+      const sub = await withAdmin(
+        setupDb.db,
+        { userId: SYSTEM_ACTOR, reason: "verify" },
+        async (tx) =>
+          tx
+            .select()
+            .from(schema.brandSubscriptions)
+            .where(eq(schema.brandSubscriptions.id, brandSubId)),
+      )
+      expect(sub[0]?.status).toBe("pending")
+    })
+
+    it("12 — payment_request_id matching only brand_sub falls through to brand-sub handler", async () => {
+      const ownerId = await seedUser("seller_owner")
+      const buyerId = await seedUser()
+      const storeId = await seedStore(ownerId)
+      const planId = await seedBrandPlan(storeId)
+      const paymentRequestId = `pr_${randomUUID()}`
+      const paymentId = `pay_${randomUUID()}`
+      const brandSubId = randomUUID()
+      const now = new Date()
+
+      await withAdmin(setupDb.db, { userId: SYSTEM_ACTOR, reason: "test seed" }, async (tx) => {
+        await tx.insert(schema.brandSubscriptions).values({
+          id: brandSubId,
+          userId: buyerId,
+          storeId,
+          planId,
+          status: "pending",
+          priceMyrSen: 50000n,
+          discountPct: 5,
+          periodStart: now,
+          periodEnd: new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000),
+          hitpayPaymentRequestId: paymentRequestId,
+          bomyCommissionSen: 0n,
+          brandPayoutSen: 0n,
+        })
+      })
+
+      // No checkout_session for this paymentRequestId → order handler returns "not_order"
+      // → falls through to brand-sub handler → activates
+      const res = await webhookInject(
+        app,
+        {
+          payment_request_id: paymentRequestId,
+          payment_id: paymentId,
+          status: "completed",
+          amount: "500.00",
+          fees: "1.50",
+        },
+        {
+          "hitpay-event-type": "payment_request.completed",
+          "hitpay-event-id": `evt_${randomUUID()}`,
+        },
+      )
+      expect(res.statusCode).toBe(200)
+
+      const sub = await withAdmin(
+        setupDb.db,
+        { userId: SYSTEM_ACTOR, reason: "verify" },
+        async (tx) =>
+          tx
+            .select()
+            .from(schema.brandSubscriptions)
+            .where(eq(schema.brandSubscriptions.id, brandSubId)),
+      )
+      expect(sub[0]?.status).toBe("active")
+    })
+
+    it("13 — missing Hitpay-Event-Id uses derived:SHA256(body); same body is idempotent", async () => {
+      const buyerId = await seedUser()
+      const paymentRequestId = `pr_${randomUUID()}`
+      const { sessionId } = await seedCheckoutSession(paymentRequestId, buyerId)
+
+      const bodyObj = {
+        payment_request_id: paymentRequestId,
+        payment_id: `pay_${randomUUID()}`,
+        status: "completed",
+        amount: "50.00",
+        fees: "0.95",
+      }
+      const rawBody = JSON.stringify(bodyObj)
+      const signature = makeSignature(rawBody)
+      const expectedEventId = `derived:${createHash("sha256").update(rawBody).digest("hex")}`
+      const headers = {
+        "content-type": "application/json",
+        "hitpay-signature": signature,
+        "hitpay-event-type": "payment_request.completed",
+        // No hitpay-event-id — tests the fallback path
+      }
+
+      const res1 = await app.inject({
+        method: "POST",
+        url: "/webhooks/hitpay",
+        headers,
+        body: rawBody,
+      })
+      expect(res1.statusCode).toBe(200)
+
+      const events1 = await withAdmin(
+        setupDb.db,
+        { userId: SYSTEM_ACTOR, reason: "verify" },
+        async (tx) =>
+          tx
+            .select()
+            .from(schema.processedWebhookEvents)
+            .where(eq(schema.processedWebhookEvents.pspEventId, expectedEventId)),
+      )
+      expect(events1).toHaveLength(1)
+      expect(events1[0]?.pspEventId).toMatch(/^derived:/)
+
+      // Fan-out created exactly 1 order on first delivery
+      expect(await readOrders(sessionId)).toHaveLength(1)
+
+      // Replay identical body → idempotency hit; consistency check must pass (paid session, 1 order, converted reservation)
+      const res2 = await app.inject({
+        method: "POST",
+        url: "/webhooks/hitpay",
+        headers,
+        body: rawBody,
+      })
+      expect(res2.statusCode).toBe(200)
+
+      const events2 = await withAdmin(
+        setupDb.db,
+        { userId: SYSTEM_ACTOR, reason: "verify" },
+        async (tx) =>
+          tx
+            .select()
+            .from(schema.processedWebhookEvents)
+            .where(eq(schema.processedWebhookEvents.pspEventId, expectedEventId)),
+      )
+      expect(events2).toHaveLength(1)
+      // No duplicate fan-out — order count unchanged
+      expect(await readOrders(sessionId)).toHaveLength(1)
+    })
+
+    it("36 — order handler 'handled' suppresses brand-sub invocation (§3.1 regression)", async () => {
+      const buyerId = await seedUser()
+      const sellerId = await seedUser("seller_owner")
+      const storeId = await seedStore(sellerId)
+      const planId = await seedBrandPlan(storeId)
+      const paymentRequestId = `pr_${randomUUID()}`
+      const { sessionId } = await seedCheckoutSession(paymentRequestId, buyerId, { storeId })
+
+      const brandSubId = randomUUID()
+      const now = new Date()
+      await withAdmin(setupDb.db, { userId: SYSTEM_ACTOR, reason: "test seed" }, async (tx) => {
+        await tx.insert(schema.brandSubscriptions).values({
+          id: brandSubId,
+          userId: buyerId,
+          storeId,
+          planId,
+          status: "pending",
+          priceMyrSen: 5000n,
+          discountPct: 5,
+          periodStart: now,
+          periodEnd: new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000),
+          hitpayPaymentRequestId: paymentRequestId,
+          bomyCommissionSen: 0n,
+          brandPayoutSen: 0n,
+        })
+      })
+
+      await webhookInject(
+        app,
+        {
+          payment_request_id: paymentRequestId,
+          payment_id: `pay_${randomUUID()}`,
+          status: "completed",
+          amount: "50.00",
+          fees: "0.95",
+        },
+        {
+          "hitpay-event-type": "payment_request.completed",
+          "hitpay-event-id": `evt_${randomUUID()}`,
+        },
+      )
+
+      // Fan-out ran for the order path — exactly 1 order created
+      expect(await readOrders(sessionId)).toHaveLength(1)
+
+      // Brand-sub handler was NOT invoked — sub remains pending
+      const sub = await withAdmin(
+        setupDb.db,
+        { userId: SYSTEM_ACTOR, reason: "verify" },
+        async (tx) =>
+          tx
+            .select()
+            .from(schema.brandSubscriptions)
+            .where(eq(schema.brandSubscriptions.id, brandSubId)),
+      )
+      expect(sub[0]?.status).toBe("pending")
+    })
+
+    it("37 — charge.updated header routes to refund handler before order dispatcher; no crash", async () => {
+      const paymentId = `pay_${randomUUID()}`
+      const res = await webhookInject(
+        app,
+        { payment_id: paymentId, refund_amount: "10.00", status: "refunded" },
+        { "hitpay-event-type": "charge.updated" },
+      )
+      expect(res.statusCode).toBe(200)
+
+      // Refund handler does not write processed_webhook_events
+      const events = await withAdmin(
+        setupDb.db,
+        { userId: SYSTEM_ACTOR, reason: "verify" },
+        async (tx) =>
+          tx
+            .select()
+            .from(schema.processedWebhookEvents)
+            .where(eq(schema.processedWebhookEvents.pspEventId, paymentId)),
+      )
+      expect(events).toHaveLength(0)
+    })
+
+    it("38 — bad signature on order-shaped event → 401; no idempotency row; session unchanged", async () => {
+      const buyerId = await seedUser()
+      const paymentRequestId = `pr_${randomUUID()}`
+      const { sessionId } = await seedCheckoutSession(paymentRequestId, buyerId)
+      const eventId = `evt_${randomUUID()}`
+
+      const res = await app.inject({
+        method: "POST",
+        url: "/webhooks/hitpay",
+        headers: {
+          "content-type": "application/json",
+          "hitpay-signature": "deadbeef",
+          "hitpay-event-type": "payment_request.completed",
+          "hitpay-event-id": eventId,
+        },
+        body: JSON.stringify({
+          payment_request_id: paymentRequestId,
+          payment_id: `pay_${randomUUID()}`,
+          status: "completed",
+          amount: "50.00",
+          fees: "0.95",
+        }),
+      })
+      expect(res.statusCode).toBe(401)
+
+      const events = await withAdmin(
+        setupDb.db,
+        { userId: SYSTEM_ACTOR, reason: "verify" },
+        async (tx) =>
+          tx
+            .select()
+            .from(schema.processedWebhookEvents)
+            .where(eq(schema.processedWebhookEvents.pspEventId, eventId)),
+      )
+      expect(events).toHaveLength(0)
+
+      const session = await withAdmin(
+        setupDb.db,
+        { userId: SYSTEM_ACTOR, reason: "verify" },
+        async (tx) =>
+          tx
+            .select()
+            .from(schema.checkoutSessions)
+            .where(eq(schema.checkoutSessions.id, sessionId)),
+      )
+      expect(session[0]?.status).toBe("pending_payment")
     })
   })
 })

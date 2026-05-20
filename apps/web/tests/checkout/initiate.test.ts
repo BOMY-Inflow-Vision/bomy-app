@@ -13,7 +13,7 @@
 import { randomUUID } from "node:crypto"
 
 import { makeDb, schema, withAdmin, withTenant } from "@bomy/db"
-import { and, desc, eq, sql } from "drizzle-orm"
+import { and, desc, eq, inArray, sql } from "drizzle-orm"
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi, type Mock } from "vitest"
 
 vi.mock("@/auth", () => ({ auth: vi.fn() }))
@@ -136,6 +136,10 @@ describe.skipIf(!shouldRun)("initiateCheckout", () => {
         await tx.delete(schema.users).where(eq(schema.users.id, buyerAId))
         await tx.delete(schema.users).where(eq(schema.users.id, buyerBId))
         await tx.delete(schema.users).where(eq(schema.users.id, sellerId))
+        await tx
+          .update(schema.platformConfig)
+          .set({ value: false })
+          .where(eq(schema.platformConfig.key, "checkout_enabled"))
       },
     )
     await testDb.close()
@@ -648,7 +652,12 @@ describe.skipIf(!shouldRun)("initiateCheckout", () => {
       tx
         .select()
         .from(schema.checkoutSessions)
-        .where(eq(schema.checkoutSessions.status, "pending_payment")),
+        .where(
+          and(
+            eq(schema.checkoutSessions.status, "pending_payment"),
+            inArray(schema.checkoutSessions.userId, [buyerAId, buyerBId]),
+          ),
+        ),
     )
     expect(sessions).toHaveLength(1)
   })
