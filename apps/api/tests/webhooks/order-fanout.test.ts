@@ -36,6 +36,10 @@ describe.skipIf(!shouldRun)("handleOrderPayment + fanOutPaid (integration)", () 
   let storeId: string
   let productId: string
   let variantId: string
+  // Extras for multi-store tests (Bob R3 negative-payout reproduction).
+  let extraStoreIds: string[]
+  let extraProductIds: string[]
+  let extraVariantIds: string[]
 
   // ── Test scaffolding ────────────────────────────────────────────────
 
@@ -101,6 +105,34 @@ describe.skipIf(!shouldRun)("handleOrderPayment + fanOutPaid (integration)", () 
         stockCount: 100,
         isActive: true,
       })
+      // Three extras for multi-store tests (4-store negative-payout reproduction).
+      extraStoreIds = [randomUUID(), randomUUID(), randomUUID()]
+      extraProductIds = [randomUUID(), randomUUID(), randomUUID()]
+      extraVariantIds = [randomUUID(), randomUUID(), randomUUID()]
+      for (let i = 0; i < 3; i++) {
+        await tx.insert(schema.stores).values({
+          id: extraStoreIds[i]!,
+          ownerId: sellerId,
+          name: `Fanout Store ${i + 2}`,
+          slug: `fanout-${extraStoreIds[i]!}`,
+          status: "active",
+        })
+        await tx.insert(schema.products).values({
+          id: extraProductIds[i]!,
+          storeId: extraStoreIds[i]!,
+          name: `Fanout Product ${i + 2}`,
+          slug: `fanout-${extraProductIds[i]!}`,
+          status: "active",
+        })
+        await tx.insert(schema.productVariants).values({
+          id: extraVariantIds[i]!,
+          productId: extraProductIds[i]!,
+          name: "V",
+          priceMyrSen: 5000n,
+          stockCount: 100,
+          isActive: true,
+        })
+      }
       // Ensure regular_order_commission_pct is seeded at 25.
       await tx
         .insert(schema.platformConfig)
@@ -123,8 +155,13 @@ describe.skipIf(!shouldRun)("handleOrderPayment + fanOutPaid (integration)", () 
       await tx.delete(schema.vouchers).where(eq(schema.vouchers.userId, buyerId))
       await tx.delete(schema.checkoutSessions).where(eq(schema.checkoutSessions.userId, buyerId))
       await tx.delete(schema.productVariants).where(eq(schema.productVariants.id, variantId))
+      for (const id of extraVariantIds)
+        await tx.delete(schema.productVariants).where(eq(schema.productVariants.id, id))
       await tx.delete(schema.products).where(eq(schema.products.id, productId))
+      for (const id of extraProductIds)
+        await tx.delete(schema.products).where(eq(schema.products.id, id))
       await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
+      for (const id of extraStoreIds) await tx.delete(schema.stores).where(eq(schema.stores.id, id))
       await tx.delete(schema.users).where(eq(schema.users.id, buyerId))
       await tx.delete(schema.users).where(eq(schema.users.id, sellerId))
     })
@@ -156,11 +193,17 @@ describe.skipIf(!shouldRun)("handleOrderPayment + fanOutPaid (integration)", () 
           target: schema.platformConfig.key,
           set: { value: 25 },
         })
-      // Restore stock baseline
+      // Restore stock baseline on the primary + extras.
       await tx
         .update(schema.productVariants)
         .set({ stockCount: 100 })
         .where(eq(schema.productVariants.id, variantId))
+      for (const id of extraVariantIds) {
+        await tx
+          .update(schema.productVariants)
+          .set({ stockCount: 100 })
+          .where(eq(schema.productVariants.id, id))
+      }
     })
   })
 
@@ -391,6 +434,47 @@ describe.skipIf(!shouldRun)("handleOrderPayment + fanOutPaid (integration)", () 
 
   // ── Happy path: voucher claim ───────────────────────────────────────
 
+  // Bob R4 verification: bomy_commission_negative log includes orderId
+  // per spec §6.1. Use a voucher big enough that BOMY's share goes
+  // negative.
+  it("voucher exceeds BOMY share → bomy_commission_negative warn log includes orderId", async () => {
+    // retail=5000, shipping=0, voucherContribution=4500.
+    // total = 5000 + 0 - 4500 = 500. fee small.
+    // net_catalog = 5000 - tiny psp = ~5000; seller_share = floor(5000 * 75/100) = 3750
+    // bomy = 5000 - 3750 - 4500 = -3250 ← negative
+    const { sessionId, pspPaymentRequestId } = await seedSession({
+      withVoucher: true,
+      retailSubtotalSen: 5000n,
+      shippingFeeSen: 0n,
+      voucherContributionSen: 4500n,
+      voucherDiscountTotalSen: 4500n,
+      voucherFixedAmountSen: 4500n,
+    })
+    await handleOrderPayment({
+      app: makeFakeApp(),
+      paymentRequestId: pspPaymentRequestId,
+      paymentId: `pay-${randomUUID()}`,
+      status: "completed",
+      amountStr: "5.00", // 500 sen = totalBuyerPaysSen
+      feesStr: "0.01",
+      eventIdentity: makeIdentity(),
+    })
+
+    const session = await readSession(sessionId)
+    expect(session?.status).toBe("paid")
+
+    const negLogs = logsByEvent("bomy_commission_negative")
+    expect(negLogs).toHaveLength(1)
+    const obj = negLogs[0]?.obj as Record<string, unknown>
+    // R4: orderId must be present (not just storeId).
+    expect(obj["orderId"]).toBeDefined()
+    expect(typeof obj["orderId"]).toBe("string")
+    expect(obj["storeId"]).toBe(storeId)
+    // The actual bomy commission depends on fee math; assert it's negative.
+    const reportedBomy = BigInt(obj["bomyCommissionSen"] as string)
+    expect(reportedBomy).toBeLessThan(0n)
+  })
+
   it("completed event with voucher → voucher redeemed, session paid", async () => {
     const { sessionId, voucherId, pspPaymentRequestId } = await seedSession({
       withVoucher: true,
@@ -556,7 +640,7 @@ describe.skipIf(!shouldRun)("handleOrderPayment + fanOutPaid (integration)", () 
 
   // ── B8: missing paymentId on completed → park amount_mismatch ───────
 
-  it("completed event with empty paymentId → park amount_mismatch; no orders/ledger", async () => {
+  it("completed event with empty paymentId → park amount_mismatch; no orders/ledger; structured review log emitted", async () => {
     const { sessionId, pspPaymentRequestId } = await seedSession()
     await handleOrderPayment({
       app: makeFakeApp(),
@@ -572,11 +656,17 @@ describe.skipIf(!shouldRun)("handleOrderPayment + fanOutPaid (integration)", () 
     expect(session?.paymentReviewReason).toBe("amount_mismatch")
     expect(await readOrders(sessionId)).toHaveLength(0)
     expect(await readLedger(sessionId)).toHaveLength(0)
+    // Bob R1: PR #34 alerting keys off event=order_payment_review.
+    const reviewLogs = logsByEvent("order_payment_review")
+    expect(reviewLogs).toHaveLength(1)
+    expect((reviewLogs[0]?.obj as Record<string, unknown>)["cause"]).toBe(
+      "missing_payment_id_on_completed",
+    )
   })
 
   // ── Amount mismatch → park ──────────────────────────────────────────
 
-  it("amount mismatch → park amount_mismatch; no orders/ledger; reservations untouched", async () => {
+  it("amount mismatch → park amount_mismatch; no orders/ledger; reservations untouched; structured review log emitted", async () => {
     const { sessionId, pspPaymentRequestId } = await seedSession()
     await handleOrderPayment({
       app: makeFakeApp(),
@@ -592,6 +682,10 @@ describe.skipIf(!shouldRun)("handleOrderPayment + fanOutPaid (integration)", () 
     expect(session?.paymentReviewReason).toBe("amount_mismatch")
     expect(await readOrders(sessionId)).toHaveLength(0)
     expect(await readReservationStatuses(sessionId)).toEqual(["active"]) // untouched
+    const reviewLogs = logsByEvent("order_payment_review")
+    expect(reviewLogs).toHaveLength(1)
+    expect((reviewLogs[0]?.obj as Record<string, unknown>)["expectedAmount"]).toBe("5500")
+    expect((reviewLogs[0]?.obj as Record<string, unknown>)["receivedAmount"]).toBe("9999")
   })
 
   // ── B6: Step F status guard ─────────────────────────────────────────
@@ -631,7 +725,7 @@ describe.skipIf(!shouldRun)("handleOrderPayment + fanOutPaid (integration)", () 
 
   // ── PSP fee parse failures → park amount_mismatch ───────────────────
 
-  it("feesStr unparseable → park amount_mismatch; no orders/ledger", async () => {
+  it("feesStr unparseable → park amount_mismatch; review log with cause=psp_fee_unparseable", async () => {
     const { sessionId, pspPaymentRequestId } = await seedSession()
     await handleOrderPayment({
       app: makeFakeApp(),
@@ -646,9 +740,12 @@ describe.skipIf(!shouldRun)("handleOrderPayment + fanOutPaid (integration)", () 
     expect(session?.status).toBe("payment_review_required")
     expect(session?.paymentReviewReason).toBe("amount_mismatch")
     expect(await readOrders(sessionId)).toHaveLength(0)
+    const reviewLogs = logsByEvent("order_payment_review")
+    expect(reviewLogs).toHaveLength(1)
+    expect((reviewLogs[0]?.obj as Record<string, unknown>)["cause"]).toBe("psp_fee_unparseable")
   })
 
-  it("feesStr > total → park amount_mismatch", async () => {
+  it("feesStr > total → park amount_mismatch; review log with cause=psp_fee_exceeds_gross", async () => {
     const { sessionId, pspPaymentRequestId } = await seedSession()
     await handleOrderPayment({
       app: makeFakeApp(),
@@ -660,6 +757,9 @@ describe.skipIf(!shouldRun)("handleOrderPayment + fanOutPaid (integration)", () 
       eventIdentity: makeIdentity(),
     })
     expect((await readSession(sessionId))?.paymentReviewReason).toBe("amount_mismatch")
+    const reviewLogs = logsByEvent("order_payment_review")
+    expect(reviewLogs).toHaveLength(1)
+    expect((reviewLogs[0]?.obj as Record<string, unknown>)["cause"]).toBe("psp_fee_exceeds_gross")
   })
 
   // ── Commission config validation → park invalid_commission_config ───
@@ -730,6 +830,100 @@ describe.skipIf(!shouldRun)("handleOrderPayment + fanOutPaid (integration)", () 
     // BEFORE we get to the negative-seller-payout check. Adjust the test
     // to use a fees value that is <= total but still over-allocates.
     expect((await readSession(sessionId))?.status).toBe("payment_review_required")
+  })
+
+  // Bob R3: real 4-store reproduction of the PSP-fee over-allocation
+  // that triggers NegativeSellerPayoutError → park as invalid_commission_config.
+  // From commission.test.ts: four stores each net=1, total=4, pspFee=3.
+  // Last store absorbs the floor remainder (3) against net=1 → seller_payout=-1.
+  it("4-store PSP-fee over-allocation → NegativeSellerPayoutError parks as invalid_commission_config; no orders or ledger", async () => {
+    const sessionId = randomUUID()
+    const pspPaymentRequestId = `pr-${randomUUID()}`
+    const allStoreIds = [storeId, ...extraStoreIds]
+    const allVariantIds = [variantId, ...extraVariantIds]
+
+    await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "seed 4-store" }, async (tx) => {
+      // Each store contributes net = 1: discounted=1, shipping=0, voucher=0.
+      // Total = 4. Fee = 3 (set later via webhook feesStr).
+      await tx.insert(schema.checkoutSessions).values({
+        id: sessionId,
+        userId: buyerId,
+        status: "pending_payment",
+        shippingAddress: {},
+        totalCatalogSen: 4n, // 4 stores × retail 1
+        totalShippingSen: 0n,
+        voucherDiscountSen: 0n,
+        brandDiscountTotalSen: 0n,
+        totalBuyerPaysSen: 4n,
+        pspPaymentRequestId,
+        expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+      })
+      // Sort by storeId asc so allocator order matches ORDER BY in fanOutPaid.
+      const sortedStoreIds = [...allStoreIds].sort()
+      for (let i = 0; i < sortedStoreIds.length; i++) {
+        const sId = sortedStoreIds[i]!
+        const vId = allVariantIds[allStoreIds.indexOf(sId)]!
+        await tx.insert(schema.checkoutSessionStores).values({
+          checkoutSessionId: sessionId,
+          storeId: sId,
+          retailSubtotalSen: 1n,
+          brandDiscountSen: 0n,
+          discountedSubtotalSen: 1n,
+          voucherContributionSen: 0n,
+          shippingFeeSen: 0n,
+        })
+        await tx.insert(schema.checkoutSessionItems).values({
+          checkoutSessionId: sessionId,
+          storeId: sId,
+          variantId: vId,
+          productSnapshot: { id: vId, name: "v" },
+          variantSnapshot: { id: vId },
+          quantity: 1,
+          unitPriceSen: 1n,
+          lineTotalSen: 1n,
+        })
+        await tx.insert(schema.inventoryReservations).values({
+          checkoutSessionId: sessionId,
+          variantId: vId,
+          quantity: 1,
+          status: "active",
+          expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+        })
+      }
+    })
+
+    await handleOrderPayment({
+      app: makeFakeApp(),
+      paymentRequestId: pspPaymentRequestId,
+      paymentId: `pay-${randomUUID()}`,
+      status: "completed",
+      amountStr: "0.04", // 4 sen — matches totalBuyerPaysSen
+      feesStr: "0.03", // 3 sen — <= total (passes the gross check) but over-allocates
+      eventIdentity: makeIdentity(),
+    })
+
+    // Assert park.
+    const session = await readSession(sessionId)
+    expect(session?.status).toBe("payment_review_required")
+    expect(session?.paymentReviewReason).toBe("invalid_commission_config")
+
+    // Assert no orders, no ledger, reservations untouched.
+    expect(await readOrders(sessionId)).toHaveLength(0)
+    expect(await readLedger(sessionId)).toHaveLength(0)
+    expect(await readReservationStatuses(sessionId)).toEqual([
+      "active",
+      "active",
+      "active",
+      "active",
+    ])
+
+    // Assert the structured review log fired with the right shape.
+    const reviewLogs = logsByEvent("order_payment_review")
+    const negativeLog = reviewLogs.find(
+      (l) => (l.obj as Record<string, unknown>)["reason"] === "negative_seller_payout",
+    )
+    expect(negativeLog).toBeDefined()
+    expect((negativeLog?.obj as Record<string, unknown>)["sellerPayoutSen"]).toBe("-1")
   })
 
   it("fee == total edge: single-store fan-out succeeds (no negative seller payout false-positive)", async () => {
@@ -813,7 +1007,7 @@ describe.skipIf(!shouldRun)("handleOrderPayment + fanOutPaid (integration)", () 
 
   // ── Unknown status → park ───────────────────────────────────────────
 
-  it("unknown HitPay status → park amount_mismatch", async () => {
+  it("unknown HitPay status → park amount_mismatch; review log carries hitpayStatus", async () => {
     const { sessionId, pspPaymentRequestId } = await seedSession()
     await handleOrderPayment({
       app: makeFakeApp(),
@@ -825,5 +1019,10 @@ describe.skipIf(!shouldRun)("handleOrderPayment + fanOutPaid (integration)", () 
       eventIdentity: makeIdentity(),
     })
     expect((await readSession(sessionId))?.paymentReviewReason).toBe("amount_mismatch")
+    const reviewLogs = logsByEvent("order_payment_review")
+    expect(reviewLogs).toHaveLength(1)
+    expect((reviewLogs[0]?.obj as Record<string, unknown>)["hitpayStatus"]).toBe(
+      "weird_unknown_status",
+    )
   })
 })

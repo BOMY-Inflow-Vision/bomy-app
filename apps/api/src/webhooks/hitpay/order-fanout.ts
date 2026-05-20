@@ -125,9 +125,18 @@ export async function handleOrderPayment(args: OrderPaymentArgs): Promise<"handl
       }
 
       // Step E: unknown non-failed status — park for review.
+      // Bob R1: every park path emits event: "order_payment_review" so
+      // PR #34's event-keyed alerting picks up parked sessions.
       if (args.status !== "completed" && args.status !== "succeeded") {
         args.app.log.error(
-          { status: args.status, sessionId: session.id, eventId: args.eventIdentity.pspEventId },
+          {
+            event: "order_payment_review",
+            sessionId: session.id,
+            paymentId: args.paymentId,
+            eventId: args.eventIdentity.pspEventId,
+            reason: "amount_mismatch",
+            hitpayStatus: args.status,
+          },
           "hitpay webhook: unknown payment_request status — parking for review",
         )
         await parkPaymentReview(tx, session, "amount_mismatch", args)
@@ -137,7 +146,15 @@ export async function handleOrderPayment(args: OrderPaymentArgs): Promise<"handl
       // Step E2 (B8): missing payment_id on a completed event.
       if (!args.paymentId) {
         args.app.log.error(
-          { sessionId: session.id, paymentRequestId: args.paymentRequestId },
+          {
+            event: "order_payment_review",
+            sessionId: session.id,
+            paymentId: args.paymentId,
+            eventId: args.eventIdentity.pspEventId,
+            reason: "amount_mismatch",
+            cause: "missing_payment_id_on_completed",
+            paymentRequestId: args.paymentRequestId,
+          },
           "hitpay webhook: order payment completed but payment_id missing — parking for review",
         )
         await parkPaymentReview(tx, session, "amount_mismatch", args)
@@ -150,7 +167,15 @@ export async function handleOrderPayment(args: OrderPaymentArgs): Promise<"handl
         amountSen = parseSen(args.amountStr)
       } catch {
         args.app.log.error(
-          { amountStr: args.amountStr, sessionId: session.id },
+          {
+            event: "order_payment_review",
+            sessionId: session.id,
+            paymentId: args.paymentId,
+            eventId: args.eventIdentity.pspEventId,
+            reason: "amount_mismatch",
+            cause: "amount_unparseable",
+            amountStr: args.amountStr,
+          },
           "hitpay webhook: order payment amount unparseable — parking for review",
         )
         await parkPaymentReview(tx, session, "amount_mismatch", args)
@@ -232,7 +257,15 @@ async function fanOutPaid(
     pspFeeSen = parseSen(args.feesStr)
   } catch {
     args.app.log.error(
-      { feesStr: args.feesStr, sessionId: session.id, eventId: args.eventIdentity.pspEventId },
+      {
+        event: "order_payment_review",
+        sessionId: session.id,
+        paymentId: args.paymentId,
+        eventId: args.eventIdentity.pspEventId,
+        reason: "amount_mismatch",
+        cause: "psp_fee_unparseable",
+        feesStr: args.feesStr,
+      },
       "hitpay webhook: psp fee unparseable — parking for review",
     )
     await parkPaymentReview(tx, session, "amount_mismatch", args)
@@ -241,9 +274,14 @@ async function fanOutPaid(
   if (pspFeeSen > session.totalBuyerPaysSen) {
     args.app.log.error(
       {
+        event: "order_payment_review",
+        sessionId: session.id,
+        paymentId: args.paymentId,
+        eventId: args.eventIdentity.pspEventId,
+        reason: "amount_mismatch",
+        cause: "psp_fee_exceeds_gross",
         pspFeeSen: pspFeeSen.toString(),
         totalBuyerPaysSen: session.totalBuyerPaysSen.toString(),
-        sessionId: session.id,
       },
       "hitpay webhook: psp fee greater than gross — parking for review",
     )
@@ -359,17 +397,9 @@ async function fanOutPaid(
       }
       throw err
     }
-    if (split.bomyCommissionSen < 0n) {
-      args.app.log.warn(
-        {
-          event: "bomy_commission_negative",
-          sessionId: session.id,
-          storeId: cs.storeId,
-          bomyCommissionSen: split.bomyCommissionSen.toString(),
-        },
-        "hitpay webhook: bomy commission negative (voucher exceeds BOMY share)",
-      )
-    }
+    // bomy_commission_negative is logged in Step 8 (after the order
+    // INSERT) so the structured payload can include orderId per
+    // spec §6.1. Pass1 only collects plans.
     plans.push({ csStore: cs, split, pspFeeAllocatedSen })
   }
 
@@ -383,6 +413,7 @@ async function fanOutPaid(
     storeId: string
     sellerPayoutSen: bigint
     pspFeeAllocatedSen: bigint
+    bomyCommissionSen: bigint
   }
   const insertedOrders: InsertedOrder[] = []
   for (const plan of plans) {
@@ -407,7 +438,13 @@ async function fanOutPaid(
         paymentStatus: "paid",
         fulfilmentStatus: "processing",
       })
-      .onConflictDoNothing()
+      // Targeted at orders_session_store_unique only (Bob R2). A blanket
+      // ON CONFLICT DO NOTHING would silently swallow any future unique
+      // constraint on the table — anything other than the duplicate-
+      // fan-out case should surface as an error.
+      .onConflictDoNothing({
+        target: [schema.orders.checkoutSessionId, schema.orders.storeId],
+      })
       .returning({ id: schema.orders.id })
 
     if (inserted.length === 0) {
@@ -429,7 +466,24 @@ async function fanOutPaid(
       storeId: cs.storeId,
       sellerPayoutSen: plan.split.sellerPayoutSen,
       pspFeeAllocatedSen: plan.pspFeeAllocatedSen,
+      bomyCommissionSen: plan.split.bomyCommissionSen,
     })
+
+    // Bob R4 (spec §6.1): bomy_commission_negative must include
+    // orderId. Emitted here, after the INSERT, so the orderId is
+    // available — not in Pass 1 where only storeId existed.
+    if (plan.split.bomyCommissionSen < 0n) {
+      args.app.log.warn(
+        {
+          event: "bomy_commission_negative",
+          sessionId: session.id,
+          orderId,
+          storeId: cs.storeId,
+          bomyCommissionSen: plan.split.bomyCommissionSen.toString(),
+        },
+        "hitpay webhook: bomy commission negative (voucher exceeds BOMY share)",
+      )
+    }
 
     // Insert order_items for this store.
     const items = itemsByStore.get(cs.storeId) ?? []
