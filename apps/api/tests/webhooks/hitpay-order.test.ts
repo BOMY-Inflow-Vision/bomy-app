@@ -17,9 +17,10 @@
 import { createHmac, randomUUID } from "node:crypto"
 
 import { makeDb, schema, withAdmin } from "@bomy/db"
-import { eq, sql } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 
+import { runInventoryReservationExpiryJob } from "../../src/jobs/inventory-reservation-expiry.js"
 import { createApp } from "../../src/server.js"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
@@ -299,6 +300,12 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay — order-payment integration
     totalBuyerPaysSen?: bigint
     /** Use the buyerSellerStoreId/Variant (test 35). */
     useBuyerSellerStore?: boolean
+    /**
+     * Override inventory_reservations.expires_at. Use a past date when
+     * a test needs the reservation to qualify as an expiry-job candidate
+     * (the job filters r.expires_at < now() - interval '5 minutes').
+     */
+    reservationExpiresAt?: Date
   }
 
   interface SeedResult {
@@ -405,7 +412,7 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay — order-payment integration
             variantId: vId,
             quantity: 1,
             status: "active",
-            expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+            expiresAt: opts.reservationExpiresAt ?? new Date(Date.now() + 30 * 60 * 1000),
           })
         }
       },
@@ -527,29 +534,21 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay — order-payment integration
     })
   }
 
-  async function countAdminBypassAuditFor(sessionId: string): Promise<number> {
+  // Audit rows are written inside the withAdmin tx that handleOrderPayment
+  // opens (apps/api/src/webhooks/hitpay/order-fanout.ts:78), with reason
+  // `hitpay webhook: order payment ${pspEventId}`. Look up by exact
+  // reason so the test asserts the audit row that actually corresponds
+  // to the duplicate fan-out attempt (not just any row mentioning a
+  // session id, which would also match every read helper above).
+  async function countAdminBypassAuditByReason(reason: string): Promise<number> {
     return withAdmin(setupDb.db, { userId: SYSTEM_ACTOR, reason: "audit count" }, async (tx) => {
       const rows = await tx
         .select({ id: schema.adminBypassAudit.id })
         .from(schema.adminBypassAudit)
-        .where(sql`${schema.adminBypassAudit.reason} LIKE ${`%${sessionId}%`}`)
+        .where(eq(schema.adminBypassAudit.reason, reason))
       return rows.length
     })
   }
-
-  async function countProcessedEvents(pspEventId: string): Promise<number> {
-    return withAdmin(setupDb.db, { userId: SYSTEM_ACTOR, reason: "count evt" }, async (tx) => {
-      const rows = await tx
-        .select({ id: schema.processedWebhookEvents.id })
-        .from(schema.processedWebhookEvents)
-        .where(eq(schema.processedWebhookEvents.pspEventId, pspEventId))
-      return rows.length
-    })
-  }
-
-  // Silence "unused" lint until later blocks consume these helpers.
-  void countAdminBypassAuditFor
-  void countProcessedEvents
 
   // ── Tests 14–16d: idempotency + collisions ──────────────────────────
 
@@ -791,12 +790,13 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay — order-payment integration
     )
 
     logCalls = []
+    const secondEventId = `evt-${randomUUID()}`
     await injectOrder({
       paymentRequestId: pspPaymentRequestId,
       paymentId: `pay-${randomUUID()}`,
       amountStr: "55.00",
       feesStr: "0.95",
-      eventId: `evt-${randomUUID()}`,
+      eventId: secondEventId,
     })
     const blockedLogs = logsByEvent("webhook_duplicate_fanout_blocked")
     expect(blockedLogs).toHaveLength(1)
@@ -807,6 +807,15 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay — order-payment integration
     const ordersAfter2 = await readOrders(sessionId)
     expect(ordersAfter2).toHaveLength(1)
     expect(ordersAfter2[0]?.id).toBe(firstOrderId)
+
+    // B7 invariant: even though the duplicate fan-out was blocked,
+    // the surrounding withAdmin tx MUST commit so the admin_bypass_audit
+    // row persists. The audit reason is keyed off the pspEventId of the
+    // second delivery, not the session — assert on the exact reason.
+    const auditCount = await countAdminBypassAuditByReason(
+      `hitpay webhook: order payment ${secondEventId}`,
+    )
+    expect(auditCount).toBe(1)
   })
 
   // ── Tests 17–21: paid happy path ─────────────────────────────────────
@@ -1328,12 +1337,25 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay — order-payment integration
     expect(ledger.filter((l) => l.direction === "credit")).toHaveLength(1)
   })
 
-  it("31 — webhook holds FOR UPDATE on session; concurrent SKIP LOCKED probe returns 0; fan-out completes after release", async () => {
-    const { sessionId, pspPaymentRequestId } = await seedFullSession()
+  it("31 — webhook holds session FOR UPDATE; real expiry job's SKIP LOCKED defers; fan-out completes after release", async () => {
+    // Seed with a 6-minute-past expiry so the reservation actually
+    // qualifies as an expiry-job candidate (the job filters
+    // r.expires_at < now() - interval '5 minutes'). Without this, the
+    // job would skip the candidate for the WRONG reason (not yet
+    // expired) and a regression in the lock shape would still pass.
+    const {
+      sessionId,
+      pspPaymentRequestId,
+      variantIds: vids,
+    } = await seedFullSession({
+      reservationExpiresAt: new Date(Date.now() - 6 * 60 * 1000),
+    })
+    const stockBefore = await readStock(vids[0]!)
 
-    // (a) Hold a FOR UPDATE lock on the session via lockDb. The locker
-    // tx awaits the `release` promise inside the transaction body so
-    // the lock stays open until we resolve it.
+    // (a) Hold a FOR UPDATE lock on the session via lockDb so the
+    // locker and the job run on different physical connections. The
+    // locker awaits `lockHeld` inside the tx body, keeping the row
+    // exclusively locked until we resolve the promise below.
     let release!: () => void
     const lockHeld = new Promise<void>((r) => {
       release = r
@@ -1351,31 +1373,30 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay — order-payment integration
       },
     )
 
-    // (b) Tiny wait to let the locker actually take the lock before
-    // the probe runs. The probe MUST observe SKIP LOCKED behaviour, so
-    // we need the lock to be in place first.
+    // Tiny wait so the locker definitely takes the lock before the
+    // job runs. Without this the job race is non-deterministic.
     await new Promise((r) => setTimeout(r, 50))
 
-    const probed = await withAdmin(
-      setupDb.db,
-      { userId: SYSTEM_ACTOR, reason: "test 31 skip-locked probe" },
-      async (tx) => {
-        // Match the inventory-expiry job's lock shape: FOR UPDATE
-        // SKIP LOCKED on the locked session. The session row is held
-        // exclusively by the locker, so this MUST return 0 rows.
-        const rows = await tx.execute(
-          sql`SELECT id FROM checkout_sessions WHERE id = ${sessionId} FOR UPDATE SKIP LOCKED`,
-        )
-        return rows.length
-      },
-    )
-    expect(probed).toBe(0)
+    // (b) Run the REAL inventory-expiry job. Its candidate SQL joins
+    // checkout_sessions + inventory_reservations and locks
+    // `FOR UPDATE OF cs, r SKIP LOCKED`. The held session lock
+    // forces the join row to be skipped → the job MUST NOT release
+    // this reservation or restore stock for it.
+    const jobLogs: Array<{ obj: object; msg: string }> = []
+    await runInventoryReservationExpiryJob({
+      db: setupDb.db,
+      log: { info: (obj, msg) => jobLogs.push({ obj, msg }) },
+    })
+    expect(await readReservationStatuses(sessionId)).toEqual(["active"])
+    expect(await readStock(vids[0]!)).toBe(stockBefore)
+    expect((await readSession(sessionId))?.status).toBe("pending_payment")
 
-    // (c) Release the locker.
+    // (c) Release the locker so the rest of the test owns the row.
     release()
     await lockerDone
 
-    // (d) Now inject the webhook normally — fan-out completes.
+    // (d) Inject the webhook normally — fan-out completes against the
+    // still-active reservation, converting it.
     await injectOrder({
       paymentRequestId: pspPaymentRequestId,
       paymentId: `pay-${randomUUID()}`,
