@@ -920,9 +920,12 @@ describe.skipIf(!shouldRun)("handleOrderPayment + fanOutPaid (integration)", () 
     // Assert the structured review log fired with the right shape.
     const reviewLogs = logsByEvent("order_payment_review")
     const negativeLog = reviewLogs.find(
-      (l) => (l.obj as Record<string, unknown>)["reason"] === "negative_seller_payout",
+      (l) => (l.obj as Record<string, unknown>)["cause"] === "negative_seller_payout",
     )
     expect(negativeLog).toBeDefined()
+    expect((negativeLog?.obj as Record<string, unknown>)["reason"]).toBe(
+      "invalid_commission_config",
+    )
     expect((negativeLog?.obj as Record<string, unknown>)["sellerPayoutSen"]).toBe("-1")
   })
 

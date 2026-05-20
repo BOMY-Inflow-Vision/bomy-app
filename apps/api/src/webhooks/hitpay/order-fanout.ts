@@ -311,6 +311,7 @@ async function fanOutPaid(
       {
         event: "order_payment_review",
         sessionId: session.id,
+        paymentId: args.paymentId,
         eventId: args.eventIdentity.pspEventId,
         reason: "invalid_commission_config",
         pctValue: pctRaw,
@@ -385,10 +386,13 @@ async function fanOutPaid(
           {
             event: "order_payment_review",
             sessionId: session.id,
+            paymentId: args.paymentId,
+            eventId: args.eventIdentity.pspEventId,
             storeId: err.storeId,
             sellerPayoutSen: err.sellerPayoutSen.toString(),
             pspFeeAllocatedSen: pspFeeAllocatedSen.toString(),
-            reason: "negative_seller_payout",
+            reason: "invalid_commission_config",
+            cause: "negative_seller_payout",
           },
           "hitpay webhook: negative seller_payout (PSP fee over-allocation) — parking for review",
         )
