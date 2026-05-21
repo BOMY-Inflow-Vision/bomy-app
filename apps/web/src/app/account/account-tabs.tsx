@@ -1,7 +1,7 @@
 import Link from "next/link"
 
 interface Props {
-  active: "profile" | "subscriptions"
+  active: "profile" | "subscriptions" | "orders"
 }
 
 export function AccountTabs({ active }: Props) {
@@ -19,6 +19,9 @@ export function AccountTabs({ active }: Props) {
         className={active === "subscriptions" ? activeClass : inactiveClass}
       >
         Subscriptions
+      </Link>
+      <Link href="/account/orders" className={active === "orders" ? activeClass : inactiveClass}>
+        Orders
       </Link>
     </nav>
   )
