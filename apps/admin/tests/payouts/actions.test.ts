@@ -52,6 +52,7 @@ describe.skipIf(!shouldRun)("payout lifecycle actions", () => {
   let storeId: string
   const trackedOrderIds = new Set<string>()
   const trackedPayoutIds = new Set<string>()
+  const trackedSessionIds = new Set<string>()
 
   async function adminTx<T>(
     reason: string,
@@ -98,6 +99,7 @@ describe.skipIf(!shouldRun)("payout lifecycle actions", () => {
         fulfilmentStatus: overrides?.fulfilmentStatus ?? "completed",
       })
     })
+    trackedSessionIds.add(sessionId)
     trackedOrderIds.add(orderId)
     return orderId
   }
@@ -154,6 +156,11 @@ describe.skipIf(!shouldRun)("payout lifecycle actions", () => {
       }
       if (trackedOrderIds.size > 0) {
         await tx.delete(schema.orders).where(inArray(schema.orders.id, [...trackedOrderIds]))
+      }
+      if (trackedSessionIds.size > 0) {
+        await tx
+          .delete(schema.checkoutSessions)
+          .where(inArray(schema.checkoutSessions.id, [...trackedSessionIds]))
       }
       await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
       await tx.delete(schema.users).where(eq(schema.users.id, adminId))

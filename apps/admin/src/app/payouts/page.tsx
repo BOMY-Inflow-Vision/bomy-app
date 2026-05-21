@@ -7,6 +7,9 @@ import { senToMyr } from "@/lib/money"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001" as const
 
+const PAYOUT_STATUSES = ["pending", "processing", "completed", "failed"] as const
+type PayoutStatus = (typeof PAYOUT_STATUSES)[number]
+
 interface Props {
   searchParams: Promise<{ status?: string }>
 }
@@ -14,18 +17,17 @@ interface Props {
 export default async function PayoutsPage({ searchParams }: Props) {
   const { status } = await searchParams
 
+  const validStatus = PAYOUT_STATUSES.includes(status as PayoutStatus)
+    ? (status as PayoutStatus)
+    : undefined
+
   const payouts = await withAdmin(
     getDb(),
     { userId: SYSTEM_ACTOR, reason: "admin list payouts" },
     async (tx) => {
       const conditions = []
-      if (status) {
-        conditions.push(
-          eq(
-            schema.orderPayouts.status,
-            status as "pending" | "processing" | "completed" | "failed",
-          ),
-        )
+      if (validStatus) {
+        conditions.push(eq(schema.orderPayouts.status, validStatus))
       }
 
       return tx
@@ -61,7 +63,7 @@ export default async function PayoutsPage({ searchParams }: Props) {
       <div className="mb-6 flex gap-2">
         <a
           href="/payouts"
-          className={`rounded-full px-3 py-1 text-sm ${!status ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"}`}
+          className={`rounded-full px-3 py-1 text-sm ${!validStatus ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"}`}
         >
           All
         </a>
@@ -69,7 +71,7 @@ export default async function PayoutsPage({ searchParams }: Props) {
           <a
             key={s}
             href={`/payouts?status=${s}`}
-            className={`rounded-full px-3 py-1 text-sm capitalize ${status === s ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"}`}
+            className={`rounded-full px-3 py-1 text-sm capitalize ${validStatus === s ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"}`}
           >
             {s}
           </a>
