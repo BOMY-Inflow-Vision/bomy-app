@@ -5,6 +5,7 @@ import type { Database } from "@bomy/db"
 import { expireSubscriptions } from "./jobs/brand-subscription-expiry.js"
 import { runInventoryReservationExpiryJob } from "./jobs/inventory-reservation-expiry.js"
 import { notifyRenewalsDue } from "./jobs/membership-renewal-notification.js"
+import { ORDER_AUTO_COMPLETE_CRON, runOrderAutoCompleteJob } from "./jobs/order-auto-complete.js"
 import { issueMonthlyVouchers } from "./jobs/voucher-issuance.js"
 
 // MYT = UTC+8. Cron expressions use tz: 'Asia/Kuala_Lumpur' so times are
@@ -46,6 +47,7 @@ export async function createScheduler(
   const renewalQueue = new Queue("membership-renewal-notification", { connection })
   const expiryQueue = new Queue("brand-subscription-expiry", { connection })
   const invExpiryQueue = new Queue("inventory-reservation-expiry", { connection })
+  const orderAutoCompleteQueue = new Queue("order-auto-complete", { connection })
 
   // --- Register repeatable cron jobs ---
   await voucherQueue.upsertJobScheduler(
@@ -67,6 +69,11 @@ export async function createScheduler(
     "every-10min-inv-expiry",
     { pattern: INV_EXPIRY_CRON, tz: TZ },
     { name: "expire-reservations" },
+  )
+  await orderAutoCompleteQueue.upsertJobScheduler(
+    "daily-order-auto-complete",
+    { pattern: ORDER_AUTO_COMPLETE_CRON, tz: TZ },
+    { name: "order-auto-complete" },
   )
 
   // --- Workers ---
@@ -112,7 +119,22 @@ export async function createScheduler(
     { connection },
   )
 
-  for (const worker of [voucherWorker, renewalWorker, expiryWorker, invExpiryWorker]) {
+  const orderAutoCompleteWorker = new Worker(
+    "order-auto-complete",
+    async () => {
+      await runOrderAutoCompleteJob(db)
+      logger.info("jobs: order-auto-complete pass 1 + pass 2 done")
+    },
+    { connection },
+  )
+
+  for (const worker of [
+    voucherWorker,
+    renewalWorker,
+    expiryWorker,
+    invExpiryWorker,
+    orderAutoCompleteWorker,
+  ]) {
     worker.on("failed", (job, err) => {
       logger.error({ err, jobId: job?.id }, `jobs: worker failed — ${job?.name ?? "unknown"}`)
     })
@@ -129,10 +151,12 @@ export async function createScheduler(
         renewalWorker.close(),
         expiryWorker.close(),
         invExpiryWorker.close(),
+        orderAutoCompleteWorker.close(),
         voucherQueue.close(),
         renewalQueue.close(),
         expiryQueue.close(),
         invExpiryQueue.close(),
+        orderAutoCompleteQueue.close(),
       ])
     },
   }
