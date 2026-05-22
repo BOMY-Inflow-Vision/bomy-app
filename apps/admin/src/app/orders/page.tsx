@@ -3,6 +3,17 @@ import { senToMyr } from "@/lib/money"
 
 import { fetchOrdersFiltered } from "./_queries"
 
+const PAYMENT_STATUSES = ["pending", "paid", "failed", "refund_requested", "refunded"] as const
+const FULFILMENT_STATUSES = [
+  "processing",
+  "shipped",
+  "delivered",
+  "completed",
+  "cancelled",
+] as const
+type AdminPaymentStatus = (typeof PAYMENT_STATUSES)[number]
+type AdminFulfilmentStatus = (typeof FULFILMENT_STATUSES)[number]
+
 interface Props {
   searchParams: Promise<{
     payment_status?: string
@@ -16,14 +27,24 @@ interface Props {
 export default async function AdminOrdersPage({ searchParams }: Props) {
   const params = await searchParams
   const filters: {
-    paymentStatus?: string
-    fulfilmentStatus?: string
+    paymentStatus?: AdminPaymentStatus
+    fulfilmentStatus?: AdminFulfilmentStatus
     storeId?: string
     dateFrom?: string
     dateTo?: string
   } = {}
-  if (params.payment_status) filters.paymentStatus = params.payment_status
-  if (params.fulfilment_status) filters.fulfilmentStatus = params.fulfilment_status
+  if (
+    params.payment_status &&
+    PAYMENT_STATUSES.includes(params.payment_status as AdminPaymentStatus)
+  ) {
+    filters.paymentStatus = params.payment_status as AdminPaymentStatus
+  }
+  if (
+    params.fulfilment_status &&
+    FULFILMENT_STATUSES.includes(params.fulfilment_status as AdminFulfilmentStatus)
+  ) {
+    filters.fulfilmentStatus = params.fulfilment_status as AdminFulfilmentStatus
+  }
   if (params.store_id) filters.storeId = params.store_id
   if (params.date_from) filters.dateFrom = params.date_from
   if (params.date_to) filters.dateTo = params.date_to

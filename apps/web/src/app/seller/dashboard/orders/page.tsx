@@ -18,8 +18,20 @@ interface Props {
   searchParams: Promise<{ status?: string }>
 }
 
+const SELLER_ORDER_STATUSES = [
+  "processing",
+  "shipped",
+  "delivered",
+  "completed",
+  "cancelled",
+] as const
+type SellerOrderStatus = (typeof SELLER_ORDER_STATUSES)[number]
+
 export default async function SellerOrdersPage({ searchParams }: Props) {
   const { status } = await searchParams
+  const validStatus = SELLER_ORDER_STATUSES.includes(status as SellerOrderStatus)
+    ? (status as SellerOrderStatus)
+    : undefined
   const session = await auth()
   if (!session || session.user.role !== "seller_owner") {
     redirect("/auth/sign-in")
@@ -37,7 +49,7 @@ export default async function SellerOrdersPage({ searchParams }: Props) {
   )
   if (!store) redirect("/seller/dashboard")
 
-  const orders = await fetchSellerOrders(session.user.id, store.id, status)
+  const orders = await fetchSellerOrders(session.user.id, store.id, validStatus)
 
   const statuses = ["processing", "shipped", "delivered", "completed", "cancelled"]
 
@@ -48,7 +60,7 @@ export default async function SellerOrdersPage({ searchParams }: Props) {
       <div className="mb-6 flex gap-2">
         <a
           href="/seller/dashboard/orders"
-          className={`rounded-full px-3 py-1 text-sm ${!status ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"}`}
+          className={`rounded-full px-3 py-1 text-sm ${!validStatus ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"}`}
         >
           All
         </a>
@@ -56,7 +68,7 @@ export default async function SellerOrdersPage({ searchParams }: Props) {
           <a
             key={s}
             href={`/seller/dashboard/orders?status=${s}`}
-            className={`rounded-full px-3 py-1 text-sm capitalize ${status === s ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"}`}
+            className={`rounded-full px-3 py-1 text-sm capitalize ${validStatus === s ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"}`}
           >
             {s}
           </a>

@@ -4,6 +4,7 @@ import { getDb } from "@/lib/db"
 import { senToMyr } from "@/lib/money"
 
 import { fetchOrderWithDetail } from "../_queries"
+import { CreatePayoutButton } from "./_create-payout-button"
 
 interface Props {
   params: Promise<{ orderId: string }>
@@ -113,9 +114,12 @@ export default async function AdminOrderDetailPage({ params }: Props) {
       <section className="mb-6 rounded-xl border border-gray-200 p-6">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-gray-700">Payout history</h2>
-          <a href="/payouts" className="text-sm text-indigo-600 hover:underline">
-            Create payout record &rarr;
-          </a>
+          {order.fulfilmentStatus === "completed" &&
+            !order.payouts.some((p) =>
+              (["pending", "processing", "completed"] as const).includes(
+                p.status as "pending" | "processing" | "completed",
+              ),
+            ) && <CreatePayoutButton orderId={order.id} />}
         </div>
         {order.payouts.length === 0 ? (
           <p className="text-sm text-gray-400">No payouts yet.</p>

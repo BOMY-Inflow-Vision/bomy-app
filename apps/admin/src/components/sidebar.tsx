@@ -12,6 +12,9 @@ const NAV = [
   { href: "/brand-plans", label: "Brand Plans" },
   { href: "/goodie-box", label: "Goodie Box" },
   { href: "/vouchers", label: "Vouchers" },
+  { href: "/checkout-sessions", label: "Sessions" },
+  { href: "/orders", label: "Orders" },
+  { href: "/payouts", label: "Payouts" },
   { href: "/config", label: "Config" },
 ]
 

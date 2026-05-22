@@ -5,6 +5,8 @@ import { schema, withAdmin } from "@bomy/db"
 import { getDb } from "@/lib/db"
 import { senToMyr } from "@/lib/money"
 
+import { PayoutActions } from "./_payout-actions"
+
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001" as const
 
 const PAYOUT_STATUSES = ["pending", "processing", "completed", "failed"] as const
@@ -89,6 +91,7 @@ export default async function PayoutsPage({ searchParams }: Props) {
               <th className="px-4 py-3 text-left">Ref</th>
               <th className="px-4 py-3 text-left">Triggered</th>
               <th className="px-4 py-3 text-left">Completed</th>
+              <th className="px-4 py-3 text-left">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -108,11 +111,14 @@ export default async function PayoutsPage({ searchParams }: Props) {
                 <td className="px-4 py-3">{p.manualRef ?? "—"}</td>
                 <td className="px-4 py-3">{p.triggeredAt.toLocaleDateString("en-MY")}</td>
                 <td className="px-4 py-3">{p.completedAt?.toLocaleDateString("en-MY") ?? "—"}</td>
+                <td className="px-4 py-3">
+                  <PayoutActions payoutId={p.id} status={p.status} />
+                </td>
               </tr>
             ))}
             {payouts.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
+                <td colSpan={8} className="px-4 py-8 text-center text-gray-400">
                   No payouts.
                 </td>
               </tr>
