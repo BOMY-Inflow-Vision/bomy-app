@@ -57,6 +57,7 @@ The HitPay webhook route returns its 200 response before any email send complete
 | `apps/api/src/scheduler.ts`                            | `createScheduler(db, { mailer, logger })`                                                |
 | `apps/api/src/server.ts`                               | Register `mailerPlugin` before `hitpayWebhookRoutes` and before `createScheduler`        |
 | `apps/api/package.json`                                | Add `nodemailer`, `@types/nodemailer`                                                    |
+| `pnpm-lock.yaml`                                       | Updated by `pnpm add` for nodemailer / @types/nodemailer                                 |
 
 ---
 
@@ -200,10 +201,7 @@ All emails are plain text (no HTML). Subject and body per notification:
 - Subject: `New order received on BOMY`
 - Body: New order notification with payout amount, link to `/seller/dashboard/orders`
 
-**`order_paid` with `voucherClaimFailed: true` — additional ops alert:**
-
-- Subject: `[BOMY Ops] Voucher claim failed for session {sessionId}`
-- Body: Session ID, note that orders are confirmed, voucher ID, link to `/checkout-sessions/{sessionId}` on admin
+> `voucherClaimFailed: true` on an `order_paid` descriptor affects buyer/seller email context only (e.g., a note to the buyer that a voucher discount may be adjusted). It does **not** trigger an ops alert. The ops alert for voucher failures is driven exclusively by the `voucher_claim_failed` descriptor below.
 
 **`order_failed` — buyer:**
 
@@ -223,7 +221,7 @@ All emails are plain text (no HTML). Subject and body per notification:
 **Membership renewal — buyer:**
 
 - Subject: `Your BOMY membership renews in {daysBefore} days`
-- Body: Renewal date, amount, link to `/membership/manage`
+- Body: Renewal date, link to `/membership/manage`
 
 ### `sendRenewalEmail` (`notifications/membership.ts`)
 
