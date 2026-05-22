@@ -1,18 +1,14 @@
+import {
+  ORDER_FULFILMENT_STATUSES,
+  ORDER_PAYMENT_STATUSES,
+  type OrderFulfilmentStatus,
+  type OrderPaymentStatus,
+} from "@bomy/db"
+
 import { getDb } from "@/lib/db"
 import { senToMyr } from "@/lib/money"
 
 import { fetchOrdersFiltered } from "./_queries"
-
-const PAYMENT_STATUSES = ["pending", "paid", "failed", "refund_requested", "refunded"] as const
-const FULFILMENT_STATUSES = [
-  "processing",
-  "shipped",
-  "delivered",
-  "completed",
-  "cancelled",
-] as const
-type AdminPaymentStatus = (typeof PAYMENT_STATUSES)[number]
-type AdminFulfilmentStatus = (typeof FULFILMENT_STATUSES)[number]
 
 interface Props {
   searchParams: Promise<{
@@ -27,23 +23,23 @@ interface Props {
 export default async function AdminOrdersPage({ searchParams }: Props) {
   const params = await searchParams
   const filters: {
-    paymentStatus?: AdminPaymentStatus
-    fulfilmentStatus?: AdminFulfilmentStatus
+    paymentStatus?: OrderPaymentStatus
+    fulfilmentStatus?: OrderFulfilmentStatus
     storeId?: string
     dateFrom?: string
     dateTo?: string
   } = {}
   if (
     params.payment_status &&
-    PAYMENT_STATUSES.includes(params.payment_status as AdminPaymentStatus)
+    ORDER_PAYMENT_STATUSES.includes(params.payment_status as OrderPaymentStatus)
   ) {
-    filters.paymentStatus = params.payment_status as AdminPaymentStatus
+    filters.paymentStatus = params.payment_status as OrderPaymentStatus
   }
   if (
     params.fulfilment_status &&
-    FULFILMENT_STATUSES.includes(params.fulfilment_status as AdminFulfilmentStatus)
+    ORDER_FULFILMENT_STATUSES.includes(params.fulfilment_status as OrderFulfilmentStatus)
   ) {
-    filters.fulfilmentStatus = params.fulfilment_status as AdminFulfilmentStatus
+    filters.fulfilmentStatus = params.fulfilment_status as OrderFulfilmentStatus
   }
   if (params.store_id) filters.storeId = params.store_id
   if (params.date_from) filters.dateFrom = params.date_from
