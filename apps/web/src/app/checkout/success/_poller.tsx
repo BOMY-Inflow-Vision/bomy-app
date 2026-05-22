@@ -125,10 +125,10 @@ function DoneView({ status }: { status: CheckoutSessionStatus }) {
           Your order has been placed. You&apos;ll receive a confirmation email shortly.
         </p>
         <Link
-          href="/account"
+          href="/account/orders"
           className="inline-block rounded-xl bg-gray-900 px-6 py-3 text-sm font-semibold text-white hover:bg-gray-700"
         >
-          Go to my account
+          View my orders
         </Link>
       </main>
     )

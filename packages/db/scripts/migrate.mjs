@@ -88,6 +88,10 @@ const MIGRATIONS = [
     name: "0012_order_webhook_ledger",
     file: join(__dirname, "../drizzle/0012_order_webhook_ledger.sql"),
   },
+  {
+    name: "0013_order_management",
+    file: join(__dirname, "../drizzle/0013_order_management.sql"),
+  },
 ]
 
 try {
