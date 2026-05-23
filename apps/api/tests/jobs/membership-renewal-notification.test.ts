@@ -21,6 +21,11 @@ const DATABASE_URL = process.env["DATABASE_URL"]
 const RLS_READY = process.env["BOMY_RLS_READY"] === "1"
 const shouldRun = Boolean(DATABASE_URL) && RLS_READY
 
+const noopMailer = {
+  sendMail: vi.fn().mockResolvedValue(undefined),
+  close: vi.fn(),
+}
+
 describe.skipIf(!shouldRun)("notifyRenewalsDue", () => {
   let testDb: ReturnType<typeof makeDb>
 
@@ -82,30 +87,26 @@ describe.skipIf(!shouldRun)("notifyRenewalsDue", () => {
   it("sends T-30 notification and records day 30 in notifiedDays", async () => {
     // 29 days to expiry — inside (14d, 30d] window
     const { userId, subId } = await seedMember(29 * 86400 * 1000)
-    vi.spyOn(console, "log").mockImplementation(() => undefined)
 
-    const count = await notifyRenewalsDue(testDb.db)
+    const count = await notifyRenewalsDue(testDb.db, noopMailer)
     expect(count).toBeGreaterThanOrEqual(1)
 
     const days = await getNotifiedDays(subId)
     expect(days).toContain(30)
 
-    vi.restoreAllMocks()
     await cleanup(userId, subId)
   })
 
   it("sends T-7 notification and records day 7 in notifiedDays", async () => {
     // 6 days to expiry — inside (1d, 7d] window; [30,14] pre-seeded so those milestones skip
     const { userId, subId } = await seedMember(6 * 86400 * 1000, [30, 14])
-    vi.spyOn(console, "log").mockImplementation(() => undefined)
 
-    const count = await notifyRenewalsDue(testDb.db)
+    const count = await notifyRenewalsDue(testDb.db, noopMailer)
     expect(count).toBeGreaterThanOrEqual(1)
 
     const days = await getNotifiedDays(subId)
     expect(days).toContain(7)
 
-    vi.restoreAllMocks()
     await cleanup(userId, subId)
   })
 
@@ -113,16 +114,14 @@ describe.skipIf(!shouldRun)("notifyRenewalsDue", () => {
     // Bug regression: old code fired T-30, T-14, and T-7 in one run for the same member.
     // Bounded windows ensure only the matching window fires.
     const { userId, subId } = await seedMember(6 * 86400 * 1000)
-    vi.spyOn(console, "log").mockImplementation(() => undefined)
 
-    await notifyRenewalsDue(testDb.db)
+    await notifyRenewalsDue(testDb.db, noopMailer)
 
     const days = await getNotifiedDays(subId)
     expect(days).toContain(7)
     expect(days).not.toContain(30)
     expect(days).not.toContain(14)
 
-    vi.restoreAllMocks()
     await cleanup(userId, subId)
   })
 
@@ -131,7 +130,7 @@ describe.skipIf(!shouldRun)("notifyRenewalsDue", () => {
     const { userId, subId } = await seedMember(29 * 86400 * 1000, [30])
 
     const countBefore = await getNotifiedDays(subId)
-    await notifyRenewalsDue(testDb.db)
+    await notifyRenewalsDue(testDb.db, noopMailer)
     const countAfter = await getNotifiedDays(subId)
 
     // Array unchanged — no duplicate 30
@@ -146,11 +145,47 @@ describe.skipIf(!shouldRun)("notifyRenewalsDue", () => {
     const { userId, subId } = await seedMember(60 * 86400 * 1000)
 
     const daysBefore = await getNotifiedDays(subId)
-    await notifyRenewalsDue(testDb.db)
+    await notifyRenewalsDue(testDb.db, noopMailer)
     const daysAfter = await getNotifiedDays(subId)
 
     expect(daysAfter).toEqual(daysBefore)
 
     await cleanup(userId, subId)
+  })
+
+  describe("notifyRenewalsDue — email send failure isolation", () => {
+    it("continues remaining rows when one sendRenewalEmail throws", async () => {
+      // Seed two members both in the T-7 window.
+      const m1 = await seedMember(6 * 86400 * 1000)
+      const m2 = await seedMember(6 * 86400 * 1000)
+
+      // Mock mailer: first call throws, second resolves.
+      let callCount = 0
+      const mailer = {
+        sendMail: vi.fn().mockImplementation(async () => {
+          callCount++
+          if (callCount === 1) throw new Error("SMTP timeout")
+        }),
+        close: vi.fn(),
+      }
+
+      // notifyRenewalsDue must NOT throw even though first send failed.
+      const count = await notifyRenewalsDue(testDb.db, mailer)
+
+      // Both rows were claimed (UPDATE committed) — count reflects claimed rows.
+      expect(count).toBeGreaterThanOrEqual(2)
+
+      // Both sends were attempted.
+      expect(mailer.sendMail).toHaveBeenCalledTimes(2)
+
+      // The notifiedDays for both members were updated — claim committed before send.
+      const d1 = await getNotifiedDays(m1.subId)
+      const d2 = await getNotifiedDays(m2.subId)
+      expect(d1).toContain(7)
+      expect(d2).toContain(7)
+
+      await cleanup(m1.userId, m1.subId)
+      await cleanup(m2.userId, m2.subId)
+    })
   })
 })

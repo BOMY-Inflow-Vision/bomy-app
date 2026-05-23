@@ -65,9 +65,12 @@ export async function createApp(opts: { enableJobs?: boolean } = {}) {
       expiryIntervalId = setInterval(runExpiry, EXPIRY_MS)
 
       // BullMQ scheduler — registers cron jobs and starts workers.
-      scheduler = await createScheduler(db, {
-        info: (msg) => app.log.info(msg),
-        error: (obj, msg) => app.log.error(obj, msg),
+      scheduler = await createScheduler(app.db.db, {
+        mailer: app.mailer,
+        logger: {
+          info: (msg) => app.log.info(msg),
+          error: (obj, msg) => app.log.error(obj, msg),
+        },
       })
     })
 
