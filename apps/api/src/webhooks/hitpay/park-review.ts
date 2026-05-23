@@ -19,11 +19,7 @@
 import { schema, type Database } from "@bomy/db"
 import { and, eq, sql } from "drizzle-orm"
 
-import type {
-  NotificationDescriptor,
-  OrderReviewDescriptor,
-  PaymentReviewReason,
-} from "../../notifications/types.js"
+import type { NotificationDescriptor, PaymentReviewReason } from "../../notifications/types.js"
 import type { CheckoutSessionRow, OrderPaymentArgs } from "./types.js"
 
 // ─── parkPaymentReview ─────────────────────────────────────────────────
@@ -69,10 +65,18 @@ export async function parkPaymentReview(
     )
 
   if (opts?.emitNotification !== false) {
+    if (reason === "voucher_claim_failed") {
+      // Caller contract violation: voucher_claim_failed must always suppress the
+      // order_review descriptor (pass { emitNotification: false }). Throwing here
+      // prevents a malformed descriptor from reaching the dispatcher.
+      throw new Error(
+        "parkPaymentReview: voucher_claim_failed reason requires { emitNotification: false }",
+      )
+    }
     notifications.push({
       type: "order_review",
       sessionId: session.id,
-      reason: reason as OrderReviewDescriptor["reason"],
+      reason,
     })
   }
 }

@@ -35,6 +35,7 @@ import { eq } from "drizzle-orm"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 
 import { runFailureRelease } from "../../src/webhooks/hitpay/failure-release.js"
+import type { NotificationDescriptor } from "../../src/notifications/types.js"
 import type { EventIdentity } from "../../src/webhooks/hitpay/idempotency.js"
 import type { CheckoutSessionRow } from "../../src/webhooks/hitpay/types.js"
 
@@ -634,5 +635,44 @@ describe.skipIf(!shouldRun)("runFailureRelease (integration)", () => {
     // because the redeemed_at IS NULL predicate matched 0 rows.
     const successLog = logCalls.find((l) => l.msg.includes("order payment failed"))
     expect((successLog?.obj as Record<string, unknown>)["voucherReleased"]).toBe(false)
+  })
+
+  it("pushes order_failed descriptor when session transitions", async () => {
+    const { sessionId } = await seedSession({ withVoucher: false, reservationQuantity: 1 })
+    const session = await readSession(sessionId)
+    const notifications: NotificationDescriptor[] = []
+
+    await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "run release" }, async (tx) => {
+      await runFailureRelease(
+        tx,
+        session,
+        { app: makeFakeApp(), paymentId: `pay-${randomUUID()}`, eventIdentity: makeIdentity() },
+        notifications,
+      )
+    })
+
+    expect(notifications).toHaveLength(1)
+    expect(notifications[0]).toMatchObject({
+      type: "order_failed",
+      sessionId,
+      buyerId: session.userId,
+    })
+  })
+
+  it("does NOT push order_failed descriptor when session already terminal (no-op UPDATE)", async () => {
+    const { sessionId } = await seedSession({ withVoucher: false, status: "failed" })
+    const session = await readSession(sessionId)
+    const notifications: NotificationDescriptor[] = []
+
+    await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "run release" }, async (tx) => {
+      await runFailureRelease(
+        tx,
+        session,
+        { app: makeFakeApp(), paymentId: "", eventIdentity: makeIdentity() },
+        notifications,
+      )
+    })
+
+    expect(notifications).toHaveLength(0)
   })
 })

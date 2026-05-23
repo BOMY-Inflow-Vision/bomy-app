@@ -411,8 +411,16 @@ describe.skipIf(!shouldRun)("park-review (integration)", () => {
         const session = await readSession(sessionId)
         // Use a unique paymentId per iteration so the partial unique
         // index on psp_payment_id doesn't collide across the loop.
+        // voucher_claim_failed always requires emitNotification: false
+        // (the ops alert for that path is the voucher_claim_failed descriptor, not order_review).
         await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "park" }, async (tx) => {
-          await parkPaymentReview(tx, session, reason, { paymentId: `pay-${reason}` }, [])
+          if (reason === "voucher_claim_failed") {
+            await parkPaymentReview(tx, session, reason, { paymentId: `pay-${reason}` }, [], {
+              emitNotification: false,
+            })
+          } else {
+            await parkPaymentReview(tx, session, reason, { paymentId: `pay-${reason}` }, [])
+          }
         })
         const after = await readSession(sessionId)
         expect(after.paymentReviewReason).toBe(reason)
