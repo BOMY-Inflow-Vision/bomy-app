@@ -21,6 +21,7 @@ export const mailerPlugin = fp(async (app) => {
   if (enabled) {
     if (!host) throw new Error("SMTP_HOST is required when EMAIL_DELIVERY_ENABLED=true")
     if (!from) throw new Error("MAIL_FROM is required when EMAIL_DELIVERY_ENABLED=true")
+    if (isNaN(port)) throw new Error("SMTP_PORT must be a valid number")
     if (Boolean(user) !== Boolean(pass)) {
       throw new Error("SMTP_USER and SMTP_PASS must both be set or both absent")
     }
