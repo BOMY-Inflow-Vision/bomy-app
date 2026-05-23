@@ -166,3 +166,133 @@ describe("dispatchOrderNotifications", () => {
     else delete process.env["ADMIN_URL"]
   })
 })
+
+const DATABASE_URL = process.env["DATABASE_URL"]
+const RLS_READY = process.env["BOMY_RLS_READY"] === "1"
+const shouldRun = Boolean(DATABASE_URL) && RLS_READY
+
+describe.skipIf(!shouldRun)("dispatchOrderNotifications — no-body logging (integration)", () => {
+  it("email_notification_failed log does not include the email body", async () => {
+    const { makeDb, schema, withAdmin } = await import("@bomy/db")
+    const { dispatchOrderNotifications } = await import("../../src/notifications/order.js")
+    const { randomUUID } = await import("node:crypto")
+    const { eq } = await import("drizzle-orm")
+
+    const db = makeDb({ url: DATABASE_URL as string })
+    const errorLogs: object[] = []
+    const buyerId = randomUUID()
+    const sellerId = randomUUID()
+    const storeId = randomUUID()
+    const orderId = randomUUID()
+    const sessionId = randomUUID()
+    const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
+
+    await withAdmin(
+      db.db,
+      { userId: SYSTEM_ACTOR, reason: "no-body-log test seed" },
+      async (tx) => {
+        await tx
+          .insert(schema.users)
+          .values({ id: buyerId, email: `${buyerId}@test.bomy`, role: "buyer" })
+        await tx
+          .insert(schema.users)
+          .values({ id: sellerId, email: `${sellerId}@test.bomy`, role: "seller_owner" })
+        await tx.insert(schema.stores).values({
+          id: storeId,
+          ownerId: sellerId,
+          name: "Test Store",
+          slug: `slug-${storeId}`,
+          status: "active",
+        })
+        await tx.insert(schema.checkoutSessions).values({
+          id: sessionId,
+          userId: buyerId,
+          status: "paid",
+          currency: "MYR",
+          shippingAddress: {
+            name: "T",
+            phone: "+60123456789",
+            line1: "1 Jln",
+            city: "KL",
+            postcode: "50000",
+            state: "KL",
+            country: "MY",
+          },
+          totalCatalogSen: 1000n,
+          totalShippingSen: 0n,
+          totalBuyerPaysSen: 1000n,
+          expiresAt: new Date(Date.now() + 3600000),
+        })
+        await tx.insert(schema.orders).values({
+          id: orderId,
+          checkoutSessionId: sessionId,
+          storeId,
+          buyerId,
+          currency: "MYR",
+          shippingAddress: {
+            name: "T",
+            phone: "+60123456789",
+            line1: "1 Jln",
+            city: "KL",
+            postcode: "50000",
+            state: "KL",
+            country: "MY",
+          },
+          shippingFeeSen: 0n,
+          retailSubtotalSen: 1000n,
+          brandDiscountSen: 0n,
+          discountedSubtotalSen: 1000n,
+          voucherContributionSen: 0n,
+          pspFeeAllocatedSen: 30n,
+          bomyCommissionSen: 243n,
+          bomyCommissionPct: 25,
+          sellerPayoutSen: 727n,
+          paymentStatus: "paid",
+          fulfilmentStatus: "processing",
+        })
+      },
+    )
+
+    // Mailer throws — triggers email_notification_failed log.
+    const fakeApp = {
+      db,
+      mailer: { sendMail: vi.fn().mockRejectedValue(new Error("SMTP fail")), close: vi.fn() },
+      log: {
+        info: vi.fn(),
+        error: (_obj: object, _msg: string) => {
+          errorLogs.push(_obj)
+        },
+        warn: vi.fn(),
+      },
+    } as unknown as FastifyInstance
+
+    await dispatchOrderNotifications(
+      [{ type: "order_paid", sessionId, buyerId, orderIds: [orderId], voucherClaimFailed: false }],
+      fakeApp,
+    )
+
+    // Verify error was logged.
+    expect(errorLogs.length).toBeGreaterThan(0)
+    // Verify body text is NOT in any log entry.
+    for (const log of errorLogs) {
+      const serialized = JSON.stringify(log)
+      expect(serialized).not.toContain("confirmed") // body content
+      expect(serialized).not.toContain("account/orders") // body URL
+    }
+
+    // Cleanup.
+    await withAdmin(
+      db.db,
+      { userId: SYSTEM_ACTOR, reason: "no-body-log test cleanup" },
+      async (tx) => {
+        await tx.delete(schema.orders).where(eq(schema.orders.id, orderId))
+        await tx.delete(schema.checkoutSessions).where(eq(schema.checkoutSessions.id, sessionId))
+        await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
+        await tx.delete(schema.users).where(eq(schema.users.id, sellerId))
+        await tx.delete(schema.users).where(eq(schema.users.id, buyerId))
+      },
+    )
+
+    await db.close()
+  })
+})
