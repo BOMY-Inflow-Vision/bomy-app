@@ -5,6 +5,7 @@ import Fastify from "fastify"
 import { dbPlugin } from "./plugins/db.js"
 import { expireCancelledMemberships } from "./jobs/expire-cancelled-memberships.js"
 import { loggingPlugin } from "./plugins/logging.js"
+import { mailerPlugin } from "./plugins/mailer.js"
 import { sessionPlugin } from "./plugins/session.js"
 import { healthRoutes } from "./routes/health.js"
 import { internalJobRoutes } from "./routes/internal/jobs.js"
@@ -33,6 +34,7 @@ export async function createApp(opts: { enableJobs?: boolean } = {}) {
   await app.register(loggingPlugin)
   await app.register(dbPlugin)
   await app.register(sessionPlugin)
+  await app.register(mailerPlugin)
 
   await app.register(healthRoutes)
   await app.register(readyRoutes)
