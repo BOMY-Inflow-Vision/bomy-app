@@ -17,6 +17,7 @@ describe("sendRenewalEmail", () => {
     expect(call.subject).toBe("Your BOMY membership renews in 7 days")
     expect(call.text).toContain("15") // date appears in body
     expect(call.text).not.toContain("amount") // no amount in body
+    expect(call.text).toContain("/membership/manage")
   })
 
   it("propagates errors from mailer.sendMail", async () => {

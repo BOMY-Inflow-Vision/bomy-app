@@ -13,6 +13,7 @@ import { makeDb, schema, withAdmin } from "@bomy/db"
 import { eq } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 
+import type { Mailer } from "../../src/lib/mailer.js"
 import { notifyRenewalsDue } from "../../src/jobs/membership-renewal-notification.js"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
@@ -21,9 +22,9 @@ const DATABASE_URL = process.env["DATABASE_URL"]
 const RLS_READY = process.env["BOMY_RLS_READY"] === "1"
 const shouldRun = Boolean(DATABASE_URL) && RLS_READY
 
-const noopMailer = {
+const noopMailer: Mailer = {
   sendMail: vi.fn().mockResolvedValue(undefined),
-  close: vi.fn(),
+  close: vi.fn().mockResolvedValue(undefined),
 }
 
 describe.skipIf(!shouldRun)("notifyRenewalsDue", () => {
@@ -161,22 +162,23 @@ describe.skipIf(!shouldRun)("notifyRenewalsDue", () => {
 
       // Mock mailer: first call throws, second resolves.
       let callCount = 0
-      const mailer = {
-        sendMail: vi.fn().mockImplementation(async () => {
-          callCount++
-          if (callCount === 1) throw new Error("SMTP timeout")
-        }),
-        close: vi.fn(),
+      const sendMail = vi.fn().mockImplementation(async () => {
+        callCount++
+        if (callCount === 1) throw new Error("SMTP timeout")
+      })
+      const mailer: Mailer = {
+        sendMail,
+        close: vi.fn().mockResolvedValue(undefined),
       }
 
       // notifyRenewalsDue must NOT throw even though first send failed.
       const count = await notifyRenewalsDue(testDb.db, mailer)
 
-      // Both rows were claimed (UPDATE committed) — count reflects claimed rows.
+      // Both rows had valid emails — count reflects email-attempted rows.
       expect(count).toBeGreaterThanOrEqual(2)
 
       // Both sends were attempted.
-      expect(mailer.sendMail).toHaveBeenCalledTimes(2)
+      expect(sendMail).toHaveBeenCalledTimes(2)
 
       // The notifiedDays for both members were updated — claim committed before send.
       const d1 = await getNotifiedDays(m1.subId)
