@@ -1295,7 +1295,14 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
         },
       )
 
-      const sendMailSpy = vi.spyOn(app.mailer, "sendMail").mockResolvedValue(undefined)
+      let resolveSendMail!: () => void
+      const sendMailBlocked = new Promise<void>((resolve) => {
+        resolveSendMail = resolve
+      })
+
+      const sendMailSpy = vi.spyOn(app.mailer, "sendMail").mockImplementation(async () => {
+        await sendMailBlocked
+      })
 
       const res = await webhookInject(
         app,
@@ -1309,10 +1316,12 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
         { "hitpay-event-type": "payment_request.completed" },
       )
 
+      // Route returns 200 before SMTP settles.
       expect(res.statusCode).toBe(200)
 
-      // Let fire-and-forget settle (dispatcher does async DB work before sendMail)
-      await new Promise<void>((resolve) => setTimeout(resolve, 500))
+      // Unblock sendMail and give the event loop time to settle.
+      resolveSendMail()
+      await new Promise<void>((resolve) => setTimeout(resolve, 200))
       expect(sendMailSpy).toHaveBeenCalled()
 
       sendMailSpy.mockRestore()

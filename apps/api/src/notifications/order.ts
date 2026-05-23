@@ -54,6 +54,9 @@ async function dispatchOrderPaid(
           storeId: schema.orders.storeId,
           storeName: schema.stores.name,
           sellerPayoutSen: schema.orders.sellerPayoutSen,
+          discountedSubtotalSen: schema.orders.discountedSubtotalSen,
+          shippingFeeSen: schema.orders.shippingFeeSen,
+          voucherContributionSen: schema.orders.voucherContributionSen,
           buyerEmail: buyerUser.email,
           sellerEmail: sellerUser.email,
         })
@@ -70,7 +73,10 @@ async function dispatchOrderPaid(
   const ordersUrl = joinUrl(appUrl, "/account/orders")
 
   const storeLines = rows
-    .map((r) => `${r.storeName}: RM ${senToMyrStr(r.sellerPayoutSen)}`)
+    .map((r) => {
+      const buyerPaidSen = r.discountedSubtotalSen + r.shippingFeeSen - r.voucherContributionSen
+      return `${r.storeName}: RM ${senToMyrStr(buyerPaidSen)}`
+    })
     .join("\n")
   const buyerBody = d.voucherClaimFailed
     ? `Your BOMY order is confirmed.\n\n${storeLines}\n\nNote: your voucher could not be applied and is under review. We'll contact you shortly.\n\nView your orders: ${ordersUrl}`
