@@ -42,6 +42,7 @@ import { claimEvent } from "./idempotency.js"
 import { parkPaymentReview, runConsistencyCheck, warnOnEventCollision } from "./park-review.js"
 import { parseSen } from "./parse-sen.js"
 import type { CheckoutSessionRow, OrderPaymentArgs } from "./types.js"
+import type { NotificationDescriptor, OrderPaymentResult } from "../../notifications/types.js"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001" as const
 
@@ -72,8 +73,9 @@ export async function selectSessionForUpdate(
  * session's buyer_id), and a tenant lookup is wrong here because the
  * caller is a webhook with no buyer context.
  */
-export async function handleOrderPayment(args: OrderPaymentArgs): Promise<"handled" | "not_order"> {
-  let result: "handled" | "not_order" = "not_order"
+export async function handleOrderPayment(args: OrderPaymentArgs): Promise<OrderPaymentResult> {
+  const notifications: NotificationDescriptor[] = []
+  let result: OrderPaymentResult = { result: "not_order", notifications: [] }
 
   await withAdmin(
     args.app.db.db,
@@ -92,11 +94,11 @@ export async function handleOrderPayment(args: OrderPaymentArgs): Promise<"handl
         .where(eq(schema.checkoutSessions.pspPaymentRequestId, args.paymentRequestId))
         .limit(1)
       if (dispatchRows.length === 0) {
-        return // result stays "not_order"
+        return // result stays { result: "not_order", notifications: [] }
       }
 
-      // From here on we own the event — every code path returns "handled".
-      result = "handled"
+      // From here on we own the event.
+      result = { result: "handled", notifications }
 
       // Step A: claim idempotency. Comparison against existing happens in Step C.
       const claim = await claimEvent(tx, args.eventIdentity)
@@ -124,7 +126,7 @@ export async function handleOrderPayment(args: OrderPaymentArgs): Promise<"handl
 
       // Step D (B5): failed routes BEFORE amount/fees parsing.
       if (args.status === "failed") {
-        await runFailureRelease(tx, session, args)
+        await runFailureRelease(tx, session, args, notifications)
         return
       }
 
@@ -143,7 +145,7 @@ export async function handleOrderPayment(args: OrderPaymentArgs): Promise<"handl
           },
           "hitpay webhook: unknown payment_request status — parking for review",
         )
-        await parkPaymentReview(tx, session, "amount_mismatch", args)
+        await parkPaymentReview(tx, session, "amount_mismatch", args, notifications)
         return
       }
 
@@ -161,7 +163,7 @@ export async function handleOrderPayment(args: OrderPaymentArgs): Promise<"handl
           },
           "hitpay webhook: order payment completed but payment_id missing — parking for review",
         )
-        await parkPaymentReview(tx, session, "amount_mismatch", args)
+        await parkPaymentReview(tx, session, "amount_mismatch", args, notifications)
         return
       }
 
@@ -182,7 +184,7 @@ export async function handleOrderPayment(args: OrderPaymentArgs): Promise<"handl
           },
           "hitpay webhook: order payment amount unparseable — parking for review",
         )
-        await parkPaymentReview(tx, session, "amount_mismatch", args)
+        await parkPaymentReview(tx, session, "amount_mismatch", args, notifications)
         return
       }
       if (amountSen !== session.totalBuyerPaysSen) {
@@ -198,7 +200,7 @@ export async function handleOrderPayment(args: OrderPaymentArgs): Promise<"handl
           },
           "hitpay webhook: order payment amount mismatch — parking for review",
         )
-        await parkPaymentReview(tx, session, "amount_mismatch", args)
+        await parkPaymentReview(tx, session, "amount_mismatch", args, notifications)
         return
       }
 
@@ -220,7 +222,7 @@ export async function handleOrderPayment(args: OrderPaymentArgs): Promise<"handl
       }
 
       // Step G: paid-path fan-out.
-      await fanOutPaid(tx, session, args)
+      await fanOutPaid(tx, session, args, notifications)
     },
   )
 
@@ -239,6 +241,7 @@ async function fanOutPaid(
   tx: Database,
   session: CheckoutSessionRow,
   args: OrderPaymentArgs,
+  notifications: NotificationDescriptor[],
 ): Promise<void> {
   // Lock order: cs → reservations → variants → vouchers. The session
   // was locked FOR UPDATE at Step B; this explicit FOR UPDATE on the
@@ -272,7 +275,7 @@ async function fanOutPaid(
       },
       "hitpay webhook: psp fee unparseable — parking for review",
     )
-    await parkPaymentReview(tx, session, "amount_mismatch", args)
+    await parkPaymentReview(tx, session, "amount_mismatch", args, notifications)
     return
   }
   if (pspFeeSen > session.totalBuyerPaysSen) {
@@ -289,7 +292,7 @@ async function fanOutPaid(
       },
       "hitpay webhook: psp fee greater than gross — parking for review",
     )
-    await parkPaymentReview(tx, session, "amount_mismatch", args)
+    await parkPaymentReview(tx, session, "amount_mismatch", args, notifications)
     return
   }
   await tx
@@ -322,7 +325,7 @@ async function fanOutPaid(
       },
       "hitpay webhook: invalid regular_order_commission_pct — parking for review",
     )
-    await parkPaymentReview(tx, session, "invalid_commission_config", args)
+    await parkPaymentReview(tx, session, "invalid_commission_config", args, notifications)
     return
   }
 
@@ -400,7 +403,7 @@ async function fanOutPaid(
           },
           "hitpay webhook: negative seller_payout (PSP fee over-allocation) — parking for review",
         )
-        await parkPaymentReview(tx, session, "invalid_commission_config", args)
+        await parkPaymentReview(tx, session, "invalid_commission_config", args, notifications)
         return
       }
       throw err
@@ -599,20 +602,9 @@ async function fanOutPaid(
       // step 10's UPDATE silently no-ops. Do NOT skip step 11 — the
       // reservations still need to be marked converted to match the
       // committed orders.
-      await tx
-        .update(schema.checkoutSessions)
-        .set({
-          status: "payment_review_required",
-          paymentReviewReason: "voucher_claim_failed",
-          ...(args.paymentId ? { pspPaymentId: args.paymentId } : {}),
-          updatedAt: sql`now()`,
-        })
-        .where(
-          and(
-            eq(schema.checkoutSessions.id, session.id),
-            eq(schema.checkoutSessions.status, "pending_payment"),
-          ),
-        )
+      await parkPaymentReview(tx, session, "voucher_claim_failed", args, notifications, {
+        emitNotification: false,
+      })
     } else {
       voucherClaimed = true
     }
@@ -664,4 +656,19 @@ async function fanOutPaid(
       ? "hitpay webhook: order payment paid — voucher claim failed (in review)"
       : "hitpay webhook: order payment paid",
   )
+
+  notifications.push({
+    type: "order_paid",
+    sessionId: session.id,
+    buyerId: session.userId,
+    orderIds: insertedOrders.map((o) => o.id),
+    voucherClaimFailed,
+  })
+  if (voucherClaimFailed && session.voucherId) {
+    notifications.push({
+      type: "voucher_claim_failed",
+      sessionId: session.id,
+      voucherId: session.voucherId,
+    })
+  }
 }

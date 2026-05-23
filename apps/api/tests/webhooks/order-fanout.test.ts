@@ -24,6 +24,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import { handleOrderPayment } from "../../src/webhooks/hitpay/order-fanout.js"
 import type { EventIdentity } from "../../src/webhooks/hitpay/idempotency.js"
 import type { OrderPaymentArgs } from "../../src/webhooks/hitpay/types.js"
+import type { NotificationDescriptor, OrderPaidDescriptor } from "../../src/notifications/types.js"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
 const DATABASE_URL = process.env["DATABASE_URL"]
@@ -371,7 +372,7 @@ describe.skipIf(!shouldRun)("handleOrderPayment + fanOutPaid (integration)", () 
       async (tx) => tx.select({ id: schema.adminBypassAudit.id }).from(schema.adminBypassAudit),
     )
 
-    expect(result).toBe("not_order")
+    expect(result.result).toBe("not_order")
     // Two audit rows from this test's withAdmin calls (audit-count probes
     // + the handleOrderPayment withAdmin). The non-order branch DOES write
     // an audit row because the dispatch happens inside the withAdmin tx.
@@ -396,7 +397,7 @@ describe.skipIf(!shouldRun)("handleOrderPayment + fanOutPaid (integration)", () 
       eventIdentity: makeIdentity(),
     })
 
-    expect(result).toBe("handled")
+    expect(result.result).toBe("handled")
 
     const sessionAfter = await readSession(sessionId)
     expect(sessionAfter?.status).toBe("paid")
@@ -494,7 +495,7 @@ describe.skipIf(!shouldRun)("handleOrderPayment + fanOutPaid (integration)", () 
       eventIdentity: makeIdentity(),
     })
 
-    expect(result).toBe("handled")
+    expect(result.result).toBe("handled")
     const sessionAfter = await readSession(sessionId)
     expect(sessionAfter?.status).toBe("paid")
 
@@ -547,7 +548,7 @@ describe.skipIf(!shouldRun)("handleOrderPayment + fanOutPaid (integration)", () 
       eventIdentity: identity, // SAME event identity
     })
 
-    expect(result).toBe("handled")
+    expect(result.result).toBe("handled")
     expect(await readOrders(sessionId)).toHaveLength(ordersAfterFirst.length)
     expect(await readLedger(sessionId)).toHaveLength(ledgerAfterFirst.length)
     expect(logsByEvent("order_payment_idempotent")).toHaveLength(1)
@@ -612,7 +613,7 @@ describe.skipIf(!shouldRun)("handleOrderPayment + fanOutPaid (integration)", () 
       eventIdentity: makeIdentity(),
     })
 
-    expect(result).toBe("handled")
+    expect(result.result).toBe("handled")
     const sessionAfter = await readSession(sessionId)
     expect(sessionAfter?.status).toBe("failed")
     expect(await readOrders(sessionId)).toHaveLength(0)
@@ -1027,5 +1028,41 @@ describe.skipIf(!shouldRun)("handleOrderPayment + fanOutPaid (integration)", () 
     expect((reviewLogs[0]?.obj as Record<string, unknown>)["hitpayStatus"]).toBe(
       "weird_unknown_status",
     )
+  })
+
+  it("handleOrderPayment result shape — handled with order_paid descriptor", async () => {
+    const { pspPaymentRequestId } = await seedSession()
+    const paymentId = `pay-${randomUUID()}`
+
+    const result = await handleOrderPayment({
+      app: makeFakeApp(),
+      paymentRequestId: pspPaymentRequestId,
+      paymentId,
+      status: "completed",
+      amountStr: "55.00",
+      feesStr: "0.95",
+      eventIdentity: makeIdentity(),
+    })
+
+    expect(result.result).toBe("handled")
+    const notifs = result.notifications as NotificationDescriptor[]
+    expect(notifs.length).toBeGreaterThanOrEqual(1)
+    const paid = notifs.find((d) => d.type === "order_paid")
+    expect(paid).toBeDefined()
+    expect((paid as OrderPaidDescriptor).voucherClaimFailed).toBe(false)
+  })
+
+  it("handleOrderPayment result shape — not_order returns empty notifications", async () => {
+    const result = await handleOrderPayment({
+      app: makeFakeApp(),
+      paymentRequestId: randomUUID(), // no matching session
+      paymentId: "",
+      status: "completed",
+      amountStr: "0.00",
+      feesStr: "0.00",
+      eventIdentity: makeIdentity(),
+    })
+    expect(result.result).toBe("not_order")
+    expect(result.notifications).toHaveLength(0)
   })
 })

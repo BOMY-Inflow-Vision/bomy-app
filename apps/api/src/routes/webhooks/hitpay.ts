@@ -109,7 +109,7 @@ export const hitpayWebhookRoutes: FastifyPluginAsync = async (app) => {
           eventIdentity: identity,
         })
         trace.getActiveSpan()?.setAttribute("bomy.psp_event_id", identity.pspEventId)
-        if (orderResult === "not_order") {
+        if (orderResult.result === "not_order") {
           await handleBrandSubscriptionPayment({
             app,
             paymentRequestId,

@@ -34,6 +34,7 @@ import {
 } from "../../src/webhooks/hitpay/park-review.js"
 import type { EventIdentity } from "../../src/webhooks/hitpay/idempotency.js"
 import type { CheckoutSessionRow } from "../../src/webhooks/hitpay/types.js"
+import type { NotificationDescriptor } from "../../src/notifications/types.js"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
 const DATABASE_URL = process.env["DATABASE_URL"]
@@ -392,7 +393,7 @@ describe.skipIf(!shouldRun)("park-review (integration)", () => {
       const { sessionId } = await seedSession()
       const session = await readSession(sessionId)
       await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "park" }, async (tx) => {
-        await parkPaymentReview(tx, session, "amount_mismatch", { paymentId: "pay-123" })
+        await parkPaymentReview(tx, session, "amount_mismatch", { paymentId: "pay-123" }, [])
       })
       const after = await readSession(sessionId)
       expect(after.status).toBe("payment_review_required")
@@ -411,7 +412,7 @@ describe.skipIf(!shouldRun)("park-review (integration)", () => {
         // Use a unique paymentId per iteration so the partial unique
         // index on psp_payment_id doesn't collide across the loop.
         await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "park" }, async (tx) => {
-          await parkPaymentReview(tx, session, reason, { paymentId: `pay-${reason}` })
+          await parkPaymentReview(tx, session, reason, { paymentId: `pay-${reason}` }, [])
         })
         const after = await readSession(sessionId)
         expect(after.paymentReviewReason).toBe(reason)
@@ -422,7 +423,7 @@ describe.skipIf(!shouldRun)("park-review (integration)", () => {
       const { sessionId } = await seedSession()
       const session = await readSession(sessionId)
       await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "park" }, async (tx) => {
-        await parkPaymentReview(tx, session, "amount_mismatch", { paymentId: "" })
+        await parkPaymentReview(tx, session, "amount_mismatch", { paymentId: "" }, [])
       })
       const after = await readSession(sessionId)
       expect(after.status).toBe("payment_review_required")
@@ -433,7 +434,7 @@ describe.skipIf(!shouldRun)("park-review (integration)", () => {
       const { sessionId } = await seedSession({ status: "paid", pspPaymentId: "pay-prior" })
       const session = await readSession(sessionId)
       await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "park" }, async (tx) => {
-        await parkPaymentReview(tx, session, "amount_mismatch", { paymentId: "pay-late" })
+        await parkPaymentReview(tx, session, "amount_mismatch", { paymentId: "pay-late" }, [])
       })
       const after = await readSession(sessionId)
       expect(after.status).toBe("paid") // unchanged
@@ -446,11 +447,49 @@ describe.skipIf(!shouldRun)("park-review (integration)", () => {
         const { sessionId } = await seedSession({ status: terminal })
         const session = await readSession(sessionId)
         await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "park" }, async (tx) => {
-          await parkPaymentReview(tx, session, "amount_mismatch", { paymentId: "p" })
+          await parkPaymentReview(tx, session, "amount_mismatch", { paymentId: "p" }, [])
         })
         const after = await readSession(sessionId)
         expect(after.status).toBe(terminal) // unchanged
       }
+    })
+  })
+
+  describe("parkPaymentReview — emitNotification opts", () => {
+    it("pushes order_review descriptor by default", async () => {
+      const { sessionId } = await seedSession()
+      const session = await readSession(sessionId)
+      const notifications: NotificationDescriptor[] = []
+
+      await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "test" }, async (tx) => {
+        await parkPaymentReview(tx, session, "amount_mismatch", { paymentId: "" }, notifications)
+      })
+
+      expect(notifications).toHaveLength(1)
+      expect(notifications[0]).toMatchObject({
+        type: "order_review",
+        reason: "amount_mismatch",
+        sessionId,
+      })
+    })
+
+    it("does NOT push descriptor when emitNotification: false", async () => {
+      const { sessionId } = await seedSession()
+      const session = await readSession(sessionId)
+      const notifications: NotificationDescriptor[] = []
+
+      await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "test" }, async (tx) => {
+        await parkPaymentReview(
+          tx,
+          session,
+          "voucher_claim_failed",
+          { paymentId: "" },
+          notifications,
+          { emitNotification: false },
+        )
+      })
+
+      expect(notifications).toHaveLength(0)
     })
   })
 
