@@ -784,15 +784,13 @@ it("returns 200 without awaiting SMTP (fire-and-forget contract)", async () => {
       await tx
         .insert(schema.users)
         .values({ id: sellerId, email: `${sellerId}@test.bomy`, role: "seller_owner" })
-      await tx
-        .insert(schema.stores)
-        .values({
-          id: storeId,
-          ownerId: sellerId,
-          name: "Test Store",
-          slug: `slug-${storeId}`,
-          status: "active",
-        })
+      await tx.insert(schema.stores).values({
+        id: storeId,
+        ownerId: sellerId,
+        name: "Test Store",
+        slug: `slug-${storeId}`,
+        status: "active",
+      })
       await tx.insert(schema.checkoutSessions).values({
         id: sessionId,
         userId: buyerId,
@@ -1605,15 +1603,13 @@ describe.skipIf(!shouldRun)("dispatchOrderNotifications — no-body logging", ()
         await tx
           .insert(schema.users)
           .values({ id: sellerId, email: `${sellerId}@test.bomy`, role: "seller_owner" })
-        await tx
-          .insert(schema.stores)
-          .values({
-            id: storeId,
-            ownerId: sellerId,
-            name: "Test Store",
-            slug: `slug-${storeId}`,
-            status: "active",
-          })
+        await tx.insert(schema.stores).values({
+          id: storeId,
+          ownerId: sellerId,
+          name: "Test Store",
+          slug: `slug-${storeId}`,
+          status: "active",
+        })
         await tx.insert(schema.checkoutSessions).values({
           id: sessionId,
           userId: buyerId,
