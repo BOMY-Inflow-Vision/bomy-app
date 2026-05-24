@@ -2,6 +2,8 @@ import { Queue, Worker } from "bullmq"
 
 import type { Database } from "@bomy/db"
 
+import type { Mailer } from "./lib/mailer.js"
+
 import { expireSubscriptions } from "./jobs/brand-subscription-expiry.js"
 import { runInventoryReservationExpiryJob } from "./jobs/inventory-reservation-expiry.js"
 import { notifyRenewalsDue } from "./jobs/membership-renewal-notification.js"
@@ -28,7 +30,10 @@ export interface Scheduler {
 
 export async function createScheduler(
   db: Database,
-  logger: { info: (msg: string) => void; error: (obj: object, msg: string) => void },
+  deps: {
+    mailer: Mailer
+    logger: { info: (msg: string) => void; error: (obj: object, msg: string) => void }
+  },
 ): Promise<Scheduler> {
   const redisUrl = process.env["REDIS_URL"]
   if (!redisUrl) throw new Error("REDIS_URL is required for the BullMQ scheduler")
@@ -81,7 +86,7 @@ export async function createScheduler(
     VOUCHER_QUEUE_NAME,
     async () => {
       const n = await issueMonthlyVouchers(db)
-      logger.info(`jobs: voucher-issuance issued ${n} vouchers`)
+      deps.logger.info(`jobs: voucher-issuance issued ${n} vouchers`)
     },
     { connection },
   )
@@ -89,8 +94,8 @@ export async function createScheduler(
   const renewalWorker = new Worker(
     "membership-renewal-notification",
     async () => {
-      const n = await notifyRenewalsDue(db)
-      logger.info(`jobs: membership-renewal-notification sent ${n} stubs`)
+      const n = await notifyRenewalsDue(db, deps.mailer)
+      deps.logger.info(`jobs: membership-renewal-notification sent ${n} notifications`)
     },
     { connection },
   )
@@ -99,7 +104,7 @@ export async function createScheduler(
     "brand-subscription-expiry",
     async () => {
       const { brandCount, memberCount } = await expireSubscriptions(db)
-      logger.info(
+      deps.logger.info(
         `jobs: brand-subscription-expiry expired ${brandCount} brand, ${memberCount} member subscriptions`,
       )
     },
@@ -112,7 +117,7 @@ export async function createScheduler(
       await runInventoryReservationExpiryJob({
         db,
         log: {
-          info: (obj, msg) => logger.info(`${msg} ${JSON.stringify(obj)}`),
+          info: (obj, msg) => deps.logger.info(`${msg} ${JSON.stringify(obj)}`),
         },
       })
     },
@@ -123,7 +128,7 @@ export async function createScheduler(
     "order-auto-complete",
     async () => {
       await runOrderAutoCompleteJob(db)
-      logger.info("jobs: order-auto-complete pass 1 + pass 2 done")
+      deps.logger.info("jobs: order-auto-complete pass 1 + pass 2 done")
     },
     { connection },
   )
@@ -136,7 +141,7 @@ export async function createScheduler(
     orderAutoCompleteWorker,
   ]) {
     worker.on("failed", (job, err) => {
-      logger.error({ err, jobId: job?.id }, `jobs: worker failed — ${job?.name ?? "unknown"}`)
+      deps.logger.error({ err, jobId: job?.id }, `jobs: worker failed — ${job?.name ?? "unknown"}`)
     })
   }
 

@@ -13,7 +13,7 @@ import { createHash, createHmac, randomUUID } from "node:crypto"
 
 import { makeDb, schema, withAdmin } from "@bomy/db"
 import { and, eq } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it } from "vitest"
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 
 import { createApp } from "../../src/server.js"
 
@@ -1250,6 +1250,81 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
             .where(eq(schema.processedWebhookEvents.pspEventId, paymentId)),
       )
       expect(events).toHaveLength(0)
+    })
+
+    it("fire-and-forget: returns 200 without awaiting SMTP", async () => {
+      const buyerId = await seedUser("buyer")
+      const sellerId = await seedUser("seller_owner")
+      const storeId = await seedStore(sellerId)
+      const prId = randomUUID()
+      const sessionId = randomUUID()
+
+      await withAdmin(
+        setupDb.db,
+        { userId: SYSTEM_ACTOR, reason: "fire-forget test seed" },
+        async (tx) => {
+          await tx.insert(schema.checkoutSessions).values({
+            id: sessionId,
+            userId: buyerId,
+            status: "pending_payment",
+            pspPaymentRequestId: prId,
+            currency: "MYR",
+            shippingAddress: {
+              name: "T",
+              phone: "+60123456789",
+              line1: "1 Jln Test",
+              city: "KL",
+              postcode: "50000",
+              state: "KL",
+              country: "MY",
+            },
+            totalCatalogSen: 1000n,
+            totalShippingSen: 0n,
+            totalBuyerPaysSen: 1000n,
+            expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+          })
+          await tx.insert(schema.checkoutSessionStores).values({
+            checkoutSessionId: sessionId,
+            storeId,
+            retailSubtotalSen: 1000n,
+            brandDiscountSen: 0n,
+            discountedSubtotalSen: 1000n,
+            shippingFeeSen: 0n,
+            voucherContributionSen: 0n,
+          })
+        },
+      )
+
+      let resolveSendMail!: () => void
+      const sendMailBlocked = new Promise<void>((resolve) => {
+        resolveSendMail = resolve
+      })
+
+      const sendMailSpy = vi.spyOn(app.mailer, "sendMail").mockImplementation(async () => {
+        await sendMailBlocked
+      })
+
+      const res = await webhookInject(
+        app,
+        {
+          payment_request_id: prId,
+          payment_id: `pay-${randomUUID()}`,
+          status: "completed",
+          amount: "10.00",
+          fees: "0.30",
+        },
+        { "hitpay-event-type": "payment_request.completed" },
+      )
+
+      // Route returns 200 before SMTP settles.
+      expect(res.statusCode).toBe(200)
+
+      // Unblock sendMail and give the event loop time to settle.
+      resolveSendMail()
+      await new Promise<void>((resolve) => setTimeout(resolve, 200))
+      expect(sendMailSpy).toHaveBeenCalled()
+
+      sendMailSpy.mockRestore()
     })
 
     it("38 — bad signature on order-shaped event → 401; no idempotency row; session unchanged", async () => {

@@ -19,14 +19,10 @@
 import { schema, type Database } from "@bomy/db"
 import { and, eq, sql } from "drizzle-orm"
 
+import type { NotificationDescriptor, PaymentReviewReason } from "../../notifications/types.js"
 import type { CheckoutSessionRow, OrderPaymentArgs } from "./types.js"
 
 // ─── parkPaymentReview ─────────────────────────────────────────────────
-
-export type PaymentReviewReason =
-  | "amount_mismatch"
-  | "invalid_commission_config"
-  | "voucher_claim_failed"
 
 /**
  * Transition the session into `payment_review_required` with the given
@@ -39,12 +35,19 @@ export type PaymentReviewReason =
  * (`order_payment_review` at level: error) before invoking this; the
  * helper itself is silent so the same writer can be reused for new
  * reasons added later without duplicating the log call.
+ *
+ * Pass `opts.emitNotification: false` to suppress the descriptor push
+ * (used when voucher_claim_failed parks after fan-out has already
+ * committed orders — the order_paid descriptor carries the failure flag
+ * instead).
  */
 export async function parkPaymentReview(
   tx: Database,
   session: CheckoutSessionRow,
   reason: PaymentReviewReason,
   args: Pick<OrderPaymentArgs, "paymentId">,
+  notifications: NotificationDescriptor[],
+  opts?: { emitNotification?: boolean },
 ): Promise<void> {
   await tx
     .update(schema.checkoutSessions)
@@ -60,6 +63,22 @@ export async function parkPaymentReview(
         eq(schema.checkoutSessions.status, "pending_payment"),
       ),
     )
+
+  if (opts?.emitNotification !== false) {
+    if (reason === "voucher_claim_failed") {
+      // Caller contract violation: voucher_claim_failed must always suppress the
+      // order_review descriptor (pass { emitNotification: false }). Throwing here
+      // prevents a malformed descriptor from reaching the dispatcher.
+      throw new Error(
+        "parkPaymentReview: voucher_claim_failed reason requires { emitNotification: false }",
+      )
+    }
+    notifications.push({
+      type: "order_review",
+      sessionId: session.id,
+      reason,
+    })
+  }
 }
 
 // ─── warnOnEventCollision ──────────────────────────────────────────────

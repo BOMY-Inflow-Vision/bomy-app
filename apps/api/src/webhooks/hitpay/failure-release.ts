@@ -35,12 +35,14 @@
 import { schema, type Database } from "@bomy/db"
 import { and, eq, isNull, sql } from "drizzle-orm"
 
+import type { NotificationDescriptor } from "../../notifications/types.js"
 import type { CheckoutSessionRow, OrderPaymentArgs } from "./types.js"
 
 export async function runFailureRelease(
   tx: Database,
   session: CheckoutSessionRow,
   args: Pick<OrderPaymentArgs, "app" | "paymentId" | "eventIdentity">,
+  notifications: NotificationDescriptor[],
 ): Promise<void> {
   // Step 1 — atomic transition. Bob B9: psp_payment_id is conditionally
   // spread. An empty paymentId ("" on a failed event without a payment_id)
@@ -145,4 +147,10 @@ export async function runFailureRelease(
     },
     "hitpay webhook: order payment failed — reservations released",
   )
+
+  notifications.push({
+    type: "order_failed",
+    sessionId: session.id,
+    buyerId: session.userId,
+  })
 }

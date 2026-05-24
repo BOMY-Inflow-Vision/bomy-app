@@ -35,6 +35,7 @@ import { eq } from "drizzle-orm"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 
 import { runFailureRelease } from "../../src/webhooks/hitpay/failure-release.js"
+import type { NotificationDescriptor } from "../../src/notifications/types.js"
 import type { EventIdentity } from "../../src/webhooks/hitpay/idempotency.js"
 import type { CheckoutSessionRow } from "../../src/webhooks/hitpay/types.js"
 
@@ -308,11 +309,16 @@ describe.skipIf(!shouldRun)("runFailureRelease (integration)", () => {
     const session = await readSession(sessionId)
     const paymentId = `pay-${randomUUID()}`
     await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "run release" }, async (tx) => {
-      await runFailureRelease(tx, session, {
-        app: makeFakeApp(),
-        paymentId,
-        eventIdentity: makeIdentity(),
-      })
+      await runFailureRelease(
+        tx,
+        session,
+        {
+          app: makeFakeApp(),
+          paymentId,
+          eventIdentity: makeIdentity(),
+        },
+        [],
+      )
     })
 
     const after = await readSession(sessionId)
@@ -340,11 +346,16 @@ describe.skipIf(!shouldRun)("runFailureRelease (integration)", () => {
 
     const session = await readSession(sessionId)
     await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "run release" }, async (tx) => {
-      await runFailureRelease(tx, session, {
-        app: makeFakeApp(),
-        paymentId: "pay-novoucher",
-        eventIdentity: makeIdentity(),
-      })
+      await runFailureRelease(
+        tx,
+        session,
+        {
+          app: makeFakeApp(),
+          paymentId: "pay-novoucher",
+          eventIdentity: makeIdentity(),
+        },
+        [],
+      )
     })
 
     const after = await readSession(sessionId)
@@ -377,11 +388,16 @@ describe.skipIf(!shouldRun)("runFailureRelease (integration)", () => {
 
       const session = await readSession(sessionId)
       await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "run release" }, async (tx) => {
-        await runFailureRelease(tx, session, {
-          app: makeFakeApp(),
-          paymentId: `pay-${terminalState}`,
-          eventIdentity: makeIdentity(),
-        })
+        await runFailureRelease(
+          tx,
+          session,
+          {
+            app: makeFakeApp(),
+            paymentId: `pay-${terminalState}`,
+            eventIdentity: makeIdentity(),
+          },
+          [],
+        )
       })
 
       const after = await readSession(sessionId)
@@ -409,11 +425,16 @@ describe.skipIf(!shouldRun)("runFailureRelease (integration)", () => {
 
     const session = await readSession(sessionId)
     await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "run release" }, async (tx) => {
-      await runFailureRelease(tx, session, {
-        app: makeFakeApp(),
-        paymentId: "", // empty
-        eventIdentity: makeIdentity(),
-      })
+      await runFailureRelease(
+        tx,
+        session,
+        {
+          app: makeFakeApp(),
+          paymentId: "", // empty
+          eventIdentity: makeIdentity(),
+        },
+        [],
+      )
     })
 
     const after = await readSession(sessionId)
@@ -433,11 +454,16 @@ describe.skipIf(!shouldRun)("runFailureRelease (integration)", () => {
 
     for (const session of [sessionA, sessionB]) {
       await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "run release" }, async (tx) => {
-        await runFailureRelease(tx, session, {
-          app: makeFakeApp(),
-          paymentId: "",
-          eventIdentity: makeIdentity(),
-        })
+        await runFailureRelease(
+          tx,
+          session,
+          {
+            app: makeFakeApp(),
+            paymentId: "",
+            eventIdentity: makeIdentity(),
+          },
+          [],
+        )
       })
     }
 
@@ -473,11 +499,16 @@ describe.skipIf(!shouldRun)("runFailureRelease (integration)", () => {
     // UPDATE, voucher UPDATE) plus the admin_bypass_audit row.
     await expect(
       withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "rollback probe" }, async (tx) => {
-        await runFailureRelease(tx, session, {
-          app: makeFakeApp(),
-          paymentId: `pay-${randomUUID()}`,
-          eventIdentity: makeIdentity(),
-        })
+        await runFailureRelease(
+          tx,
+          session,
+          {
+            app: makeFakeApp(),
+            paymentId: `pay-${randomUUID()}`,
+            eventIdentity: makeIdentity(),
+          },
+          [],
+        )
         throw new Error("synthetic rollback trigger")
       }),
     ).rejects.toThrow("synthetic rollback trigger")
@@ -533,11 +564,16 @@ describe.skipIf(!shouldRun)("runFailureRelease (integration)", () => {
     )
 
     await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "run release" }, async (tx) => {
-      await runFailureRelease(tx, sessionA, {
-        app: makeFakeApp(),
-        paymentId: `pay-${randomUUID()}`,
-        eventIdentity: makeIdentity(),
-      })
+      await runFailureRelease(
+        tx,
+        sessionA,
+        {
+          app: makeFakeApp(),
+          paymentId: `pay-${randomUUID()}`,
+          eventIdentity: makeIdentity(),
+        },
+        [],
+      )
     })
 
     // Session A transitioned to failed (release of reservations + stock still happened).
@@ -572,11 +608,16 @@ describe.skipIf(!shouldRun)("runFailureRelease (integration)", () => {
     })
 
     await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "run release" }, async (tx) => {
-      await runFailureRelease(tx, session, {
-        app: makeFakeApp(),
-        paymentId: `pay-${randomUUID()}`,
-        eventIdentity: makeIdentity(),
-      })
+      await runFailureRelease(
+        tx,
+        session,
+        {
+          app: makeFakeApp(),
+          paymentId: `pay-${randomUUID()}`,
+          eventIdentity: makeIdentity(),
+        },
+        [],
+      )
     })
 
     // The session still transitions to failed (the helper's session
@@ -594,5 +635,44 @@ describe.skipIf(!shouldRun)("runFailureRelease (integration)", () => {
     // because the redeemed_at IS NULL predicate matched 0 rows.
     const successLog = logCalls.find((l) => l.msg.includes("order payment failed"))
     expect((successLog?.obj as Record<string, unknown>)["voucherReleased"]).toBe(false)
+  })
+
+  it("pushes order_failed descriptor when session transitions", async () => {
+    const { sessionId } = await seedSession({ withVoucher: false, reservationQuantity: 1 })
+    const session = await readSession(sessionId)
+    const notifications: NotificationDescriptor[] = []
+
+    await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "run release" }, async (tx) => {
+      await runFailureRelease(
+        tx,
+        session,
+        { app: makeFakeApp(), paymentId: `pay-${randomUUID()}`, eventIdentity: makeIdentity() },
+        notifications,
+      )
+    })
+
+    expect(notifications).toHaveLength(1)
+    expect(notifications[0]).toMatchObject({
+      type: "order_failed",
+      sessionId,
+      buyerId: session.userId,
+    })
+  })
+
+  it("does NOT push order_failed descriptor when session already terminal (no-op UPDATE)", async () => {
+    const { sessionId } = await seedSession({ withVoucher: false, status: "failed" })
+    const session = await readSession(sessionId)
+    const notifications: NotificationDescriptor[] = []
+
+    await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "run release" }, async (tx) => {
+      await runFailureRelease(
+        tx,
+        session,
+        { app: makeFakeApp(), paymentId: "", eventIdentity: makeIdentity() },
+        notifications,
+      )
+    })
+
+    expect(notifications).toHaveLength(0)
   })
 })

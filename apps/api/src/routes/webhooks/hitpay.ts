@@ -8,6 +8,7 @@ import type { FastifyPluginAsync } from "fastify"
 import { trace } from "@opentelemetry/api"
 import { deriveEventIdentity } from "../../webhooks/hitpay/idempotency.js"
 import { handleOrderPayment } from "../../webhooks/hitpay/order-fanout.js"
+import { dispatchOrderNotifications } from "../../notifications/order.js"
 
 // Sentinel UUID identifying the HitPay webhook system as the audit actor
 // for all withAdmin writes. No user session exists for inbound webhooks.
@@ -109,7 +110,14 @@ export const hitpayWebhookRoutes: FastifyPluginAsync = async (app) => {
           eventIdentity: identity,
         })
         trace.getActiveSpan()?.setAttribute("bomy.psp_event_id", identity.pspEventId)
-        if (orderResult === "not_order") {
+
+        if (orderResult.result === "handled" && orderResult.notifications.length > 0) {
+          void dispatchOrderNotifications(orderResult.notifications, app).catch((err: unknown) => {
+            request.log.error({ err }, "email_notification_dispatch_error")
+          })
+        }
+
+        if (orderResult.result === "not_order") {
           await handleBrandSubscriptionPayment({
             app,
             paymentRequestId,
