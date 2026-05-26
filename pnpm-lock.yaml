@@ -114,6 +114,9 @@ importers:
       '@bomy/hitpay':
         specifier: workspace:*
         version: link:../../packages/hitpay
+      '@bomy/mailer':
+        specifier: workspace:*
+        version: link:../../packages/mailer
       '@fastify/cookie':
         specifier: ^11.0.2
         version: 11.0.2
@@ -147,9 +150,6 @@ importers:
       fastify-plugin:
         specifier: ^5.0.1
         version: 5.1.0
-      nodemailer:
-        specifier: ^8.0.7
-        version: 8.0.7
       pino:
         specifier: ^9.6.0
         version: 9.14.0
@@ -160,9 +160,6 @@ importers:
       '@types/node':
         specifier: ^20.17.0
         version: 20.19.39
-      '@types/nodemailer':
-        specifier: ^8.0.0
-        version: 8.0.0
       pino-pretty:
         specifier: ^13.0.0
         version: 13.1.3
