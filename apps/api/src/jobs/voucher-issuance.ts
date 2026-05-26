@@ -1,8 +1,15 @@
 import { randomBytes } from "node:crypto"
 
-import { eq, sql } from "drizzle-orm"
+import { eq, inArray, sql } from "drizzle-orm"
 
 import { schema, withAdmin, type Database } from "@bomy/db"
+
+import type { Mailer } from "../lib/mailer.js"
+import {
+  type IssuedVoucher,
+  type JobLogger,
+  dispatchVoucherEmails,
+} from "../notifications/voucher.js"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001" as const
 
@@ -114,7 +121,11 @@ function buildVoucherRow(
  *
  * Returns the number of vouchers inserted.
  */
-export async function issueMonthlyVouchers(db: Database): Promise<number> {
+export async function issueMonthlyVouchers(
+  db: Database,
+  mailer: Mailer,
+  log: JobLogger,
+): Promise<number> {
   const config = await readVoucherConfig(db)
   if (!config) {
     console.log("[voucher-issuance] No config found — skipping")
@@ -140,21 +151,47 @@ export async function issueMonthlyVouchers(db: Database): Promise<number> {
     buildVoucherRow(m.userId, config, issuedMonth, expiresAt),
   )
 
-  const inserted = await withAdmin(
+  const inserted: IssuedVoucher[] = await withAdmin(
     db,
     { userId: SYSTEM_ACTOR, reason: "bulk insert monthly vouchers" },
-    async (tx) => {
-      const result = await tx
+    async (tx) =>
+      tx
         .insert(schema.vouchers)
         .values(rows)
         .onConflictDoNothing({ target: [schema.vouchers.userId, schema.vouchers.issuedMonth] })
-        .returning({ id: schema.vouchers.id })
-      return result.length
-    },
+        .returning({
+          id: schema.vouchers.id,
+          userId: schema.vouchers.userId,
+          code: schema.vouchers.code,
+          type: schema.vouchers.type,
+          fixedAmountSen: schema.vouchers.fixedAmountSen,
+          percentage: schema.vouchers.percentage,
+          randomResolvedSen: schema.vouchers.randomResolvedSen,
+          expiresAt: schema.vouchers.expiresAt,
+        }),
   )
 
-  console.log(
-    `[voucher-issuance] Issued ${inserted}/${activeMembers.length} vouchers for ${issuedMonth}`,
+  if (inserted.length === 0) return 0
+
+  const userIds = inserted.map((v) => v.userId)
+  const emailRows = await withAdmin(
+    db,
+    { userId: SYSTEM_ACTOR, reason: "voucher-issuance: hydrate emails for issued vouchers" },
+    async (tx) =>
+      tx
+        .select({ id: schema.users.id, email: schema.users.email })
+        .from(schema.users)
+        .where(inArray(schema.users.id, userIds)),
   )
-  return inserted
+  const emailByUserId = new Map(emailRows.map((r) => [r.id, r.email]))
+
+  await dispatchVoucherEmails(
+    mailer,
+    inserted,
+    emailByUserId,
+    { appUrl: process.env["APP_URL"] ?? "", issuedMonth },
+    log,
+  )
+
+  return inserted.length
 }
