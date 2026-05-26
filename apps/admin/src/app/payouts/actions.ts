@@ -1,6 +1,7 @@
 "use server"
 
 import { and, eq, inArray } from "drizzle-orm"
+import { alias } from "drizzle-orm/pg-core"
 import { revalidatePath } from "next/cache"
 
 import { schema, withAdmin } from "@bomy/db"
@@ -8,6 +9,8 @@ import { schema, withAdmin } from "@bomy/db"
 import { auth } from "@/auth"
 import { requireRole } from "@/lib/auth"
 import { getDb } from "@/lib/db"
+import { getMailer } from "@/lib/mailer"
+import { sendPayoutPendingEmail } from "@/notifications/payout"
 
 const PAYOUT_ROLES = ["bomy_admin", "bomy_finance"] as const
 
@@ -87,7 +90,44 @@ export async function createPayoutRecord(orderId: string): Promise<CreateResult>
     },
   )
 
-  if (result.ok) revalidatePath("/payouts")
+  if (result.ok) {
+    const owner = alias(schema.users, "owner")
+    const ctxRows = await withAdmin(
+      getDb(),
+      { userId: adminId, reason: "payout: hydrate notification context" },
+      async (tx) =>
+        tx
+          .select({
+            orderId: schema.orders.id,
+            sellerEmail: owner.email,
+            amountSen: schema.orderPayouts.amountSen,
+            currency: schema.orderPayouts.currency,
+          })
+          .from(schema.orderPayouts)
+          .innerJoin(schema.orders, eq(schema.orderPayouts.orderId, schema.orders.id))
+          .innerJoin(schema.stores, eq(schema.orders.storeId, schema.stores.id))
+          .innerJoin(owner, eq(schema.stores.ownerId, owner.id))
+          .where(eq(schema.orderPayouts.id, result.payoutId))
+          .limit(1),
+    )
+    const ctx = ctxRows[0]
+
+    if (ctx) {
+      const mailer = getMailer()
+      try {
+        await sendPayoutPendingEmail(mailer, ctx, { appUrl: process.env["APP_URL"] ?? "" })
+      } catch (err) {
+        console.error({
+          event: "email_notification_failed",
+          payoutId: result.payoutId,
+          sellerEmail: ctx.sellerEmail,
+          message: err instanceof Error ? err.message : String(err),
+        })
+      }
+    }
+
+    revalidatePath("/payouts")
+  }
   return result
 }
 

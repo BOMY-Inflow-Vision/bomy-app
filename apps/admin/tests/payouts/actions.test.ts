@@ -9,7 +9,17 @@
 import { randomUUID } from "node:crypto"
 
 import { eq, inArray } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it, type Mock, vi } from "vitest"
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type Mock,
+  vi,
+} from "vitest"
 
 import { makeDb, schema, withAdmin } from "@bomy/db"
 
@@ -330,5 +340,82 @@ describe.skipIf(!shouldRun)("payout lifecycle actions", () => {
     mockAuth.mockResolvedValue({ user: { id: opsId, role: "bomy_ops" } })
     const result2 = await createPayoutRecord(orderId2)
     expect(result2).toEqual({ ok: false, error: "FORBIDDEN" })
+  })
+
+  // ─── payout email dispatch ──────────────────────────────────────────────
+
+  describe("payout-pending email", () => {
+    let logSpy: ReturnType<typeof vi.spyOn>
+    let errorSpy: ReturnType<typeof vi.spyOn>
+
+    beforeEach(async () => {
+      vi.resetModules()
+      const mailerMod = await import("../../src/lib/mailer.js")
+      mailerMod.resetMailerForTests()
+      logSpy = vi.spyOn(console, "log").mockImplementation(() => {})
+      errorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+    })
+
+    afterEach(() => {
+      logSpy.mockRestore()
+      errorSpy.mockRestore()
+    })
+
+    it("happy path: sends a payout-pending email to the seller", async () => {
+      const orderId = await seedCompletedOrder()
+      mockAuth.mockResolvedValue({ user: { id: adminId, role: "bomy_admin" } })
+
+      const result = await createPayoutRecord(orderId)
+      expect(result.ok).toBe(true)
+      if (result.ok) trackedPayoutIds.add(result.payoutId)
+
+      // Disabled-mode mailer logs one email_notification_skipped via console.log("email_notification_skipped", {...})
+      const sendCalls = logSpy.mock.calls.filter((c) => c[0] === "email_notification_skipped")
+      expect(sendCalls).toHaveLength(1)
+    })
+
+    it("does NOT send an email on NOT_PAYABLE (sellerPayoutSen = 0)", async () => {
+      const orderId = await seedCompletedOrder({ sellerPayoutSen: 0n })
+      mockAuth.mockResolvedValue({ user: { id: adminId, role: "bomy_admin" } })
+
+      const result = await createPayoutRecord(orderId)
+      expect(result).toEqual({ ok: false, error: "NOT_PAYABLE" })
+
+      const sendCalls = logSpy.mock.calls.filter((c) => c[0] === "email_notification_skipped")
+      expect(sendCalls).toHaveLength(0)
+    })
+
+    it("does NOT send an email on ALREADY_EXISTS (existing pending payout blocks)", async () => {
+      const orderId = await seedCompletedOrder()
+      mockAuth.mockResolvedValue({ user: { id: adminId, role: "bomy_admin" } })
+
+      const first = await createPayoutRecord(orderId)
+      expect(first.ok).toBe(true)
+      if (first.ok) trackedPayoutIds.add(first.payoutId)
+      // Clear the log from the first (happy-path) send before the second call:
+      logSpy.mockClear()
+
+      const second = await createPayoutRecord(orderId)
+      expect(second).toEqual({ ok: false, error: "ALREADY_EXISTS" })
+
+      const sendCalls = logSpy.mock.calls.filter((c) => c[0] === "email_notification_skipped")
+      expect(sendCalls).toHaveLength(0)
+    })
+
+    it("does NOT send an email on markPayoutCompleted / markPayoutFailed (no transition-level emails)", async () => {
+      const orderId = await seedCompletedOrder()
+      mockAuth.mockResolvedValue({ user: { id: adminId, role: "bomy_admin" } })
+      const created = await createPayoutRecord(orderId)
+      expect(created.ok).toBe(true)
+      if (!created.ok) return
+      trackedPayoutIds.add(created.payoutId)
+      logSpy.mockClear()
+
+      const completed = await markPayoutCompleted(created.payoutId, "BANK-REF-001")
+      expect(completed).toEqual({ ok: true })
+
+      const sendCalls = logSpy.mock.calls.filter((c) => c[0] === "email_notification_skipped")
+      expect(sendCalls).toHaveLength(0)
+    })
   })
 })
