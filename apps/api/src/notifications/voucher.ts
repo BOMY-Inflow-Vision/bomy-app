@@ -1,4 +1,4 @@
-import type { Mailer } from "../lib/mailer.js"
+import { joinUrl, type Mailer } from "../lib/mailer.js"
 
 export interface JobLogger {
   info(obj: object, msg: string): void
@@ -23,13 +23,43 @@ export interface DispatchSummary {
   skipped: number
 }
 
+function senToMyrStr(sen: bigint): string {
+  const whole = sen / 100n
+  const cents = sen % 100n
+  return `${whole}.${cents.toString().padStart(2, "0")}`
+}
+
+function renderAmount(voucher: IssuedVoucher): string {
+  if (voucher.type === "fixed_myr" && voucher.fixedAmountSen !== null) {
+    return `RM ${senToMyrStr(voucher.fixedAmountSen)} off`
+  }
+  if (voucher.type === "percentage" && voucher.percentage !== null) {
+    return `${voucher.percentage}% off`
+  }
+  if (voucher.type === "random_myr" && voucher.randomResolvedSen !== null) {
+    return `RM ${senToMyrStr(voucher.randomResolvedSen)} off (your monthly random reward!)`
+  }
+  return "a monthly reward"
+}
+
 export async function sendVoucherIssuedEmail(
-  _mailer: Mailer,
-  _voucher: IssuedVoucher,
-  _email: string,
-  _env: { appUrl: string },
+  mailer: Mailer,
+  voucher: IssuedVoucher,
+  email: string,
+  env: { appUrl: string },
 ): Promise<void> {
-  throw new Error("not implemented")
+  const expiryStr = voucher.expiresAt.toLocaleDateString("en-MY")
+  const accountUrl = joinUrl(env.appUrl, "/account")
+  const amountLine = renderAmount(voucher)
+
+  await mailer.sendMail({
+    to: email,
+    subject: `Your BOMY monthly voucher — code ${voucher.code}`,
+    text:
+      `Your monthly BOMY voucher is ready: ${amountLine}.\n\n` +
+      `Use code ${voucher.code} at checkout. Valid until ${expiryStr}.\n\n` +
+      `Manage your account: ${accountUrl}`,
+  })
 }
 
 export async function dispatchVoucherEmails(
