@@ -33,6 +33,7 @@ export async function createScheduler(
   db: Database,
   deps: {
     mailer: Mailer
+    appLog: JobLogger
     logger: { info: (msg: string) => void; error: (obj: object, msg: string) => void }
   },
 ): Promise<Scheduler> {
@@ -86,13 +87,7 @@ export async function createScheduler(
   const voucherWorker = new Worker(
     VOUCHER_QUEUE_NAME,
     async () => {
-      // Temporary log adapter — Task 16 introduces deps.appLog and removes this.
-      const tempLog: JobLogger = {
-        info: (obj, msg) => deps.logger.info(`${msg} ${JSON.stringify(obj)}`),
-        warn: (obj, msg) => deps.logger.info(`${msg} ${JSON.stringify(obj)}`),
-        error: (obj, msg) => deps.logger.error(obj, msg),
-      }
-      const n = await issueMonthlyVouchers(db, deps.mailer, tempLog)
+      const n = await issueMonthlyVouchers(db, deps.mailer, deps.appLog)
       deps.logger.info(`jobs: voucher-issuance issued ${n} vouchers`)
     },
     { connection },
