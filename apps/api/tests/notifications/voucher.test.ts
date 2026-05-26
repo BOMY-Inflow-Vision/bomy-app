@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from "vitest"
 import type { Mailer } from "../../src/lib/mailer.js"
-import { type IssuedVoucher, sendVoucherIssuedEmail } from "../../src/notifications/voucher.js"
+import {
+  type DispatchSummary,
+  type IssuedVoucher,
+  type JobLogger,
+  dispatchVoucherEmails,
+  sendVoucherIssuedEmail,
+} from "../../src/notifications/voucher.js"
 
 function makeMailer() {
   const sendMail = vi.fn<Mailer["sendMail"]>().mockResolvedValue(undefined)
@@ -72,5 +78,104 @@ describe("sendVoucherIssuedEmail", () => {
     const body = sendMail.mock.calls[0]![0].text
     expect(body).toContain("https://app.bomy.my/account")
     expect(body).not.toContain("/account/vouchers")
+  })
+})
+
+function makeLog(): JobLogger & {
+  info: ReturnType<typeof vi.fn>
+  warn: ReturnType<typeof vi.fn>
+  error: ReturnType<typeof vi.fn>
+} {
+  return { info: vi.fn(), warn: vi.fn(), error: vi.fn() }
+}
+
+function makeVoucher(idx: number): IssuedVoucher {
+  return {
+    id: `v-${idx}`,
+    userId: `u-${idx}`,
+    code: `CODE${idx}`,
+    type: "fixed_myr",
+    fixedAmountSen: 1000n,
+    percentage: null,
+    randomResolvedSen: null,
+    expiresAt: EXPIRES,
+  }
+}
+
+describe("dispatchVoucherEmails", () => {
+  it("happy path: sends one email per inserted row and returns matching summary", async () => {
+    const { mailer, sendMail } = makeMailer()
+    const log = makeLog()
+    const inserted = [makeVoucher(1), makeVoucher(2)]
+    const emailByUserId = new Map([
+      ["u-1", "u1@bomy.my"],
+      ["u-2", "u2@bomy.my"],
+    ])
+
+    const summary = await dispatchVoucherEmails(
+      mailer,
+      inserted,
+      emailByUserId,
+      { appUrl: "https://app.bomy.my", issuedMonth: "2026-05" },
+      log,
+    )
+
+    expect(sendMail).toHaveBeenCalledTimes(2)
+    expect(summary).toEqual<DispatchSummary>({ sent: 2, failed: 0, skipped: 0 })
+    expect(log.info).toHaveBeenCalledOnce()
+    expect(log.info.mock.calls[0]![1]).toBe("voucher_issuance_summary")
+  })
+
+  it("isolates per-row failures: first send throws, second sent, loop continues", async () => {
+    const sendMail = vi
+      .fn<Mailer["sendMail"]>()
+      .mockRejectedValueOnce(new Error("SMTP down"))
+      .mockResolvedValueOnce(undefined)
+    const mailer: Mailer = { sendMail, close: vi.fn<Mailer["close"]>() }
+    const log = makeLog()
+    const inserted = [makeVoucher(1), makeVoucher(2)]
+    const emailByUserId = new Map([
+      ["u-1", "u1@bomy.my"],
+      ["u-2", "u2@bomy.my"],
+    ])
+
+    const summary = await dispatchVoucherEmails(
+      mailer,
+      inserted,
+      emailByUserId,
+      { appUrl: "https://app.bomy.my", issuedMonth: "2026-05" },
+      log,
+    )
+
+    expect(summary).toEqual<DispatchSummary>({ sent: 1, failed: 1, skipped: 0 })
+    expect(log.error).toHaveBeenCalledOnce()
+    const errCall = log.error.mock.calls[0] as [Record<string, unknown>, string]
+    expect(errCall[0]["event"]).toBe("email_notification_failed")
+    expect(errCall[0]["voucherId"]).toBe("v-1")
+    expect(errCall[0]["userId"]).toBe("u-1")
+    expect(JSON.stringify(errCall[0])).not.toContain("Your monthly BOMY voucher")
+  })
+
+  it("logs email_notification_skipped when a userId has no entry in emailByUserId (defensive)", async () => {
+    const { mailer, sendMail } = makeMailer()
+    const log = makeLog()
+    const inserted = [makeVoucher(1), makeVoucher(2)]
+    const emailByUserId = new Map([["u-2", "u2@bomy.my"]])
+
+    const summary = await dispatchVoucherEmails(
+      mailer,
+      inserted,
+      emailByUserId,
+      { appUrl: "https://app.bomy.my", issuedMonth: "2026-05" },
+      log,
+    )
+
+    expect(summary).toEqual<DispatchSummary>({ sent: 1, failed: 0, skipped: 1 })
+    expect(sendMail).toHaveBeenCalledOnce()
+    expect(log.warn).toHaveBeenCalledOnce()
+    const warnCall = log.warn.mock.calls[0] as [Record<string, unknown>, string]
+    expect(warnCall[0]["event"]).toBe("email_notification_skipped")
+    expect(warnCall[0]["reason"]).toBe("user_email_not_found")
+    expect(warnCall[0]["voucherId"]).toBe("v-1")
   })
 })

@@ -63,11 +63,60 @@ export async function sendVoucherIssuedEmail(
 }
 
 export async function dispatchVoucherEmails(
-  _mailer: Mailer,
-  _inserted: readonly IssuedVoucher[],
-  _emailByUserId: ReadonlyMap<string, string>,
-  _env: { appUrl: string; issuedMonth: string },
-  _log: JobLogger,
+  mailer: Mailer,
+  inserted: readonly IssuedVoucher[],
+  emailByUserId: ReadonlyMap<string, string>,
+  env: { appUrl: string; issuedMonth: string },
+  log: JobLogger,
 ): Promise<DispatchSummary> {
-  throw new Error("not implemented")
+  let sent = 0
+  let failed = 0
+  let skipped = 0
+
+  for (const v of inserted) {
+    const email = emailByUserId.get(v.userId)
+    if (!email) {
+      skipped++
+      log.warn(
+        {
+          event: "email_notification_skipped",
+          reason: "user_email_not_found",
+          voucherId: v.id,
+          userId: v.userId,
+        },
+        "email_notification_skipped",
+      )
+      continue
+    }
+    try {
+      await sendVoucherIssuedEmail(mailer, v, email, { appUrl: env.appUrl })
+      sent++
+    } catch (err) {
+      failed++
+      log.error(
+        {
+          event: "email_notification_failed",
+          voucherId: v.id,
+          userId: v.userId,
+          email,
+          message: err instanceof Error ? err.message : String(err),
+        },
+        "email_notification_failed",
+      )
+    }
+  }
+
+  log.info(
+    {
+      event: "voucher_issuance_summary",
+      issuedMonth: env.issuedMonth,
+      inserted: inserted.length,
+      sent,
+      failed,
+      skipped,
+    },
+    "voucher_issuance_summary",
+  )
+
+  return { sent, failed, skipped }
 }
