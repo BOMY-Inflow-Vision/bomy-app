@@ -193,6 +193,9 @@ importers:
       '@bomy/hitpay':
         specifier: workspace:*
         version: link:../../packages/hitpay
+      '@bomy/mailer':
+        specifier: workspace:*
+        version: link:../../packages/mailer
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
