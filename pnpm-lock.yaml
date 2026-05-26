@@ -50,6 +50,9 @@ importers:
       '@bomy/hitpay':
         specifier: workspace:*
         version: link:../../packages/hitpay
+      '@bomy/mailer':
+        specifier: workspace:*
+        version: link:../../packages/mailer
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
