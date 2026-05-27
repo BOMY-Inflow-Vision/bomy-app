@@ -66,7 +66,7 @@ PR #36 ships the script + the runbook + the directory pattern for future operati
 
 ---
 
-## 5. Script design — `scripts/ops/platform-config-flip.ts`
+## 5. Script design — `packages/db/scripts/ops/platform-config-flip.ts`
 
 ### 5.1 Args (all required, no defaults)
 
