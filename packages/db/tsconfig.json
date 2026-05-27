@@ -7,6 +7,6 @@
     "outDir": "dist",
     "noEmit": true
   },
-  "include": ["src/**/*", "tests/**/*", "*.ts", "*.mts"],
+  "include": ["src/**/*", "tests/**/*", "scripts/**/*", "*.ts", "*.mts"],
   "exclude": ["node_modules", "dist"]
 }

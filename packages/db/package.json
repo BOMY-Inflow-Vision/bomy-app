@@ -11,11 +11,12 @@
     "./types": "./src/types.ts"
   },
   "scripts": {
-    "lint": "eslint src tests --max-warnings 0",
+    "lint": "eslint src tests $(test -n \"$(find scripts -name '*.ts' -o -name '*.tsx' 2>/dev/null)\" && echo 'scripts' || true) --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "migrate": "node scripts/migrate.mjs",
+    "ops:platform-config:set": "tsx scripts/ops/platform-config-flip.ts",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio"
@@ -28,6 +29,7 @@
     "@bomy/config": "workspace:*",
     "@types/node": "^20.17.0",
     "drizzle-kit": "^0.28.1",
+    "tsx": "^4.19.3",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.32.1",
     "vitest": "^2.1.9"
