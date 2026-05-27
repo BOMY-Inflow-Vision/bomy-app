@@ -53,4 +53,18 @@ describe("sendPayoutPendingEmail", () => {
     expect(body.toLowerCase()).not.toMatch(/business days?/i)
     expect(body.toLowerCase()).not.toMatch(/\d+ ?-? ?\d+ ?days/i)
   })
+
+  it("renders non-MYR currency with the currency code as prefix (no 'RM')", async () => {
+    const { mailer, sendMail } = makeMailer()
+    await sendPayoutPendingEmail(
+      mailer,
+      { ...CTX, currency: "USD" },
+      { appUrl: "https://app.bomy.my" },
+    )
+    const args = sendMail.mock.calls[0]![0]
+    expect(args.subject).toContain("USD 50.00")
+    expect(args.subject).not.toContain("RM")
+    expect(args.text).toContain("USD 50.00")
+    expect(args.text).not.toContain("RM")
+  })
 })
