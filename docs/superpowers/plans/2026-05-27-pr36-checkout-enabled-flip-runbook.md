@@ -59,14 +59,14 @@
 - Modify: `packages/db/eslint.config.js`
 - Modify: `package.json` (root)
 
-- [ ] **Step 1.1: Add tsx to db devDeps, update lint, add package script**
+- [ ] **Step 1.1: Add tsx to db devDeps, add package script**
 
-Open `packages/db/package.json`. Make three changes:
+Open `packages/db/package.json`. Make two changes (the `lint` script stays unchanged in this task — see note below):
 
 ```json
 {
   "scripts": {
-    "lint": "eslint src tests scripts --max-warnings 0",
+    "lint": "eslint src tests --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -88,7 +88,9 @@ Open `packages/db/package.json`. Make three changes:
 }
 ```
 
-Two changes vs. current: `lint` script now includes `scripts`, a new `ops:platform-config:set` line is added between `migrate` and `db:generate`, and `tsx` is inserted into devDependencies in alphabetical order.
+Two changes vs. current: a new `ops:platform-config:set` line is added between `migrate` and `db:generate`, and `tsx` is inserted into devDependencies in alphabetical order.
+
+> **Note on the `lint` script.** ESLint 9 exits 2 if a glob target matches only ignored files — meaning `eslint src tests scripts` would fail in Task 1 because `scripts/` only contains the ignored `migrate.mjs` at this point. The widening to `eslint src tests scripts --max-warnings 0` is deferred to Task 2, executed atomically with the creation of the first TS file under `scripts/ops/`. This is a plan ordering correction, not an open issue.
 
 - [ ] **Step 1.2: Extend tsconfig include**
 
@@ -169,8 +171,25 @@ EOF
 
 **Files:**
 
+- Modify: `packages/db/package.json` (widen lint script — deferred from Task 1)
 - Create: `packages/db/scripts/ops/platform-config-flip-args.ts`
 - Create: `packages/db/tests/scripts/platform-config-flip-args.test.ts`
+
+- [ ] **Step 2.0: Widen the db lint script (deferred from Task 1)**
+
+Now that we're about to create the first TS file under `scripts/`, the lint script can safely widen. In `packages/db/package.json`, change:
+
+```json
+"lint": "eslint src tests --max-warnings 0",
+```
+
+to:
+
+```json
+"lint": "eslint src tests scripts --max-warnings 0",
+```
+
+Do NOT run lint yet — the file doesn't exist. The next steps create it. The widened lint will be verified at Step 2.5 after the implementation is in place.
 
 - [ ] **Step 2.1: Write the failing tests**
 
