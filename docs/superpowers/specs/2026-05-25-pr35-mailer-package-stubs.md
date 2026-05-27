@@ -1,9 +1,25 @@
 # PR #35 — `@bomy/mailer` Package + Remaining Notification Stubs
 
-**Status:** Design locked
+**Status:** Design locked (with Bob R1 scope change — see addendum below)
 **Date:** 2026-05-25
 **Author model:** Opus 4.7
 **Supersedes:** Prior draft at the same path (replaced after a fresh five-section brainstorm with Charlie).
+
+---
+
+## Addendum — Bob R1 review (2026-05-27)
+
+Bob flagged the public `submitSellerInquiry` server action as an arbitrary-recipient mailer vector: the public form has no auth/captcha/rate limit, and the submitted email was passed straight into Nodemailer's `to:` field — comma- or semicolon-separated input could fan out to attacker-chosen recipients. Charlie's call: **drop the applicant ack from PR #35 entirely** (ops-only path), plus add server-side single-address shape validation before insert. Specifically:
+
+- `submitSellerInquiry` validates email shape (regex rejects whitespace, `,`, `;`, `<`, `>`, `"`, and multiple `@`) — invalid input rejects with `Please provide a valid email address.` before the DB insert.
+- `sendApplicantAck` is removed from `apps/web/src/notifications/seller-inquiry.ts`; the action only dispatches the ops alert (to `OPS_ALERT_EMAILS`, server-controlled).
+- When `OPS_ALERT_EMAILS` is empty, the action logs `email_notification_skipped { reason: "missing_ops_recipients" }` and returns — no outbound send.
+- Tests updated so no public-submitted email is ever used as `to`.
+- **Follow-up (out of PR #35 scope):** before public launch or paid traffic on `/seller/apply`, add Turnstile (or equivalent) abuse protection. Re-introducing the applicant ack is gated on that protection landing.
+
+Bob's other two findings — payout email currency rendering (F2: now uses `RM` for MYR, `USD` for non-MYR; non-MYR test added) and the spec/env mismatch (F3: §3 table updated below to admin-only-needs-transport+APP_URL) — are also applied in this PR.
+
+Sections 4.1, 4.4 below describe the original applicant-ack design intent — left intact for design-history context. The shipped behavior is the addendum above.
 
 ---
 
@@ -163,12 +179,12 @@ export function resetMailerForTests(): void {
 
 All four env example files in the repo need updates so that any app's bootstrap procedure documents the full notification env block. `infra/docker/.env.example` stays infra-only (Mailhog ports only; no app runtime SMTP vars).
 
-| File                            | Currently has                                                   | Add                                                                                                                      |
-| ------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `.env.example` (root master)    | `MAILHOG_*`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `APP_URL` | `EMAIL_DELIVERY_ENABLED`, `MAIL_FROM`, `MAIL_REPLY_TO`, `OPS_ALERT_EMAILS`, `ADMIN_URL`                                  |
-| `apps/api/.env.local.example`   | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`                         | `EMAIL_DELIVERY_ENABLED`, `MAIL_FROM`, `MAIL_REPLY_TO`, `OPS_ALERT_EMAILS`, `APP_URL`, `ADMIN_URL`                       |
-| `apps/web/.env.local.example`   | `APP_URL`                                                       | `EMAIL_DELIVERY_ENABLED`, `SMTP_*`, `MAIL_FROM`, `MAIL_REPLY_TO`, `OPS_ALERT_EMAILS`, `ADMIN_URL`                        |
-| `apps/admin/.env.local.example` | (none of these)                                                 | full block: `EMAIL_DELIVERY_ENABLED`, `SMTP_*`, `MAIL_FROM`, `MAIL_REPLY_TO`, `OPS_ALERT_EMAILS`, `APP_URL`, `ADMIN_URL` |
+| File                            | Currently has                                                   | Add                                                                                                                                                                                 |
+| ------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.env.example` (root master)    | `MAILHOG_*`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `APP_URL` | `EMAIL_DELIVERY_ENABLED`, `MAIL_FROM`, `MAIL_REPLY_TO`, `OPS_ALERT_EMAILS`, `ADMIN_URL`                                                                                             |
+| `apps/api/.env.local.example`   | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`                         | `EMAIL_DELIVERY_ENABLED`, `MAIL_FROM`, `MAIL_REPLY_TO`, `OPS_ALERT_EMAILS`, `APP_URL`, `ADMIN_URL`                                                                                  |
+| `apps/web/.env.local.example`   | `APP_URL`                                                       | `EMAIL_DELIVERY_ENABLED`, `SMTP_*`, `MAIL_FROM`, `MAIL_REPLY_TO`, `OPS_ALERT_EMAILS`, `ADMIN_URL`                                                                                   |
+| `apps/admin/.env.local.example` | (none of these)                                                 | transport block + `APP_URL` only: `EMAIL_DELIVERY_ENABLED`, `SMTP_*`, `MAIL_FROM`, `MAIL_REPLY_TO`, `APP_URL` (no `OPS_ALERT_EMAILS` / `ADMIN_URL` — admin code does not read them) |
 
 Mailhog defaults stay as-is (`SMTP_HOST=localhost`, `SMTP_PORT=1025`, `SMTP_SECURE=false`).
 
