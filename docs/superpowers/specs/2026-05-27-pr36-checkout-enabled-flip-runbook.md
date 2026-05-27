@@ -22,16 +22,16 @@ PR #36 ships the script + the runbook + the directory pattern for future operati
 
 ## 2. In scope (artifacts shipped)
 
-| Artifact               | Path                                                                                                                                                                                       | Purpose                                                                                                               |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| Ops script             | `packages/db/scripts/ops/platform-config-flip.ts`                                                                                                                                          | Generic UPDATE of any existing `platform_config` key to a supplied JSON value, under `withAdmin`.                     |
-| Package script (local) | `packages/db/package.json` → `ops:platform-config:set`                                                                                                                                     | Runs the script via `tsx`.                                                                                            |
-| Package script (root)  | `package.json` → `ops:platform-config:set`                                                                                                                                                 | Delegates: `pnpm --filter @bomy/db ops:platform-config:set`.                                                          |
-| Runbook artifact       | `docs/runbooks/checkout-enabled-flip.md`                                                                                                                                                   | Fully-executable Local section + Staging template + evidence template.                                                |
-| Evidence directory     | `docs/runbooks/evidence/`                                                                                                                                                                  | New directory with a README explaining the per-flip evidence pattern. **No real evidence file committed in this PR.** |
-| Spec (this doc)        | `docs/superpowers/specs/2026-05-27-pr36-checkout-enabled-flip-runbook.md`                                                                                                                  | Design rationale.                                                                                                     |
-| Tests                  | `packages/db/tests/scripts/`                                                                                                                                                               | Unit tests + one DB-gated integration test (picked up by db's existing vitest config).                                |
-| Toolchain              | `packages/db/devDependencies` adds `tsx`; `packages/db/tsconfig.json` includes `scripts/**/*`; eslint config narrowed so TS in `scripts/` is linted (ignoring only `scripts/migrate.mjs`). | Brings the new TS files under `@bomy/db`'s lint/typecheck/test umbrella.                                              |
+| Artifact               | Path                                                                                                                                                                                                                                                                                                   | Purpose                                                                                                               |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| Ops script             | `packages/db/scripts/ops/platform-config-flip.ts`                                                                                                                                                                                                                                                      | Generic UPDATE of any existing `platform_config` key to a supplied JSON value, under `withAdmin`.                     |
+| Package script (local) | `packages/db/package.json` → `ops:platform-config:set`                                                                                                                                                                                                                                                 | Runs the script via `tsx`.                                                                                            |
+| Package script (root)  | `package.json` → `ops:platform-config:set`                                                                                                                                                                                                                                                             | Delegates: `pnpm --filter @bomy/db ops:platform-config:set`.                                                          |
+| Runbook artifact       | `docs/runbooks/checkout-enabled-flip.md`                                                                                                                                                                                                                                                               | Fully-executable Local section + Staging template + evidence template.                                                |
+| Evidence directory     | `docs/runbooks/evidence/`                                                                                                                                                                                                                                                                              | New directory with a README explaining the per-flip evidence pattern. **No real evidence file committed in this PR.** |
+| Spec (this doc)        | `docs/superpowers/specs/2026-05-27-pr36-checkout-enabled-flip-runbook.md`                                                                                                                                                                                                                              | Design rationale.                                                                                                     |
+| Tests                  | `packages/db/tests/scripts/`                                                                                                                                                                                                                                                                           | Unit tests + one DB-gated integration test (picked up by db's existing vitest config).                                |
+| Toolchain              | `packages/db/devDependencies` adds `tsx`; `packages/db/tsconfig.json` includes `scripts/**/*`; `packages/db/package.json` `lint` script changes from `eslint src tests --max-warnings 0` to `eslint src tests scripts --max-warnings 0`; eslint config ignores only `scripts/migrate.mjs` (plain ESM). | Brings the new TS files under `@bomy/db`'s lint/typecheck/test umbrella.                                              |
 
 `docs/runbooks/` is established as the canonical home for operational procedures going forward (Turnstile rollout, future prod cutover, HitPay live-key swap, key incidents).
 
@@ -140,7 +140,7 @@ In root `package.json`:
 "ops:platform-config:set": "pnpm --filter @bomy/db ops:platform-config:set"
 ```
 
-`tsx` is added to `packages/db/devDependencies`. `packages/db/tsconfig.json` extends `include` to cover `scripts/**/*`. The db package's eslint config is narrowed so TypeScript under `scripts/` is linted (only the legacy `scripts/migrate.mjs` stays ignored as plain ESM).
+`tsx` is added to `packages/db/devDependencies`. `packages/db/tsconfig.json` extends `include` to cover `scripts/**/*`. The db `lint` script is updated from `eslint src tests --max-warnings 0` to `eslint src tests scripts --max-warnings 0` so TypeScript under `scripts/` is actually linted; the eslint config ignores only `scripts/migrate.mjs` (plain ESM, not the new TS).
 
 ---
 
@@ -185,13 +185,12 @@ packages/db/
 
 Behind `DATABASE_APP_URL` + `BOMY_RLS_READY=1`. Uses the `bomy_app` limited role so RLS actually fires.
 
-- **Seed:** insert a `bomy_admin` user (or reuse an existing seeded one); insert a synthetic `platform_config` row with a **per-run unique key**: `const testKey = '__test_flip_' + randomUUID()`, value `false`.
-- **Capture before-counts:** `platformConfigAudit` total + `adminBypassAudit` total.
+- **Seed:** insert a `bomy_admin` user (or reuse an existing seeded one); insert a synthetic `platform_config` row with a **per-run unique key**: `const testKey = '__test_flip_' + randomUUID()`, value `false`. Seeding may use `withAdmin` for the inserts (RLS would otherwise block writes), but **be aware**: every `withAdmin` call writes one extra `admin_bypass_audit` row at the start of its transaction (per `tenant.ts:143`). This is why the assertions below use **narrow unique-identifier matchers returning exactly 1 row**, not total-count deltas — count-delta assertions would be brittle against any incidental `withAdmin` use in seed/cleanup.
 - **Invoke** `runPlatformConfigFlip(dbAppRoleClient, { key: testKey, value: 'true', actor: adminId, reason: <unique-per-run-reason> })`.
-- **Assert:**
+- **Assert** (all reads use `withTenant` under the seeded admin's real role to avoid emitting additional `admin_bypass_audit` rows mid-assertion):
   - `platform_config.value` for `testKey` is now `true`; `updated_by = actor.id`; `updated_at` advanced past the seed time.
-  - `platformConfigAudit` total = before + 1; the new row has `key = testKey`, `old_value = false`, `new_value = true`, `changed_by = actor.id`.
-  - `adminBypassAudit` total = before + 1; the new row has `actor_user_id = actor.id` and `reason` matches the per-run reason text.
+  - Exactly **one** row in `platform_config_audit` with `key = $testKey` AND `changed_by = actor.id`; it has `old_value = false`, `new_value = true`. (Narrow matcher; no global count delta.)
+  - Exactly **one** row in `admin_bypass_audit` with `actor_user_id = actor.id` AND `reason = $testReason`. (Narrow matcher on unique-per-run reason; no global count delta.)
 - **Cleanup in `afterEach`:**
   - `DELETE FROM platform_config WHERE key = $testKey`.
   - **Do not delete audit rows.** `platform_config_audit` and `admin_bypass_audit` are append-only at the RLS layer — `packages/db/src/rls/policies.sql:261-267` defines only SELECT + INSERT policies on the former, and `:390-398` enforces the same plus an explicit comment that omission of UPDATE/DELETE policies under FORCE RLS keeps `admin_bypass_audit` append-only. A `DELETE` would be silently rejected by RLS or fail outright; either way, the test's audit rows stay in the table.
@@ -225,12 +224,14 @@ Last revised: 2026-05-27
 ### 8.2 §0. Pre-flight (do once per actor, per env)
 
 - Confirm target env (local or staging-template). Production warning if `DATABASE_URL` host smells like prod.
-- Look up your admin user UUID:
+- Look up your admin user UUID. This one-off lookup uses the **owner-role** connection (`DATABASE_URL`, the BOMY-owned role that bypasses RLS at the role level — same role the migration script uses). Under the limited `bomy_app` role (`DATABASE_APP_URL`) this query would return empty because no RLS context is set in an ad-hoc `psql` session.
   ```sql
+  -- Connect with DATABASE_URL (owner role), NOT DATABASE_APP_URL.
   SELECT id, email, role FROM users WHERE email = '<you>@bomy.my';
   ```
   Role must be `bomy_ops` / `bomy_admin` / `bomy_finance`. Otherwise stop.
-- Confirm `DATABASE_URL` is exported and points at the target env.
+  Alternative: if/when an admin console "view my profile" page exists, use that instead.
+- Confirm `DATABASE_URL` is exported and points at the target env. The flip script itself uses `DATABASE_URL` via `makeDb()`.
 
 ### 8.3 §1. Pre-flip hard gate (checks 1–7)
 
@@ -271,14 +272,14 @@ Reason copy convention: must reference the §8.3 hard-gate green-status + any ad
 Immediately after the flip command returns success, verify the audit row exists:
 
 ```sql
-SELECT id, old_value, new_value, changed_at
+SELECT id, old_value, new_value, changed_by, changed_at
 FROM platform_config_audit
 WHERE key = 'checkout_enabled'
 ORDER BY changed_at DESC LIMIT 1;
 ```
 
 - `old_value` should be `false`, `new_value` should be `true`, `changed_at` within the last few seconds.
-- Cross-check `changed_by` against your actor UUID from §8.2.
+- `changed_by` should match your actor UUID from §8.2.
 
 **If this fails:** rollback per §8.7 (trigger #5) and stop — the script reported success but the audit chain is broken, which is a real bug worth pausing on.
 
