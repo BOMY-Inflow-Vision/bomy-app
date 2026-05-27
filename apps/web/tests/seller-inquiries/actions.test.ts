@@ -26,7 +26,7 @@ describe.skipIf(!shouldRun)("submitSellerInquiry — server action", () => {
     return fd
   }
 
-  it("inserts the row, attempts applicant ack, and attempts ops alert when OPS_ALERT_EMAILS is set", async () => {
+  it("inserts the row and attempts ops alert when OPS_ALERT_EMAILS is set; never sends to the submitted email", async () => {
     process.env["OPS_ALERT_EMAILS"] = "ops@bomy.my"
     process.env["ADMIN_URL"] = "https://admin.bomy.my"
     // EMAIL_DELIVERY_ENABLED unset → disabled mailer (logs skipped via console.log).
@@ -36,12 +36,19 @@ describe.skipIf(!shouldRun)("submitSellerInquiry — server action", () => {
 
     await expect(submitSellerInquiry(makeFormData())).resolves.toBeUndefined()
 
-    // Two attempted sends produce two "email_notification_skipped" logs from the disabled-mode mailer.
+    // Exactly one attempted send (ops alert) → one disabled-mode skip log.
     const skipCalls = logSpy.mock.calls.filter((c) => c[0] === "email_notification_skipped")
-    expect(skipCalls).toHaveLength(2)
+    expect(skipCalls).toHaveLength(1)
+
+    // Defensive: the submitted (public) email must never appear as a recipient.
+    for (const call of skipCalls) {
+      const payload = call[1] as { to: string | string[] }
+      const recipients = Array.isArray(payload.to) ? payload.to : [payload.to]
+      expect(recipients).not.toContain("aisyah@example.com")
+    }
   })
 
-  it("logs missing_ops_recipients but still attempts applicant ack when OPS_ALERT_EMAILS is empty", async () => {
+  it("logs missing_ops_recipients and sends nothing when OPS_ALERT_EMAILS is empty", async () => {
     delete process.env["OPS_ALERT_EMAILS"]
     const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {})
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {})
@@ -54,15 +61,30 @@ describe.skipIf(!shouldRun)("submitSellerInquiry — server action", () => {
     expect(infoArg.event).toBe("email_notification_skipped")
     expect(infoArg.reason).toBe("missing_ops_recipients")
 
-    // Applicant send was still attempted (disabled-mode skip log fires exactly once):
+    // No outbound send attempted when ops list is empty — applicant ack is gone.
     const skipCalls = logSpy.mock.calls.filter((c) => c[0] === "email_notification_skipped")
-    expect(skipCalls).toHaveLength(1)
+    expect(skipCalls).toHaveLength(0)
   })
 
   it("rejects when a required field is missing", async () => {
     const { submitSellerInquiry } = await import("../../src/app/seller/apply/actions.js")
     await expect(submitSellerInquiry(makeFormData({ name: "" }))).rejects.toThrow(
       /All required fields/,
+    )
+  })
+
+  it.each([
+    "aisyah@example.com, attacker@evil.com", // comma-separated injection
+    "aisyah@example.com;attacker@evil.com", // semicolon-separated injection
+    "Aisyah <aisyah@example.com>", // angle-bracket display-name form
+    "aisyah aisyah@example.com", // whitespace
+    "not-an-email",
+    "double@@example.com",
+    '"quoted"@example.com',
+  ])("rejects invalid/multi-recipient email shape: %s", async (badEmail) => {
+    const { submitSellerInquiry } = await import("../../src/app/seller/apply/actions.js")
+    await expect(submitSellerInquiry(makeFormData({ email: badEmail }))).rejects.toThrow(
+      /valid email/,
     )
   })
 })

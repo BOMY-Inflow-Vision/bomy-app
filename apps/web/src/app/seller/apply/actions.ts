@@ -4,9 +4,15 @@ import { parseOpsEmails } from "@bomy/mailer"
 import { makeDb, schema } from "@bomy/db"
 
 import { getMailer } from "@/lib/mailer"
-import { sendApplicantAck, sendOpsAlert } from "@/notifications/seller-inquiry"
+import { sendOpsAlert } from "@/notifications/seller-inquiry"
 
 const { db } = makeDb()
+
+// Single-address shape: rejects empty parts, whitespace, and any character
+// nodemailer could parse as a recipient separator (`,` `;` `<` `>` `"`) or a
+// second `@`. Public submissions never reach an outbound `to:` field, but the
+// submitted email is still persisted, so we validate shape on the boundary.
+const EMAIL_RE = /^[^\s,;<>"@]+@[^\s,;<>"@]+\.[^\s,;<>"@]+$/
 
 export async function submitSellerInquiry(formData: FormData) {
   const name = (formData.get("name") as string)?.trim()
@@ -20,24 +26,15 @@ export async function submitSellerInquiry(formData: FormData) {
     throw new Error("All required fields must be filled in.")
   }
 
+  if (!EMAIL_RE.test(email)) {
+    throw new Error("Please provide a valid email address.")
+  }
+
   const [inserted] = await db
     .insert(schema.sellerInquiries)
     .values({ name, email, contactNumber, companyName, storeName, message })
     .returning({ id: schema.sellerInquiries.id })
   const inquiryId = inserted!.id
-
-  const mailer = getMailer()
-
-  try {
-    await sendApplicantAck(mailer, { name, email, storeName })
-  } catch (err) {
-    console.error({
-      event: "email_notification_failed",
-      recipientType: "applicant",
-      inquiryId,
-      message: err instanceof Error ? err.message : String(err),
-    })
-  }
 
   const opsEmails = parseOpsEmails(process.env)
   if (opsEmails.length === 0) {
@@ -46,20 +43,22 @@ export async function submitSellerInquiry(formData: FormData) {
       reason: "missing_ops_recipients",
       inquiryId,
     })
-  } else {
-    try {
-      await sendOpsAlert(
-        mailer,
-        { inquiryId, name, email, contactNumber, companyName, storeName, message },
-        { adminUrl: process.env["ADMIN_URL"] ?? "", opsEmails },
-      )
-    } catch (err) {
-      console.error({
-        event: "email_notification_failed",
-        recipientType: "ops",
-        inquiryId,
-        message: err instanceof Error ? err.message : String(err),
-      })
-    }
+    return
+  }
+
+  const mailer = getMailer()
+  try {
+    await sendOpsAlert(
+      mailer,
+      { inquiryId, name, email, contactNumber, companyName, storeName, message },
+      { adminUrl: process.env["ADMIN_URL"] ?? "", opsEmails },
+    )
+  } catch (err) {
+    console.error({
+      event: "email_notification_failed",
+      recipientType: "ops",
+      inquiryId,
+      message: err instanceof Error ? err.message : String(err),
+    })
   }
 }

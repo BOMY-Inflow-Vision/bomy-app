@@ -1,20 +1,5 @@
 import { joinUrl, type Mailer } from "@bomy/mailer"
 
-export async function sendApplicantAck(
-  mailer: Mailer,
-  inquiry: { name: string; email: string; storeName: string },
-): Promise<void> {
-  await mailer.sendMail({
-    to: inquiry.email,
-    subject: "We received your BOMY seller application",
-    text:
-      `Hi ${inquiry.name},\n\n` +
-      `We've received your application for ${inquiry.storeName}. ` +
-      `Our team will review it and contact you soon.\n\n` +
-      `BOMY Team`,
-  })
-}
-
 export async function sendOpsAlert(
   mailer: Mailer,
   inquiry: {

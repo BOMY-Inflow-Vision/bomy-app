@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
 import type { Mailer } from "@bomy/mailer"
-import { sendApplicantAck, sendOpsAlert } from "../../src/notifications/seller-inquiry.js"
+import { sendOpsAlert } from "../../src/notifications/seller-inquiry.js"
 
 function makeMailer() {
   const sendMail = vi.fn<Mailer["sendMail"]>().mockResolvedValue(undefined)
@@ -8,34 +8,6 @@ function makeMailer() {
   const mailer: Mailer = { sendMail, close }
   return { mailer, sendMail }
 }
-
-describe("sendApplicantAck", () => {
-  it("addresses the applicant by submitted email and mentions the store name", async () => {
-    const { mailer, sendMail } = makeMailer()
-    await sendApplicantAck(mailer, {
-      name: "Aisyah",
-      email: "aisyah@example.com",
-      storeName: "Kedai Aisyah",
-    })
-    const args = sendMail.mock.calls[0]![0]
-    expect(args.to).toBe("aisyah@example.com")
-    expect(args.subject).toContain("seller application")
-    expect(args.text).toContain("Aisyah")
-    expect(args.text).toContain("Kedai Aisyah")
-  })
-
-  it("does not promise a specific SLA in the body", async () => {
-    const { mailer, sendMail } = makeMailer()
-    await sendApplicantAck(mailer, {
-      name: "Aisyah",
-      email: "aisyah@example.com",
-      storeName: "Kedai Aisyah",
-    })
-    const body = sendMail.mock.calls[0]![0].text
-    expect(body.toLowerCase()).not.toMatch(/business days?/i)
-    expect(body.toLowerCase()).not.toMatch(/within \d+ (hour|day)/i)
-  })
-})
 
 describe("sendOpsAlert", () => {
   it("addresses the ops recipients and includes every submitted field plus the admin link", async () => {
