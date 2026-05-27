@@ -14,6 +14,8 @@ import { eq } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 
 import { generateCode, issueMonthlyVouchers } from "../../src/jobs/voucher-issuance.js"
+import type { Mailer } from "../../src/lib/mailer.js"
+import type { JobLogger } from "../../src/notifications/voucher.js"
 
 const DATABASE_URL = process.env["DATABASE_URL"]
 const RLS_READY = process.env["BOMY_RLS_READY"] === "1"
@@ -21,6 +23,13 @@ const shouldRun = Boolean(DATABASE_URL) && RLS_READY
 
 /** Pre-seeded system actor (migration 0008). Always exists in users table. */
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
+
+function noopMailer(): Mailer {
+  return { sendMail: async () => {}, close: async () => {} }
+}
+function noopLog(): JobLogger {
+  return { info: () => {}, warn: () => {}, error: () => {} }
+}
 
 describe("generateCode", () => {
   it("returns an 8-character uppercase alphanumeric string", () => {
@@ -140,7 +149,7 @@ describe.skipIf(!shouldRun)("issueMonthlyVouchers", () => {
     const now = new Date()
     const issuedMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
 
-    const count = await issueMonthlyVouchers(testDb.db)
+    const count = await issueMonthlyVouchers(testDb.db, noopMailer(), noopLog())
     expect(count).toBeGreaterThanOrEqual(1)
 
     const vouchers = await withAdmin(
@@ -170,7 +179,7 @@ describe.skipIf(!shouldRun)("issueMonthlyVouchers", () => {
     const now = new Date()
     const issuedMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
 
-    await issueMonthlyVouchers(testDb.db)
+    await issueMonthlyVouchers(testDb.db, noopMailer(), noopLog())
     const countAfterFirst = await withAdmin(
       testDb.db,
       { userId: adminId, reason: "test assert" },
@@ -179,7 +188,7 @@ describe.skipIf(!shouldRun)("issueMonthlyVouchers", () => {
     expect(countAfterFirst).toHaveLength(1)
 
     // Second run — must not insert a duplicate
-    await issueMonthlyVouchers(testDb.db)
+    await issueMonthlyVouchers(testDb.db, noopMailer(), noopLog())
     const countAfterSecond = await withAdmin(
       testDb.db,
       { userId: adminId, reason: "test assert" },
@@ -199,7 +208,7 @@ describe.skipIf(!shouldRun)("issueMonthlyVouchers", () => {
     const now = new Date()
     const issuedMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
 
-    await issueMonthlyVouchers(testDb.db)
+    await issueMonthlyVouchers(testDb.db, noopMailer(), noopLog())
 
     const [v] = await withAdmin(testDb.db, { userId: adminId, reason: "test assert" }, async (tx) =>
       tx.select().from(schema.vouchers).where(eq(schema.vouchers.userId, userId)),
@@ -219,7 +228,7 @@ describe.skipIf(!shouldRun)("issueMonthlyVouchers", () => {
     const now = new Date()
     const issuedMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
 
-    await issueMonthlyVouchers(testDb.db)
+    await issueMonthlyVouchers(testDb.db, noopMailer(), noopLog())
 
     const [v] = await withAdmin(testDb.db, { userId: adminId, reason: "test assert" }, async (tx) =>
       tx.select().from(schema.vouchers).where(eq(schema.vouchers.userId, userId)),
@@ -230,5 +239,102 @@ describe.skipIf(!shouldRun)("issueMonthlyVouchers", () => {
 
     vi.restoreAllMocks()
     await cleanupMember(userId, subId, issuedMonth)
+  })
+
+  it("calls dispatchVoucherEmails with the inserted rows and hydrated emails", async () => {
+    // Seed: 2 active members; run job with a mock mailer; assert sendMail invoked twice
+    // with addresses matching the seeded users.
+
+    const u1 = randomUUID()
+    const u2 = randomUUID()
+    const email1 = `${u1}@test.bomy`
+    const email2 = `${u2}@test.bomy`
+
+    await withAdmin(
+      testDb.db,
+      { userId: SYSTEM_ACTOR, reason: "test seed members" },
+      async (tx) => {
+        await tx.insert(schema.users).values([
+          { id: u1, email: email1, role: "buyer" },
+          { id: u2, email: email2, role: "buyer" },
+        ])
+        await tx.insert(schema.memberSubscriptions).values([
+          {
+            userId: u1,
+            status: "active",
+            priceMyrSen: 7500n,
+            periodStart: new Date(),
+            periodEnd: new Date(Date.now() + 30 * 24 * 3600 * 1000),
+          },
+          {
+            userId: u2,
+            status: "active",
+            priceMyrSen: 7500n,
+            periodStart: new Date(),
+            periodEnd: new Date(Date.now() + 30 * 24 * 3600 * 1000),
+          },
+        ])
+      },
+    )
+
+    await seedConfig("fixed_myr")
+
+    const sendMail = vi.fn<Mailer["sendMail"]>().mockResolvedValue(undefined)
+    const mailer: Mailer = { sendMail, close: vi.fn<Mailer["close"]>() }
+
+    const count = await issueMonthlyVouchers(testDb.db, mailer, noopLog())
+
+    expect(count).toBeGreaterThanOrEqual(2)
+    expect(sendMail).toHaveBeenCalledTimes(count)
+    const recipients = sendMail.mock.calls.map((c) => c[0].to as string)
+    expect(recipients).toContain(email1)
+    expect(recipients).toContain(email2)
+
+    // Cleanup
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
+      await tx.delete(schema.vouchers).where(eq(schema.vouchers.userId, u1))
+      await tx.delete(schema.vouchers).where(eq(schema.vouchers.userId, u2))
+      await tx.delete(schema.memberSubscriptions).where(eq(schema.memberSubscriptions.userId, u1))
+      await tx.delete(schema.memberSubscriptions).where(eq(schema.memberSubscriptions.userId, u2))
+      await tx.delete(schema.users).where(eq(schema.users.id, u1))
+      await tx.delete(schema.users).where(eq(schema.users.id, u2))
+    })
+  })
+
+  it("returns inserted count even if a send throws (insert tx already committed)", async () => {
+    const u3 = randomUUID()
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test seed member" }, async (tx) => {
+      await tx.insert(schema.users).values({ id: u3, email: `${u3}@test.bomy`, role: "buyer" })
+      await tx.insert(schema.memberSubscriptions).values({
+        userId: u3,
+        status: "active",
+        priceMyrSen: 7500n,
+        periodStart: new Date(),
+        periodEnd: new Date(Date.now() + 30 * 24 * 3600 * 1000),
+      })
+    })
+
+    await seedConfig("fixed_myr")
+
+    const sendMail = vi.fn<Mailer["sendMail"]>().mockRejectedValue(new Error("SMTP down"))
+    const mailer: Mailer = { sendMail, close: vi.fn<Mailer["close"]>() }
+
+    const count = await issueMonthlyVouchers(testDb.db, mailer, noopLog())
+
+    expect(count).toBeGreaterThanOrEqual(1)
+    // Voucher row should exist for u3 (insert committed)
+    const rows = await withAdmin(
+      testDb.db,
+      { userId: SYSTEM_ACTOR, reason: "verify" },
+      async (tx) => tx.select().from(schema.vouchers).where(eq(schema.vouchers.userId, u3)),
+    )
+    expect(rows).toHaveLength(1)
+
+    // Cleanup
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
+      await tx.delete(schema.vouchers).where(eq(schema.vouchers.userId, u3))
+      await tx.delete(schema.memberSubscriptions).where(eq(schema.memberSubscriptions.userId, u3))
+      await tx.delete(schema.users).where(eq(schema.users.id, u3))
+    })
   })
 })

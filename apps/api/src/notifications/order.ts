@@ -3,18 +3,10 @@ import { eq, inArray } from "drizzle-orm"
 import { alias } from "drizzle-orm/pg-core"
 import type { FastifyInstance } from "fastify"
 
+import { joinUrl, parseOpsEmails } from "../lib/mailer.js"
 import type { NotificationDescriptor, OrderPaidDescriptor } from "./types.js"
 
-export function parseOpsEmails(env: NodeJS.ProcessEnv): string[] {
-  return (env["OPS_ALERT_EMAILS"] ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean)
-}
-
-export function joinUrl(base: string, path: string): string {
-  return base.replace(/\/$/, "") + (path.startsWith("/") ? path : `/${path}`)
-}
+export { joinUrl, parseOpsEmails }
 
 function senToMyrStr(sen: bigint): string {
   const whole = sen / 100n

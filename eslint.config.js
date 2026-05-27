@@ -11,6 +11,14 @@ export default tseslint.config(
       "@typescript-eslint/require-await": "off",
     },
   },
+  // packages/mailer uses async interface methods that are no-ops in disabled mode
+  // (sendMail logs synchronously, close is a no-op) — same pattern as apps/api.
+  {
+    files: ["packages/mailer/**/*.{ts,js,mjs}"],
+    rules: {
+      "@typescript-eslint/require-await": "off",
+    },
+  },
   {
     ignores: [
       "node_modules/**",

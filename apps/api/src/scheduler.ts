@@ -9,6 +9,7 @@ import { runInventoryReservationExpiryJob } from "./jobs/inventory-reservation-e
 import { notifyRenewalsDue } from "./jobs/membership-renewal-notification.js"
 import { ORDER_AUTO_COMPLETE_CRON, runOrderAutoCompleteJob } from "./jobs/order-auto-complete.js"
 import { issueMonthlyVouchers } from "./jobs/voucher-issuance.js"
+import type { JobLogger } from "./notifications/voucher.js"
 
 // MYT = UTC+8. Cron expressions use tz: 'Asia/Kuala_Lumpur' so times are
 // stated in MYT without converting to UTC offsets manually.
@@ -32,6 +33,7 @@ export async function createScheduler(
   db: Database,
   deps: {
     mailer: Mailer
+    appLog: JobLogger
     logger: { info: (msg: string) => void; error: (obj: object, msg: string) => void }
   },
 ): Promise<Scheduler> {
@@ -85,7 +87,7 @@ export async function createScheduler(
   const voucherWorker = new Worker(
     VOUCHER_QUEUE_NAME,
     async () => {
-      const n = await issueMonthlyVouchers(db)
+      const n = await issueMonthlyVouchers(db, deps.mailer, deps.appLog)
       deps.logger.info(`jobs: voucher-issuance issued ${n} vouchers`)
     },
     { connection },

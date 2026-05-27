@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
-import { createMailer } from "../../src/lib/mailer.js"
+import { createMailer } from "../src/mailer.js"
 
 const BASE_CONFIG = {
   enabled: false,

@@ -67,6 +67,7 @@ export async function createApp(opts: { enableJobs?: boolean } = {}) {
       // BullMQ scheduler — registers cron jobs and starts workers.
       scheduler = await createScheduler(app.db.db, {
         mailer: app.mailer,
+        appLog: app.log,
         logger: {
           info: (msg) => app.log.info(msg),
           error: (obj, msg) => app.log.error(obj, msg),
