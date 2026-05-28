@@ -5,7 +5,6 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { makeDb, schema, withAdmin, withTenant } from "../../src/index.js"
 import { eq, and } from "drizzle-orm"
 
-// @ts-expect-error -- module not yet implemented; remove this directive when Task 4 ships platform-config-flip-core.js
 import { runPlatformConfigFlip } from "../../scripts/ops/platform-config-flip-core.js"
 
 const shouldRun = Boolean(process.env["DATABASE_APP_URL"]) && process.env["BOMY_RLS_READY"] === "1"
@@ -72,7 +71,6 @@ describe.skipIf(!shouldRun)("runPlatformConfigFlip — integration", () => {
   })
 
   it("flips the key, writes platform_config_audit + admin_bypass_audit rows under withAdmin", async () => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
     const result = await runPlatformConfigFlip(appDb.db, {
       key: testKey,
       value: "true",
@@ -81,19 +79,13 @@ describe.skipIf(!shouldRun)("runPlatformConfigFlip — integration", () => {
     })
 
     // Result shape
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     expect(result.actor.id).toBe(testActorId)
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     expect(result.actor.role).toBe("bomy_admin")
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     expect(result.oldValue).toBe(false)
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     expect(result.newValue).toBe(true)
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     expect(result.platformConfigAuditId).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
     )
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     expect(result.changedAt).toBeInstanceOf(Date)
 
     // Assertion reads use withTenant under the seeded admin's real role —
