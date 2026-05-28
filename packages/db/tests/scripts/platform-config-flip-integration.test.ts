@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto"
 
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest"
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest"
 
 import { makeDb, schema, withAdmin, withTenant } from "../../src/index.js"
 import { eq, and } from "drizzle-orm"
 
-// @ts-expect-error -- module not yet implemented; remove this directive when Task 4 ships platform-config-flip-core.ts
+// @ts-expect-error -- module not yet implemented; remove this directive when Task 4 ships platform-config-flip-core.js
 import { runPlatformConfigFlip } from "../../scripts/ops/platform-config-flip-core.js"
 
 const shouldRun = Boolean(process.env["DATABASE_APP_URL"]) && process.env["BOMY_RLS_READY"] === "1"
@@ -19,6 +19,11 @@ describe.skipIf(!shouldRun)("runPlatformConfigFlip — integration", () => {
   beforeAll(() => {
     ownerDb = makeDb({ url: process.env["DATABASE_URL"]! })
     appDb = makeDb({ url: process.env["DATABASE_APP_URL"]! })
+  })
+
+  afterAll(async () => {
+    await ownerDb.close()
+    await appDb.close()
   })
 
   // Per-test unique identifiers.
