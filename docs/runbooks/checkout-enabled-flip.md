@@ -22,9 +22,9 @@
 
 ---
 
-## §1. Pre-flip hard gate (checks 1–5)
+## §1. Pre-flip hard gate (checks 1–4)
 
-Five checks. **ALL must be green BEFORE running the flip command.** Capture each command's output for the evidence file (§7).
+Four checks. **ALL must be green BEFORE running the flip command.** Capture each command's output for the evidence file (§7).
 
 For every check below: **if this fails, STOP. Do not flip. Fix forward or file a bug. Do not flip on partial green.**
 
@@ -81,12 +81,6 @@ SELECT status FROM checkout_sessions WHERE id = '<SID>';
 
 **If this fails:** STOP — do not flip.
 
-### Check 5 — Shipping fee / totals sanity (verifiable without initiating checkout)
-
-Inspect the cart-side totals via direct `priceCheckoutPreview` server-action call OR `/cart` page rendering (whichever path is available without going through paused `/checkout`). Subtotal + shipping − voucher contribution should equal the displayed grand total. Capture either a screenshot or a written confirmation in the evidence.
-
-**If this fails:** STOP — do not flip.
-
 ---
 
 ## §2. The flip
@@ -98,7 +92,7 @@ pnpm ops:platform-config:set \
   --key checkout_enabled \
   --value true \
   --actor <your-admin-user-uuid> \
-  --reason "Enable checkout on <env> — pre-flip hard gate #1-5 green; advisory gaps: <list or 'none'>"
+  --reason "Enable checkout on <env> — pre-flip hard gate #1-4 green; advisory gaps: <list or 'none'>"
 ```
 
 **Reason copy convention:** must reference the §1 hard-gate green-status AND any advisory gaps explicitly. The script's stdout is the canonical evidence — paste it verbatim into §7.
@@ -135,8 +129,9 @@ Walk through as a buyer:
 1. Sign in as a test buyer (or any account; create one if needed).
 2. Add at least one product to cart from `/`.
 3. Navigate to `/checkout` — verify it renders the form (not the "paused" UI).
-4. Complete checkout via HitPay sandbox.
-5. Return to the site (success page).
+4. **Verify the displayed totals math** on `/checkout`: confirm `subtotal + shipping − voucher contribution = grand total`. (This is the totals-sanity check that was originally pre-flip Check 5; it's only verifiable here because `/checkout` is paused when the flag is `false`.)
+5. Complete checkout via HitPay sandbox.
+6. Return to the site (success page).
 
 Then verify in the DB:
 
@@ -220,7 +215,7 @@ Each flip produces one committed evidence file: `docs/runbooks/evidence/YYYY-MM-
 
 <paste output>
 
-... (one block per check 1–5) ...
+... (one block per check 1–4) ...
 
 ## §2 Flip command stdout
 
@@ -232,7 +227,7 @@ Each flip produces one committed evidence file: `docs/runbooks/evidence/YYYY-MM-
 
 ## §4 Post-flip E2E verification result
 
-<paste session_id, order count, ledger balance check>
+<paste session_id, order count, ledger balance check, totals math (subtotal + shipping − voucher = grand total)>
 
 ## §5 Advisory smoke results
 
