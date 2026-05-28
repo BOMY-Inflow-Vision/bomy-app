@@ -15,6 +15,9 @@ import {
 
 type AdminRole = (typeof BOMY_ADMIN_ROLES)[number]
 
+// Per CLAUDE.md: SYSTEM_ACTOR is not exported from @bomy/db; define per-file.
+const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001" as const
+
 function isAdminRole(role: UserRole): role is AdminRole {
   return (BOMY_ADMIN_ROLES as readonly UserRole[]).includes(role)
 }
@@ -35,6 +38,16 @@ export async function runPlatformConfigFlip(db: Database, args: Args): Promise<F
   }
   if (!args.reason.trim()) {
     throw new UsageError(`--reason must be non-empty.`)
+  }
+
+  // NEW: reject SYSTEM_ACTOR explicitly — real-human attribution is a PR invariant.
+  // SYSTEM_ACTOR is seeded with role 'bomy_admin' for background jobs (per
+  // packages/db/drizzle/0008_admin_bypass_audit.sql:25-28), but flips must be
+  // attributable to a real human staff member.
+  if (args.actor === SYSTEM_ACTOR) {
+    throw new ActorError(
+      `--actor cannot be SYSTEM_ACTOR (${SYSTEM_ACTOR}). Use a real human admin user UUID.`,
+    )
   }
 
   // parseValue throws UsageError on invalid JSON.

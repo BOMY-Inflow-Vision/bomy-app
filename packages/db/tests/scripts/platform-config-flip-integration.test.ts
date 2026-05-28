@@ -7,7 +7,10 @@ import { eq, and } from "drizzle-orm"
 
 import { runPlatformConfigFlip } from "../../scripts/ops/platform-config-flip-core.js"
 
-const shouldRun = Boolean(process.env["DATABASE_APP_URL"]) && process.env["BOMY_RLS_READY"] === "1"
+const shouldRun =
+  Boolean(process.env["DATABASE_URL"]) &&
+  Boolean(process.env["DATABASE_APP_URL"]) &&
+  process.env["BOMY_RLS_READY"] === "1"
 
 describe.skipIf(!shouldRun)("runPlatformConfigFlip — integration", () => {
   // Owner-role client for seeding (needs withAdmin to bypass RLS).
@@ -67,6 +70,28 @@ describe.skipIf(!shouldRun)("runPlatformConfigFlip — integration", () => {
         await tx.delete(schema.platformConfig).where(eq(schema.platformConfig.key, testKey))
         await tx.delete(schema.users).where(eq(schema.users.id, testActorId))
       },
+    )
+  })
+
+  it("rejects SYSTEM_ACTOR even though it has role bomy_admin", async () => {
+    await expect(
+      runPlatformConfigFlip(appDb.db, {
+        key: testKey,
+        value: "true",
+        actor: "00000000-0000-0000-0000-000000000001",
+        reason: testReason,
+      }),
+    ).rejects.toThrow(/SYSTEM_ACTOR/)
+    // And specifically rejects with ActorError (not UsageError) — defense in depth.
+    await expect(
+      runPlatformConfigFlip(appDb.db, {
+        key: testKey,
+        value: "true",
+        actor: "00000000-0000-0000-0000-000000000001",
+        reason: testReason,
+      }),
+    ).rejects.toBeInstanceOf(
+      (await import("../../scripts/ops/platform-config-flip-args.js")).ActorError,
     )
   })
 

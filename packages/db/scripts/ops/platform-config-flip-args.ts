@@ -34,11 +34,19 @@ export function parseArgs(argv: readonly string[]): Args {
     if (!KNOWN_FLAGS.has(token)) {
       throw new UsageError(`unknown argument '${token}'.`)
     }
+    const fieldName = token.slice(2) as keyof Args
+    if (out[fieldName] !== undefined) {
+      throw new UsageError(`duplicate argument ${token}.`)
+    }
     const value = argv[i + 1]
-    if (value === undefined || KNOWN_FLAGS.has(value)) {
+    if (value === undefined) {
       throw new UsageError(`missing value for ${token}.`)
     }
-    const fieldName = token.slice(2) as keyof Args
+    // Reject any token starting with `--` as a value (catches `--reason --foo`
+    // and the like — flag-shaped tokens should never be argument values).
+    if (value.startsWith("--")) {
+      throw new UsageError(`missing value for ${token}: next token '${value}' looks like a flag.`)
+    }
     out[fieldName] = value
     i += 2
   }

@@ -47,6 +47,64 @@ describe("parseArgs", () => {
     expect(() => parseArgs([...baseArgv, "extra"])).toThrow(UsageError)
     expect(() => parseArgs([...baseArgv, "extra"])).toThrow(/unknown argument 'extra'/)
   })
+
+  it("rejects duplicate flag (overwrite-silently bug)", () => {
+    expect(() =>
+      parseArgs([
+        "--key",
+        "checkout_enabled",
+        "--key",
+        "other_key",
+        "--value",
+        "true",
+        "--actor",
+        "11111111-1111-1111-1111-111111111111",
+        "--reason",
+        "smoke",
+      ]),
+    ).toThrow(UsageError)
+    expect(() =>
+      parseArgs([
+        "--key",
+        "checkout_enabled",
+        "--key",
+        "other_key",
+        "--value",
+        "true",
+        "--actor",
+        "11111111-1111-1111-1111-111111111111",
+        "--reason",
+        "smoke",
+      ]),
+    ).toThrow(/duplicate argument --key/)
+  })
+
+  it("rejects flag-shaped tokens used as values (--reason --foo bug)", () => {
+    expect(() =>
+      parseArgs([
+        "--key",
+        "checkout_enabled",
+        "--value",
+        "true",
+        "--actor",
+        "11111111-1111-1111-1111-111111111111",
+        "--reason",
+        "--dry-run",
+      ]),
+    ).toThrow(UsageError)
+    expect(() =>
+      parseArgs([
+        "--key",
+        "checkout_enabled",
+        "--value",
+        "true",
+        "--actor",
+        "11111111-1111-1111-1111-111111111111",
+        "--reason",
+        "--dry-run",
+      ]),
+    ).toThrow(/looks like a flag/)
+  })
 })
 
 describe("parseValue", () => {
