@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm"
 
 import { schema, withAdmin, withTenant, type Database } from "../../src/index.js"
+import { BOMY_ADMIN_ROLES, type UserRole } from "../../src/types.js"
 
 import {
   ActorError,
@@ -12,11 +13,10 @@ import {
   type Args,
 } from "./platform-config-flip-args.js"
 
-const ADMIN_ROLES = ["bomy_ops", "bomy_admin", "bomy_finance"] as const
-type AdminRole = (typeof ADMIN_ROLES)[number]
+type AdminRole = (typeof BOMY_ADMIN_ROLES)[number]
 
-function isAdminRole(role: string): role is AdminRole {
-  return (ADMIN_ROLES as readonly string[]).includes(role)
+function isAdminRole(role: UserRole): role is AdminRole {
+  return (BOMY_ADMIN_ROLES as readonly UserRole[]).includes(role)
 }
 
 export interface FlipResult {
@@ -76,11 +76,25 @@ export async function runPlatformConfigFlip(db: Database, args: Args): Promise<F
       `--key '${args.key}' does not exist in platform_config. Refusing to create new keys.`,
     )
   }
-  const oldValue = keyRow.value
 
   // 4. Write under withAdmin — updates platform_config, writes platform_config_audit.
   //    withAdmin itself writes admin_bypass_audit in the same transaction.
   const writeResult = await withAdmin(db, { userId: actor.id, reason: args.reason }, async (tx) => {
+    // Re-read inside the transaction with FOR UPDATE to lock the row against
+    // concurrent writers between Step 3's check and the UPDATE below. The audit
+    // row's old_value MUST reflect the actual state at the moment of UPDATE.
+    const [locked] = await tx
+      .select({ id: schema.platformConfig.id, value: schema.platformConfig.value })
+      .from(schema.platformConfig)
+      .where(eq(schema.platformConfig.key, args.key))
+      .for("update")
+
+    if (!locked) {
+      // Key was deleted between Step 3 and the locking read.
+      throw new KeyMissingError(`--key '${args.key}' disappeared between pre-read and UPDATE.`)
+    }
+    const lockedOldValue = locked.value
+
     const [updated] = await tx
       .update(schema.platformConfig)
       .set({ value: newValue, updatedBy: actor.id, updatedAt: new Date() })
@@ -96,7 +110,7 @@ export async function runPlatformConfigFlip(db: Database, args: Args): Promise<F
       .values({
         configId: updated.id,
         key: args.key,
-        oldValue: oldValue,
+        oldValue: lockedOldValue,
         newValue: updated.value,
         changedBy: actor.id,
       })
@@ -109,13 +123,13 @@ export async function runPlatformConfigFlip(db: Database, args: Args): Promise<F
       throw new DbError("INSERT on platform_config_audit returned no row.")
     }
 
-    return { newValue: updated.value, auditRow }
+    return { oldValue: lockedOldValue, newValue: updated.value, auditRow }
   })
 
   return {
     actor,
     key: args.key,
-    oldValue,
+    oldValue: writeResult.oldValue,
     newValue: writeResult.newValue,
     platformConfigAuditId: writeResult.auditRow.id,
     changedAt: writeResult.auditRow.changedAt,

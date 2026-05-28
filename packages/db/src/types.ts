@@ -11,7 +11,11 @@ export const USER_ROLES = [
 ] as const
 export type UserRole = (typeof USER_ROLES)[number]
 
-export const BOMY_ADMIN_ROLES: readonly UserRole[] = ["bomy_ops", "bomy_admin", "bomy_finance"]
+export const BOMY_ADMIN_ROLES = [
+  "bomy_ops",
+  "bomy_admin",
+  "bomy_finance",
+] as const satisfies readonly UserRole[]
 
 export const STORE_STATUSES = ["pending", "active", "suspended"] as const
 export type StoreStatus = (typeof STORE_STATUSES)[number]
