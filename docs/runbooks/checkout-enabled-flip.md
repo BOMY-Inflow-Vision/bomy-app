@@ -22,9 +22,9 @@
 
 ---
 
-## §1. Pre-flip hard gate (checks 1–7)
+## §1. Pre-flip hard gate (checks 1–5)
 
-Seven checks. **ALL must be green BEFORE running the flip command.** Capture each command's output for the evidence file (§6).
+Five checks. **ALL must be green BEFORE running the flip command.** Capture each command's output for the evidence file (§7).
 
 For every check below: **if this fails, STOP. Do not flip. Fix forward or file a bug. Do not flip on partial green.**
 
@@ -32,6 +32,8 @@ For every check below: **if this fails, STOP. Do not flip. Fix forward or file a
 
 - Local: `pnpm dev` shows the three servers — `web` on :3000, `api` on :3001, `admin` on :3002.
 - Staging: `curl -i <STAGING_HEALTH_CHECK_URL>` returns `200`.
+
+**If this fails:** STOP — do not flip.
 
 ### Check 2 — HitPay webhook reachable (auth working)
 
@@ -45,25 +47,18 @@ curl -i -X POST -H "Content-Type: application/json" -d '{}' http://localhost:300
 # (Use the same signing helper that apps/api tests use — see apps/api/tests/webhooks/ for the HMAC pattern.)
 ```
 
-### Check 3 — Sandbox checkout completes E2E
+**If this fails:** STOP — do not flip.
 
-Walk through the flow as a buyer (add to cart → `/checkout` → HitPay sandbox → return to site).
+### Check 3 — Synthetic paid webhook fan-out creates orders + balances the ledger
 
-```sql
-SELECT status FROM checkout_sessions WHERE id = '<SID>';
--- expected: paid
-```
-
-### Check 4 — Webhook fan-out creates order(s)
+Send a signed synthetic paid webhook against a pre-seeded `checkout_sessions` row. Then check BOTH:
 
 ```sql
-SELECT count(*) FROM orders WHERE checkout_session_id = '<SID>';
+-- Order row created from synthetic webhook
+SELECT count(*) FROM orders WHERE checkout_session_id = '<seeded SID>';
 -- expected: ≥ 1
-```
 
-### Check 5 — Ledger entries balance
-
-```sql
+-- Ledger entries balance for that transaction
 SELECT direction, sum(amount_minor)
 FROM ledger_entries
 WHERE transaction_id = '<TXN>'
@@ -71,7 +66,11 @@ GROUP BY direction;
 -- expected: debit sum equals credit sum
 ```
 
-### Check 6 — Amount-mismatch parks session in review
+(This is the same machinery the `apps/api/tests/webhooks/` suite exercises. The synthetic webhook does NOT require `checkout_enabled = true` — the gate only fires for buyer-initiated flows, not for HitPay-initiated webhooks.)
+
+**If this fails:** STOP — do not flip.
+
+### Check 4 — Amount-mismatch synthetic webhook parks session in review
 
 Send a synthetic webhook with a crafted mismatched amount (use the same signing helper as Check 2; mirror the synthetic-webhook test pattern under `apps/api/tests/webhooks/`).
 
@@ -80,9 +79,13 @@ SELECT status FROM checkout_sessions WHERE id = '<SID>';
 -- expected: payment_review_required
 ```
 
-### Check 7 — Shipping fee / totals sane
+**If this fails:** STOP — do not flip.
 
-Visual `/checkout` walkthrough: subtotal + shipping − voucher contribution = displayed grand total. Capture a screenshot or written confirmation in the evidence.
+### Check 5 — Shipping fee / totals sanity (verifiable without initiating checkout)
+
+Inspect the cart-side totals via direct `priceCheckoutPreview` server-action call OR `/cart` page rendering (whichever path is available without going through paused `/checkout`). Subtotal + shipping − voucher contribution should equal the displayed grand total. Capture either a screenshot or a written confirmation in the evidence.
+
+**If this fails:** STOP — do not flip.
 
 ---
 
@@ -95,10 +98,10 @@ pnpm ops:platform-config:set \
   --key checkout_enabled \
   --value true \
   --actor <your-admin-user-uuid> \
-  --reason "Enable checkout on <env> — pre-flip hard gate #1-7 green; advisory gaps: <list or 'none'>"
+  --reason "Enable checkout on <env> — pre-flip hard gate #1-5 green; advisory gaps: <list or 'none'>"
 ```
 
-**Reason copy convention:** must reference the §1 hard-gate green-status AND any advisory gaps explicitly. The script's stdout is the canonical evidence — paste it verbatim into §6.
+**Reason copy convention:** must reference the §1 hard-gate green-status AND any advisory gaps explicitly. The script's stdout is the canonical evidence — paste it verbatim into §7.
 
 ---
 
@@ -119,11 +122,48 @@ Verify:
 - `changed_at` is within the last few seconds.
 - `changed_by` matches your actor UUID from §0.
 
-**If this fails** (no row, wrong values, or wrong actor): rollback per §5 trigger #5 and stop. The script reported success but the audit chain is broken — a real bug worth pausing on.
+**If this fails** (no row, wrong values, or wrong actor): rollback per §6 trigger #4 and stop. The script reported success but the audit chain is broken — a real bug worth pausing on.
 
 ---
 
-## §4. Advisory smoke (post-flip sanity — does NOT block flip)
+## §4. Post-flip E2E verification
+
+The actual buyer flow that the flip enables. Run this **immediately** after the flip — this is the highest-priority verification, ahead of the advisory smoke in §5.
+
+Walk through as a buyer:
+
+1. Sign in as a test buyer (or any account; create one if needed).
+2. Add at least one product to cart from `/`.
+3. Navigate to `/checkout` — verify it renders the form (not the "paused" UI).
+4. Complete checkout via HitPay sandbox.
+5. Return to the site (success page).
+
+Then verify in the DB:
+
+```sql
+-- 1. Session reaches `paid`.
+SELECT status FROM checkout_sessions WHERE id = '<SID>';
+-- expected: paid
+
+-- 2. At least one order row was created.
+SELECT count(*) FROM orders WHERE checkout_session_id = '<SID>';
+-- expected: ≥ 1
+
+-- 3. Ledger entries balance for the transaction.
+SELECT direction, sum(amount_minor)
+FROM ledger_entries
+WHERE transaction_id = '<TXN>'
+GROUP BY direction;
+-- expected: debit sum equals credit sum
+```
+
+**Expected smoke window:** within 5 minutes of the flip (allowing for inventory reservation, HitPay sandbox latency, and webhook fan-out).
+
+**If this fails:** rollback per §6 trigger #1 immediately. Post-flip E2E failure is the most operationally severe rollback trigger — it means real buyers cannot complete real purchases on the live flag.
+
+---
+
+## §5. Advisory smoke (post-flip sanity — does NOT block flip)
 
 Each is a small DB query or UI walkthrough. **Failures here do NOT trigger rollback** unless they expose a buyer-blocking bug — log them in the evidence file and triage out-of-band.
 
@@ -137,7 +177,7 @@ Each is a small DB query or UI walkthrough. **Failures here do NOT trigger rollb
 
 ---
 
-## §5. Rollback
+## §6. Rollback
 
 Same script, `--value false`, with a `--reason` explaining the trigger:
 
@@ -151,15 +191,14 @@ pnpm ops:platform-config:set \
 
 **Rollback triggers (any ONE is sufficient):**
 
-1. Webhook fan-out failures observed in `apps/api` logs after flip.
+1. **Post-flip E2E checkout fails or cannot complete within the expected smoke window** (§4 fails). Includes: buyer can't reach a working `/checkout`; HitPay sandbox checkout doesn't return; `checkout_sessions.status` never advances to `paid`; webhook fan-out errors observed in `apps/api` logs during the smoke; HitPay charge that doesn't land as a row in `orders`.
 2. `/checkout` returns `CHECKOUT_DISABLED` for users you expect to have access (config drift).
-3. Ledger balance mismatch on any post-flip transaction.
-4. Any HitPay charge that doesn't land as a row in `orders`.
-5. `checkout_enabled` cannot be verified as `true` post-flip (per §3), OR the script's success output / `platform_config_audit` row is missing or inconsistent.
+3. Ledger balance mismatch on any post-flip transaction (whether discovered in §4 or in real traffic afterwards).
+4. `checkout_enabled` cannot be verified as `true` post-flip (per §3), OR the script's success output / `platform_config_audit` row is missing or inconsistent.
 
 ---
 
-## §6. Evidence template + redaction rules
+## §7. Evidence template + redaction rules
 
 Each flip produces one committed evidence file: `docs/runbooks/evidence/YYYY-MM-DD_checkout-flip_<env>.md`. Structure:
 
@@ -181,7 +220,7 @@ Each flip produces one committed evidence file: `docs/runbooks/evidence/YYYY-MM-
 
 <paste output>
 
-... (one block per check 1–7) ...
+... (one block per check 1–5) ...
 
 ## §2 Flip command stdout
 
@@ -191,13 +230,17 @@ Each flip produces one committed evidence file: `docs/runbooks/evidence/YYYY-MM-
 
 <paste verbatim>
 
-## §4 Advisory smoke results
+## §4 Post-flip E2E verification result
+
+<paste session_id, order count, ledger balance check>
+
+## §5 Advisory smoke results
 
 - Buyer/seller/admin order views: <pass | gap with note>
 - order_paid emails: <pass | gap>
 - ... (one line per advisory item) ...
 
-## §5 Rollback (if invoked)
+## §6 Rollback (if invoked)
 
 <paste rollback command + stdout, or "n/a">
 ```
@@ -211,7 +254,7 @@ Each flip produces one committed evidence file: `docs/runbooks/evidence/YYYY-MM-
 
 ---
 
-## §7. Staging section (NOT executable yet)
+## §8. Staging section (NOT executable yet)
 
 > ⚠️ **NOT EXECUTABLE.** Staging infrastructure does not yet exist as of 2026-05-27.
 > This section is a structural template. When staging stands up, replace the
@@ -229,6 +272,6 @@ Same outline as local. Replace these placeholders when staging exists:
 
 ---
 
-## §8. Production section (intentionally absent)
+## §9. Production section (intentionally absent)
 
 Production is out of scope of this runbook. A separate production-cutover runbook will be authored when prod infra exists. Named dependencies it will need to address: real domain + DNS, HitPay live keys (not sandbox), monitoring + alerting, defined rollback authority, support coverage windows. Until that runbook lands, **no prod flip is authorised by this runbook.**
