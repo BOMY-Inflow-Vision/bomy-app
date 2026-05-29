@@ -18,20 +18,20 @@ This PR closes the only known abuse vector flagged on the seller-apply surface (
 
 ## 2. In scope (artifacts shipped)
 
-| Artifact                                                       | Purpose                                                                                                                                                                                      |
-| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/web/src/lib/turnstile.ts` (new)                          | `verifyTurnstile(token, remoteIp?)` helper. Server-only (`import "server-only"`). Fails closed on every documented failure mode.                                                             |
-| `apps/web/src/notifications/seller-inquiry.ts` (modify)        | Restore `sendApplicantAck(mailer, { name, email, storeName })` export (was deleted in PR #35).                                                                                               |
-| `apps/web/src/app/seller/apply/actions.ts` (modify)            | `submitSellerInquiry` runs Turnstile verify FIRST, then existing required-field + email-shape validation + DB insert, then applicant ack + ops alert with per-recipient try/catch isolation. |
-| `apps/web/src/app/seller/apply/page.tsx` (modify)              | Render Turnstile widget via `next/script` + container div + `turnstile.render`. Hidden input `cf-turnstile-response` carries the token to FormData. Auto-reset on any submit failure.        |
-| `apps/web/package.json` (modify)                               | Add `server-only` dependency.                                                                                                                                                                |
-| `apps/web/vitest.config.ts` (modify)                           | Alias `server-only` to `tests/stubs/server-only.ts` (no-op) so vitest can resolve it.                                                                                                        |
-| `apps/web/tests/stubs/server-only.ts` (new)                    | One-line `export {}` stub.                                                                                                                                                                   |
-| `apps/web/tests/lib/turnstile.test.ts` (new)                   | 12 unit tests for `verifyTurnstile` (mocked `fetch`).                                                                                                                                        |
-| `apps/web/tests/notifications/seller-inquiry.test.ts` (modify) | Restore 2 `sendApplicantAck` template tests deleted in PR #35.                                                                                                                               |
-| `apps/web/tests/seller-inquiries/actions.test.ts` (modify)     | Extend with 7 verify-gate cases (verify mocked); update existing 10 tests to set `cf-turnstile-response` in `makeFormData()`.                                                                |
-| `apps/web/.env.local.example` (modify)                         | Add `NEXT_PUBLIC_TURNSTILE_SITEKEY` + `TURNSTILE_SECRET_KEY` with Cloudflare's documented always-pass test keys.                                                                             |
-| `.env.example` (root, modify)                                  | Same vars under the `apps/web` section.                                                                                                                                                      |
+| Artifact                                                       | Purpose                                                                                                                                                                                                                                                  |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/web/src/lib/turnstile.ts` (new)                          | `verifyTurnstile(token, remoteIp?)` helper. Server-only (`import "server-only"`). Fails closed on every documented failure mode.                                                                                                                         |
+| `apps/web/src/notifications/seller-inquiry.ts` (modify)        | Restore `sendApplicantAck(mailer, { name, email, storeName })` export (was deleted in PR #35).                                                                                                                                                           |
+| `apps/web/src/app/seller/apply/actions.ts` (modify)            | `submitSellerInquiry` runs Turnstile verify FIRST, then existing required-field + email-shape validation + DB insert, then applicant ack + ops alert with per-recipient try/catch isolation.                                                             |
+| `apps/web/src/app/seller/apply/page.tsx` (modify)              | Render Turnstile widget via `next/script` + container div + `turnstile.render`. Hidden input `cf-turnstile-response` carries the token to FormData. Auto-reset on any submit failure.                                                                    |
+| `apps/web/package.json` (modify)                               | Add `server-only` dependency.                                                                                                                                                                                                                            |
+| `apps/web/vitest.config.ts` (modify)                           | Alias `server-only` to `tests/stubs/server-only.ts` (no-op) so vitest can resolve it.                                                                                                                                                                    |
+| `apps/web/tests/stubs/server-only.ts` (new)                    | One-line `export {}` stub.                                                                                                                                                                                                                               |
+| `apps/web/tests/lib/turnstile.test.ts` (new)                   | 12 unit tests for `verifyTurnstile` (mocked `fetch`).                                                                                                                                                                                                    |
+| `apps/web/tests/notifications/seller-inquiry.test.ts` (modify) | Restore 2 `sendApplicantAck` template tests deleted in PR #35.                                                                                                                                                                                           |
+| `apps/web/tests/seller-inquiries/actions.test.ts` (modify)     | Add 7 verify-gate cases (verify mocked via `vi.hoisted`); delete 1 PR #35 test superseded by new happy-path coverage; rewrite 1 PR #35 test to assert new dual-dispatch contract; update remaining 8 to set `cf-turnstile-response` in `makeFormData()`. |
+| `apps/web/.env.local.example` (modify)                         | Add `NEXT_PUBLIC_TURNSTILE_SITEKEY` + `TURNSTILE_SECRET_KEY` with Cloudflare's documented always-pass test keys.                                                                                                                                         |
+| `.env.example` (root, modify)                                  | Same vars under the `apps/web` section.                                                                                                                                                                                                                  |
 
 ---
 
@@ -262,12 +262,17 @@ export default function SellerApplyPage() {
 
   // Reset the widget on ANY action failure — verify consumes the token even
   // when a later step (field validation, DB insert) throws.
+  // Depend on `state` (the whole object), not `state.error` — useActionState
+  // returns a fresh object reference per invocation, but the error string can
+  // be value-equal across consecutive failures (e.g. two verify rejections
+  // in a row both produce "Verification failed..."). `[state.error]` would
+  // not re-fire; `[state]` does because the reference changes each time.
   useEffect(() => {
     if (state.error && widgetIdRef.current && window.turnstile) {
       window.turnstile.reset(widgetIdRef.current)
       setToken("")
     }
-  }, [state.error])
+  }, [state])
 
   // Cleanup on unmount — avoids duplicate widgets in dev remounts.
   useEffect(() => {
@@ -284,7 +289,7 @@ export default function SellerApplyPage() {
   return (
     <main className="...">
       <Script
-        src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+        src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
         strategy="afterInteractive"
         onReady={() => setScriptReady(true)}
       />
@@ -318,6 +323,7 @@ export default function SellerApplyPage() {
 ### 7.3 Locked contracts
 
 - **`next/script` with `strategy="afterInteractive"` and `onReady`** — not `onLoad`. `onReady` fires on client-nav remounts where the script is already cached.
+- **Script URL includes `?render=explicit`** — required when calling `turnstile.render()` manually. Without it, Cloudflare's script auto-renders any `cf-turnstile`-class divs on the page; we want only the explicit render we control.
 - **Dot access for the public env var** — `process.env.NEXT_PUBLIC_TURNSTILE_SITEKEY`, NOT `process.env["NEXT_PUBLIC_..."]`. Next reliably inlines direct property access; bracket access can break inlining.
 - **Submit disabled until token exists** — `disabled={pending || !token || !SITEKEY}`. Happy path never reaches the no-token server-side rejection.
 - **Hidden input is the canonical name `cf-turnstile-response`** — matches what the action reads from FormData. React state mirrors it.
@@ -399,19 +405,30 @@ Restore the two `sendApplicantAck` template tests that PR #35 commit `9003a72` d
 
 Existing 2 `sendOpsAlert` tests stay unchanged.
 
-### 9.3 Modify: `apps/web/tests/seller-inquiries/actions.test.ts` (+7 tests, 10 existing updated)
+### 9.3 Modify: `apps/web/tests/seller-inquiries/actions.test.ts` (+7 new, 1 deleted, 1 rewritten, 8 updated)
 
 DB-gated integration tests. The PR #35 file currently has 10 tests (1 ops-attempted, 1 ops-empty-skip, 1 required-field-missing, 7 parameterised invalid-email rejections).
 
-**Mock pattern** at the top of the file (matches the action's actual import specifier per Bob R0 Tweak 2):
+**Mock pattern** at the top of the file. The combination of `vi.resetModules()` + dynamic `await import(actions.js)` requires hoisted mock handles — a static `import { verifyTurnstile } from "@/lib/turnstile"` would bind to the original mock instance, but after `resetModules` the dynamically-imported actions.ts resolves a fresh instance, leaving `vi.mocked(verifyTurnstile)` configuring the wrong one. `vi.hoisted` runs before any imports and gives us a stable handle across module resets.
 
 ```ts
-import { verifyTurnstile } from "@/lib/turnstile"
-vi.mock("@/lib/turnstile", () => ({
-  verifyTurnstile: vi.fn(),
+import { randomUUID } from "node:crypto"
+
+// Hoisted mock handles — stable across vi.resetModules().
+const { verifyTurnstileMock, sendApplicantAckMock, sendOpsAlertMock } = vi.hoisted(() => ({
+  verifyTurnstileMock: vi.fn(),
+  sendApplicantAckMock: vi.fn(),
+  sendOpsAlertMock: vi.fn(),
 }))
 
-import { randomUUID } from "node:crypto"
+vi.mock("@/lib/turnstile", () => ({
+  verifyTurnstile: verifyTurnstileMock,
+}))
+
+vi.mock("@/notifications/seller-inquiry", () => ({
+  sendApplicantAck: sendApplicantAckMock,
+  sendOpsAlert: sendOpsAlertMock,
+}))
 
 function makeUniqueEmail(prefix: string): string {
   return `${prefix}-${randomUUID()}@test.bomy`
@@ -419,29 +436,44 @@ function makeUniqueEmail(prefix: string): string {
 
 beforeEach(async () => {
   vi.resetModules()
-  vi.mocked(verifyTurnstile).mockResolvedValue({ success: true })
+  verifyTurnstileMock.mockReset()
+  verifyTurnstileMock.mockResolvedValue({ success: true })
+  sendApplicantAckMock.mockReset()
+  sendApplicantAckMock.mockResolvedValue(undefined)
+  sendOpsAlertMock.mockReset()
+  sendOpsAlertMock.mockResolvedValue(undefined)
   const mailerMod = await import("../../src/lib/mailer.js")
   mailerMod.resetMailerForTests()
 })
 ```
 
-**Existing 10 tests updated** — `makeFormData()` gains a default `fd.set("cf-turnstile-response", "test-token")` so the action's verify step passes via the default mock.
+The notification mocks are needed for tests 6 and 7 (per-recipient isolation), which need to make `sendApplicantAck` or `sendOpsAlert` throw on demand. Hoisting both means the same handle is configured per-test and consumed by the dynamically-imported `actions.ts`. The non-isolation tests still work because the default `mockResolvedValue(undefined)` simulates a successful (no-op) dispatch — which means tests 1, 4, 5 that previously relied on the disabled-mode mailer's skip-log assertion will need to switch their assertion to "the mock was called with the right `to`".
+
+**Existing 10 tests updated:**
+
+- All 10 — `makeFormData()` gains a default `fd.set("cf-turnstile-response", "test-token")` so the action's verify step passes via the default `verifyTurnstileMock` (returns `{ success: true }`).
+- Tests 3–10 (1 required-field + 7 parameterised invalid-email) — no further changes; they still throw before reaching dispatch.
+- **Tests 1–2 need substantive rewrites** to match the new dual-dispatch contract:
+  - PR #35 test 1 (`"inserts the row and attempts ops alert when OPS_ALERT_EMAILS is set; never sends to the submitted email"`) — was an ops-only assertion. Becomes superseded by new test 5 below (covers applicant + ops dispatch under happy path); delete the PR #35 test 1 to avoid redundancy.
+  - PR #35 test 2 (`"logs missing_ops_recipients and sends nothing when OPS_ALERT_EMAILS is empty"`) — becomes `"logs missing_ops_recipients and sends ONLY applicant ack when OPS_ALERT_EMAILS is empty"`. Assertion changes to: `sendApplicantAckMock` called once; `sendOpsAlertMock` NOT called; info log fires with `reason: "missing_ops_recipients"`.
+
+So the net change to existing tests: **delete 1 (PR #35 test 1), rewrite 1 (PR #35 test 2), update 8 (FormData token only)**. With the +7 new tests, the test file goes from 10 → 16 (not 17 as originally stated — superseding PR #35 test 1 removes one).
 
 **New tests (7):**
 
-1. **Verify-failure rejects with generic message; no DB insert; no email.** Per-test unique email via `makeUniqueEmail("verify-fail-invalid")`. `vi.mocked(verifyTurnstile).mockResolvedValueOnce({ success: false, reason: "invalid-response" })`. Action throws `/Verification failed/`. Assert: zero rows in `seller_inquiries` for the unique email; no `email_notification_*` log fires.
+1. **Verify-failure rejects with generic message; no DB insert; no email.** Per-test unique email via `makeUniqueEmail("verify-fail-invalid")`. `verifyTurnstileMock.mockResolvedValueOnce({ success: false, reason: "invalid-response" })`. Action throws `/Verification failed/`. Assert: zero rows in `seller_inquiries` for the unique email; `sendApplicantAckMock` NOT called; `sendOpsAlertMock` NOT called.
 
-2. **Verify reason `missing-secret` produces same generic error.** Same shape with `reason: "missing-secret"`. Assert error message is identical (no leaked internal detail).
+2. **Verify reason `missing-secret` produces same generic error.** `verifyTurnstileMock.mockResolvedValueOnce({ success: false, reason: "missing-secret" })`. Per-test unique email. Action throws `/Verification failed/`. Error message is identical to test 1 (no leaked internal detail). Dispatcher mocks NOT called.
 
-3. **Verify reason `network-error` produces same generic error.** Same shape with `reason: "network-error"`. Assert error message is identical.
+3. **Verify reason `network-error` produces same generic error.** `verifyTurnstileMock.mockResolvedValueOnce({ success: false, reason: "network-error" })`. Per-test unique email. Action throws `/Verification failed/`. Dispatcher mocks NOT called.
 
-4. **Empty / missing `cf-turnstile-response` reaches verify as `null` and rejects.** `makeFormData()` override that deletes the token field. Action throws verification error. Assert `verifyTurnstile` was called with `null` (not `""`, not `undefined`).
+4. **Empty / missing `cf-turnstile-response` reaches verify as `null` and rejects.** `makeFormData()` override that deletes the token field. Default verify mock (returns `{ success: true }`) is overridden by the action's own logic — actually wait, this case needs explicit handling: when token is null/empty, the action still calls `verifyTurnstile(null)` and the mock returns success by default. So this test must override: `verifyTurnstileMock.mockResolvedValueOnce({ success: false, reason: "invalid-response" })` (simulating what the real helper would do for `null` input per §5.2 step 2). Action throws `/Verification failed/`. Assert: `verifyTurnstileMock` was called with first arg `null` (not `""`, not `undefined`). Dispatcher mocks NOT called.
 
-5. **Verify passes → inserts row + dispatches BOTH applicant ack AND ops alert.** Default mock (success). `OPS_ALERT_EMAILS=ops@bomy.my`. Assert: row inserted; TWO `email_notification_skipped` log calls from the disabled-mode mailer (one with `to=<applicant email>`, one with `to=["ops@bomy.my"]`).
+5. **Verify passes → inserts row + dispatches BOTH applicant ack AND ops alert.** Default verify mock (success). `OPS_ALERT_EMAILS=ops@bomy.my`. Per-test unique applicant email via `makeUniqueEmail("happy")`. Assert: row inserted for the unique email; `sendApplicantAckMock` called exactly once with `{ name, email: <unique>, storeName }`; `sendOpsAlertMock` called exactly once with the inquiry payload + `opsEmails: ["ops@bomy.my"]`.
 
-6. **Per-recipient isolation: applicant send throws → ops alert still attempted.** Default verify mock. Hard-mock `sendApplicantAck` (e.g. via `vi.spyOn`) to reject. Assert: action resolves normally; `email_notification_failed` log with `recipientType: "applicant"` fires; ops send still attempts (one skip log).
+6. **Per-recipient isolation: applicant send throws → ops alert still attempted.** Default verify mock. `sendApplicantAckMock.mockRejectedValueOnce(new Error("smtp boom"))`. Assert: action resolves normally; `email_notification_failed` log with `recipientType: "applicant"` fires; `sendOpsAlertMock` was still called (ops not blocked by applicant failure).
 
-7. **Per-recipient isolation: ops alert throws → applicant ack was already attempted; action resolves.** Default verify mock. Hard-mock `sendOpsAlert` to reject. `OPS_ALERT_EMAILS=ops@bomy.my`. Assert: applicant skip-log fires; `email_notification_failed` log with `recipientType: "ops"` fires; action resolves normally.
+7. **Per-recipient isolation: ops alert throws → applicant ack was already attempted; action resolves.** Default verify mock. `sendOpsAlertMock.mockRejectedValueOnce(new Error("smtp boom"))`. `OPS_ALERT_EMAILS=ops@bomy.my`. Assert: `sendApplicantAckMock` was called (applicant attempted first); `email_notification_failed` log with `recipientType: "ops"` fires; action resolves normally.
 
 **No tests removed.**
 
@@ -473,13 +505,13 @@ Without this, vitest fails to resolve `import "server-only"` inside `turnstile.t
 
 ### 9.5 Test delta summary
 
-| File                                         | Existing | After | Delta         |
-| -------------------------------------------- | -------- | ----- | ------------- |
-| `tests/lib/turnstile.test.ts`                | 0        | 12    | +12           |
-| `tests/notifications/seller-inquiry.test.ts` | 2        | 4     | +2 (restored) |
-| `tests/seller-inquiries/actions.test.ts`     | 10       | 17    | +7            |
+| File                                         | Existing | After | Delta                                      |
+| -------------------------------------------- | -------- | ----- | ------------------------------------------ |
+| `tests/lib/turnstile.test.ts`                | 0        | 12    | +12                                        |
+| `tests/notifications/seller-inquiry.test.ts` | 2        | 4     | +2 (restored)                              |
+| `tests/seller-inquiries/actions.test.ts`     | 10       | 16    | +6 (delete 1 superseded, rewrite 1, add 7) |
 
-**Total delta:** +21 tests. Expected post-PR-#37 suite: 622 + 21 = **643**. `apps/web` test count was 183 → 204 after.
+**Total delta:** +20 tests. Expected post-PR-#37 suite: 622 + 20 = **642**. `apps/web` test count was 183 → 203 after.
 
 ---
 
