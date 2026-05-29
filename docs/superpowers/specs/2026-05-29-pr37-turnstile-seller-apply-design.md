@@ -467,15 +467,13 @@ So the net change to existing tests: **delete 1 (PR #35 test 1), rewrite 1 (PR #
 
 3. **Verify reason `network-error` produces same generic error.** `verifyTurnstileMock.mockResolvedValueOnce({ success: false, reason: "network-error" })`. Per-test unique email. Action throws `/Verification failed/`. Dispatcher mocks NOT called.
 
-4. **Empty / missing `cf-turnstile-response` reaches verify as `null` and rejects.** `makeFormData()` override that deletes the token field. Default verify mock (returns `{ success: true }`) is overridden by the action's own logic — actually wait, this case needs explicit handling: when token is null/empty, the action still calls `verifyTurnstile(null)` and the mock returns success by default. So this test must override: `verifyTurnstileMock.mockResolvedValueOnce({ success: false, reason: "invalid-response" })` (simulating what the real helper would do for `null` input per §5.2 step 2). Action throws `/Verification failed/`. Assert: `verifyTurnstileMock` was called with first arg `null` (not `""`, not `undefined`). Dispatcher mocks NOT called.
+4. **Empty / missing `cf-turnstile-response` reaches verify as `null` and rejects.** `makeFormData()` override that deletes the token field. Because the default `verifyTurnstileMock` resolves with `{ success: true }`, this test must override it to simulate what the real helper would do for `null` input per §5.2 step 2: `verifyTurnstileMock.mockResolvedValueOnce({ success: false, reason: "invalid-response" })`. Action throws `/Verification failed/`. Assert: `verifyTurnstileMock` was called with first arg `null` (not `""`, not `undefined`). Dispatcher mocks NOT called.
 
 5. **Verify passes → inserts row + dispatches BOTH applicant ack AND ops alert.** Default verify mock (success). `OPS_ALERT_EMAILS=ops@bomy.my`. Per-test unique applicant email via `makeUniqueEmail("happy")`. Assert: row inserted for the unique email; `sendApplicantAckMock` called exactly once with `{ name, email: <unique>, storeName }`; `sendOpsAlertMock` called exactly once with the inquiry payload + `opsEmails: ["ops@bomy.my"]`.
 
 6. **Per-recipient isolation: applicant send throws → ops alert still attempted.** Default verify mock. `sendApplicantAckMock.mockRejectedValueOnce(new Error("smtp boom"))`. Assert: action resolves normally; `email_notification_failed` log with `recipientType: "applicant"` fires; `sendOpsAlertMock` was still called (ops not blocked by applicant failure).
 
 7. **Per-recipient isolation: ops alert throws → applicant ack was already attempted; action resolves.** Default verify mock. `sendOpsAlertMock.mockRejectedValueOnce(new Error("smtp boom"))`. `OPS_ALERT_EMAILS=ops@bomy.my`. Assert: `sendApplicantAckMock` was called (applicant attempted first); `email_notification_failed` log with `recipientType: "ops"` fires; action resolves normally.
-
-**No tests removed.**
 
 ### 9.4 Toolchain — vitest config + stub
 
