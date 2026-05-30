@@ -1,7 +1,30 @@
 "use client"
 
-import { useActionState } from "react"
+import Script from "next/script"
+import { useActionState, useEffect, useRef, useState } from "react"
+
 import { submitSellerInquiry } from "./actions"
+
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (
+        container: string | HTMLElement,
+        options: {
+          sitekey: string
+          callback: (token: string) => void
+          "expired-callback"?: () => void
+          "error-callback"?: () => void
+          theme?: "light" | "dark" | "auto"
+        },
+      ) => string
+      reset: (widgetId: string) => void
+      remove: (widgetId: string) => void
+    }
+  }
+}
+
+const SITEKEY = process.env["NEXT_PUBLIC_TURNSTILE_SITEKEY"] ?? ""
 
 const INITIAL_STATE = { success: false, error: "" }
 
@@ -16,6 +39,46 @@ function formAction(
 
 export default function SellerApplyPage() {
   const [state, action, pending] = useActionState(formAction, INITIAL_STATE)
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const widgetIdRef = useRef<string | null>(null)
+  const [token, setToken] = useState("")
+  const [scriptReady, setScriptReady] = useState(false)
+
+  // Render the widget once the script is ready AND the container is in the DOM.
+  useEffect(() => {
+    if (!scriptReady || !containerRef.current || widgetIdRef.current) return
+    if (!SITEKEY) return
+    if (!window.turnstile) return
+    widgetIdRef.current = window.turnstile.render(containerRef.current, {
+      sitekey: SITEKEY,
+      callback: (t) => setToken(t),
+      "expired-callback": () => setToken(""),
+      "error-callback": () => setToken(""),
+    })
+  }, [scriptReady])
+
+  // Reset the widget on ANY action failure.
+  // Depend on `state` (the whole object), not `state.error` — useActionState
+  // returns a fresh object reference per invocation, but the error string can
+  // be value-equal across consecutive failures (e.g. two verify rejections
+  // both produce "Verification failed..."). [state.error] would not re-fire;
+  // [state] does because the reference changes each time.
+  useEffect(() => {
+    if (state.error && widgetIdRef.current && window.turnstile) {
+      window.turnstile.reset(widgetIdRef.current)
+      setToken("")
+    }
+  }, [state])
+
+  // Cleanup on unmount — avoids duplicate widgets if the page remounts.
+  useEffect(() => {
+    return () => {
+      if (widgetIdRef.current && window.turnstile) {
+        window.turnstile.remove(widgetIdRef.current)
+        widgetIdRef.current = null
+      }
+    }
+  }, [])
 
   if (state.success) {
     return (
@@ -33,6 +96,12 @@ export default function SellerApplyPage() {
 
   return (
     <main className="flex min-h-screen items-start justify-center bg-gray-50 pt-16">
+      <Script
+        src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+        strategy="afterInteractive"
+        onReady={() => setScriptReady(true)}
+      />
+
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-sm ring-1 ring-gray-200">
         <h1 className="mb-1 text-xl font-semibold text-gray-900">Become a Seller</h1>
         <p className="mb-6 text-sm text-gray-500">
@@ -100,9 +169,20 @@ export default function SellerApplyPage() {
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
             />
           </div>
+
+          {/* Turnstile widget container + hidden token mirror for FormData. */}
+          <div ref={containerRef} />
+          <input type="hidden" name="cf-turnstile-response" value={token} />
+
+          {!SITEKEY && (
+            <div className="rounded-lg bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+              Form temporarily unavailable. Please try again later.
+            </div>
+          )}
+
           <button
             type="submit"
-            disabled={pending}
+            disabled={pending || !token || !SITEKEY}
             className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
           >
             {pending ? "Submitting…" : "Submit Application"}

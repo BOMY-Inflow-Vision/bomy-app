@@ -1,10 +1,40 @@
+import { randomUUID } from "node:crypto"
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { eq } from "drizzle-orm"
+
+// Hoisted mock handles — stable across vi.resetModules() so dynamically-imported
+// actions.ts resolves the same mock instances we configure in beforeEach.
+const { verifyTurnstileMock, sendApplicantAckMock, sendOpsAlertMock } = vi.hoisted(() => ({
+  verifyTurnstileMock: vi.fn(),
+  sendApplicantAckMock: vi.fn(),
+  sendOpsAlertMock: vi.fn(),
+}))
+
+vi.mock("@/lib/turnstile", () => ({
+  verifyTurnstile: verifyTurnstileMock,
+}))
+
+vi.mock("@/notifications/seller-inquiry", () => ({
+  sendApplicantAck: sendApplicantAckMock,
+  sendOpsAlert: sendOpsAlertMock,
+}))
 
 const shouldRun = Boolean(process.env["DATABASE_APP_URL"]) && process.env["BOMY_RLS_READY"] === "1"
+
+function makeUniqueEmail(prefix: string): string {
+  return `${prefix}-${randomUUID()}@test.bomy`
+}
 
 describe.skipIf(!shouldRun)("submitSellerInquiry — server action", () => {
   beforeEach(async () => {
     vi.resetModules()
+    verifyTurnstileMock.mockReset()
+    verifyTurnstileMock.mockResolvedValue({ success: true })
+    sendApplicantAckMock.mockReset()
+    sendApplicantAckMock.mockResolvedValue(undefined)
+    sendOpsAlertMock.mockReset()
+    sendOpsAlertMock.mockResolvedValue(undefined)
     const mailerMod = await import("../../src/lib/mailer.js")
     mailerMod.resetMailerForTests()
   })
@@ -23,47 +53,141 @@ describe.skipIf(!shouldRun)("submitSellerInquiry — server action", () => {
     fd.set("companyName", overrides["companyName"] ?? "Aisyah Sdn Bhd")
     fd.set("storeName", overrides["storeName"] ?? "Kedai Aisyah")
     fd.set("message", overrides["message"] ?? "Looking forward.")
+    // Default: verify-passes via the mock; token value is arbitrary.
+    if (!("cf-turnstile-response" in overrides)) {
+      fd.set("cf-turnstile-response", "test-token")
+    } else if (overrides["cf-turnstile-response"]) {
+      fd.set("cf-turnstile-response", overrides["cf-turnstile-response"])
+    }
     return fd
   }
 
-  it("inserts the row and attempts ops alert when OPS_ALERT_EMAILS is set; never sends to the submitted email", async () => {
-    process.env["OPS_ALERT_EMAILS"] = "ops@bomy.my"
-    process.env["ADMIN_URL"] = "https://admin.bomy.my"
-    // EMAIL_DELIVERY_ENABLED unset → disabled mailer (logs skipped via console.log).
-
-    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {})
+  it("verify-failure (invalid-response): throws generic error; no DB insert; no email", async () => {
+    verifyTurnstileMock.mockResolvedValueOnce({ success: false, reason: "invalid-response" })
+    const uniqueEmail = makeUniqueEmail("verify-fail-invalid")
     const { submitSellerInquiry } = await import("../../src/app/seller/apply/actions.js")
-
-    await expect(submitSellerInquiry(makeFormData())).resolves.toBeUndefined()
-
-    // Exactly one attempted send (ops alert) → one disabled-mode skip log.
-    const skipCalls = logSpy.mock.calls.filter((c) => c[0] === "email_notification_skipped")
-    expect(skipCalls).toHaveLength(1)
-
-    // Defensive: the submitted (public) email must never appear as a recipient.
-    for (const call of skipCalls) {
-      const payload = call[1] as { to: string | string[] }
-      const recipients = Array.isArray(payload.to) ? payload.to : [payload.to]
-      expect(recipients).not.toContain("aisyah@example.com")
-    }
+    await expect(submitSellerInquiry(makeFormData({ email: uniqueEmail }))).rejects.toThrow(
+      /Verification failed/,
+    )
+    const { makeDb, schema } = await import("@bomy/db")
+    const { db } = makeDb()
+    const rows = await db
+      .select()
+      .from(schema.sellerInquiries)
+      .where(eq(schema.sellerInquiries.email, uniqueEmail))
+    expect(rows).toHaveLength(0)
+    expect(sendApplicantAckMock).not.toHaveBeenCalled()
+    expect(sendOpsAlertMock).not.toHaveBeenCalled()
   })
 
-  it("logs missing_ops_recipients and sends nothing when OPS_ALERT_EMAILS is empty", async () => {
+  it("verify-failure (missing-secret): identical generic error", async () => {
+    verifyTurnstileMock.mockResolvedValueOnce({ success: false, reason: "missing-secret" })
+    const { submitSellerInquiry } = await import("../../src/app/seller/apply/actions.js")
+    await expect(submitSellerInquiry(makeFormData())).rejects.toThrow(
+      /Verification failed\. Please try the challenge again\./,
+    )
+    expect(sendApplicantAckMock).not.toHaveBeenCalled()
+    expect(sendOpsAlertMock).not.toHaveBeenCalled()
+  })
+
+  it("verify-failure (network-error): identical generic error", async () => {
+    verifyTurnstileMock.mockResolvedValueOnce({ success: false, reason: "network-error" })
+    const { submitSellerInquiry } = await import("../../src/app/seller/apply/actions.js")
+    await expect(submitSellerInquiry(makeFormData())).rejects.toThrow(
+      /Verification failed\. Please try the challenge again\./,
+    )
+    expect(sendApplicantAckMock).not.toHaveBeenCalled()
+    expect(sendOpsAlertMock).not.toHaveBeenCalled()
+  })
+
+  it("missing cf-turnstile-response reaches verify as null and rejects", async () => {
+    verifyTurnstileMock.mockResolvedValueOnce({ success: false, reason: "invalid-response" })
+    const { submitSellerInquiry } = await import("../../src/app/seller/apply/actions.js")
+    const fd = makeFormData()
+    fd.delete("cf-turnstile-response")
+    await expect(submitSellerInquiry(fd)).rejects.toThrow(/Verification failed/)
+    expect(verifyTurnstileMock).toHaveBeenCalledWith(null)
+    expect(sendApplicantAckMock).not.toHaveBeenCalled()
+    expect(sendOpsAlertMock).not.toHaveBeenCalled()
+  })
+
+  it("verify passes → inserts row + dispatches BOTH applicant ack and ops alert", async () => {
+    process.env["OPS_ALERT_EMAILS"] = "ops@bomy.my"
+    process.env["ADMIN_URL"] = "https://admin.bomy.my"
+    const uniqueEmail = makeUniqueEmail("happy")
+    const { submitSellerInquiry } = await import("../../src/app/seller/apply/actions.js")
+    await expect(submitSellerInquiry(makeFormData({ email: uniqueEmail }))).resolves.toBeUndefined()
+
+    const { makeDb, schema } = await import("@bomy/db")
+    const { db } = makeDb()
+    const rows = await db
+      .select()
+      .from(schema.sellerInquiries)
+      .where(eq(schema.sellerInquiries.email, uniqueEmail))
+    expect(rows).toHaveLength(1)
+
+    expect(sendApplicantAckMock).toHaveBeenCalledOnce()
+    expect(sendApplicantAckMock.mock.calls[0]![1]).toMatchObject({
+      name: "Aisyah",
+      email: uniqueEmail,
+      storeName: "Kedai Aisyah",
+    })
+    expect(sendOpsAlertMock).toHaveBeenCalledOnce()
+    expect(sendOpsAlertMock.mock.calls[0]![2]).toMatchObject({
+      opsEmails: ["ops@bomy.my"],
+    })
+  })
+
+  it("OPS_ALERT_EMAILS empty: logs skip; sends ONLY applicant ack", async () => {
     delete process.env["OPS_ALERT_EMAILS"]
     const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {})
-    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {})
-
     const { submitSellerInquiry } = await import("../../src/app/seller/apply/actions.js")
     await submitSellerInquiry(makeFormData())
 
-    expect(infoSpy).toHaveBeenCalled()
-    const infoArg = infoSpy.mock.calls[0]![0] as { event?: string; reason?: string }
-    expect(infoArg.event).toBe("email_notification_skipped")
-    expect(infoArg.reason).toBe("missing_ops_recipients")
+    expect(sendApplicantAckMock).toHaveBeenCalledOnce()
+    expect(sendOpsAlertMock).not.toHaveBeenCalled()
 
-    // No outbound send attempted when ops list is empty — applicant ack is gone.
-    const skipCalls = logSpy.mock.calls.filter((c) => c[0] === "email_notification_skipped")
-    expect(skipCalls).toHaveLength(0)
+    const skipCall = infoSpy.mock.calls.find((c) => {
+      const arg = c[0] as { event?: string }
+      return arg?.event === "email_notification_skipped"
+    })
+    expect(skipCall).toBeDefined()
+    const arg = skipCall![0] as { reason?: string }
+    expect(arg.reason).toBe("missing_ops_recipients")
+  })
+
+  it("applicant send throws → ops alert still attempted; action resolves", async () => {
+    process.env["OPS_ALERT_EMAILS"] = "ops@bomy.my"
+    sendApplicantAckMock.mockRejectedValueOnce(new Error("smtp boom"))
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+    const { submitSellerInquiry } = await import("../../src/app/seller/apply/actions.js")
+    await expect(submitSellerInquiry(makeFormData())).resolves.toBeUndefined()
+
+    expect(sendApplicantAckMock).toHaveBeenCalledOnce()
+    expect(sendOpsAlertMock).toHaveBeenCalledOnce()
+
+    const failCall = errorSpy.mock.calls.find((c) => {
+      const arg = c[0] as { event?: string; recipientType?: string }
+      return arg?.event === "email_notification_failed" && arg.recipientType === "applicant"
+    })
+    expect(failCall).toBeDefined()
+  })
+
+  it("ops alert throws → applicant ack already attempted; action resolves", async () => {
+    process.env["OPS_ALERT_EMAILS"] = "ops@bomy.my"
+    sendOpsAlertMock.mockRejectedValueOnce(new Error("smtp boom"))
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+    const { submitSellerInquiry } = await import("../../src/app/seller/apply/actions.js")
+    await expect(submitSellerInquiry(makeFormData())).resolves.toBeUndefined()
+
+    expect(sendApplicantAckMock).toHaveBeenCalledOnce()
+    expect(sendOpsAlertMock).toHaveBeenCalledOnce()
+
+    const failCall = errorSpy.mock.calls.find((c) => {
+      const arg = c[0] as { event?: string; recipientType?: string }
+      return arg?.event === "email_notification_failed" && arg.recipientType === "ops"
+    })
+    expect(failCall).toBeDefined()
   })
 
   it("rejects when a required field is missing", async () => {
@@ -71,13 +195,14 @@ describe.skipIf(!shouldRun)("submitSellerInquiry — server action", () => {
     await expect(submitSellerInquiry(makeFormData({ name: "" }))).rejects.toThrow(
       /All required fields/,
     )
+    expect(sendApplicantAckMock).not.toHaveBeenCalled()
   })
 
   it.each([
-    "aisyah@example.com, attacker@evil.com", // comma-separated injection
-    "aisyah@example.com;attacker@evil.com", // semicolon-separated injection
-    "Aisyah <aisyah@example.com>", // angle-bracket display-name form
-    "aisyah aisyah@example.com", // whitespace
+    "aisyah@example.com, attacker@evil.com",
+    "aisyah@example.com;attacker@evil.com",
+    "Aisyah <aisyah@example.com>",
+    "aisyah aisyah@example.com",
     "not-an-email",
     "double@@example.com",
     '"quoted"@example.com',
@@ -86,5 +211,6 @@ describe.skipIf(!shouldRun)("submitSellerInquiry — server action", () => {
     await expect(submitSellerInquiry(makeFormData({ email: badEmail }))).rejects.toThrow(
       /valid email/,
     )
+    expect(sendApplicantAckMock).not.toHaveBeenCalled()
   })
 })

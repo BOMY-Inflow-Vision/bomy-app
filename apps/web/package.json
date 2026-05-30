@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint src --max-warnings 0",
@@ -27,6 +27,7 @@
     "next-intl": "^3.26.3",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "server-only": "^0.0.1",
     "tailwind-merge": "^3.3.0"
   },
   "devDependencies": {
