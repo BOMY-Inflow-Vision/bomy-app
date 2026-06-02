@@ -1,7 +1,8 @@
 import React from "react"
 
-const SUPPORT_EMAIL = "[PLACEHOLDER: support_email]"
-const BUSINESS_ADDRESS = "[PLACEHOLDER: business_address]"
+const SUPPORT_EMAIL = "contact@bomy.my"
+const BUSINESS_ADDRESS =
+  "19-2, Lorong Mayang Pasir 5, Taman Sri Tunas, 11950 Bayan Lepas, Pulau Pinang."
 
 export function Footer() {
   return (

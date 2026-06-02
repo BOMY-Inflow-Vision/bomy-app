@@ -23,4 +23,8 @@ describe.each(cases)("$name page", ({ Page, title }) => {
     expect(html).toContain("<h1")
     expect(html).toContain(title)
   })
+
+  it("has no unfilled [PLACEHOLDER: ...] markers", () => {
+    expect(html).not.toContain("[PLACEHOLDER:")
+  })
 })

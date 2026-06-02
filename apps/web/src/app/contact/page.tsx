@@ -16,15 +16,15 @@ export default function ContactPage() {
       <section>
         <h2 className="mb-3 text-xl font-semibold">Support email</h2>
         <p>
-          <a href="mailto:[PLACEHOLDER: support_email]" className="text-slate-900 underline">
-            [PLACEHOLDER: support_email]
+          <a href="mailto:contact@bomy.my" className="text-slate-900 underline">
+            contact@bomy.my
           </a>
         </p>
       </section>
 
       <section>
         <h2 className="mb-3 text-xl font-semibold">Business address</h2>
-        <p>[PLACEHOLDER: business_address]</p>
+        <p>19-2, Lorong Mayang Pasir 5, Taman Sri Tunas, 11950 Bayan Lepas, Pulau Pinang.</p>
       </section>
 
       <section>
@@ -33,13 +33,8 @@ export default function ContactPage() {
       </section>
 
       <section>
-        <h2 className="mb-3 text-xl font-semibold">Phone</h2>
-        <p>[PLACEHOLDER: support_phone]</p>
-      </section>
-
-      <section>
         <h2 className="mb-3 text-xl font-semibold">Response time</h2>
-        <p>We aim to respond within [PLACEHOLDER: contact_response_window] business days.</p>
+        <p>We aim to respond within 2 business days.</p>
       </section>
     </LegalPageLayout>
   )

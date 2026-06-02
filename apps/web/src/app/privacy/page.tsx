@@ -17,10 +17,10 @@ export default function PrivacyPage() {
       <section>
         <h2 className="mb-3 text-xl font-semibold">1. Who we are</h2>
         <p>
-          Inflo Vision (Partnership), Malaysia. Registration: [PLACEHOLDER:
-          ssm_registration_number]. Address: [PLACEHOLDER: business_address]. Privacy contact:{" "}
-          <a href="mailto:[PLACEHOLDER: privacy_email]" className="text-slate-900 underline">
-            [PLACEHOLDER: privacy_email]
+          Inflo Vision (Partnership), Malaysia. Registration: 202503276795. Address: 19-2, Lorong
+          Mayang Pasir 5, Taman Sri Tunas, 11950 Bayan Lepas, Pulau Pinang. Privacy contact:{" "}
+          <a href="mailto:contact@bomy.my" className="text-slate-900 underline">
+            contact@bomy.my
           </a>
           .
         </p>
@@ -58,10 +58,10 @@ export default function PrivacyPage() {
         <h2 className="mb-3 text-xl font-semibold">5. Disclosure and subprocessors</h2>
         <p>We share limited personal data with the following categories of subprocessors:</p>
         <ul className="ml-6 mt-3 list-disc space-y-1">
-          <li>Payment processing: [PLACEHOLDER: payment_processor_disclosure]</li>
+          <li>Payment processing: a licensed payment service provider</li>
           <li>Shipping and delivery: Pos Laju</li>
-          <li>Support tooling: [PLACEHOLDER: support_tool_disclosure]</li>
-          <li>Hosting and infrastructure: [PLACEHOLDER: hosting_provider_disclosure]</li>
+          <li>Support tooling: email-based customer support managed by Inflo Vision</li>
+          <li>Hosting and infrastructure: our cloud infrastructure provider</li>
         </ul>
       </section>
 
@@ -76,10 +76,9 @@ export default function PrivacyPage() {
       <section>
         <h2 className="mb-3 text-xl font-semibold">7. Retention windows</h2>
         <p>
-          Account data is retained while the account is active and for [PLACEHOLDER:
-          account_retention_window] after the last sign-in. Inactive accounts are flagged for
-          deletion after [PLACEHOLDER: dormant_account_window]. Order records are retained for
-          [PLACEHOLDER: order_retention_window] in line with tax and accounting requirements.
+          Account data is retained while the account is active and for 24 months after the last
+          sign-in. Inactive accounts are flagged for deletion after 36 months. Order records are
+          retained for 7 years in line with tax and accounting requirements.
         </p>
       </section>
 
@@ -96,9 +95,9 @@ export default function PrivacyPage() {
       <section>
         <h2 className="mb-3 text-xl font-semibold">9. Complaints and escalation</h2>
         <p>
-          We respond to data-protection inquiries within [PLACEHOLDER: complaint_response_timeline]
-          business days. You may contact us first; if your concern remains unresolved, you may
-          contact the Personal Data Protection Commissioner.
+          We respond to data-protection inquiries within 7 business days. You may contact us first;
+          if your concern remains unresolved, you may contact the Personal Data Protection
+          Commissioner.
         </p>
       </section>
 
@@ -107,7 +106,7 @@ export default function PrivacyPage() {
         <p>
           Material breaches are reported to affected users and to the Department of Personal Data
           Protection in accordance with the notification requirements of the Act. Breach contact:
-          [PLACEHOLDER: breach_contact].
+          contact@bomy.my.
         </p>
       </section>
 
@@ -133,8 +132,8 @@ export default function PrivacyPage() {
         <h2 className="mb-3 text-xl font-semibold">13. Contact</h2>
         <p>
           Questions about this policy can be sent to{" "}
-          <a href="mailto:[PLACEHOLDER: privacy_email]" className="text-slate-900 underline">
-            [PLACEHOLDER: privacy_email]
+          <a href="mailto:contact@bomy.my" className="text-slate-900 underline">
+            contact@bomy.my
           </a>
           .
         </p>

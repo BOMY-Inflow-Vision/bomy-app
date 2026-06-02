@@ -50,8 +50,8 @@ export default function TermsPage() {
         <p>
           Sellers are responsible for their storefronts, including listing accuracy, pricing,
           inventory, and fulfilment. Seller fees are disclosed during onboarding and within the
-          seller dashboard terms. See [PLACEHOLDER: seller_fee_schedule] for the current fee
-          schedule.
+          seller dashboard terms. See the seller onboarding flow and the seller dashboard terms for
+          the current fee schedule.
         </p>
       </section>
 
@@ -95,9 +95,8 @@ export default function TermsPage() {
       <section>
         <h2 className="mb-3 text-xl font-semibold">10. Governing law and jurisdiction</h2>
         <p>
-          These terms are governed by the laws of Malaysia. The courts of [PLACEHOLDER:
-          court_jurisdiction] have exclusive jurisdiction over any dispute arising out of or
-          relating to the Service.
+          These terms are governed by the laws of Malaysia. The courts of Pulau Pinang have
+          exclusive jurisdiction over any dispute arising out of or relating to the Service.
         </p>
       </section>
 
@@ -105,8 +104,8 @@ export default function TermsPage() {
         <h2 className="mb-3 text-xl font-semibold">11. Contact</h2>
         <p>
           Questions about these terms can be sent to{" "}
-          <a href="mailto:[PLACEHOLDER: support_email]" className="text-slate-900 underline">
-            [PLACEHOLDER: support_email]
+          <a href="mailto:contact@bomy.my" className="text-slate-900 underline">
+            contact@bomy.my
           </a>
           .
         </p>

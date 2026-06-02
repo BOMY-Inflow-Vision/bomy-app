@@ -20,10 +20,7 @@ export default function RefundPage() {
 
       <section>
         <h2 className="mb-3 text-xl font-semibold">2. Return window</h2>
-        <p>
-          You have [PLACEHOLDER: return_window_days] days from the date of delivery to initiate a
-          return for an eligible item.
-        </p>
+        <p>You have 7 days from the date of delivery to initiate a return for an eligible item.</p>
       </section>
 
       <section>
@@ -38,16 +35,16 @@ export default function RefundPage() {
       <section>
         <h2 className="mb-3 text-xl font-semibold">4. Process</h2>
         <p>
-          Contact the seller via BOMY first. If the seller has not responded within [PLACEHOLDER:
-          seller_response_window] business days, you may escalate to BOMY support for assistance.
+          Contact the seller via BOMY first. If the seller has not responded within 3 business days,
+          you may escalate to BOMY support for assistance.
         </p>
       </section>
 
       <section>
         <h2 className="mb-3 text-xl font-semibold">5. Refund method and timeline</h2>
         <p>
-          Approved refunds are returned to the original payment method within [PLACEHOLDER:
-          refund_processing_window] business days of the seller receiving the returned item.
+          Approved refunds are returned to the original payment method within 7 business days of the
+          seller receiving the returned item.
         </p>
       </section>
 
@@ -66,7 +63,10 @@ export default function RefundPage() {
           required by applicable law or where BOMY approves an exception in writing. Starter kits,
           vouchers, and fulfilled membership benefits are not separately refundable.
         </p>
-        <p className="mt-3">Statutory exceptions: [PLACEHOLDER: statutory_refund_exceptions].</p>
+        <p className="mt-3">
+          Statutory exceptions: rights under the Consumer Protection Act 1999 (Malaysia) and other
+          applicable consumer laws.
+        </p>
       </section>
 
       <section>
@@ -91,8 +91,8 @@ export default function RefundPage() {
         <h2 className="mb-3 text-xl font-semibold">10. Contact</h2>
         <p>
           Questions about this policy or about an active return can be sent to{" "}
-          <a href="mailto:[PLACEHOLDER: support_email]" className="text-slate-900 underline">
-            [PLACEHOLDER: support_email]
+          <a href="mailto:contact@bomy.my" className="text-slate-900 underline">
+            contact@bomy.my
           </a>
           .
         </p>

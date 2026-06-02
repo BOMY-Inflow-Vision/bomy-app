@@ -28,17 +28,17 @@ export default function ShippingPage() {
       <section>
         <h2 className="mb-3 text-xl font-semibold">3. Processing time</h2>
         <p>
-          Orders are dispatched within [PLACEHOLDER: processing_time_days] business days of payment
-          confirmation, subject to seller cut-off times.
+          Orders are dispatched within 1-3 business days of payment confirmation, subject to seller
+          cut-off times.
         </p>
       </section>
 
       <section>
         <h2 className="mb-3 text-xl font-semibold">4. Delivery estimates</h2>
         <ul className="ml-6 list-disc space-y-1">
-          <li>West Malaysia: [PLACEHOLDER: delivery_west_estimate] business days.</li>
-          <li>East Malaysia: [PLACEHOLDER: delivery_east_estimate] business days.</li>
-          <li>International: [PLACEHOLDER: delivery_international_estimate] business days.</li>
+          <li>West Malaysia: 2-4 business days.</li>
+          <li>East Malaysia: 4-7 business days.</li>
+          <li>International: 7-21 business days.</li>
         </ul>
       </section>
 
@@ -88,8 +88,8 @@ export default function ShippingPage() {
         <h2 className="mb-3 text-xl font-semibold">10. Contact</h2>
         <p>
           Questions about shipping or about an active order can be sent to{" "}
-          <a href="mailto:[PLACEHOLDER: support_email]" className="text-slate-900 underline">
-            [PLACEHOLDER: support_email]
+          <a href="mailto:contact@bomy.my" className="text-slate-900 underline">
+            contact@bomy.my
           </a>
           .
         </p>
