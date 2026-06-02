@@ -15,7 +15,7 @@ Ship the legal/policy pages + persistent business identity footer that BOMY need
 After PR #38 merges:
 
 - BOMY has 5 reviewer-presentable public pages: `/terms`, `/privacy`, `/refund`, `/shipping`, `/contact`.
-- Every page across `apps/web` renders the new `Footer` component with Inflo Vision business identity, policy links, and copyright.
+- The root app shell renders the new `Footer` component below current page content, surfacing Inflo Vision business identity, policy links, and copyright site-wide. Future per-page intentional suppression remains a possible mechanism if needed later.
 - The locked content is "pre-launch draft" — not legal-grade. Counsel review remains a tracked backlog item before any of: public launch beyond HitPay reviewer audience, real-money processing, non-MY buyer scale, analytics/marketing cookie addition.
 
 PR #38 does NOT remove the HitPay-creds blocker. It builds the public content surface needed to **request restoration**; the blocker remains pending PR #39 deployment + PR #41 HitPay review/API restoration.
