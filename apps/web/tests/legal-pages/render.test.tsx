@@ -4,12 +4,14 @@ import { describe, expect, it } from "vitest"
 
 import PrivacyPage from "@/app/privacy/page"
 import RefundPage from "@/app/refund/page"
+import ShippingPage from "@/app/shipping/page"
 import TermsPage from "@/app/terms/page"
 
 const cases = [
   { name: "Terms", Page: TermsPage, title: "Terms of Service" },
   { name: "Privacy", Page: PrivacyPage, title: "Privacy Policy" },
   { name: "Refund", Page: RefundPage, title: "Refund and Return Policy" },
+  { name: "Shipping", Page: ShippingPage, title: "Shipping and Delivery Policy" },
 ]
 
 describe.each(cases)("$name page", ({ Page, title }) => {
