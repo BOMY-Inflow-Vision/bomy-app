@@ -106,7 +106,7 @@ export default async function MembershipPage() {
           </a>
         )}
 
-        <p className="mt-4 text-xs text-gray-400">Payment processed securely by HitPay · MYR</p>
+        <p className="mt-4 text-xs text-gray-400">Payment processed securely · MYR</p>
       </div>
     </main>
   )
