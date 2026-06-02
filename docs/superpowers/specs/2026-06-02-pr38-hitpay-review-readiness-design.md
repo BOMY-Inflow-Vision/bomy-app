@@ -80,7 +80,7 @@ Tracked in `app/.andy/handoff.md` §5 backlog after merge:
 **Files explicitly NOT touched:**
 
 - `apps/web/src/components/nav-bar.tsx` — no nav changes; legal pages reachable via footer links only.
-- `apps/web/src/app/page.tsx`, `/products`, `/cart`, `/checkout/*`, `/brands/*`, `/membership/*`, `/account/*`, `/auth/*`, `/seller/*` — no page modifications. All inherit the new Footer via root layout.
+- `apps/web/src/app/page.tsx`, `/products`, `/cart`, `/checkout/*`, `/brands/*`, `/membership/*`, `/account/*`, `/auth/*`, `/seller/*` — no page modifications. All inherit the new Footer via root layout. **Narrow exception (added 2026-06-02 after Andy ran the no-processor-claim audit):** two visible-copy lines on `apps/web/src/app/brands/[slug]/subscribe/page.tsx` and `apps/web/src/app/(marketing)/membership/page.tsx` previously read "Payment processed securely by HitPay · MYR" — these are public HitPay processor claims forbidden by §3 (out-of-scope public claim ban) and would block HitPay reviewer approval. Both lines are replaced with generic "Payment processed securely · MYR" wording in a focused commit. No PSP integration code, imports, server actions, env-var names, or unrelated tests are touched.
 - `packages/db/*`, `apps/api/*`, `apps/admin/*` — no changes.
 - `apps/web/package.json` — no new dependencies.
 - `apps/web/tailwind.config.ts` — no plugin additions.
@@ -392,7 +392,7 @@ describe.each(cases)("$name page", ({ Page, title }) => {
 
 `feat/hitpay-review-readiness-legal-pages` off `main`.
 
-### Commit order (~8 conventional commits; squashed at merge)
+### Commit order (~9 conventional commits; squashed at merge)
 
 1. `feat(web): add Footer component + wire into root layout` — Footer + `layout.tsx` change + Footer test.
 2. `feat(web): add LegalPageLayout component` — LegalPageLayout + its test.
@@ -401,7 +401,8 @@ describe.each(cases)("$name page", ({ Page, title }) => {
 5. `feat(web): add /refund page (draft with placeholders)`.
 6. `feat(web): add /shipping page (draft with placeholders)`.
 7. `feat(web): add /contact page (draft, no last-updated)`.
-8. `chore(web): fill 23 mandatory placeholders before merge` — Charlie's pre-merge fill commit; may include optional `support_phone`.
+8. `chore(web): remove public HitPay processor claims from existing pages` — narrow visible-copy exception per §5; replaces two pre-existing lines with generic "Payment processed securely · MYR" wording. Spec amendment included in same commit.
+9. `chore(web): fill 23 mandatory placeholders before merge` — Charlie's pre-merge fill commit; may include optional `support_phone`.
 
 Squash message at merge: `feat(web): legal pages + footer for HitPay review readiness (#38)`.
 

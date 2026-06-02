@@ -122,7 +122,7 @@ export default async function BrandSubscribePage({ params }: Props) {
         </div>
 
         <p className="mt-6 text-center text-xs text-gray-400">
-          Payment processed securely by HitPay · MYR · One-time charge, no automatic renewal
+          Payment processed securely · MYR · One-time charge, no automatic renewal
         </p>
       </div>
     </main>
