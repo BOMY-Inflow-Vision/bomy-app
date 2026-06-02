@@ -2,6 +2,7 @@ import React from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vitest"
 
+import ContactPage from "@/app/contact/page"
 import PrivacyPage from "@/app/privacy/page"
 import RefundPage from "@/app/refund/page"
 import ShippingPage from "@/app/shipping/page"
@@ -12,6 +13,7 @@ const cases = [
   { name: "Privacy", Page: PrivacyPage, title: "Privacy Policy" },
   { name: "Refund", Page: RefundPage, title: "Refund and Return Policy" },
   { name: "Shipping", Page: ShippingPage, title: "Shipping and Delivery Policy" },
+  { name: "Contact", Page: ContactPage, title: "Contact Us" },
 ]
 
 describe.each(cases)("$name page", ({ Page, title }) => {
