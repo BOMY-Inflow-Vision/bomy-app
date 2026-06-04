@@ -1,0 +1,351 @@
+# PR #39 — Public deployment of `apps/web` to bomy.my
+
+**Date:** 2026-06-04
+**Author:** Andy
+**Approver:** Charlie
+**Type:** Public deployment + first hosted database. Code surface is small (~2 new files + 1 runbook); operational surface is large.
+**Stage 5+ sub-stage:** Second of four PRs (#38 → #41) toward HitPay sandbox/API access restoration. PR #38 shipped the legal/business identity content surface; PR #39 publishes it; PR #40 (if needed) realizes product seed for the reviewer; PR #41 (operational) submits to HitPay.
+
+---
+
+## 1. Goal
+
+Ship `apps/web` to `https://bomy.my` backed by a hosted Postgres so the public storefront is reviewable by HitPay. PR #39 does NOT itself unblock HitPay restoration — it produces the live URL the reviewer will browse. PR #41 submits.
+
+**Locked decisions (Charlie 2026-06-04):**
+
+- Web-only minimum scope. `apps/api` and `apps/admin` stay local.
+- Hosted Postgres via Vercel Marketplace → Neon, ap-southeast-1 (Singapore).
+- Apex domain `https://bomy.my` primary; `www.bomy.my` 308-redirects to apex.
+- Preview-first cutover, then auto-deploy on push to `main`.
+- Full sign-in works in prod (real OAuth + AUTH_SECRET).
+- Real Cloudflare Turnstile keys for `bomy.my`.
+- Mail/SMTP deferred to PR #40+.
+- Runtime DB role: `bomy_app` (NOT Neon owner). Direct/unpooled connection string (NOT pooled).
+- Shared review DB for Preview + Production environments — no Neon preview branching in PR #39.
+
+---
+
+## 2. In scope
+
+- Provision Neon Postgres via Vercel Marketplace; apply BOMY migrations; create `bomy_app` role with RLS-bound grants.
+- Two connection strings: Neon owner direct/unpooled (operator-shell only, for migrations) and `bomy_app` direct/unpooled (Vercel runtime).
+- Create Vercel project `bomy-web` linked to GitHub repo `BOMY-Inflow-Vision/bomy-app`; root directory `apps/web`.
+- Attach `bomy.my` and `www.bomy.my` as production domains; set apex as primary, www as 308-redirect.
+- Register OAuth callbacks at Google Cloud Console + Meta Developers for `https://bomy.my`.
+- Register Cloudflare Turnstile site for `bomy.my`.
+- Set the Vercel env contract (§5) for the Production environment.
+- Ship a tiny secret-gated diagnostic route (`apps/web/src/app/api/ops/db-identity/route.ts`) that proves the runtime DB connection uses `bomy_app`.
+- Write `docs/runbooks/public-deployment-cutover.md` with the full cutover sequence, smoke checklist, and rollback procedures.
+- Update `apps/web/.env.local.example` with the new diagnostic-token env var.
+
+## 3. Out of scope
+
+Tracked in the post-merge handoff backlog:
+
+- **`apps/api` deployment** (Fastify + BullMQ scheduler + webhooks). Needs a persistent-process host (Railway / Render / Fly.io); separate PR. Until then: no HitPay webhook target, no scheduled jobs in prod. `checkout_enabled = false` keeps that surface dormant.
+- **`apps/admin` deployment.** Internal ops console; runs locally.
+- **Real HitPay keys / `checkout_enabled` flip.** Blocked on HitPay restoration. `HITPAY_*` envs intentionally unset in Vercel.
+- **Outbound mail in prod.** `@bomy/mailer` silently skips when SMTP unset (per the dispatch-axis convention from PR #35). `/seller/apply` succeeds; applicant ack + ops alert do not send. PR #40+ ships a transactional provider + bomy.my SPF/DKIM/DMARC.
+- **Product seed realism.** PR #40 if reviewer-visible `/products` is too sparse. Decide after first prod smoke.
+- **Production-grade DB posture.** Neon hobby/free tier is acceptable for the review window; HA, PITR tooling beyond Neon defaults, replica reads, and external backup tooling deferred.
+- **Pooled vs direct URL split by code path.** Today `makeAuthDb()` sets `app.bypass_rls = true` at the connection level, which is incompatible with PgBouncer transaction-mode pooling; using direct/unpooled across the board is safe at review-traffic scale. Future PR refactors so short transactions use pooled and long-session ops use direct.
+- **`@bomy/db` env-name refactor.** Today `makeDb()` and `makeAuthDb()` read `DATABASE_URL`; tests read `DATABASE_APP_URL`. PR #39 sets BOTH envs to the same `bomy_app` direct/unpooled string for forward-compat but does NOT touch the code. Future PR switches the env-read order.
+- **Neon preview-branch automation.** Shared review DB is fine while PR #39's diff has no schema changes.
+- **Redis / MinIO / Mailhog production analogues.** Web doesn't need them; api/admin do (deferred).
+- **`apps/web` → `apps/api` connection (`NEXT_PUBLIC_API_URL`).** Left unset in prod since api isn't deployed.
+- **Production cutover runbook for `checkout_enabled` flip.** Separate `docs/runbooks/checkout-enabled-prod-cutover.md` after HitPay restoration.
+- **Cookie / PDPA consent banner, Freshdesk widget, `/about` page, sign-in/sign-up ToS consent flow modification, contact form** — all from the PR #38 backlog and still deferred.
+
+## 4. Approach
+
+**Topology:**
+
+```
+GitHub repo (main + PR branches)
+   │
+   ▼ push trigger
+Vercel project: bomy-web   (root: apps/web)
+   ├─ Production env  → https://bomy.my       (auto-deploy on push to main)
+   └─ Preview env     → *.vercel.app           (auto-deploy on push to non-main branches)
+   │
+   ▼ runtime connection (override Marketplace default)
+Neon Postgres (aws-ap-southeast-1)
+   ├─ Owner role: provisioned by Neon (migrations only, operator shell)
+   └─ App role: bomy_app (manually created; NOSUPERUSER NOBYPASSRLS; RLS enforced)
+   │
+   ├─ Auth providers:
+   │    Google Cloud + Meta Developers
+   │    Callback URLs: https://bomy.my/api/auth/callback/{google,facebook}
+   │
+   └─ Bot defence:
+        Cloudflare Turnstile (site registered for bomy.my)
+```
+
+`apps/api` and `apps/admin` keep running locally; ops operate them via `pnpm --filter @bomy/{api,admin} dev`. Production has no api/admin surface.
+
+**Why this shape:**
+
+- Vercel covers Next.js natively and is the leading host in the project's loaded skills (`vercel:*`). Marketplace integration auto-handles Neon provisioning + env injection.
+- Apex domain matches the `contact@bomy.my` email convention introduced in PR #38; HitPay reviewer sees a brand-clean URL.
+- Direct/unpooled connection string sidesteps PgBouncer transaction-mode limits on session-level GUCs — specifically `makeAuthDb`'s connection-level `app.bypass_rls = 'true'` set, which the pooler cannot guarantee across transactions.
+- `bomy_app` runtime role is non-negotiable: storefront reads, seller-inquiry writes, and the NextAuth Drizzle adapter all run through RLS. Letting Neon's auto-injected owner role serve runtime traffic silently disables RLS (owner bypasses by default) and would be a security regression vs the locally enforced contract.
+
+**Why this is NOT a "split into sub-PRs" candidate:**
+
+- The work has a strict ordering: provision DB → create role → migrate → set envs → smoke preview → attach domain → merge → smoke prod. Each step is small in isolation; the value comes from the sequence completing.
+- The code diff is small (~2 new files). The bulk of the work is operator runbook execution against Vercel + Neon + Cloudflare + Google + Meta dashboards.
+
+## 5. Env contract (Vercel project envs)
+
+All Production-scope unless noted.
+
+| Var                                                                        | Source                                       | Value/notes                                                                                                                                                                                                                    |
+| -------------------------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `DATABASE_URL`                                                             | **Operator** (overrides Marketplace default) | **`bomy_app` direct/unpooled** Neon connection string. Vercel's Marketplace integration injects the owner-role pooled URL by default — replace it explicitly. App code reads this env; setting it wrong silently bypasses RLS. |
+| `DATABASE_APP_URL`                                                         | **Operator**                                 | Same `bomy_app` direct/unpooled string. Apps/web does NOT read this today; setting it for forward-compat so a future `@bomy/db` refactor switches env-read order with no env-rewire cost.                                      |
+| `BOMY_RLS_READY`                                                           | Locked                                       | `1`                                                                                                                                                                                                                            |
+| `AUTH_SECRET`                                                              | Generated                                    | `openssl rand -base64 32` — server-only; never committed                                                                                                                                                                       |
+| `NEXTAUTH_URL`                                                             | Locked                                       | `https://bomy.my` — keeping repo's existing env-name convention (Auth.js v5 reads both `AUTH_URL` and `NEXTAUTH_URL`; only set one to avoid drift)                                                                             |
+| `APP_URL`                                                                  | Locked                                       | `https://bomy.my`                                                                                                                                                                                                              |
+| `AUTH_GOOGLE_ID`                                                           | Google Cloud Console                         | OAuth client ID; bomy.my registered as authorized origin + callback                                                                                                                                                            |
+| `AUTH_GOOGLE_SECRET`                                                       | Google Cloud Console                         | OAuth client secret                                                                                                                                                                                                            |
+| `AUTH_FACEBOOK_ID`                                                         | Meta Developers                              | OAuth app ID; bomy.my registered as valid OAuth redirect URI                                                                                                                                                                   |
+| `AUTH_FACEBOOK_SECRET`                                                     | Meta Developers                              | OAuth app secret                                                                                                                                                                                                               |
+| `NEXT_PUBLIC_TURNSTILE_SITEKEY`                                            | Cloudflare Turnstile (bomy.my site)          | Public site key                                                                                                                                                                                                                |
+| `TURNSTILE_SECRET_KEY`                                                     | Cloudflare Turnstile (bomy.my site)          | Server-only secret                                                                                                                                                                                                             |
+| `BOMY_OPS_DIAGNOSTIC_TOKEN`                                                | Generated                                    | `openssl rand -hex 32`; gates the `/api/ops/db-identity` diagnostic route. Setting the env enables the route; unsetting disables it (route 404s).                                                                              |
+| `NEXT_PUBLIC_DEFAULT_LOCALE`                                               | Locked                                       | `en`                                                                                                                                                                                                                           |
+| **Intentionally unset in PR #39:**                                         |                                              |                                                                                                                                                                                                                                |
+| `HITPAY_API_KEY` / `HITPAY_API_URL` / `HITPAY_SALT` / `HITPAY_WEBHOOK_URL` | —                                            | No HitPay creds; `checkout_enabled = false` short-circuits HitPay code paths in checkout/membership/brand flows                                                                                                                |
+| `NEXT_PUBLIC_API_URL`                                                      | —                                            | apps/api not deployed; **unset** (NOT `http://localhost:3001` — that would leak local intent to clients)                                                                                                                       |
+| `MAILER_*` / SMTP host/port/user/pass / `OPS_ALERT_EMAILS` / `ADMIN_URL`   | —                                            | Mail deferred; `@bomy/mailer` skips silently                                                                                                                                                                                   |
+| `NODE_ENV`                                                                 | —                                            | Vercel sets `production` automatically; do NOT override                                                                                                                                                                        |
+
+**Preview environment** mirrors Production envs EXCEPT:
+
+- OAuth provider callbacks recognize only `https://bomy.my`, not `*.vercel.app`. Sign-in is render-only in preview; full sign-in smoke happens against prod after DNS attach.
+- All other smoke checks (legal routes, /products, /cart, /seller/apply render + Turnstile widget visible + diagnostic-route role check) are valid in preview.
+
+## 6. File structure
+
+| Path                                            | Action      | Responsibility                                                                                                                                                                                                                                                                                                                             |
+| ----------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `apps/web/src/app/api/ops/db-identity/route.ts` | Create      | Secret-gated diagnostic route. Returns `{ "currentUser": "bomy_app" }` if `BOMY_OPS_DIAGNOSTIC_TOKEN` env is set AND request `x-bomy-ops-token` header matches. Any mismatch or missing env → 404. No connection strings, hostnames, database names, env dumps, or role lists in the response.                                             |
+| `apps/web/tests/api/ops/db-identity.test.ts`    | Create      | 3+ cases: (a) env unset → 404; (b) env set + header missing → 404; (c) env set + header mismatch → 404; (d) env set + header match → 200 with `{ currentUser: "<role>" }` shape. Uses real Postgres via `DATABASE_URL` fixture per existing web integration-test convention; gated by `BOMY_RLS_READY=1` like other web integration tests. |
+| `apps/web/.env.local.example`                   | Modify      | Add `BOMY_OPS_DIAGNOSTIC_TOKEN=` with a comment explaining it gates `/api/ops/db-identity`.                                                                                                                                                                                                                                                |
+| `docs/runbooks/public-deployment-cutover.md`    | Create      | Full operator runbook: pre-flight, cutover sequence, smoke checklist (preview + prod), rollback procedures, env-rotation procedures.                                                                                                                                                                                                       |
+| `vercel.json`                                   | Conditional | Only create if the default Vercel project-root path fails to resolve workspace packages from `apps/web`. See §7 fallback.                                                                                                                                                                                                                  |
+
+**Files explicitly NOT touched:**
+
+- `packages/db/*` — no schema changes; existing migrations apply as-is to Neon.
+- `packages/db/src/index.ts`, `packages/db/src/tenant.ts`, `apps/web/src/lib/auth.ts` — the `DATABASE_URL` vs `DATABASE_APP_URL` env-name refactor is deferred (see §3).
+- `apps/api/*`, `apps/admin/*` — not deployed.
+- `apps/web/next.config.ts` — `transpilePackages` + `webpack.resolve.extensionAlias` config from PR #37 stays as-is.
+- `apps/web/package.json` — no new deps; the diagnostic route uses existing `@bomy/db` + `drizzle-orm` imports.
+- `.github/workflows/ci.yml` — no CI changes in PR #39; existing test job continues to use the GitHub Actions Postgres service.
+
+## 7. Cutover sequence (locked operator runbook)
+
+The full runbook lives in `docs/runbooks/public-deployment-cutover.md`. This section is the locked sequence the runbook codifies.
+
+**Pre-flight (operator checklist before starting):**
+
+- bomy.my registered + nameservers controllable (or DNS managed at registrar with apex A record + CNAME-on-www permissions).
+- Cloudflare account exists (free tier is sufficient).
+- Google Cloud Console + Meta Developers accounts with permission to register OAuth apps.
+- Vercel account exists (Charlie's; team or personal); GitHub repo access ready to grant.
+- Existing mail DNS records (MX / SPF / DKIM / DMARC) on bomy.my noted so they are preserved.
+
+**Sequence:**
+
+1. **Provision Neon via Vercel Marketplace.**
+   - Install Neon from Vercel Marketplace; choose Vercel-managed integration.
+   - Project name: `bomy-review`. Region: AWS ap-southeast-1 (Singapore).
+   - Capture both connection strings Neon provides: pooled `DATABASE_URL` and direct `DATABASE_URL_UNPOOLED` (owner role).
+
+2. **Create `bomy_app` role on Neon** (before migrations — migration `0002_store_and_inquiries.sql` has unconditional `GRANT … TO bomy_app` and will fail otherwise).
+
+   Using the Neon SQL console connected as owner:
+
+   ```sql
+   CREATE ROLE bomy_app LOGIN PASSWORD '<generated>' NOSUPERUSER NOINHERIT NOCREATEROLE NOCREATEDB NOBYPASSRLS;
+   GRANT CONNECT ON DATABASE <neon-db-name> TO bomy_app;
+   ```
+
+3. **Apply migrations from operator shell** (NOT from Vercel):
+
+   ```sh
+   DATABASE_URL=<neon-owner-DIRECT-unpooled> pnpm --filter @bomy/db migrate
+   ```
+
+4. **Post-migration grants safety pass** (mirrors `.github/workflows/ci.yml`; the `IF EXISTS (SELECT 1 FROM pg_roles …)` blocks in later migrations skip silently if the role wasn't visible mid-migration):
+
+   ```sql
+   GRANT USAGE ON SCHEMA public TO bomy_app;
+   GRANT USAGE ON SCHEMA app TO bomy_app;
+   GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO bomy_app;
+   GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO bomy_app;
+   GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA app TO bomy_app;
+   GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO bomy_app;
+   ```
+
+5. **Construct `bomy_app` direct/unpooled connection string** by substituting role + password into Neon's direct host pattern (the same host as `DATABASE_URL_UNPOOLED`, different credentials).
+
+6. **Create Vercel project** `bomy-web`:
+   - Link to GitHub repo `BOMY-Inflow-Vision/bomy-app`.
+   - Root directory: `apps/web`.
+   - Framework preset: Next.js (auto-detected).
+   - Default install/build commands. Vercel should resolve workspace packages (`@bomy/db`, `@bomy/mailer`, `@bomy/hitpay`) from the root `pnpm-lock.yaml`.
+   - **Fallback** (only if the first preview build fails to resolve workspace packages): switch Root Directory to repo root, add a `vercel.json` with explicit commands (`installCommand: "pnpm install --frozen-lockfile"`, `buildCommand: "pnpm --filter @bomy/web build"`, `outputDirectory: "apps/web/.next"`). Commit `vercel.json` only if needed.
+
+7. **Set Vercel envs** (Production scope) per the §5 table. Critically:
+   - **Override** Marketplace-injected `DATABASE_URL` with the `bomy_app` direct/unpooled string from step 5.
+   - Set `DATABASE_APP_URL` to the same string.
+   - Set `BOMY_RLS_READY=1`, `AUTH_SECRET`, `NEXTAUTH_URL`, `APP_URL`, OAuth IDs/secrets, Turnstile keys, `BOMY_OPS_DIAGNOSTIC_TOKEN`, `NEXT_PUBLIC_DEFAULT_LOCALE`.
+
+8. **Register OAuth callbacks:**
+   - Google Cloud Console: add `https://bomy.my` as authorized JavaScript origin AND `https://bomy.my/api/auth/callback/google` as authorized redirect URI on the OAuth 2.0 client.
+   - Meta Developers: add `https://bomy.my/api/auth/callback/facebook` as valid OAuth redirect URI on the app's Facebook Login product config.
+
+9. **Register Cloudflare Turnstile site** for `bomy.my`:
+   - Widget mode: Managed.
+   - Hostnames: `bomy.my` (and `www.bomy.my` if it serves before redirect).
+   - Capture site key + secret key into the Vercel envs.
+
+10. **Push the PR #39 branch** → Vercel builds a preview at `https://bomy-web-<hash>.vercel.app`.
+
+11. **Smoke the preview** (§8 preview-smoke checklist). Treat any RED check as a hard gate.
+
+12. **Attach domains** `bomy.my` (production primary) and `www.bomy.my` (308 → apex) to the Vercel project.
+
+13. **Configure DNS at the registrar:**
+    - Apex `@` `A` → `76.76.21.21` (Vercel anycast).
+    - `www` `CNAME` → exact value from `vercel domains inspect bomy.my` (project-specific).
+    - **PRESERVE** existing `MX`, `SPF` (TXT), `DKIM` (TXT), `DMARC` (TXT) records — `contact@bomy.my` is public from PR #38. Do NOT delegate nameservers to Vercel unless these are migrated first.
+
+14. **Bob R0 review** of the PR #39 diff (code surface is small — diagnostic route + runbook + maybe vercel.json) + Vercel checks green.
+
+15. **Charlie's explicit "Merge now"** → squash-merge as `feat(web): public deployment to bomy.my (#39)` → Vercel auto-deploys main to production env.
+
+16. **Wait DNS propagation** (5–60 min depending on registrar TTLs).
+
+17. **Smoke production** at `https://bomy.my` (§8 production-smoke checklist).
+
+18. **Post-merge bookkeeping** (PR log, handoff refresh, memory updates, `project_hitpay_creds_blocker.md` update).
+
+19. **Rotate `BOMY_OPS_DIAGNOSTIC_TOKEN`** (or unset it) once production smoke is green and you no longer need the route active. The route 404s with no env set.
+
+## 8. Smoke criteria
+
+**Preview smoke (hard gate before merge):**
+
+- [ ] Vercel preview build succeeded; build log shows `@bomy/db`, `@bomy/mailer`, `@bomy/hitpay` resolved from workspace (not from a published registry).
+- [ ] Runtime DB role identity proven via `/api/ops/db-identity` with the correct `x-bomy-ops-token` header → response `{"currentUser":"bomy_app"}`. **Hard gate**: if response is anything else (owner role, 404 because env not set, etc.), abort cutover and fix env.
+- [ ] All 5 legal routes (`/terms`, `/privacy`, `/refund`, `/shipping`, `/contact`) return 200.
+- [ ] `/` (home) returns 200; Footer visible.
+- [ ] `/products` returns 200 (catalog may be sparse — that's PR #40's decision, not a PR #39 blocker).
+- [ ] `/cart` returns 200 (empty-cart UI).
+- [ ] `/seller/apply` renders with Turnstile widget visible (no yellow "Form temporarily unavailable" banner).
+- [ ] No `[PLACEHOLDER:` substring anywhere in rendered HTML.
+- [ ] No "HitPay" substring anywhere in user-rendered HTML (re-runs the PR #38 §5 audit on the deployed URL).
+- [ ] Vercel build log has no `MissingSecret` from NextAuth middleware.
+
+**Production smoke (hard gate before declaring done):**
+
+- All preview-smoke checks above, executed at `https://bomy.my`.
+- [ ] `https://www.bomy.my` 308-redirects to `https://bomy.my`.
+- [ ] `/api/ops/db-identity` with correct token returns `{"currentUser":"bomy_app"}`.
+- [ ] Google sign-in round-trip succeeds; creates a NextAuth DB session row in Neon.
+- [ ] Meta sign-in round-trip succeeds OR documented gap if Meta approval lags (not a merge blocker; Bob notified in PR comments).
+- [ ] `/seller/apply` end-to-end: Turnstile token verifies, DB row appears in `seller_inquiries`, server action returns success. Applicant ack + ops alert DO NOT send — expected; mailer logs the skip per [[feedback-email-dispatch-axis]].
+- [ ] `platform_config.checkout_enabled` = `false` confirmed via Neon SQL console.
+
+## 9. Rollback procedures
+
+**Trigger conditions** (any one fires rollback):
+
+- A production-smoke "Hard gate" check fails.
+- 5xx rate > 1% in the first hour post-merge (Vercel dashboard metric).
+- Sign-in callback fails end-to-end (catastrophic auth misconfiguration).
+- DB identity check returns the owner role instead of `bomy_app`.
+
+**Escalating procedures** (try fast first, slow last):
+
+- **Code rollback (fast, <30 s):** Vercel dashboard → Deployments → previous green production deploy → "Promote to Production." Reverts code without DNS or DB changes. Use for any code-level defect.
+- **Env rollback:** if a wrong env (e.g. owner-role DB URL) is in production, fix in Vercel dashboard → Settings → Environment Variables, then trigger a redeploy. No code change.
+- **DNS rollback (slow, 5–60 min propagation):** Vercel project → Domains → remove `bomy.my`. Restore previous A record at registrar. Use only if Vercel itself is unreachable or the deployment is unrecoverable.
+- **DB rollback (last resort):** Neon point-in-time-restore to a timestamp before the failed migration. PR #39's migration step is forward-only; if a migration breaks production, restore + investigate offline.
+- **Diagnostic route disable:** unset `BOMY_OPS_DIAGNOSTIC_TOKEN` in Vercel envs → redeploy → route 404s.
+
+All procedures + step-by-step commands live in `docs/runbooks/public-deployment-cutover.md` §Rollback.
+
+## 10. Risks + mitigations
+
+| Risk                                                                                                                                                             | Mitigation                                                                                                                                                                                                          |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Marketplace-injected `DATABASE_URL` (owner role + pooled) is not overridden; runtime silently bypasses RLS.                                                      | **§8 hard gate** — diagnostic route must return `bomy_app`. Smoke fails fast. Documented as the #1 risk in the runbook pre-flight section.                                                                          |
+| `makeAuthDb()` connection-level `app.bypass_rls=true` fails on PgBouncer-pooled connection (pooler can't guarantee session GUC persistence across transactions). | Runtime uses direct/unpooled connection string throughout PR #39. Future PR splits pooled/direct by code path.                                                                                                      |
+| Migration `0002` fails because `bomy_app` doesn't exist yet.                                                                                                     | Sequence locks `bomy_app` creation BEFORE migrations. Codified in runbook step 2 → step 3 ordering.                                                                                                                 |
+| OAuth callbacks registered wrong; sign-in works in dev but fails in prod.                                                                                        | Smoke includes prod sign-in round-trip. Meta-lag escape hatch: documented gap acceptable if Meta approval pending.                                                                                                  |
+| DNS propagation slower than expected, extending cutover window.                                                                                                  | Runbook says "5–60 min expected"; pre-cutover comms recommended. Non-fatal.                                                                                                                                         |
+| Vercel can't resolve workspace packages from `apps/web` root.                                                                                                    | Fallback: switch Vercel root to repo root + add explicit `vercel.json`. Documented in runbook step 6.                                                                                                               |
+| Diagnostic route leaks DB role info to non-ops.                                                                                                                  | Token-gated; missing/wrong token → 404 (not 403, to avoid even confirming the route exists). No connection strings, hostnames, DB names, env dumps, or role lists in the response. Token rotates/unsets post-smoke. |
+| `apps/web` runtime needs an env we forgot.                                                                                                                       | Preview smoke catches before merge; Vercel build logs are explicit; the §5 table is the locked single source of truth for what must be set.                                                                         |
+| `/seller/apply` succeeds but ops gets no email — confused-ops scenario.                                                                                          | Runbook + handoff backlog explicitly document "query `seller_inquiries` table directly until mail PR ships."                                                                                                        |
+| Neon free tier hits quota under HitPay reviewer load.                                                                                                            | Unlikely for review traffic; monitor Neon dashboard during the HitPay review window; paid-tier upgrade path is one dashboard click.                                                                                 |
+| Cookie / consent gap visible to PDPA-aware reviewer.                                                                                                             | Privacy §11 ("essential cookies only") covers the current state; consent banner is backlog.                                                                                                                         |
+
+## 11. PR workflow
+
+**Branch:** `feat/public-deployment` off `main`.
+
+**Commit order (3 conventional commits; squashed at merge):**
+
+1. `feat(web): add secret-gated DB identity diagnostic route` — `apps/web/src/app/api/ops/db-identity/route.ts` + test file + `.env.local.example` update.
+2. `docs(runbooks): public deployment cutover for bomy.my` — `docs/runbooks/public-deployment-cutover.md`.
+3. (Conditional) `chore(web): add vercel.json for monorepo root build` — only if the default-path build fails and fallback is needed.
+
+**Squash message at merge:** `feat(web): public deployment to bomy.my (#39)`
+
+**PR body** (drafted to `.andy/pr39-description.md` during preview-smoke phase; carry-forward per PR #36/#37/#38 pattern):
+
+- Goal + scope + sub-stage context.
+- Full §5 env contract table.
+- Full §8 smoke checklist.
+- Bob R0 review points (below).
+- Out-of-scope list.
+
+**Bob R0 review points (5):**
+
+1. **DB role contract** — runtime `DATABASE_URL` is `bomy_app` direct/unpooled, not Marketplace-default. Diagnostic route smoke gate present and tested.
+2. **Migration order** — `bomy_app` role created BEFORE `pnpm --filter @bomy/db migrate` runs (codified in runbook step 2 → 3).
+3. **No code-level changes to `@bomy/db` or auth wrappers** — the env-name refactor is deferred per §3.
+4. **No public HitPay processor claim** introduced (re-runs the PR #38 §5 audit on the new diagnostic route + runbook content).
+5. **Diagnostic route security** — token-gated, missing-token → 404 (not 403), no info disclosure beyond `currentUser` string, test coverage for all four cases.
+
+**Acceptance criteria (must all be green for merge):**
+
+- [ ] Preview-smoke hard gates all pass at the Vercel preview URL.
+- [ ] `pnpm --filter @bomy/web test` green (including the new diagnostic-route tests under `BOMY_RLS_READY=1` + `DATABASE_APP_URL`).
+- [ ] `pnpm typecheck` green.
+- [ ] `pnpm lint` green (`--max-warnings 0`).
+- [ ] Bob R0 sign-off on the 5 points.
+- [ ] Charlie's explicit "Merge now"; squash-merge.
+- [ ] **Post-merge:** production smoke (§8) hard gates all pass at `https://bomy.my`; PR log written; handoff refreshed; memory entries saved (`project_pr39_complete.md` + `project_hitpay_creds_blocker.md` update). Branch cleanup pending Charlie's approval per standing rule.
+
+---
+
+## 12. Acceptance summary
+
+PR #39 is acceptance-ready when:
+
+- [ ] All 3 PR commits land on `feat/public-deployment` (squash-merge target).
+- [ ] Preview-smoke hard gates pass at the Vercel preview URL — especially the `currentUser=bomy_app` diagnostic check.
+- [ ] `pnpm --filter @bomy/web test`, `pnpm typecheck`, `pnpm lint` all green.
+- [ ] Bob R0 sign-off on the 5 review points.
+- [ ] Charlie's explicit "Merge now"; squash-merge.
+- [ ] Production-smoke hard gates pass at `https://bomy.my` after DNS attach.
+- [ ] Diagnostic-route token rotated or unset after smoke.
+- [ ] Post-merge: log, handoff, memory entries, branch cleanup gate.
