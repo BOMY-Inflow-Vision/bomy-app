@@ -179,3 +179,27 @@ describe("subscribeToBrand — DB correlation failure compensation", () => {
     expect(mockWithAdmin).toHaveBeenCalledTimes(4)
   })
 })
+
+describe("subscribeToBrand — payments disabled guard (PR #39)", () => {
+  beforeEach(() => {
+    // Explicitly UNSET — overriding the outer compensation-suite beforeEach
+    // which sets them. The guard is meant to short-circuit when these are absent.
+    delete process.env["HITPAY_API_KEY"]
+    delete process.env["HITPAY_API_URL"]
+    process.env["APP_URL"] = "http://localhost:3000"
+  })
+
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it("calls notFound() and never reaches auth/DB/HitPayClient when payments are disabled", async () => {
+    await expect(subscribeToBrand(PLAN_ID)).rejects.toThrow("NOT_FOUND")
+    // Guard must run BEFORE any other work — proves the short-circuit fired
+    // and not the existing notFound() for missing planData.
+    expect(auth).not.toHaveBeenCalled()
+    expect(dbModule.withAdmin).not.toHaveBeenCalled()
+    expect(dbModule.withTenant).not.toHaveBeenCalled()
+    expect(HitPayClient).not.toHaveBeenCalled()
+  })
+})

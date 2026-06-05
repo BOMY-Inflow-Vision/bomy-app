@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import { makeDb, schema, withAdmin, withTenant } from "@bomy/db"
 
 import { auth } from "@/auth"
+import { paymentsEnabled } from "@/lib/payments-enabled"
 import { joinMembership } from "./actions"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001" as const
@@ -30,6 +31,7 @@ export default async function MembershipPage() {
   const session = await auth()
   const priceSen = await getPriceSen()
   const priceDisplay = `RM${Number(priceSen) / 100}/yr`
+  const enabled = paymentsEnabled()
 
   // Redirect away if already a member
   if (session) {
@@ -88,7 +90,14 @@ export default async function MembershipPage() {
           </li>
         </ul>
 
-        {session ? (
+        {!enabled ? (
+          <div
+            role="status"
+            className="w-full rounded-xl bg-gray-200 px-6 py-3 text-sm font-semibold text-gray-500 text-center cursor-not-allowed"
+          >
+            Memberships will reopen soon
+          </div>
+        ) : session ? (
           <form action={joinMembership}>
             <button
               type="submit"

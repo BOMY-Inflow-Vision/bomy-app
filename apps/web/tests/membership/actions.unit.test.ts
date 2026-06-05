@@ -7,6 +7,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest"
 
 vi.mock("next/navigation", () => ({
+  notFound: vi.fn(() => {
+    throw Object.assign(new Error("NOT_FOUND"), { name: "NotFoundError" })
+  }),
   redirect: vi.fn((url: string) => {
     throw Object.assign(new Error(`REDIRECT:${url}`), { name: "RedirectError" })
   }),
@@ -112,5 +115,29 @@ describe("joinMembership — DB correlation failure compensation", () => {
     expect(cancelRecurringBilling).toHaveBeenCalledWith("rec-xyz")
     // 4 calls: price + insert + fail + reconciliation write; NO delete call.
     expect(mockWithAdmin).toHaveBeenCalledTimes(4)
+  })
+})
+
+describe("joinMembership — payments disabled guard (PR #39)", () => {
+  beforeEach(() => {
+    // Explicitly UNSET — overriding the outer compensation-suite beforeEach
+    // which sets them. The guard is meant to short-circuit when these are absent.
+    delete process.env["HITPAY_API_KEY"]
+    delete process.env["HITPAY_API_URL"]
+    process.env["APP_URL"] = "http://localhost:3000"
+  })
+
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it("calls notFound() and never reaches auth/DB/HitPayClient when payments are disabled", async () => {
+    await expect(joinMembership()).rejects.toThrow("NOT_FOUND")
+    // Guard must run BEFORE any other work — proves the short-circuit fired
+    // and not e.g. a missing-DATABASE_URL error or some downstream notFound.
+    expect(auth).not.toHaveBeenCalled()
+    expect(dbModule.withAdmin).not.toHaveBeenCalled()
+    expect(dbModule.withTenant).not.toHaveBeenCalled()
+    expect(HitPayClient).not.toHaveBeenCalled()
   })
 })
