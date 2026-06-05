@@ -36,8 +36,9 @@ Ship `apps/web` to `https://bomy.my` backed by a hosted Postgres so the public s
 - Register Cloudflare Turnstile site for `bomy.my`.
 - Set the Vercel env contract (§5) for the Production environment.
 - Ship a tiny secret-gated diagnostic route (`apps/web/src/app/api/ops/db-identity/route.ts`) that proves the runtime DB connection uses `bomy_app`.
+- Ship a `paymentsEnabled()` helper + page-level CTA gating + server-action early-return guards for `/membership` and `/brands/[slug]/subscribe`, so a reviewer click cannot trigger `HITPAY_API_KEY is required` throws while HITPAY envs are unset.
 - Write `docs/runbooks/public-deployment-cutover.md` with the full cutover sequence, smoke checklist, and rollback procedures.
-- Update `apps/web/.env.local.example` with the new diagnostic-token env var.
+- Update `apps/web/.env.local.example` with the new diagnostic-token env var + a comment on the `paymentsEnabled()` gating behavior.
 
 ## 3. Out of scope
 
@@ -94,7 +95,7 @@ Neon Postgres (aws-ap-southeast-1)
 **Why this is NOT a "split into sub-PRs" candidate:**
 
 - The work has a strict ordering: provision DB → create role → migrate → set envs → smoke preview → attach domain → merge → smoke prod. Each step is small in isolation; the value comes from the sequence completing.
-- The code diff is small (~2 new files). The bulk of the work is operator runbook execution against Vercel + Neon + Cloudflare + Google + Meta dashboards.
+- The code diff is moderate (~4 new files + 4 modified files + 1 runbook). The bulk of the work is still operator runbook execution against Vercel + Neon + Cloudflare + Google + Meta dashboards; the code changes are surgical (one helper, two CTA gatings, two action guards, one diagnostic route, env-example update).
 
 ## 5. Env contract (Vercel project envs)
 
