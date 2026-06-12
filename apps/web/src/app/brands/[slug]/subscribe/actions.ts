@@ -8,6 +8,7 @@ import { makeDb, schema, withAdmin, withTenant, type UserRole } from "@bomy/db"
 import { HitPayClient, type PaymentRequestResponse } from "@bomy/hitpay"
 
 import { auth } from "@/auth"
+import { paymentsEnabled } from "@/lib/payments-enabled"
 
 let _client: ReturnType<typeof makeDb> | null = null
 function getDb() {
@@ -80,6 +81,11 @@ export async function getStorePlans(slug: string) {
 
 // Bound via subscribeToBrand.bind(null, planId) on each plan card.
 export async function subscribeToBrand(planId: string, _formData?: FormData) {
+  // PR #39 defence-in-depth guard: page-level CTA gating is primary; this
+  // short-circuits direct invocation BEFORE any HitPayClient construction
+  // or auth/DB work.
+  if (!paymentsEnabled()) notFound()
+
   const session = await auth()
   if (!session) redirect("/auth/sign-in?callbackUrl=/account/subscriptions")
 

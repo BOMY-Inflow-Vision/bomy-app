@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation"
 import { makeDb, schema, withTenant } from "@bomy/db"
 
 import { auth } from "@/auth"
+import { paymentsEnabled } from "@/lib/payments-enabled"
 import { getStorePlans, subscribeToBrand } from "./actions"
 
 const { db } = makeDb()
@@ -55,6 +56,8 @@ export default async function BrandSubscribePage({ params }: Props) {
   if (existingStatus === "active") redirect(`/brands/${slug}/subscribe/success`)
   if (existingStatus === "pending") redirect(`/brands/${slug}/subscribe/success`)
 
+  const enabled = paymentsEnabled()
+
   return (
     <main className="flex min-h-screen flex-col items-center bg-gray-50 px-4 pt-20">
       <div className="w-full max-w-2xl">
@@ -99,7 +102,14 @@ export default async function BrandSubscribePage({ params }: Props) {
                   ) : null}
                 </ul>
 
-                {session ? (
+                {!enabled ? (
+                  <div
+                    role="status"
+                    className="w-full rounded-xl bg-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-500 text-center cursor-not-allowed"
+                  >
+                    Subscriptions will reopen soon
+                  </div>
+                ) : session ? (
                   <form action={action}>
                     <button
                       type="submit"

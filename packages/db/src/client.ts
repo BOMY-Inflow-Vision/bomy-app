@@ -7,7 +7,7 @@ export type Schema = typeof schema
 export type Database = PostgresJsDatabase<Schema>
 
 export interface MakeDbOptions {
-  /** Connection string. Falls back to `DATABASE_URL`. */
+  /** Connection string. Falls back to `DATABASE_APP_URL`, then `DATABASE_URL`. */
   url?: string
   /** Maximum pool size. Defaults to 10. */
   max?: number
@@ -42,9 +42,11 @@ export interface Db {
  *   commit/rollback path (see `tenant.ts`)
  */
 export function makeDb(opts: MakeDbOptions = {}): Db {
-  const url = opts.url ?? process.env["DATABASE_URL"]
+  const url = opts.url ?? process.env["DATABASE_APP_URL"] ?? process.env["DATABASE_URL"]
   if (!url) {
-    throw new Error("makeDb: DATABASE_URL is required. Pass opts.url or set DATABASE_URL.")
+    throw new Error(
+      "makeDb: a database URL is required. Pass opts.url or set DATABASE_APP_URL or DATABASE_URL.",
+    )
   }
 
   const sql = postgres(url, {
@@ -81,9 +83,11 @@ export function makeDb(opts: MakeDbOptions = {}): Db {
  * infrequent and short-lived.
  */
 export function makeAuthDb(opts: MakeDbOptions = {}): Db {
-  const url = opts.url ?? process.env["DATABASE_URL"]
+  const url = opts.url ?? process.env["DATABASE_APP_URL"] ?? process.env["DATABASE_URL"]
   if (!url) {
-    throw new Error("makeAuthDb: DATABASE_URL is required. Pass opts.url or set DATABASE_URL.")
+    throw new Error(
+      "makeAuthDb: a database URL is required. Pass opts.url or set DATABASE_APP_URL or DATABASE_URL.",
+    )
   }
 
   const sql = postgres(url, {

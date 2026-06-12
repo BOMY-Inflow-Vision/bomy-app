@@ -2,12 +2,13 @@
 
 import { randomUUID } from "node:crypto"
 import { and, desc, eq, inArray } from "drizzle-orm"
-import { redirect } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 
 import { makeDb, schema, withAdmin, withTenant } from "@bomy/db"
 import { HitPayClient, type RecurringBillingResponse } from "@bomy/hitpay"
 
 import { auth } from "@/auth"
+import { paymentsEnabled } from "@/lib/payments-enabled"
 
 // Lazy DB singleton — module is importable without DATABASE_URL at startup
 let _client: ReturnType<typeof makeDb> | null = null
@@ -46,6 +47,11 @@ function isUniqueViolation(err: unknown): boolean {
 }
 
 export async function joinMembership() {
+  // PR #39 defence-in-depth guard: page-level CTA gating is primary; this
+  // short-circuits direct invocation (stale page cache, manual curl, race)
+  // BEFORE any HitPayClient construction or auth/DB work.
+  if (!paymentsEnabled()) notFound()
+
   const session = await auth()
   if (!session) redirect("/auth/sign-in?callbackUrl=/membership")
 
