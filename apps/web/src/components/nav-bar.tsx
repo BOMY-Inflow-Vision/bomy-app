@@ -1,11 +1,13 @@
 "use client"
 
 import Link from "next/link"
+import { useSession } from "next-auth/react"
 
 import { useCart } from "@/lib/cart"
 
 export function NavBar() {
   const { itemCount, hydrated } = useCart()
+  const { data: session } = useSession()
 
   return (
     <nav className="sticky top-0 z-50 flex h-14 items-center justify-between border-b border-gray-200 bg-white px-4 shadow-sm">
@@ -15,6 +17,12 @@ export function NavBar() {
       <div className="flex items-center gap-4">
         <Link href="/products" className="text-sm text-gray-600 hover:text-gray-900">
           Products
+        </Link>
+        <Link href="/membership" className="text-sm text-gray-600 hover:text-gray-900">
+          Membership
+        </Link>
+        <Link href="/seller/apply" className="text-sm text-gray-600 hover:text-gray-900">
+          Sell with us
         </Link>
         <Link href="/cart" className="relative flex items-center text-gray-600 hover:text-gray-900">
           <svg
@@ -36,6 +44,22 @@ export function NavBar() {
             </span>
           )}
         </Link>
+        {session?.user ? (
+          <>
+            {session.user.role === "seller_owner" && (
+              <Link href="/seller/dashboard" className="text-sm text-gray-600 hover:text-gray-900">
+                Seller
+              </Link>
+            )}
+            <Link href="/account" className="text-sm text-gray-600 hover:text-gray-900">
+              Account
+            </Link>
+          </>
+        ) : (
+          <Link href="/auth/sign-in" className="text-sm text-gray-600 hover:text-gray-900">
+            Sign in
+          </Link>
+        )}
       </div>
     </nav>
   )
