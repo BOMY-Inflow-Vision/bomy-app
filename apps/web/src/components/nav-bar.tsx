@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useSession } from "next-auth/react"
-import { useEffect, useState } from "react"
+import React, { useEffect, useState } from "react"
 
 import { useCart } from "@/lib/cart"
 
