@@ -1,12 +1,11 @@
 import type { NextAuthConfig } from "next-auth"
-import Facebook from "next-auth/providers/facebook"
 import Google from "next-auth/providers/google"
 
 import type { UserRole } from "@bomy/db"
 
 // Edge-safe config: no DB imports. Used by both middleware and the full auth.ts.
 export const authConfig = {
-  providers: [Google, Facebook],
+  providers: [Google],
   pages: {
     signIn: "/auth/sign-in",
   },
