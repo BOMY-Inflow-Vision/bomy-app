@@ -148,11 +148,13 @@ Do NOT set `NODE_ENV` manually; Vercel sets it to `production` automatically.
 - OAuth 2.0 Client → add to authorized redirect URIs: `https://bomy.my/api/auth/callback/google`
 - Copy Client ID + Client Secret into Vercel envs `AUTH_GOOGLE_ID` + `AUTH_GOOGLE_SECRET` (step 7).
 
-**Meta Developers:**
+**Meta Developers — intentionally skipped at launch (PR #42):**
+
+Facebook provider is removed from `auth.config.ts`. When re-enabling:
 
 - App → Facebook Login → Settings → Valid OAuth Redirect URIs: add `https://bomy.my/api/auth/callback/facebook`
 - Copy App ID + App Secret into Vercel envs `AUTH_FACEBOOK_ID` + `AUTH_FACEBOOK_SECRET` (step 7).
-- If Meta is awaiting app review and the production sign-in won't work yet, document this in the PR body — production smoke (step 17) will mark the Meta sign-in check as "documented gap, not a merge blocker."
+- Re-add the Facebook provider in `auth.config.ts` + `sign-in/page.tsx` via a dedicated PR.
 
 ### Step 9 — Register Cloudflare Turnstile site for bomy.my
 
