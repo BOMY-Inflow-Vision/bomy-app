@@ -97,9 +97,12 @@ export function makeAuthDb(opts: MakeDbOptions = {}): Db {
       statement_timeout: 30_000,
       idle_in_transaction_session_timeout: 10_000,
       application_name: "bomy-auth",
-      // Session-level RLS bypass — safe because this pool is only used
-      // by the NextAuth adapter (server-side, never user-controlled code).
-      "app.bypass_rls": "true",
+      // Session-level RLS bypass via the standard PostgreSQL `options`
+      // startup parameter (-c guc=value). The direct custom-GUC approach
+      // ("app.bypass_rls": "true") is silently dropped by Neon's connection
+      // proxy; `options` is a standard startup param that Neon forwards to
+      // the backend, which then applies -c directives before the first query.
+      options: "-c app.bypass_rls=true",
     },
     ...opts.extra,
   })
