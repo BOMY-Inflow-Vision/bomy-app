@@ -1,6 +1,10 @@
 import { signIn } from "@/auth"
 
-export default function SignInPage() {
+export default function SignInPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ consent?: string }>
+}) {
   return (
     <main className="flex min-h-screen items-center justify-center bg-gray-50">
       <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-sm ring-1 ring-gray-200">
@@ -9,11 +13,13 @@ export default function SignInPage() {
           <p className="mt-1 text-sm text-gray-500">Continue with your Google account</p>
         </div>
 
+        <ConsentDeclinedBanner searchParams={searchParams} />
+
         <div className="flex flex-col gap-3">
           <form
             action={async () => {
               "use server"
-              await signIn("google", { redirectTo: "/" })
+              await signIn("google", { redirectTo: "/auth/consent" })
             }}
           >
             <button
@@ -25,8 +31,34 @@ export default function SignInPage() {
             </button>
           </form>
         </div>
+
+        <p className="mt-6 text-center text-xs text-gray-400">
+          By continuing you agree to our{" "}
+          <a href="/terms" className="underline">
+            Terms of Service
+          </a>{" "}
+          and{" "}
+          <a href="/privacy" className="underline">
+            Privacy Policy
+          </a>
+          .
+        </p>
       </div>
     </main>
+  )
+}
+
+async function ConsentDeclinedBanner({
+  searchParams,
+}: {
+  searchParams: Promise<{ consent?: string }>
+}) {
+  const params = await searchParams
+  if (params.consent !== "declined") return null
+  return (
+    <div className="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-200">
+      You must accept the Terms and Privacy Policy to use BOMY.
+    </div>
   )
 }
 
