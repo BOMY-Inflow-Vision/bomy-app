@@ -20,26 +20,13 @@ declare module "next-auth" {
   }
 }
 
-// Lazy proxy — defers makeAuthDb() to first request-time use.
-// At Next.js build time, Next.js imports this module to collect page data
-// but never actually calls the handler; DATABASE_APP_URL may be absent in
-// Vercel preview builds. The proxy traps all property accesses and
-// initializes the real connection on first use.
-let _authDbInst: ReturnType<typeof makeAuthDb>["db"] | null = null
-const db = new Proxy({} as ReturnType<typeof makeAuthDb>["db"], {
-  get(_, prop) {
-    if (!_authDbInst) _authDbInst = makeAuthDb().db
-    return (_authDbInst as unknown as Record<string, unknown>)[prop as string]
-  },
-})
-
 // Re-derives consent state from the DB. Both "tos" and "privacy" rows for the
 // current tos_version must exist before consentVersion is stamped. Called at
 // sign-in and on every session update — never trusts client-supplied data.
-async function deriveConsentState(userId: string): Promise<{
-  consentVersion: string | undefined
-  currentTosVersion: string | undefined
-}> {
+async function deriveConsentState(
+  db: ReturnType<typeof makeAuthDb>["db"],
+  userId: string,
+): Promise<{ consentVersion: string | undefined; currentTosVersion: string | undefined }> {
   const configRows = await db
     .select({ value: schema.platformConfig.value })
     .from(schema.platformConfig)
@@ -66,57 +53,87 @@ async function deriveConsentState(userId: string): Promise<{
   return { consentVersion, currentTosVersion }
 }
 
-export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
-  ...authConfig,
-  adapter: DrizzleAdapter(db, {
-    usersTable: schema.users,
-    accountsTable: schema.accounts,
-    sessionsTable: schema.sessions,
-    verificationTokensTable: schema.verificationTokens,
-  }),
-  // JWT strategy: session lives in an encrypted cookie, no DB lookup at runtime.
-  // The adapter is still used for user/account management.
-  session: { strategy: "jwt" },
-  callbacks: {
-    ...authConfig.callbacks,
-    async jwt({ token, user, trigger }) {
-      if (trigger === "update") {
-        // unstable_update() is reachable client-side via useSession().update() —
-        // never trust the payload. Re-derive consent state from DB so a forged
-        // { consentVersion } cannot bypass the PDPA audit trail.
-        // This also stamps currentTosVersion so pre-PR JWTs work after accept.
-        const userId = token["id"] as string | undefined
-        if (userId) {
-          const { consentVersion, currentTosVersion } = await deriveConsentState(userId)
+// Lazy initialization — NextAuth({}) and DrizzleAdapter() are only called on first request,
+// never at module load time. At Next.js build time (including Vercel Preview builds) this
+// module is imported but none of the exported functions are invoked, so the absence of
+// DATABASE_APP_URL / DATABASE_URL causes no build-time error.
+// DrizzleAdapter uses instanceof checks (not property access) to detect the DB type, so a
+// Proxy wrapping {} cannot satisfy it — the entire NextAuth({}) call must be deferred.
+let _nextAuth: ReturnType<typeof NextAuth> | null = null
+
+function getNextAuth(): ReturnType<typeof NextAuth> {
+  if (_nextAuth) return _nextAuth
+  const { db } = makeAuthDb()
+  _nextAuth = NextAuth({
+    ...authConfig,
+    adapter: DrizzleAdapter(db, {
+      usersTable: schema.users,
+      accountsTable: schema.accounts,
+      sessionsTable: schema.sessions,
+      verificationTokensTable: schema.verificationTokens,
+    }),
+    // JWT strategy: session lives in an encrypted cookie, no DB lookup at runtime.
+    // The adapter is still used for user/account management.
+    session: { strategy: "jwt" },
+    callbacks: {
+      ...authConfig.callbacks,
+      async jwt({ token, user, trigger }) {
+        if (trigger === "update") {
+          // unstable_update() is reachable client-side via useSession().update() —
+          // never trust the payload. Re-derive consent state from DB so a forged
+          // { consentVersion } cannot bypass the PDPA audit trail.
+          // This also stamps currentTosVersion so pre-PR JWTs work after accept.
+          const userId = token["id"] as string | undefined
+          if (userId) {
+            const { consentVersion, currentTosVersion } = await deriveConsentState(db, userId)
+            token["consentVersion"] = consentVersion
+            token["currentTosVersion"] = currentTosVersion
+          }
+          return token
+        }
+
+        if (user?.id) {
+          // At sign-in: encode id, role, and current consent state into the JWT.
+          // Eventual consistency: a concurrent acceptConsent() call during this
+          // sign-in will produce a stale JWT. The user will be gated to /auth/consent
+          // on their next page visit, which re-calls unstable_update() and fixes the
+          // staleness. This window is sub-second and matches existing role-staleness
+          // behaviour.
+          const dbUser = user as typeof user & { role?: UserRole }
+          token["id"] = user.id
+          token["role"] = dbUser.role ?? "buyer"
+
+          const { consentVersion, currentTosVersion } = await deriveConsentState(db, user.id)
           token["consentVersion"] = consentVersion
           token["currentTosVersion"] = currentTosVersion
         }
         return token
-      }
-
-      if (user?.id) {
-        // At sign-in: encode id, role, and current consent state into the JWT.
-        // Eventual consistency: a concurrent acceptConsent() call during this
-        // sign-in will produce a stale JWT. The user will be gated to /auth/consent
-        // on their next page visit, which re-calls unstable_update() and fixes the
-        // staleness. This window is sub-second and matches existing role-staleness
-        // behaviour.
-        const dbUser = user as typeof user & { role?: UserRole }
-        token["id"] = user.id
-        token["role"] = dbUser.role ?? "buyer"
-
-        const { consentVersion, currentTosVersion } = await deriveConsentState(user.id)
-        token["consentVersion"] = consentVersion
-        token["currentTosVersion"] = currentTosVersion
-      }
-      return token
+      },
+      session({ session, token }) {
+        session.user.id = (token["id"] as string) ?? token.sub ?? ""
+        session.user.role = (token["role"] as UserRole) ?? "buyer"
+        session.user.consentVersion = token["consentVersion"] as string | undefined
+        session.user.currentTosVersion = token["currentTosVersion"] as string | undefined
+        return session
+      },
     },
-    session({ session, token }) {
-      session.user.id = (token["id"] as string) ?? token.sub ?? ""
-      session.user.role = (token["role"] as UserRole) ?? "buyer"
-      session.user.consentVersion = token["consentVersion"] as string | undefined
-      session.user.currentTosVersion = token["currentTosVersion"] as string | undefined
-      return session
-    },
+  })
+  return _nextAuth
+}
+
+// Typed lazy proxies — each wrapper forwards to the lazily-initialized NextAuth instance.
+// The outer cast preserves Auth.js-augmented return types for all callers.
+// The inner `as any` casts are required because TypeScript disallows spreading any[]
+// into functions with specific signatures; the runtime behaviour is correct.
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call */
+export const { handlers, signIn, signOut, auth, unstable_update } = {
+  handlers: {
+    GET: (...a: any[]) => (getNextAuth().handlers.GET as any)(...a),
+    POST: (...a: any[]) => (getNextAuth().handlers.POST as any)(...a),
   },
-})
+  auth: (...a: any[]) => (getNextAuth().auth as any)(...a),
+  signIn: (...a: any[]) => (getNextAuth().signIn as any)(...a),
+  signOut: (...a: any[]) => (getNextAuth().signOut as any)(...a),
+  unstable_update: (...a: any[]) => (getNextAuth().unstable_update as any)(...a),
+} as unknown as ReturnType<typeof NextAuth>
+/* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call */
