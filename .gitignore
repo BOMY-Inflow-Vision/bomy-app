@@ -52,6 +52,9 @@ minio-data/
 # Andy's handoff scratch — not repo content
 .andy/
 
+# Workspace-root CLAUDE.md — sync-only, never commit (carried via bomy-export)
+CLAUDE.md
+
 # Session logs
 log/
 

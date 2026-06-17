@@ -28,6 +28,9 @@ export const sessionPlugin = fp(async (app) => {
     }
     if (!token) return
 
+    // TODO(PR#44): apps/web switched to strategy:"jwt" — the cookie value is now
+    // a JWE blob, not a UUID. This lookup never matches and always returns null.
+    // Replace with getToken() from @auth/core/jwt to decode the JWE directly.
     const [row] = await app.authDb.db
       .select({
         userId: schema.sessions.userId,
