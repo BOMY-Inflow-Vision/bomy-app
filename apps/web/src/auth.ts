@@ -20,7 +20,18 @@ declare module "next-auth" {
   }
 }
 
-const { db } = makeAuthDb()
+// Lazy proxy — defers makeAuthDb() to first request-time use.
+// At Next.js build time, Next.js imports this module to collect page data
+// but never actually calls the handler; DATABASE_APP_URL may be absent in
+// Vercel preview builds. The proxy traps all property accesses and
+// initializes the real connection on first use.
+let _authDbInst: ReturnType<typeof makeAuthDb>["db"] | null = null
+const db = new Proxy({} as ReturnType<typeof makeAuthDb>["db"], {
+  get(_, prop) {
+    if (!_authDbInst) _authDbInst = makeAuthDb().db
+    return (_authDbInst as unknown as Record<string, unknown>)[prop as string]
+  },
+})
 
 // Re-derives consent state from the DB. Both "tos" and "privacy" rows for the
 // current tos_version must exist before consentVersion is stamped. Called at
