@@ -1,6 +1,6 @@
 import React from "react"
 
-const SUPPORT_EMAIL = "contact@bomy.my"
+const SUPPORT_EMAIL = "contact@brandsofmalaysia.com"
 const BUSINESS_ADDRESS =
   "19-2, Lorong Mayang Pasir 5, Taman Sri Tunas, 11950 Bayan Lepas, Pulau Pinang."
 

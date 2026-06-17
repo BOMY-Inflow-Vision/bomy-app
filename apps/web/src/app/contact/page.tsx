@@ -16,8 +16,8 @@ export default function ContactPage() {
       <section>
         <h2 className="mb-3 text-xl font-semibold">Support email</h2>
         <p>
-          <a href="mailto:contact@bomy.my" className="text-slate-900 underline">
-            contact@bomy.my
+          <a href="mailto:contact@brandsofmalaysia.com" className="text-slate-900 underline">
+            contact@brandsofmalaysia.com
           </a>
         </p>
       </section>
