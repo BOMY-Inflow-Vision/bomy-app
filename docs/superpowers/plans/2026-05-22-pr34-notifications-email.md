@@ -72,7 +72,7 @@ const BASE_CONFIG = {
   host: "localhost",
   port: 587,
   secure: false,
-  from: "test@bomy.my",
+  from: "test@brandsofmalaysia.com",
 }
 
 describe("createMailer — disabled mode", () => {
@@ -104,10 +104,11 @@ describe("createMailer — disabled mode", () => {
 describe("parseOpsEmails", () => {
   it("splits comma-separated addresses, trims whitespace, drops empty", async () => {
     const { parseOpsEmails } = await import("../../src/notifications/order.js")
-    expect(parseOpsEmails({ OPS_ALERT_EMAILS: "ops@bomy.my, finance@bomy.my , " })).toEqual([
-      "ops@bomy.my",
-      "finance@bomy.my",
-    ])
+    expect(
+      parseOpsEmails({
+        OPS_ALERT_EMAILS: "ops@brandsofmalaysia.com, finance@brandsofmalaysia.com , ",
+      }),
+    ).toEqual(["ops@brandsofmalaysia.com", "finance@brandsofmalaysia.com"])
   })
 
   it("returns empty array when OPS_ALERT_EMAILS is unset", async () => {
@@ -119,15 +120,15 @@ describe("parseOpsEmails", () => {
 describe("joinUrl", () => {
   it("strips trailing slash from base and joins", async () => {
     const { joinUrl } = await import("../../src/notifications/order.js")
-    expect(joinUrl("https://app.bomy.my/", "/account/orders")).toBe(
-      "https://app.bomy.my/account/orders",
+    expect(joinUrl("https://app.brandsofmalaysia.com/", "/account/orders")).toBe(
+      "https://app.brandsofmalaysia.com/account/orders",
     )
   })
 
   it("handles base without trailing slash", async () => {
     const { joinUrl } = await import("../../src/notifications/order.js")
-    expect(joinUrl("https://app.bomy.my", "/account/orders")).toBe(
-      "https://app.bomy.my/account/orders",
+    expect(joinUrl("https://app.brandsofmalaysia.com", "/account/orders")).toBe(
+      "https://app.brandsofmalaysia.com/account/orders",
     )
   })
 })
@@ -720,10 +721,11 @@ import { joinUrl, parseOpsEmails } from "../../src/notifications/order.js"
 
 describe("parseOpsEmails", () => {
   it("splits comma-separated addresses and trims whitespace", () => {
-    expect(parseOpsEmails({ OPS_ALERT_EMAILS: "ops@bomy.my, finance@bomy.my , " })).toEqual([
-      "ops@bomy.my",
-      "finance@bomy.my",
-    ])
+    expect(
+      parseOpsEmails({
+        OPS_ALERT_EMAILS: "ops@brandsofmalaysia.com, finance@brandsofmalaysia.com , ",
+      }),
+    ).toEqual(["ops@brandsofmalaysia.com", "finance@brandsofmalaysia.com"])
   })
 
   it("returns empty array when OPS_ALERT_EMAILS is unset", () => {
@@ -737,14 +739,14 @@ describe("parseOpsEmails", () => {
 
 describe("joinUrl", () => {
   it("strips trailing slash from base", () => {
-    expect(joinUrl("https://app.bomy.my/", "/account/orders")).toBe(
-      "https://app.bomy.my/account/orders",
+    expect(joinUrl("https://app.brandsofmalaysia.com/", "/account/orders")).toBe(
+      "https://app.brandsofmalaysia.com/account/orders",
     )
   })
 
   it("handles base without trailing slash", () => {
-    expect(joinUrl("https://app.bomy.my", "/account/orders")).toBe(
-      "https://app.bomy.my/account/orders",
+    expect(joinUrl("https://app.brandsofmalaysia.com", "/account/orders")).toBe(
+      "https://app.brandsofmalaysia.com/account/orders",
     )
   })
 })
@@ -1742,10 +1744,10 @@ EMAIL_DELIVERY_ENABLED=true \
 SMTP_HOST=localhost \
 SMTP_PORT=1025 \
 SMTP_SECURE=false \
-MAIL_FROM="BOMY <noreply@bomy.my>" \
+MAIL_FROM="BOMY <noreply@brandsofmalaysia.com>" \
 APP_URL=http://localhost:3000 \
 ADMIN_URL=http://localhost:3002 \
-OPS_ALERT_EMAILS=ops@bomy.my \
+OPS_ALERT_EMAILS=ops@brandsofmalaysia.com \
 DATABASE_URL=postgresql://bomy:changeme_local@localhost:5432/bomy \
 REDIS_URL=redis://:changeme_local@localhost:6379 \
 HITPAY_SALT=any_local_salt \

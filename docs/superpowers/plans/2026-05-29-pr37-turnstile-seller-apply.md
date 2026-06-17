@@ -712,8 +712,8 @@ describe.skipIf(!shouldRun)("submitSellerInquiry — server action", () => {
   })
 
   it("verify passes → inserts row + dispatches BOTH applicant ack and ops alert", async () => {
-    process.env["OPS_ALERT_EMAILS"] = "ops@bomy.my"
-    process.env["ADMIN_URL"] = "https://admin.bomy.my"
+    process.env["OPS_ALERT_EMAILS"] = "ops@brandsofmalaysia.com"
+    process.env["ADMIN_URL"] = "https://admin.brandsofmalaysia.com"
     const uniqueEmail = makeUniqueEmail("happy")
     const { submitSellerInquiry } = await import("../../src/app/seller/apply/actions.js")
     await expect(submitSellerInquiry(makeFormData({ email: uniqueEmail }))).resolves.toBeUndefined()
@@ -734,7 +734,7 @@ describe.skipIf(!shouldRun)("submitSellerInquiry — server action", () => {
     })
     expect(sendOpsAlertMock).toHaveBeenCalledOnce()
     expect(sendOpsAlertMock.mock.calls[0]![2]).toMatchObject({
-      opsEmails: ["ops@bomy.my"],
+      opsEmails: ["ops@brandsofmalaysia.com"],
     })
   })
 
@@ -757,7 +757,7 @@ describe.skipIf(!shouldRun)("submitSellerInquiry — server action", () => {
   })
 
   it("applicant send throws → ops alert still attempted; action resolves", async () => {
-    process.env["OPS_ALERT_EMAILS"] = "ops@bomy.my"
+    process.env["OPS_ALERT_EMAILS"] = "ops@brandsofmalaysia.com"
     sendApplicantAckMock.mockRejectedValueOnce(new Error("smtp boom"))
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
     const { submitSellerInquiry } = await import("../../src/app/seller/apply/actions.js")
@@ -774,7 +774,7 @@ describe.skipIf(!shouldRun)("submitSellerInquiry — server action", () => {
   })
 
   it("ops alert throws → applicant ack already attempted; action resolves", async () => {
-    process.env["OPS_ALERT_EMAILS"] = "ops@bomy.my"
+    process.env["OPS_ALERT_EMAILS"] = "ops@brandsofmalaysia.com"
     sendOpsAlertMock.mockRejectedValueOnce(new Error("smtp boom"))
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
     const { submitSellerInquiry } = await import("../../src/app/seller/apply/actions.js")
@@ -1300,8 +1300,8 @@ EMAIL_DELIVERY_ENABLED=true
 SMTP_HOST=localhost
 SMTP_PORT=1025
 SMTP_SECURE=false
-MAIL_FROM="BOMY <noreply@bomy.my>"
-OPS_ALERT_EMAILS=ops@bomy.my
+MAIL_FROM="BOMY <noreply@brandsofmalaysia.com>"
+OPS_ALERT_EMAILS=ops@brandsofmalaysia.com
 ADMIN_URL=http://localhost:3002
 ```
 
@@ -1315,7 +1315,7 @@ Mailhog runs at `http://localhost:8025`. Docker stack is already up from Step 6.
 4. Click checkbox → callback fires, token populates → submit enables.
 5. Fill the form with a unique applicant email (e.g. `smoke-<timestamp>@example.com`) and valid other fields.
 6. Submit → success screen renders.
-7. Open `http://localhost:8025`. Verify **TWO** messages: applicant ack to the unique email, ops alert to `ops@bomy.my`.
+7. Open `http://localhost:8025`. Verify **TWO** messages: applicant ack to the unique email, ops alert to `ops@brandsofmalaysia.com`.
 
 **Smoke 2 — verify failure:**
 

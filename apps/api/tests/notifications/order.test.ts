@@ -64,8 +64,8 @@ describe("dispatchOrderNotifications", () => {
 
     const savedOps = process.env["OPS_ALERT_EMAILS"]
     const savedAdmin = process.env["ADMIN_URL"]
-    process.env["OPS_ALERT_EMAILS"] = "ops@bomy.my"
-    process.env["ADMIN_URL"] = "https://admin.bomy.my"
+    process.env["OPS_ALERT_EMAILS"] = "ops@brandsofmalaysia.com"
+    process.env["ADMIN_URL"] = "https://admin.brandsofmalaysia.com"
 
     const app = {
       mailer: { sendMail, close: vi.fn() },
@@ -90,7 +90,7 @@ describe("dispatchOrderNotifications", () => {
     expect(logObj["type"]).toBe("order_review")
     expect(logObj["sessionId"]).toBe("sess-a")
     // Body text MUST NOT appear in the log
-    expect(JSON.stringify(logObj)).not.toContain("admin.bomy.my")
+    expect(JSON.stringify(logObj)).not.toContain("admin.brandsofmalaysia.com")
 
     if (savedOps !== undefined) process.env["OPS_ALERT_EMAILS"] = savedOps
     else delete process.env["OPS_ALERT_EMAILS"]
@@ -103,8 +103,8 @@ describe("dispatchOrderNotifications", () => {
 
     const savedOps = process.env["OPS_ALERT_EMAILS"]
     const savedAdmin = process.env["ADMIN_URL"]
-    process.env["OPS_ALERT_EMAILS"] = "ops@bomy.my"
-    process.env["ADMIN_URL"] = "https://admin.bomy.my"
+    process.env["OPS_ALERT_EMAILS"] = "ops@brandsofmalaysia.com"
+    process.env["ADMIN_URL"] = "https://admin.brandsofmalaysia.com"
 
     const app = {
       mailer: { sendMail, close: vi.fn() },
@@ -121,7 +121,7 @@ describe("dispatchOrderNotifications", () => {
 
     expect(sendMail).toHaveBeenCalledOnce()
     const call = sendMail.mock.calls[0]![0] as { to: unknown; subject: string; text: string }
-    expect(call.to).toEqual(["ops@bomy.my"])
+    expect(call.to).toEqual(["ops@brandsofmalaysia.com"])
     expect(call.subject).toContain("amount_mismatch")
     expect(call.subject).toContain("[BOMY Ops]")
 

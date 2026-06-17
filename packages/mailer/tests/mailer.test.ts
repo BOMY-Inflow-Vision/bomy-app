@@ -6,7 +6,7 @@ const BASE_CONFIG = {
   host: "localhost",
   port: 587,
   secure: false,
-  from: "test@bomy.my",
+  from: "test@brandsofmalaysia.com",
 }
 
 describe("createMailer — disabled mode", () => {

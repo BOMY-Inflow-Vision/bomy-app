@@ -560,7 +560,7 @@ export function sendPayoutPendingEmail(
 
 Listed in the PR description body. Restated in `app/log/2026-05-XX_PR35_*.md` after merge.
 
-1. Run Mailhog locally (`docker compose -f infra/docker/compose.yml --env-file infra/docker/.env up -d`) with `EMAIL_DELIVERY_ENABLED=true SMTP_HOST=localhost SMTP_PORT=1025 SMTP_SECURE=false MAIL_FROM="BOMY <noreply@bomy.my>"` plus per-app `APP_URL`/`ADMIN_URL`/`OPS_ALERT_EMAILS`.
+1. Run Mailhog locally (`docker compose -f infra/docker/compose.yml --env-file infra/docker/.env up -d`) with `EMAIL_DELIVERY_ENABLED=true SMTP_HOST=localhost SMTP_PORT=1025 SMTP_SECURE=false MAIL_FROM="BOMY <noreply@brandsofmalaysia.com>"` plus per-app `APP_URL`/`ADMIN_URL`/`OPS_ALERT_EMAILS`.
 2. Submit a seller inquiry through `apps/web` → Mailhog UI (http://localhost:8025) shows two messages: applicant ack + ops alert.
 3. Trigger voucher issuance via `POST /internal/jobs/voucher-issuance` with `INTERNAL_API_SECRET` → Mailhog shows one message per active member; structured log shows `voucher_issuance_summary` with non-zero `sent`.
 4. Click "Create Payout" on a completed order in `apps/admin` → Mailhog shows one seller-payout-pending message; action returns normally.

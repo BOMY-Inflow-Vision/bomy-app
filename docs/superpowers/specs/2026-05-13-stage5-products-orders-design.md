@@ -663,7 +663,7 @@ Email provider: SMTP via Mailhog locally; SendGrid or Postmark in production (sa
 | `S3_PUBLIC_URL` | apps/api, apps/web | Public CDN base URL for reading stored images (R2 public domain in prod; MinIO public URL locally) |
 | `SMTP_USER`     | apps/api           | SMTP authentication username (e.g. `apikey` for SendGrid)                                          |
 | `SMTP_PASS`     | apps/api           | SMTP password / API key. Never commit.                                                             |
-| `EMAIL_FROM`    | apps/api           | Sender address (e.g. `noreply@bomy.my`)                                                            |
+| `EMAIL_FROM`    | apps/api           | Sender address (e.g. `noreply@brandsofmalaysia.com`)                                               |
 
 Existing `S3_ENDPOINT / S3_ACCESS_KEY / S3_SECRET_KEY / S3_BUCKET` and `SMTP_HOST / SMTP_PORT / SMTP_SECURE` already documented in root `.env.example` — no rename needed.
 

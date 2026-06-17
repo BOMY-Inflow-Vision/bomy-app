@@ -297,7 +297,7 @@ const BASE_CONFIG = {
   host: "localhost",
   port: 587,
   secure: false,
-  from: "test@bomy.my",
+  from: "test@brandsofmalaysia.com",
 }
 
 describe("createMailer — disabled mode", () => {
@@ -389,7 +389,7 @@ describe("configFromEnv — enabled validation", () => {
   const ENABLED_BASE = {
     EMAIL_DELIVERY_ENABLED: "true",
     SMTP_HOST: "smtp.example.com",
-    MAIL_FROM: "noreply@bomy.my",
+    MAIL_FROM: "noreply@brandsofmalaysia.com",
   }
 
   it("returns a valid config with sensible defaults when only required vars are set", () => {
@@ -399,7 +399,7 @@ describe("configFromEnv — enabled validation", () => {
       host: "smtp.example.com",
       port: 587,
       secure: false,
-      from: "noreply@bomy.my",
+      from: "noreply@brandsofmalaysia.com",
     })
   })
 
@@ -437,8 +437,8 @@ describe("configFromEnv — enabled validation", () => {
   })
 
   it("passes through replyTo when MAIL_REPLY_TO is set", () => {
-    const cfg = configFromEnv({ ...ENABLED_BASE, MAIL_REPLY_TO: "support@bomy.my" })
-    expect(cfg.replyTo).toBe("support@bomy.my")
+    const cfg = configFromEnv({ ...ENABLED_BASE, MAIL_REPLY_TO: "support@brandsofmalaysia.com" })
+    expect(cfg.replyTo).toBe("support@brandsofmalaysia.com")
   })
 
   it("respects SMTP_SECURE=true", () => {
@@ -554,10 +554,11 @@ import { joinUrl, parseOpsEmails } from "../src/helpers.js"
 
 describe("parseOpsEmails", () => {
   it("splits comma-separated addresses and trims whitespace", () => {
-    expect(parseOpsEmails({ OPS_ALERT_EMAILS: "ops@bomy.my, finance@bomy.my , " })).toEqual([
-      "ops@bomy.my",
-      "finance@bomy.my",
-    ])
+    expect(
+      parseOpsEmails({
+        OPS_ALERT_EMAILS: "ops@brandsofmalaysia.com, finance@brandsofmalaysia.com , ",
+      }),
+    ).toEqual(["ops@brandsofmalaysia.com", "finance@brandsofmalaysia.com"])
   })
 
   it("returns empty array when OPS_ALERT_EMAILS is unset", () => {
@@ -571,14 +572,14 @@ describe("parseOpsEmails", () => {
 
 describe("joinUrl", () => {
   it("strips trailing slash from base", () => {
-    expect(joinUrl("https://app.bomy.my/", "/account/orders")).toBe(
-      "https://app.bomy.my/account/orders",
+    expect(joinUrl("https://app.brandsofmalaysia.com/", "/account/orders")).toBe(
+      "https://app.brandsofmalaysia.com/account/orders",
     )
   })
 
   it("handles base without trailing slash", () => {
-    expect(joinUrl("https://app.bomy.my", "/account/orders")).toBe(
-      "https://app.bomy.my/account/orders",
+    expect(joinUrl("https://app.brandsofmalaysia.com", "/account/orders")).toBe(
+      "https://app.brandsofmalaysia.com/account/orders",
     )
   })
 })
@@ -1047,16 +1048,20 @@ const BASE: IssuedVoucher = {
 describe("sendVoucherIssuedEmail", () => {
   it("subject includes the voucher code", async () => {
     const { mailer, sendMail } = makeMailer()
-    await sendVoucherIssuedEmail(mailer, BASE, "u@bomy.my", { appUrl: "https://app.bomy.my" })
+    await sendVoucherIssuedEmail(mailer, BASE, "u@brandsofmalaysia.com", {
+      appUrl: "https://app.brandsofmalaysia.com",
+    })
     expect(sendMail).toHaveBeenCalledOnce()
     const args = sendMail.mock.calls[0]![0]
     expect(args.subject).toContain("ABCD1234")
-    expect(args.to).toBe("u@bomy.my")
+    expect(args.to).toBe("u@brandsofmalaysia.com")
   })
 
   it("renders fixed_myr amount as RM N.NN", async () => {
     const { mailer, sendMail } = makeMailer()
-    await sendVoucherIssuedEmail(mailer, BASE, "u@bomy.my", { appUrl: "https://app.bomy.my" })
+    await sendVoucherIssuedEmail(mailer, BASE, "u@brandsofmalaysia.com", {
+      appUrl: "https://app.brandsofmalaysia.com",
+    })
     const body = sendMail.mock.calls[0]![0].text as string
     expect(body).toContain("RM 10.00")
     expect(body).toContain("ABCD1234")
@@ -1070,7 +1075,9 @@ describe("sendVoucherIssuedEmail", () => {
       percentage: 15,
     }
     const { mailer, sendMail } = makeMailer()
-    await sendVoucherIssuedEmail(mailer, v, "u@bomy.my", { appUrl: "https://app.bomy.my" })
+    await sendVoucherIssuedEmail(mailer, v, "u@brandsofmalaysia.com", {
+      appUrl: "https://app.brandsofmalaysia.com",
+    })
     const body = sendMail.mock.calls[0]![0].text as string
     expect(body).toContain("15%")
   })
@@ -1083,16 +1090,20 @@ describe("sendVoucherIssuedEmail", () => {
       randomResolvedSen: 2550n, // RM 25.50
     }
     const { mailer, sendMail } = makeMailer()
-    await sendVoucherIssuedEmail(mailer, v, "u@bomy.my", { appUrl: "https://app.bomy.my" })
+    await sendVoucherIssuedEmail(mailer, v, "u@brandsofmalaysia.com", {
+      appUrl: "https://app.brandsofmalaysia.com",
+    })
     const body = sendMail.mock.calls[0]![0].text as string
     expect(body).toContain("RM 25.50")
   })
 
   it("includes the joinUrl-formed /account CTA (not /account/vouchers)", async () => {
     const { mailer, sendMail } = makeMailer()
-    await sendVoucherIssuedEmail(mailer, BASE, "u@bomy.my", { appUrl: "https://app.bomy.my/" })
+    await sendVoucherIssuedEmail(mailer, BASE, "u@brandsofmalaysia.com", {
+      appUrl: "https://app.brandsofmalaysia.com/",
+    })
     const body = sendMail.mock.calls[0]![0].text as string
-    expect(body).toContain("https://app.bomy.my/account")
+    expect(body).toContain("https://app.brandsofmalaysia.com/account")
     expect(body).not.toContain("/account/vouchers")
   })
 })
@@ -1224,15 +1235,15 @@ describe("dispatchVoucherEmails", () => {
     const log = makeLog()
     const inserted = [makeVoucher(1), makeVoucher(2)]
     const emailByUserId = new Map([
-      ["u-1", "u1@bomy.my"],
-      ["u-2", "u2@bomy.my"],
+      ["u-1", "u1@brandsofmalaysia.com"],
+      ["u-2", "u2@brandsofmalaysia.com"],
     ])
 
     const summary = await dispatchVoucherEmails(
       mailer,
       inserted,
       emailByUserId,
-      { appUrl: "https://app.bomy.my", issuedMonth: "2026-05" },
+      { appUrl: "https://app.brandsofmalaysia.com", issuedMonth: "2026-05" },
       log,
     )
 
@@ -1251,15 +1262,15 @@ describe("dispatchVoucherEmails", () => {
     const log = makeLog()
     const inserted = [makeVoucher(1), makeVoucher(2)]
     const emailByUserId = new Map([
-      ["u-1", "u1@bomy.my"],
-      ["u-2", "u2@bomy.my"],
+      ["u-1", "u1@brandsofmalaysia.com"],
+      ["u-2", "u2@brandsofmalaysia.com"],
     ])
 
     const summary = await dispatchVoucherEmails(
       mailer,
       inserted,
       emailByUserId,
-      { appUrl: "https://app.bomy.my", issuedMonth: "2026-05" },
+      { appUrl: "https://app.brandsofmalaysia.com", issuedMonth: "2026-05" },
       log,
     )
 
@@ -1276,13 +1287,13 @@ describe("dispatchVoucherEmails", () => {
     const { mailer, sendMail } = makeMailer()
     const log = makeLog()
     const inserted = [makeVoucher(1), makeVoucher(2)]
-    const emailByUserId = new Map([["u-2", "u2@bomy.my"]]) // u-1 missing
+    const emailByUserId = new Map([["u-2", "u2@brandsofmalaysia.com"]]) // u-1 missing
 
     const summary = await dispatchVoucherEmails(
       mailer,
       inserted,
       emailByUserId,
-      { appUrl: "https://app.bomy.my", issuedMonth: "2026-05" },
+      { appUrl: "https://app.brandsofmalaysia.com", issuedMonth: "2026-05" },
       log,
     )
 
@@ -1966,10 +1977,13 @@ describe("sendOpsAlert", () => {
         storeName: "Kedai Aisyah",
         message: "Looking forward.",
       },
-      { adminUrl: "https://admin.bomy.my/", opsEmails: ["ops@bomy.my", "finance@bomy.my"] },
+      {
+        adminUrl: "https://admin.brandsofmalaysia.com/",
+        opsEmails: ["ops@brandsofmalaysia.com", "finance@brandsofmalaysia.com"],
+      },
     )
     const args = sendMail.mock.calls[0]![0]
-    expect(args.to).toEqual(["ops@bomy.my", "finance@bomy.my"])
+    expect(args.to).toEqual(["ops@brandsofmalaysia.com", "finance@brandsofmalaysia.com"])
     expect(args.subject).toContain("New seller inquiry")
     expect(args.subject).toContain("Kedai Aisyah")
 
@@ -1981,7 +1995,7 @@ describe("sendOpsAlert", () => {
       "Aisyah Sdn Bhd",
       "Kedai Aisyah",
       "Looking forward.",
-      "https://admin.bomy.my/seller-inquiries",
+      "https://admin.brandsofmalaysia.com/seller-inquiries",
     ]) {
       expect(body).toContain(fragment)
     }
@@ -2000,7 +2014,7 @@ describe("sendOpsAlert", () => {
         storeName: "Kedai Aisyah",
         message: null,
       },
-      { adminUrl: "https://admin.bomy.my", opsEmails: ["ops@bomy.my"] },
+      { adminUrl: "https://admin.brandsofmalaysia.com", opsEmails: ["ops@brandsofmalaysia.com"] },
     )
     const body = sendMail.mock.calls[0]![0].text as string
     expect(body).toContain("(none)")
@@ -2201,8 +2215,8 @@ describe.skipIf(!shouldRun)("submitSellerInquiry — server action", () => {
   }
 
   it("inserts the row, attempts applicant ack, and attempts ops alert when OPS_ALERT_EMAILS is set", async () => {
-    process.env["OPS_ALERT_EMAILS"] = "ops@bomy.my"
-    process.env["ADMIN_URL"] = "https://admin.bomy.my"
+    process.env["OPS_ALERT_EMAILS"] = "ops@brandsofmalaysia.com"
+    process.env["ADMIN_URL"] = "https://admin.brandsofmalaysia.com"
     // EMAIL_DELIVERY_ENABLED unset → disabled mailer (logs only); we assert via console.log spies.
 
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {})
@@ -2387,7 +2401,7 @@ const CTX = {
 describe("sendPayoutPendingEmail", () => {
   it("subject contains the RM amount and the first 8 chars of the order id", async () => {
     const { mailer, sendMail } = makeMailer()
-    await sendPayoutPendingEmail(mailer, CTX, { appUrl: "https://app.bomy.my" })
+    await sendPayoutPendingEmail(mailer, CTX, { appUrl: "https://app.brandsofmalaysia.com" })
     const args = sendMail.mock.calls[0]![0]
     expect(args.subject).toContain("RM 50.00")
     expect(args.subject).toContain("12345678")
@@ -2396,27 +2410,29 @@ describe("sendPayoutPendingEmail", () => {
 
   it("body has the full UUID in the dashboard link path", async () => {
     const { mailer, sendMail } = makeMailer()
-    await sendPayoutPendingEmail(mailer, CTX, { appUrl: "https://app.bomy.my" })
+    await sendPayoutPendingEmail(mailer, CTX, { appUrl: "https://app.brandsofmalaysia.com" })
     const body = sendMail.mock.calls[0]![0].text as string
-    expect(body).toContain(`https://app.bomy.my/seller/dashboard/orders/${CTX.orderId}`)
+    expect(body).toContain(
+      `https://app.brandsofmalaysia.com/seller/dashboard/orders/${CTX.orderId}`,
+    )
   })
 
   it("sends to the seller email", async () => {
     const { mailer, sendMail } = makeMailer()
-    await sendPayoutPendingEmail(mailer, CTX, { appUrl: "https://app.bomy.my" })
+    await sendPayoutPendingEmail(mailer, CTX, { appUrl: "https://app.brandsofmalaysia.com" })
     expect(sendMail.mock.calls[0]![0].to).toBe("seller@example.com")
   })
 
   it("does not include bomyCommissionSen or 'commission' in the body", async () => {
     const { mailer, sendMail } = makeMailer()
-    await sendPayoutPendingEmail(mailer, CTX, { appUrl: "https://app.bomy.my" })
+    await sendPayoutPendingEmail(mailer, CTX, { appUrl: "https://app.brandsofmalaysia.com" })
     const body = sendMail.mock.calls[0]![0].text as string
     expect(body.toLowerCase()).not.toContain("commission")
   })
 
   it("does not promise a specific SLA (e.g. '3-5 business days')", async () => {
     const { mailer, sendMail } = makeMailer()
-    await sendPayoutPendingEmail(mailer, CTX, { appUrl: "https://app.bomy.my" })
+    await sendPayoutPendingEmail(mailer, CTX, { appUrl: "https://app.brandsofmalaysia.com" })
     const body = sendMail.mock.calls[0]![0].text as string
     expect(body.toLowerCase()).not.toMatch(/business days?/i)
     expect(body.toLowerCase()).not.toMatch(/\d+ ?-? ?\d+ ?days/i)
@@ -2678,7 +2694,7 @@ SMTP_SECURE=false
 # Auth (optional — leave both empty for local Mailhog):
 # SMTP_USER=
 # SMTP_PASS=
-MAIL_FROM="BOMY <noreply@bomy.my>"
+MAIL_FROM="BOMY <noreply@brandsofmalaysia.com>"
 # MAIL_REPLY_TO=
 # Comma-separated ops recipients for [BOMY Ops] alerts (seller inquiry, order_review, voucher_claim_failed):
 OPS_ALERT_EMAILS=
@@ -2795,10 +2811,10 @@ export EMAIL_DELIVERY_ENABLED=true
 export SMTP_HOST=localhost
 export SMTP_PORT=1025
 export SMTP_SECURE=false
-export MAIL_FROM="BOMY <noreply@bomy.my>"
+export MAIL_FROM="BOMY <noreply@brandsofmalaysia.com>"
 export APP_URL=http://localhost:3000
 export ADMIN_URL=http://localhost:3002
-export OPS_ALERT_EMAILS=ops@bomy.my
+export OPS_ALERT_EMAILS=ops@brandsofmalaysia.com
 ```
 
 Start dev:

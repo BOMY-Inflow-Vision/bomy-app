@@ -246,7 +246,7 @@ Uses the same `mailer` instance (same `EMAIL_DELIVERY_ENABLED` gate). `APP_URL` 
 | `SMTP_SECURE`            | No           | `false` | `"true"` for TLS (port 465)                                         |
 | `SMTP_USER`              | Paired       | —       | Required if `SMTP_PASS` set                                         |
 | `SMTP_PASS`              | Paired       | —       | Required if `SMTP_USER` set                                         |
-| `MAIL_FROM`              | When enabled | —       | Sender address (`"BOMY <noreply@bomy.my>"`)                         |
+| `MAIL_FROM`              | When enabled | —       | Sender address (`"BOMY <noreply@brandsofmalaysia.com>"`)            |
 | `MAIL_REPLY_TO`          | No           | —       | Reply-To header                                                     |
 | `OPS_ALERT_EMAILS`       | No           | —       | Comma-separated ops addresses; empty → `email_notification_skipped` |
 | `APP_URL`                | When enabled | —       | Web app base URL (buyer/seller links)                               |

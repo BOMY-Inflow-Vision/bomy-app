@@ -9,8 +9,7 @@ Before starting:
 - [ ] `brandsofmalaysia.com` is registered AND you have access to the registrar's DNS panel.
 - [ ] Existing mail DNS records on `brandsofmalaysia.com` are noted (MX, SPF, DKIM, DMARC) — see "DNS preservation" below.
 - [ ] Cloudflare account exists (free tier is sufficient for Turnstile).
-- [ ] Google Cloud Console account ready (you can register OAuth apps).
-- [ ] Meta Developers account ready IF re-enabling Facebook login (intentionally disabled at launch — see step 8).
+- [ ] Google Cloud Console + Meta Developers accounts ready (you can register OAuth apps).
 - [ ] Vercel account ready (personal or team); GitHub repo access ready to grant.
 - [ ] `gh auth status` shows you authenticated against the `BOMY-Inflow-Vision` org.
 - [ ] Local repo on `main` synced to origin; PR #39 branch ready to push.
@@ -108,20 +107,20 @@ If you see `bomy` or any other role, the connection string is wrong; do not proc
 
 Required envs (from spec §5):
 
-| Var                                         | Value source                                                                                               |
-| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`                              | **bomy_app direct/unpooled string from step 5** (NOT the Marketplace-default — override it)                |
-| `DATABASE_APP_URL`                          | Same as `DATABASE_URL` (forward-compat)                                                                    |
-| `BOMY_RLS_READY`                            | `1`                                                                                                        |
-| `AUTH_SECRET`                               | `openssl rand -base64 32`                                                                                  |
-| `NEXTAUTH_URL`                              | `https://brandsofmalaysia.com`                                                                             |
-| `APP_URL`                                   | `https://brandsofmalaysia.com`                                                                             |
-| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET`     | From Google Cloud Console (step 8)                                                                         |
-| `AUTH_FACEBOOK_ID` / `AUTH_FACEBOOK_SECRET` | **Intentionally omitted at launch** — Facebook provider removed (PR #42); re-add when Meta app is approved |
-| `NEXT_PUBLIC_TURNSTILE_SITEKEY`             | Real brandsofmalaysia.com Turnstile site key (step 9)                                                      |
-| `TURNSTILE_SECRET_KEY`                      | Real brandsofmalaysia.com Turnstile secret key (step 9)                                                    |
-| `BOMY_OPS_DIAGNOSTIC_TOKEN`                 | `openssl rand -hex 32`                                                                                     |
-| `NEXT_PUBLIC_DEFAULT_LOCALE`                | `en`                                                                                                       |
+| Var                                         | Value source                                                                                |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                              | **bomy_app direct/unpooled string from step 5** (NOT the Marketplace-default — override it) |
+| `DATABASE_APP_URL`                          | Same as `DATABASE_URL` (forward-compat)                                                     |
+| `BOMY_RLS_READY`                            | `1`                                                                                         |
+| `AUTH_SECRET`                               | `openssl rand -base64 32`                                                                   |
+| `NEXTAUTH_URL`                              | `https://brandsofmalaysia.com`                                                              |
+| `APP_URL`                                   | `https://brandsofmalaysia.com`                                                              |
+| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET`     | From Google Cloud Console (step 8)                                                          |
+| `AUTH_FACEBOOK_ID` / `AUTH_FACEBOOK_SECRET` | From Meta Developers (step 8)                                                               |
+| `NEXT_PUBLIC_TURNSTILE_SITEKEY`             | Real brandsofmalaysia.com Turnstile site key (step 9)                                       |
+| `TURNSTILE_SECRET_KEY`                      | Real brandsofmalaysia.com Turnstile secret key (step 9)                                     |
+| `BOMY_OPS_DIAGNOSTIC_TOKEN`                 | `openssl rand -hex 32`                                                                      |
+| `NEXT_PUBLIC_DEFAULT_LOCALE`                | `en`                                                                                        |
 
 Preview scope (Turnstile only diverges from Production):
 
@@ -148,13 +147,11 @@ Do NOT set `NODE_ENV` manually; Vercel sets it to `production` automatically.
 - OAuth 2.0 Client → add to authorized redirect URIs: `https://brandsofmalaysia.com/api/auth/callback/google`
 - Copy Client ID + Client Secret into Vercel envs `AUTH_GOOGLE_ID` + `AUTH_GOOGLE_SECRET` (step 7).
 
-**Meta Developers — intentionally skipped at launch (PR #42):**
-
-Facebook provider is removed from `auth.config.ts`. When re-enabling:
+**Meta Developers:**
 
 - App → Facebook Login → Settings → Valid OAuth Redirect URIs: add `https://brandsofmalaysia.com/api/auth/callback/facebook`
 - Copy App ID + App Secret into Vercel envs `AUTH_FACEBOOK_ID` + `AUTH_FACEBOOK_SECRET` (step 7).
-- Re-add the Facebook provider in `auth.config.ts` + `sign-in/page.tsx` via a dedicated PR.
+- If Meta is awaiting app review and the production sign-in won't work yet, document this in the PR body — production smoke (step 17) will mark the Meta sign-in check as "documented gap, not a merge blocker."
 
 ### Step 9 — Register Cloudflare Turnstile site for brandsofmalaysia.com
 
@@ -245,7 +242,7 @@ Re-run all preview-smoke checks at `https://brandsofmalaysia.com`. Additionally:
 - [ ] `https://www.brandsofmalaysia.com` 308-redirects to `https://brandsofmalaysia.com`.
 - [ ] `/api/ops/db-identity` with correct token returns `{"currentUser":"bomy_app"}`.
 - [ ] Google sign-in round-trip succeeds; creates a NextAuth DB session row in Neon (verify via `SELECT count(*) FROM sessions;` increment).
-- [ ] Meta sign-in — **intentionally disabled at launch** (PR #42 removed the Facebook provider; re-enable when Meta app is approved). Skip this check until then.
+- [ ] Meta sign-in round-trip succeeds OR documented gap if Meta approval lags.
 - [ ] `/seller/apply` end-to-end: real Turnstile challenge completes; DB row appears in `seller_inquiries`; action returns success. Applicant ack + ops alert email DO NOT send (expected; mailer skipped per spec §3 mail-deferred).
 - [ ] **Real Turnstile, not always-pass test keys** — `/seller/apply` must complete a genuine challenge before validating server-side. If the widget renders empty or fails to validate, that's a hard gate failure; check the Cloudflare site config.
 - [ ] `platform_config.checkout_enabled` = `false` confirmed via Neon SQL console.

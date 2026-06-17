@@ -31,16 +31,20 @@ const BASE: IssuedVoucher = {
 describe("sendVoucherIssuedEmail", () => {
   it("subject includes the voucher code", async () => {
     const { mailer, sendMail } = makeMailer()
-    await sendVoucherIssuedEmail(mailer, BASE, "u@bomy.my", { appUrl: "https://app.bomy.my" })
+    await sendVoucherIssuedEmail(mailer, BASE, "u@brandsofmalaysia.com", {
+      appUrl: "https://app.brandsofmalaysia.com",
+    })
     expect(sendMail).toHaveBeenCalledOnce()
     const args = sendMail.mock.calls[0]![0]
     expect(args.subject).toContain("ABCD1234")
-    expect(args.to).toBe("u@bomy.my")
+    expect(args.to).toBe("u@brandsofmalaysia.com")
   })
 
   it("renders fixed_myr amount as RM N.NN", async () => {
     const { mailer, sendMail } = makeMailer()
-    await sendVoucherIssuedEmail(mailer, BASE, "u@bomy.my", { appUrl: "https://app.bomy.my" })
+    await sendVoucherIssuedEmail(mailer, BASE, "u@brandsofmalaysia.com", {
+      appUrl: "https://app.brandsofmalaysia.com",
+    })
     const body = sendMail.mock.calls[0]![0].text
     expect(body).toContain("RM 10.00")
     expect(body).toContain("ABCD1234")
@@ -54,7 +58,9 @@ describe("sendVoucherIssuedEmail", () => {
       percentage: 15,
     }
     const { mailer, sendMail } = makeMailer()
-    await sendVoucherIssuedEmail(mailer, v, "u@bomy.my", { appUrl: "https://app.bomy.my" })
+    await sendVoucherIssuedEmail(mailer, v, "u@brandsofmalaysia.com", {
+      appUrl: "https://app.brandsofmalaysia.com",
+    })
     const body = sendMail.mock.calls[0]![0].text
     expect(body).toContain("15%")
   })
@@ -67,16 +73,20 @@ describe("sendVoucherIssuedEmail", () => {
       randomResolvedSen: 2550n,
     }
     const { mailer, sendMail } = makeMailer()
-    await sendVoucherIssuedEmail(mailer, v, "u@bomy.my", { appUrl: "https://app.bomy.my" })
+    await sendVoucherIssuedEmail(mailer, v, "u@brandsofmalaysia.com", {
+      appUrl: "https://app.brandsofmalaysia.com",
+    })
     const body = sendMail.mock.calls[0]![0].text
     expect(body).toContain("RM 25.50")
   })
 
   it("includes the joinUrl-formed /account CTA (not /account/vouchers)", async () => {
     const { mailer, sendMail } = makeMailer()
-    await sendVoucherIssuedEmail(mailer, BASE, "u@bomy.my", { appUrl: "https://app.bomy.my/" })
+    await sendVoucherIssuedEmail(mailer, BASE, "u@brandsofmalaysia.com", {
+      appUrl: "https://app.brandsofmalaysia.com/",
+    })
     const body = sendMail.mock.calls[0]![0].text
-    expect(body).toContain("https://app.bomy.my/account")
+    expect(body).toContain("https://app.brandsofmalaysia.com/account")
     expect(body).not.toContain("/account/vouchers")
   })
 })
@@ -108,15 +118,15 @@ describe("dispatchVoucherEmails", () => {
     const log = makeLog()
     const inserted = [makeVoucher(1), makeVoucher(2)]
     const emailByUserId = new Map([
-      ["u-1", "u1@bomy.my"],
-      ["u-2", "u2@bomy.my"],
+      ["u-1", "u1@brandsofmalaysia.com"],
+      ["u-2", "u2@brandsofmalaysia.com"],
     ])
 
     const summary = await dispatchVoucherEmails(
       mailer,
       inserted,
       emailByUserId,
-      { appUrl: "https://app.bomy.my", issuedMonth: "2026-05" },
+      { appUrl: "https://app.brandsofmalaysia.com", issuedMonth: "2026-05" },
       log,
     )
 
@@ -135,15 +145,15 @@ describe("dispatchVoucherEmails", () => {
     const log = makeLog()
     const inserted = [makeVoucher(1), makeVoucher(2)]
     const emailByUserId = new Map([
-      ["u-1", "u1@bomy.my"],
-      ["u-2", "u2@bomy.my"],
+      ["u-1", "u1@brandsofmalaysia.com"],
+      ["u-2", "u2@brandsofmalaysia.com"],
     ])
 
     const summary = await dispatchVoucherEmails(
       mailer,
       inserted,
       emailByUserId,
-      { appUrl: "https://app.bomy.my", issuedMonth: "2026-05" },
+      { appUrl: "https://app.brandsofmalaysia.com", issuedMonth: "2026-05" },
       log,
     )
 
@@ -160,13 +170,13 @@ describe("dispatchVoucherEmails", () => {
     const { mailer, sendMail } = makeMailer()
     const log = makeLog()
     const inserted = [makeVoucher(1), makeVoucher(2)]
-    const emailByUserId = new Map([["u-2", "u2@bomy.my"]])
+    const emailByUserId = new Map([["u-2", "u2@brandsofmalaysia.com"]])
 
     const summary = await dispatchVoucherEmails(
       mailer,
       inserted,
       emailByUserId,
-      { appUrl: "https://app.bomy.my", issuedMonth: "2026-05" },
+      { appUrl: "https://app.brandsofmalaysia.com", issuedMonth: "2026-05" },
       log,
     )
 

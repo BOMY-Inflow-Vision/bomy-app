@@ -126,7 +126,7 @@ PR #36 ships the script + the runbook + the directory pattern for future operati
 
 ```
 Connecting to <db host, port>...
-Resolved actor: charlie@bomy.my (bomy_admin, uuid: <…>)
+Resolved actor: charlie@brandsofmalaysia.com (bomy_admin, uuid: <…>)
 Key 'checkout_enabled':
   before: false
   after:  true
@@ -251,7 +251,7 @@ Last revised: 2026-05-27
 - Look up your admin user UUID. This one-off lookup uses the **owner-role** connection (`DATABASE_URL`, the BOMY-owned role that bypasses RLS at the role level — same role the migration script uses). Under the limited `bomy_app` role (`DATABASE_APP_URL`) this query would return empty because no RLS context is set in an ad-hoc `psql` session.
   ```sql
   -- Connect with DATABASE_URL (owner role), NOT DATABASE_APP_URL.
-  SELECT id, email, role FROM users WHERE email = '<you>@bomy.my';
+  SELECT id, email, role FROM users WHERE email = '<you>@brandsofmalaysia.com';
   ```
   Role must be `bomy_ops` / `bomy_admin` / `bomy_finance`. Otherwise stop.
   Alternative: if/when an admin console "view my profile" page exists, use that instead.

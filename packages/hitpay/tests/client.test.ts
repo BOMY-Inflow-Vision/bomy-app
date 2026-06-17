@@ -37,7 +37,7 @@ describe("HitPayClient", () => {
       currency: "MYR" as const,
       email: "buyer@example.com",
       purpose: "Brand subscription",
-      redirect_url: "https://bomy.my/brands/test/subscribe/success",
+      redirect_url: "https://brandsofmalaysia.com/brands/test/subscribe/success",
     }
 
     it("posts to /v1/payment-requests with correct headers and returns response", async () => {
@@ -52,7 +52,7 @@ describe("HitPayClient", () => {
         purpose: "Brand subscription",
         reference_number: null,
         payment_methods: ["card"],
-        redirect_url: "https://bomy.my/brands/test/subscribe/success",
+        redirect_url: "https://brandsofmalaysia.com/brands/test/subscribe/success",
         webhook: null,
         created_at: "2026-05-01T00:00:00Z",
         updated_at: "2026-05-01T00:00:00Z",
@@ -194,7 +194,7 @@ describe("HitPayClient", () => {
       currency: "MYR" as const,
       email: "x@x.com",
       purpose: "test",
-      redirect_url: "https://bomy.my",
+      redirect_url: "https://brandsofmalaysia.com",
     }
 
     it("throws HitPayAuthError on 401", async () => {

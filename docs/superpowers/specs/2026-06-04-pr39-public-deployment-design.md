@@ -1,4 +1,4 @@
-# PR #39 — Public deployment of `apps/web` to bomy.my
+# PR #39 — Public deployment of `apps/web` to brandsofmalaysia.com
 
 **Date:** 2026-06-04
 **Author:** Andy
@@ -10,16 +10,16 @@
 
 ## 1. Goal
 
-Ship `apps/web` to `https://bomy.my` backed by a hosted Postgres so the public storefront is reviewable by HitPay. PR #39 does NOT itself unblock HitPay restoration — it produces the live URL the reviewer will browse. PR #41 submits.
+Ship `apps/web` to `https://brandsofmalaysia.com` backed by a hosted Postgres so the public storefront is reviewable by HitPay. PR #39 does NOT itself unblock HitPay restoration — it produces the live URL the reviewer will browse. PR #41 submits.
 
 **Locked decisions (Charlie 2026-06-04):**
 
 - Web-only minimum scope. `apps/api` and `apps/admin` stay local.
 - Hosted Postgres via Vercel Marketplace → Neon, ap-southeast-1 (Singapore).
-- Apex domain `https://bomy.my` primary; `www.bomy.my` 308-redirects to apex.
+- Apex domain `https://brandsofmalaysia.com` primary; `www.brandsofmalaysia.com` 308-redirects to apex.
 - Preview-first cutover, then auto-deploy on push to `main`.
 - Full sign-in works in prod (real OAuth + AUTH_SECRET).
-- Real Cloudflare Turnstile keys for `bomy.my`.
+- Real Cloudflare Turnstile keys for `brandsofmalaysia.com`.
 - Mail/SMTP deferred to PR #40+.
 - Runtime DB role: `bomy_app` (NOT Neon owner). Direct/unpooled connection string (NOT pooled).
 - Shared review DB for Preview + Production environments — no Neon preview branching in PR #39.
@@ -31,9 +31,9 @@ Ship `apps/web` to `https://bomy.my` backed by a hosted Postgres so the public s
 - Provision Neon Postgres via Vercel Marketplace; apply BOMY migrations; create `bomy_app` role with RLS-bound grants.
 - Two connection strings: Neon owner direct/unpooled (operator-shell only, for migrations) and `bomy_app` direct/unpooled (Vercel runtime).
 - Create Vercel project `bomy-web` linked to GitHub repo `BOMY-Inflow-Vision/bomy-app`; root directory `apps/web`.
-- Attach `bomy.my` and `www.bomy.my` as production domains; set apex as primary, www as 308-redirect.
-- Register OAuth callbacks at Google Cloud Console + Meta Developers for `https://bomy.my`.
-- Register Cloudflare Turnstile site for `bomy.my`.
+- Attach `brandsofmalaysia.com` and `www.brandsofmalaysia.com` as production domains; set apex as primary, www as 308-redirect.
+- Register OAuth callbacks at Google Cloud Console + Meta Developers for `https://brandsofmalaysia.com`.
+- Register Cloudflare Turnstile site for `brandsofmalaysia.com`.
 - Set the Vercel env contract (§5) for the Production environment.
 - Ship a tiny secret-gated diagnostic route (`apps/web/src/app/api/ops/db-identity/route.ts`) that proves the runtime DB connection uses `bomy_app`.
 - Ship a `paymentsEnabled()` helper + page-level CTA gating + server-action early-return guards for `/membership` and `/brands/[slug]/subscribe`, so a reviewer click cannot trigger `HITPAY_API_KEY is required` throws while HITPAY envs are unset.
@@ -47,7 +47,7 @@ Tracked in the post-merge handoff backlog:
 - **`apps/api` deployment** (Fastify + BullMQ scheduler + webhooks). Needs a persistent-process host (Railway / Render / Fly.io); separate PR. Until then: no HitPay webhook target, no scheduled jobs in prod. `checkout_enabled = false` keeps that surface dormant.
 - **`apps/admin` deployment.** Internal ops console; runs locally.
 - **Real HitPay keys / `checkout_enabled` flip.** Blocked on HitPay restoration. `HITPAY_*` envs intentionally unset in Vercel.
-- **Outbound mail in prod.** `@bomy/mailer` silently skips when SMTP unset (per the dispatch-axis convention from PR #35). `/seller/apply` succeeds; applicant ack + ops alert do not send. PR #40+ ships a transactional provider + bomy.my SPF/DKIM/DMARC.
+- **Outbound mail in prod.** `@bomy/mailer` silently skips when SMTP unset (per the dispatch-axis convention from PR #35). `/seller/apply` succeeds; applicant ack + ops alert do not send. PR #40+ ships a transactional provider + brandsofmalaysia.com SPF/DKIM/DMARC.
 - **Product seed realism.** PR #40 if reviewer-visible `/products` is too sparse. Decide after first prod smoke.
 - **Production-grade DB posture.** Neon hobby/free tier is acceptable for the review window; HA, PITR tooling beyond Neon defaults, replica reads, and external backup tooling deferred.
 - **Pooled vs direct URL split by code path.** Today `makeAuthDb()` sets `app.bypass_rls = true` at the connection level, which is incompatible with PgBouncer transaction-mode pooling; using direct/unpooled across the board is safe at review-traffic scale. Future PR refactors so short transactions use pooled and long-session ops use direct.
@@ -67,7 +67,7 @@ GitHub repo (main + PR branches)
    │
    ▼ push trigger
 Vercel project: bomy-web   (root: apps/web)
-   ├─ Production env  → https://bomy.my       (auto-deploy on push to main)
+   ├─ Production env  → https://brandsofmalaysia.com       (auto-deploy on push to main)
    └─ Preview env     → *.vercel.app           (auto-deploy on push to non-main branches)
    │
    ▼ runtime connection (override Marketplace default)
@@ -77,10 +77,10 @@ Neon Postgres (aws-ap-southeast-1)
    │
    ├─ Auth providers:
    │    Google Cloud + Meta Developers
-   │    Callback URLs: https://bomy.my/api/auth/callback/{google,facebook}
+   │    Callback URLs: https://brandsofmalaysia.com/api/auth/callback/{google,facebook}
    │
    └─ Bot defence:
-        Cloudflare Turnstile (site registered for bomy.my)
+        Cloudflare Turnstile (site registered for brandsofmalaysia.com)
 ```
 
 `apps/api` and `apps/admin` keep running locally; ops operate them via `pnpm --filter @bomy/{api,admin} dev`. Production has no api/admin surface.
@@ -88,7 +88,7 @@ Neon Postgres (aws-ap-southeast-1)
 **Why this shape:**
 
 - Vercel covers Next.js natively and is the leading host in the project's loaded skills (`vercel:*`). Marketplace integration auto-handles Neon provisioning + env injection.
-- Apex domain matches the `contact@bomy.my` email convention introduced in PR #38; HitPay reviewer sees a brand-clean URL.
+- Apex domain matches the `contact@brandsofmalaysia.com` email convention introduced in PR #38; HitPay reviewer sees a brand-clean URL.
 - Direct/unpooled connection string sidesteps PgBouncer transaction-mode limits on session-level GUCs — specifically `makeAuthDb`'s connection-level `app.bypass_rls = 'true'` set, which the pooler cannot guarantee across transactions.
 - `bomy_app` runtime role is non-negotiable: storefront reads, seller-inquiry writes, and the NextAuth Drizzle adapter all run through RLS. Letting Neon's auto-injected owner role serve runtime traffic silently disables RLS (owner bypasses by default) and would be a security regression vs the locally enforced contract.
 
@@ -101,34 +101,34 @@ Neon Postgres (aws-ap-southeast-1)
 
 All Production-scope unless noted.
 
-| Var                                                                        | Source                                       | Value/notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| -------------------------------------------------------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`                                                             | **Operator** (overrides Marketplace default) | **`bomy_app` direct/unpooled** Neon connection string. Vercel's Marketplace integration injects the owner-role pooled URL by default — replace it explicitly. App code reads this env; setting it wrong silently bypasses RLS.                                                                                                                                                                                                                                             |
-| `DATABASE_APP_URL`                                                         | **Operator**                                 | Same `bomy_app` direct/unpooled string. Apps/web does NOT read this today; setting it for forward-compat so a future `@bomy/db` refactor switches env-read order with no env-rewire cost.                                                                                                                                                                                                                                                                                  |
-| `BOMY_RLS_READY`                                                           | Locked                                       | `1`                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| `AUTH_SECRET`                                                              | Generated                                    | `openssl rand -base64 32` — server-only; never committed                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| `NEXTAUTH_URL`                                                             | Locked                                       | `https://bomy.my` — keeping repo's existing env-name convention (Auth.js v5 reads both `AUTH_URL` and `NEXTAUTH_URL`; only set one to avoid drift)                                                                                                                                                                                                                                                                                                                         |
-| `APP_URL`                                                                  | Locked                                       | `https://bomy.my`                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| `AUTH_GOOGLE_ID`                                                           | Google Cloud Console                         | OAuth client ID; bomy.my registered as authorized origin + callback                                                                                                                                                                                                                                                                                                                                                                                                        |
-| `AUTH_GOOGLE_SECRET`                                                       | Google Cloud Console                         | OAuth client secret                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| `AUTH_FACEBOOK_ID`                                                         | Meta Developers                              | OAuth app ID; bomy.my registered as valid OAuth redirect URI                                                                                                                                                                                                                                                                                                                                                                                                               |
-| `AUTH_FACEBOOK_SECRET`                                                     | Meta Developers                              | OAuth app secret                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| `NEXT_PUBLIC_TURNSTILE_SITEKEY`                                            | Cloudflare Turnstile (bomy.my site)          | Public site key                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| `TURNSTILE_SECRET_KEY`                                                     | Cloudflare Turnstile (bomy.my site)          | Server-only secret                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `BOMY_OPS_DIAGNOSTIC_TOKEN`                                                | Generated                                    | `openssl rand -hex 32`; gates the `/api/ops/db-identity` diagnostic route. Setting the env enables the route; unsetting disables it (route 404s).                                                                                                                                                                                                                                                                                                                          |
-| `NEXT_PUBLIC_DEFAULT_LOCALE`                                               | Locked                                       | `en`                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| **Intentionally unset in PR #39:**                                         |                                              |                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| `HITPAY_API_KEY` / `HITPAY_API_URL` / `HITPAY_SALT` / `HITPAY_WEBHOOK_URL` | —                                            | No HitPay creds. **`checkout_enabled = false` only gates cart checkout** — it does NOT gate `/membership` or `/brands/[slug]/subscribe`, both of which call `hitpayClient()` directly and would throw `HITPAY_API_KEY is required` if invoked. PR #39 ships a `paymentsEnabled()` helper that gates these CTAs (§6) and adds an early-return guard to the affected server actions. Once HitPay restoration lands, set these envs and re-enable the CTAs in a follow-up PR. |
-| `NEXT_PUBLIC_API_URL`                                                      | —                                            | apps/api not deployed; **unset** (NOT `http://localhost:3001` — that would leak local intent to clients)                                                                                                                                                                                                                                                                                                                                                                   |
-| `MAILER_*` / SMTP host/port/user/pass / `OPS_ALERT_EMAILS` / `ADMIN_URL`   | —                                            | Mail deferred; `@bomy/mailer` skips silently                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| `NODE_ENV`                                                                 | —                                            | Vercel sets `production` automatically; do NOT override                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Var                                                                        | Source                                           | Value/notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| -------------------------------------------------------------------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                                                             | **Operator** (overrides Marketplace default)     | **`bomy_app` direct/unpooled** Neon connection string. Vercel's Marketplace integration injects the owner-role pooled URL by default — replace it explicitly. App code reads this env; setting it wrong silently bypasses RLS.                                                                                                                                                                                                                                             |
+| `DATABASE_APP_URL`                                                         | **Operator**                                     | Same `bomy_app` direct/unpooled string. Apps/web does NOT read this today; setting it for forward-compat so a future `@bomy/db` refactor switches env-read order with no env-rewire cost.                                                                                                                                                                                                                                                                                  |
+| `BOMY_RLS_READY`                                                           | Locked                                           | `1`                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `AUTH_SECRET`                                                              | Generated                                        | `openssl rand -base64 32` — server-only; never committed                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `NEXTAUTH_URL`                                                             | Locked                                           | `https://brandsofmalaysia.com` — keeping repo's existing env-name convention (Auth.js v5 reads both `AUTH_URL` and `NEXTAUTH_URL`; only set one to avoid drift)                                                                                                                                                                                                                                                                                                            |
+| `APP_URL`                                                                  | Locked                                           | `https://brandsofmalaysia.com`                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `AUTH_GOOGLE_ID`                                                           | Google Cloud Console                             | OAuth client ID; brandsofmalaysia.com registered as authorized origin + callback                                                                                                                                                                                                                                                                                                                                                                                           |
+| `AUTH_GOOGLE_SECRET`                                                       | Google Cloud Console                             | OAuth client secret                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `AUTH_FACEBOOK_ID`                                                         | Meta Developers                                  | OAuth app ID; brandsofmalaysia.com registered as valid OAuth redirect URI                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `AUTH_FACEBOOK_SECRET`                                                     | Meta Developers                                  | OAuth app secret                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `NEXT_PUBLIC_TURNSTILE_SITEKEY`                                            | Cloudflare Turnstile (brandsofmalaysia.com site) | Public site key                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `TURNSTILE_SECRET_KEY`                                                     | Cloudflare Turnstile (brandsofmalaysia.com site) | Server-only secret                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `BOMY_OPS_DIAGNOSTIC_TOKEN`                                                | Generated                                        | `openssl rand -hex 32`; gates the `/api/ops/db-identity` diagnostic route. Setting the env enables the route; unsetting disables it (route 404s).                                                                                                                                                                                                                                                                                                                          |
+| `NEXT_PUBLIC_DEFAULT_LOCALE`                                               | Locked                                           | `en`                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **Intentionally unset in PR #39:**                                         |                                                  |                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `HITPAY_API_KEY` / `HITPAY_API_URL` / `HITPAY_SALT` / `HITPAY_WEBHOOK_URL` | —                                                | No HitPay creds. **`checkout_enabled = false` only gates cart checkout** — it does NOT gate `/membership` or `/brands/[slug]/subscribe`, both of which call `hitpayClient()` directly and would throw `HITPAY_API_KEY is required` if invoked. PR #39 ships a `paymentsEnabled()` helper that gates these CTAs (§6) and adds an early-return guard to the affected server actions. Once HitPay restoration lands, set these envs and re-enable the CTAs in a follow-up PR. |
+| `NEXT_PUBLIC_API_URL`                                                      | —                                                | apps/api not deployed; **unset** (NOT `http://localhost:3001` — that would leak local intent to clients)                                                                                                                                                                                                                                                                                                                                                                   |
+| `MAILER_*` / SMTP host/port/user/pass / `OPS_ALERT_EMAILS` / `ADMIN_URL`   | —                                                | Mail deferred; `@bomy/mailer` skips silently                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `NODE_ENV`                                                                 | —                                                | Vercel sets `production` automatically; do NOT override                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 **Preview environment** mirrors Production envs EXCEPT:
 
-- OAuth provider callbacks recognize only `https://bomy.my`, not `*.vercel.app`. Sign-in is render-only in preview; full sign-in smoke happens against prod after DNS attach.
-- **Turnstile keys differ between Preview and Production** (a Turnstile site is hostname-bound; the bomy.my prod site key would not validate on `*.vercel.app`):
+- OAuth provider callbacks recognize only `https://brandsofmalaysia.com`, not `*.vercel.app`. Sign-in is render-only in preview; full sign-in smoke happens against prod after DNS attach.
+- **Turnstile keys differ between Preview and Production** (a Turnstile site is hostname-bound; the brandsofmalaysia.com prod site key would not validate on `*.vercel.app`):
   - **Preview env:** Cloudflare-published always-pass test keys — `NEXT_PUBLIC_TURNSTILE_SITEKEY=1x00000000000000000000AA`, `TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA`. Preview Turnstile smoke proves only widget render + happy-path token round-trip; honest abuse-resistance smoke happens in prod.
-  - **Production env:** real bomy.my-bound Turnstile site key + secret key (the §5 row above).
+  - **Production env:** real brandsofmalaysia.com-bound Turnstile site key + secret key (the §5 row above).
 - All other smoke checks (legal routes, /products, /cart, /seller/apply render + diagnostic-route role check) are valid in preview.
 
 ## 6. File structure
@@ -164,11 +164,11 @@ The full runbook lives in `docs/runbooks/public-deployment-cutover.md`. This sec
 
 **Pre-flight (operator checklist before starting):**
 
-- bomy.my registered + nameservers controllable (or DNS managed at registrar with apex A record + CNAME-on-www permissions).
+- brandsofmalaysia.com registered + nameservers controllable (or DNS managed at registrar with apex A record + CNAME-on-www permissions).
 - Cloudflare account exists (free tier is sufficient).
 - Google Cloud Console + Meta Developers accounts with permission to register OAuth apps.
 - Vercel account exists (Charlie's; team or personal); GitHub repo access ready to grant.
-- Existing mail DNS records (MX / SPF / DKIM / DMARC) on bomy.my noted so they are preserved.
+- Existing mail DNS records (MX / SPF / DKIM / DMARC) on brandsofmalaysia.com noted so they are preserved.
 
 **Sequence:**
 
@@ -216,39 +216,39 @@ The full runbook lives in `docs/runbooks/public-deployment-cutover.md`. This sec
    - **Production scope:**
      - **Override** Marketplace-injected `DATABASE_URL` with the `bomy_app` direct/unpooled string from step 5.
      - Set `DATABASE_APP_URL` to the same string.
-     - Set `BOMY_RLS_READY=1`, `AUTH_SECRET`, `NEXTAUTH_URL`, `APP_URL`, OAuth IDs/secrets, **real bomy.my Turnstile keys** (set after step 9), `BOMY_OPS_DIAGNOSTIC_TOKEN`, `NEXT_PUBLIC_DEFAULT_LOCALE`.
+     - Set `BOMY_RLS_READY=1`, `AUTH_SECRET`, `NEXTAUTH_URL`, `APP_URL`, OAuth IDs/secrets, **real brandsofmalaysia.com Turnstile keys** (set after step 9), `BOMY_OPS_DIAGNOSTIC_TOKEN`, `NEXT_PUBLIC_DEFAULT_LOCALE`.
    - **Preview scope (Turnstile only — diverges from prod):**
      - `NEXT_PUBLIC_TURNSTILE_SITEKEY=1x00000000000000000000AA`
      - `TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA`
-     - Cloudflare's documented always-pass test keys. Required because the prod Turnstile site is hostname-bound to `bomy.my` and would not validate on `*.vercel.app` preview URLs. All other Preview envs mirror Production (same DB, same auth secrets, etc.).
+     - Cloudflare's documented always-pass test keys. Required because the prod Turnstile site is hostname-bound to `brandsofmalaysia.com` and would not validate on `*.vercel.app` preview URLs. All other Preview envs mirror Production (same DB, same auth secrets, etc.).
 
 8. **Register OAuth callbacks:**
-   - Google Cloud Console: add `https://bomy.my` as authorized JavaScript origin AND `https://bomy.my/api/auth/callback/google` as authorized redirect URI on the OAuth 2.0 client.
-   - Meta Developers: add `https://bomy.my/api/auth/callback/facebook` as valid OAuth redirect URI on the app's Facebook Login product config.
+   - Google Cloud Console: add `https://brandsofmalaysia.com` as authorized JavaScript origin AND `https://brandsofmalaysia.com/api/auth/callback/google` as authorized redirect URI on the OAuth 2.0 client.
+   - Meta Developers: add `https://brandsofmalaysia.com/api/auth/callback/facebook` as valid OAuth redirect URI on the app's Facebook Login product config.
 
-9. **Register Cloudflare Turnstile site** for `bomy.my`:
+9. **Register Cloudflare Turnstile site** for `brandsofmalaysia.com`:
    - Widget mode: Managed.
-   - Hostnames: `bomy.my` (and `www.bomy.my` if it serves before redirect).
+   - Hostnames: `brandsofmalaysia.com` (and `www.brandsofmalaysia.com` if it serves before redirect).
    - Capture site key + secret key into the Vercel envs.
 
 10. **Push the PR #39 branch** → Vercel builds a preview at `https://bomy-web-<hash>.vercel.app`.
 
 11. **Smoke the preview** (§8 preview-smoke checklist). Treat any RED check as a hard gate.
 
-12. **Attach domains** `bomy.my` (production primary) and `www.bomy.my` (308 → apex) to the Vercel project.
+12. **Attach domains** `brandsofmalaysia.com` (production primary) and `www.brandsofmalaysia.com` (308 → apex) to the Vercel project.
 
 13. **Configure DNS at the registrar:**
     - Apex `@` `A` → `76.76.21.21` (Vercel anycast).
-    - `www` `CNAME` → exact value from `vercel domains inspect bomy.my` (project-specific).
-    - **PRESERVE** existing `MX`, `SPF` (TXT), `DKIM` (TXT), `DMARC` (TXT) records — `contact@bomy.my` is public from PR #38. Do NOT delegate nameservers to Vercel unless these are migrated first.
+    - `www` `CNAME` → exact value from `vercel domains inspect brandsofmalaysia.com` (project-specific).
+    - **PRESERVE** existing `MX`, `SPF` (TXT), `DKIM` (TXT), `DMARC` (TXT) records — `contact@brandsofmalaysia.com` is public from PR #38. Do NOT delegate nameservers to Vercel unless these are migrated first.
 
 14. **Bob R0 review** of the PR #39 diff (code surface is small — diagnostic route + runbook + maybe vercel.json) + Vercel checks green.
 
-15. **Charlie's explicit "Merge now"** → squash-merge as `feat(web): public deployment to bomy.my (#39)` → Vercel auto-deploys main to production env.
+15. **Charlie's explicit "Merge now"** → squash-merge as `feat(web): public deployment to brandsofmalaysia.com (#39)` → Vercel auto-deploys main to production env.
 
 16. **Wait DNS propagation** (5–60 min depending on registrar TTLs).
 
-17. **Smoke production** at `https://bomy.my` (§8 production-smoke checklist).
+17. **Smoke production** at `https://brandsofmalaysia.com` (§8 production-smoke checklist).
 
 18. **Post-merge bookkeeping** (PR log, handoff refresh, memory updates, `project_hitpay_creds_blocker.md` update).
 
@@ -273,8 +273,8 @@ The full runbook lives in `docs/runbooks/public-deployment-cutover.md`. This sec
 
 **Production smoke (hard gate before declaring done):**
 
-- All preview-smoke checks above, executed at `https://bomy.my`, **with one difference**: Turnstile uses the **real bomy.my-bound site key + secret key**, NOT the Cloudflare always-pass test keys used in Preview. The `/seller/apply` smoke must complete a real Turnstile challenge (not auto-pass) before validating the server-side `verifyTurnstile()` round-trip. If the prod Turnstile widget fails to render or validate, that is a hard gate failure — investigate the Cloudflare site config before rolling forward.
-- [ ] `https://www.bomy.my` 308-redirects to `https://bomy.my`.
+- All preview-smoke checks above, executed at `https://brandsofmalaysia.com`, **with one difference**: Turnstile uses the **real brandsofmalaysia.com-bound site key + secret key**, NOT the Cloudflare always-pass test keys used in Preview. The `/seller/apply` smoke must complete a real Turnstile challenge (not auto-pass) before validating the server-side `verifyTurnstile()` round-trip. If the prod Turnstile widget fails to render or validate, that is a hard gate failure — investigate the Cloudflare site config before rolling forward.
+- [ ] `https://www.brandsofmalaysia.com` 308-redirects to `https://brandsofmalaysia.com`.
 - [ ] `/api/ops/db-identity` with correct token returns `{"currentUser":"bomy_app"}`.
 - [ ] Google sign-in round-trip succeeds; creates a NextAuth DB session row in Neon.
 - [ ] Meta sign-in round-trip succeeds OR documented gap if Meta approval lags (not a merge blocker; Bob notified in PR comments).
@@ -294,7 +294,7 @@ The full runbook lives in `docs/runbooks/public-deployment-cutover.md`. This sec
 
 - **Code rollback (fast, <30 s):** Vercel dashboard → Deployments → previous green production deploy → "Promote to Production." Reverts code without DNS or DB changes. Use for any code-level defect.
 - **Env rollback:** if a wrong env (e.g. owner-role DB URL) is in production, fix in Vercel dashboard → Settings → Environment Variables, then trigger a redeploy. No code change.
-- **DNS rollback (slow, 5–60 min propagation):** Vercel project → Domains → remove `bomy.my`. Restore previous A record at registrar. Use only if Vercel itself is unreachable or the deployment is unrecoverable.
+- **DNS rollback (slow, 5–60 min propagation):** Vercel project → Domains → remove `brandsofmalaysia.com`. Restore previous A record at registrar. Use only if Vercel itself is unreachable or the deployment is unrecoverable.
 - **DB rollback (last resort):** Neon point-in-time-restore to a timestamp before the failed migration. PR #39's migration step is forward-only; if a migration breaks production, restore + investigate offline.
 - **Diagnostic route disable:** unset `BOMY_OPS_DIAGNOSTIC_TOKEN` in Vercel envs → redeploy → route 404s.
 
@@ -325,10 +325,10 @@ All procedures + step-by-step commands live in `docs/runbooks/public-deployment-
 1. `feat(web): add paymentsEnabled() helper + gate /membership and /brands/[slug]/subscribe CTAs` — `apps/web/src/lib/payments-enabled.ts` + helper test + the 4 page/action files + their action tests.
 2. `feat(web): add secret-gated DB identity diagnostic route` — `apps/web/src/app/api/ops/db-identity/route.ts` + test file + `.env.local.example` update for `BOMY_OPS_DIAGNOSTIC_TOKEN`.
 3. `docs(specs): add PR #39 public deployment design` — already committed as `22bdcc1`; the amendments from this review iteration will be in a follow-up `docs(specs): amend PR #39 design (Charlie R0)` commit.
-4. `docs(runbooks): public deployment cutover for bomy.my` — `docs/runbooks/public-deployment-cutover.md`.
+4. `docs(runbooks): public deployment cutover for brandsofmalaysia.com` — `docs/runbooks/public-deployment-cutover.md`.
 5. (Conditional) `chore(web): add vercel.json for monorepo root build` — only if the default-path build fails and fallback is needed.
 
-**Squash message at merge:** `feat(web): public deployment to bomy.my (#39)`
+**Squash message at merge:** `feat(web): public deployment to brandsofmalaysia.com (#39)`
 
 **PR body** (drafted to `.andy/pr39-description.md` during preview-smoke phase; carry-forward per PR #36/#37/#38 pattern):
 
@@ -355,7 +355,7 @@ All procedures + step-by-step commands live in `docs/runbooks/public-deployment-
 - [ ] `pnpm lint` green (`--max-warnings 0`).
 - [ ] Bob R0 sign-off on the 6 points.
 - [ ] Charlie's explicit "Merge now"; squash-merge.
-- [ ] **Post-merge:** production smoke (§8) hard gates all pass at `https://bomy.my`; PR log written; handoff refreshed; memory entries saved (`project_pr39_complete.md` + `project_hitpay_creds_blocker.md` update). Branch cleanup pending Charlie's approval per standing rule.
+- [ ] **Post-merge:** production smoke (§8) hard gates all pass at `https://brandsofmalaysia.com`; PR log written; handoff refreshed; memory entries saved (`project_pr39_complete.md` + `project_hitpay_creds_blocker.md` update). Branch cleanup pending Charlie's approval per standing rule.
 
 ---
 
@@ -368,6 +368,6 @@ PR #39 is acceptance-ready when:
 - [ ] `DATABASE_URL=<bomy_app-direct-unpooled> DATABASE_APP_URL=<bomy_app-direct-unpooled> BOMY_RLS_READY=1 BOMY_OPS_DIAGNOSTIC_TOKEN=<test-token> pnpm --filter @bomy/web test` green; `pnpm typecheck`, `pnpm lint` green.
 - [ ] Bob R0 sign-off on the 6 review points.
 - [ ] Charlie's explicit "Merge now"; squash-merge.
-- [ ] Production-smoke hard gates pass at `https://bomy.my` after DNS attach.
+- [ ] Production-smoke hard gates pass at `https://brandsofmalaysia.com` after DNS attach.
 - [ ] Diagnostic-route token rotated or unset after smoke.
 - [ ] Post-merge: log, handoff, memory entries, branch cleanup gate.
