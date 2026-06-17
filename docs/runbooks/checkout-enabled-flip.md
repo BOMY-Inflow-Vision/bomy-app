@@ -10,11 +10,11 @@
 
 ## §0. Pre-flight (do once per actor, per environment)
 
-- Confirm target env (local or staging-template). If `DATABASE_URL` host smells like prod (`*.bomy.my`, `*.production.*`), **stop** — this runbook is not for prod.
+- Confirm target env (local or staging-template). If `DATABASE_URL` host smells like prod (`*.brandsofmalaysia.com`, `*.production.*`), **stop** — this runbook is not for prod.
 - Look up your admin user UUID. This one-off lookup uses the **owner-role** connection (`DATABASE_URL`), NOT `DATABASE_APP_URL`. Under the limited `bomy_app` role no RLS context is set in an ad-hoc `psql` session, so the query would return empty.
   ```sql
   -- Connect with DATABASE_URL (owner role).
-  SELECT id, email, role FROM users WHERE email = '<you>@bomy.my';
+  SELECT id, email, role FROM users WHERE email = '<you>@brandsofmalaysia.com';
   ```
   Role must be `bomy_ops`, `bomy_admin`, or `bomy_finance`. Otherwise stop.
   Alternative: when an admin console "view my profile" page exists, use that instead.

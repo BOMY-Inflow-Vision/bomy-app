@@ -112,8 +112,8 @@ describe.skipIf(!shouldRun)("submitSellerInquiry — server action", () => {
   })
 
   it("verify passes → inserts row + dispatches BOTH applicant ack and ops alert", async () => {
-    process.env["OPS_ALERT_EMAILS"] = "ops@bomy.my"
-    process.env["ADMIN_URL"] = "https://admin.bomy.my"
+    process.env["OPS_ALERT_EMAILS"] = "ops@brandsofmalaysia.com"
+    process.env["ADMIN_URL"] = "https://admin.brandsofmalaysia.com"
     const uniqueEmail = makeUniqueEmail("happy")
     const { submitSellerInquiry } = await import("../../src/app/seller/apply/actions.js")
     await expect(submitSellerInquiry(makeFormData({ email: uniqueEmail }))).resolves.toBeUndefined()
@@ -134,7 +134,7 @@ describe.skipIf(!shouldRun)("submitSellerInquiry — server action", () => {
     })
     expect(sendOpsAlertMock).toHaveBeenCalledOnce()
     expect(sendOpsAlertMock.mock.calls[0]![2]).toMatchObject({
-      opsEmails: ["ops@bomy.my"],
+      opsEmails: ["ops@brandsofmalaysia.com"],
     })
   })
 
@@ -157,7 +157,7 @@ describe.skipIf(!shouldRun)("submitSellerInquiry — server action", () => {
   })
 
   it("applicant send throws → ops alert still attempted; action resolves", async () => {
-    process.env["OPS_ALERT_EMAILS"] = "ops@bomy.my"
+    process.env["OPS_ALERT_EMAILS"] = "ops@brandsofmalaysia.com"
     sendApplicantAckMock.mockRejectedValueOnce(new Error("smtp boom"))
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
     const { submitSellerInquiry } = await import("../../src/app/seller/apply/actions.js")
@@ -174,7 +174,7 @@ describe.skipIf(!shouldRun)("submitSellerInquiry — server action", () => {
   })
 
   it("ops alert throws → applicant ack already attempted; action resolves", async () => {
-    process.env["OPS_ALERT_EMAILS"] = "ops@bomy.my"
+    process.env["OPS_ALERT_EMAILS"] = "ops@brandsofmalaysia.com"
     sendOpsAlertMock.mockRejectedValueOnce(new Error("smtp boom"))
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
     const { submitSellerInquiry } = await import("../../src/app/seller/apply/actions.js")

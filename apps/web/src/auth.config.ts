@@ -1,8 +1,10 @@
 import type { NextAuthConfig } from "next-auth"
-import type { JWT } from "next-auth/jwt"
 import Google from "next-auth/providers/google"
 
 import type { UserRole } from "@bomy/db"
+
+// Paths a logged-in but unconsented user may still visit.
+const CONSENT_ALLOWLIST = ["/auth/consent", "/auth/sign-in", "/terms", "/privacy", "/api/auth"]
 
 // Edge-safe config: no DB imports. Used by both middleware and the full auth.ts.
 export const authConfig = {
@@ -11,18 +13,34 @@ export const authConfig = {
     signIn: "/auth/sign-in",
   },
   callbacks: {
-    // Propagate custom JWT fields (id, role) into the session for edge middleware.
+    // Propagate custom JWT fields into the session for edge middleware.
     // With strategy:"jwt", the middleware decodes the JWT but does NOT call the
-    // session callback defined in auth.ts — so we need this pass-through here.
+    // session callback in auth.ts — so this pass-through is required.
     session({ session, token }) {
-      const t = token as JWT & { id?: string; role?: UserRole }
-      if (t.id) session.user.id = t.id
-      if (t.role) session.user.role = t.role
+      if (token["id"]) session.user.id = token["id"] as string
+      if (token["role"]) session.user.role = token["role"] as UserRole
+      if (token["consentVersion"] !== undefined)
+        session.user.consentVersion = token["consentVersion"] as string | undefined
+      if (token["currentTosVersion"] !== undefined)
+        session.user.currentTosVersion = token["currentTosVersion"] as string | undefined
       return session
     },
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user
-      const role = (auth?.user as { role?: UserRole } | undefined)?.role
+      const user = auth?.user as
+        | { role?: UserRole; consentVersion?: string; currentTosVersion?: string }
+        | undefined
+
+      // Consent gate: logged-in users must have a current-version consent row.
+      // Gate fires before role checks so unconsented users can't reach any
+      // protected route. Allowlist prevents redirect loops.
+      if (isLoggedIn) {
+        const needsConsent = !user?.consentVersion || user.consentVersion !== user.currentTosVersion
+        const onAllowlist = CONSENT_ALLOWLIST.some((p) => nextUrl.pathname.startsWith(p))
+        if (needsConsent && !onAllowlist) {
+          return Response.redirect(new URL("/auth/consent", nextUrl.origin))
+        }
+      }
 
       // Routes that require any login
       const requiresLogin =
@@ -35,7 +53,7 @@ export const authConfig = {
       // Seller dashboard requires seller_owner role
       if (nextUrl.pathname.startsWith("/seller/dashboard")) {
         if (!isLoggedIn) return false
-        if (role !== "seller_owner") {
+        if (user?.role !== "seller_owner") {
           return Response.redirect(new URL("/account", nextUrl.origin))
         }
       }

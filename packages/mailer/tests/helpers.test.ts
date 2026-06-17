@@ -3,10 +3,11 @@ import { joinUrl, parseOpsEmails } from "../src/helpers.js"
 
 describe("parseOpsEmails", () => {
   it("splits comma-separated addresses and trims whitespace", () => {
-    expect(parseOpsEmails({ OPS_ALERT_EMAILS: "ops@bomy.my, finance@bomy.my , " })).toEqual([
-      "ops@bomy.my",
-      "finance@bomy.my",
-    ])
+    expect(
+      parseOpsEmails({
+        OPS_ALERT_EMAILS: "ops@brandsofmalaysia.com, finance@brandsofmalaysia.com , ",
+      }),
+    ).toEqual(["ops@brandsofmalaysia.com", "finance@brandsofmalaysia.com"])
   })
 
   it("returns empty array when OPS_ALERT_EMAILS is unset", () => {
@@ -20,14 +21,14 @@ describe("parseOpsEmails", () => {
 
 describe("joinUrl", () => {
   it("strips trailing slash from base", () => {
-    expect(joinUrl("https://app.bomy.my/", "/account/orders")).toBe(
-      "https://app.bomy.my/account/orders",
+    expect(joinUrl("https://app.brandsofmalaysia.com/", "/account/orders")).toBe(
+      "https://app.brandsofmalaysia.com/account/orders",
     )
   })
 
   it("handles base without trailing slash", () => {
-    expect(joinUrl("https://app.bomy.my", "/account/orders")).toBe(
-      "https://app.bomy.my/account/orders",
+    expect(joinUrl("https://app.brandsofmalaysia.com", "/account/orders")).toBe(
+      "https://app.brandsofmalaysia.com/account/orders",
     )
   })
 })

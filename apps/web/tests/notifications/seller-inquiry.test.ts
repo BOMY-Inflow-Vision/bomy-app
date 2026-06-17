@@ -51,10 +51,13 @@ describe("sendOpsAlert", () => {
         storeName: "Kedai Aisyah",
         message: "Looking forward.",
       },
-      { adminUrl: "https://admin.bomy.my/", opsEmails: ["ops@bomy.my", "finance@bomy.my"] },
+      {
+        adminUrl: "https://admin.brandsofmalaysia.com/",
+        opsEmails: ["ops@brandsofmalaysia.com", "finance@brandsofmalaysia.com"],
+      },
     )
     const args = sendMail.mock.calls[0]![0]
-    expect(args.to).toEqual(["ops@bomy.my", "finance@bomy.my"])
+    expect(args.to).toEqual(["ops@brandsofmalaysia.com", "finance@brandsofmalaysia.com"])
     expect(args.subject).toContain("New seller inquiry")
     expect(args.subject).toContain("Kedai Aisyah")
 
@@ -66,7 +69,7 @@ describe("sendOpsAlert", () => {
       "Aisyah Sdn Bhd",
       "Kedai Aisyah",
       "Looking forward.",
-      "https://admin.bomy.my/seller-inquiries",
+      "https://admin.brandsofmalaysia.com/seller-inquiries",
     ]) {
       expect(body).toContain(fragment)
     }
@@ -85,7 +88,7 @@ describe("sendOpsAlert", () => {
         storeName: "Kedai Aisyah",
         message: null,
       },
-      { adminUrl: "https://admin.bomy.my", opsEmails: ["ops@bomy.my"] },
+      { adminUrl: "https://admin.brandsofmalaysia.com", opsEmails: ["ops@brandsofmalaysia.com"] },
     )
     const body = sendMail.mock.calls[0]![0].text
     expect(body).toContain("(none)")

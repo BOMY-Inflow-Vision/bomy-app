@@ -469,11 +469,11 @@ So the net change to existing tests: **delete 1 (PR #35 test 1), rewrite 1 (PR #
 
 4. **Empty / missing `cf-turnstile-response` reaches verify as `null` and rejects.** `makeFormData()` override that deletes the token field. Because the default `verifyTurnstileMock` resolves with `{ success: true }`, this test must override it to simulate what the real helper would do for `null` input per §5.2 step 2: `verifyTurnstileMock.mockResolvedValueOnce({ success: false, reason: "invalid-response" })`. Action throws `/Verification failed/`. Assert: `verifyTurnstileMock` was called with first arg `null` (not `""`, not `undefined`). Dispatcher mocks NOT called.
 
-5. **Verify passes → inserts row + dispatches BOTH applicant ack AND ops alert.** Default verify mock (success). `OPS_ALERT_EMAILS=ops@bomy.my`. Per-test unique applicant email via `makeUniqueEmail("happy")`. Assert: row inserted for the unique email; `sendApplicantAckMock` called exactly once with `{ name, email: <unique>, storeName }`; `sendOpsAlertMock` called exactly once with the inquiry payload + `opsEmails: ["ops@bomy.my"]`.
+5. **Verify passes → inserts row + dispatches BOTH applicant ack AND ops alert.** Default verify mock (success). `OPS_ALERT_EMAILS=ops@brandsofmalaysia.com`. Per-test unique applicant email via `makeUniqueEmail("happy")`. Assert: row inserted for the unique email; `sendApplicantAckMock` called exactly once with `{ name, email: <unique>, storeName }`; `sendOpsAlertMock` called exactly once with the inquiry payload + `opsEmails: ["ops@brandsofmalaysia.com"]`.
 
 6. **Per-recipient isolation: applicant send throws → ops alert still attempted.** Default verify mock. `sendApplicantAckMock.mockRejectedValueOnce(new Error("smtp boom"))`. Assert: action resolves normally; `email_notification_failed` log with `recipientType: "applicant"` fires; `sendOpsAlertMock` was still called (ops not blocked by applicant failure).
 
-7. **Per-recipient isolation: ops alert throws → applicant ack was already attempted; action resolves.** Default verify mock. `sendOpsAlertMock.mockRejectedValueOnce(new Error("smtp boom"))`. `OPS_ALERT_EMAILS=ops@bomy.my`. Assert: `sendApplicantAckMock` was called (applicant attempted first); `email_notification_failed` log with `recipientType: "ops"` fires; action resolves normally.
+7. **Per-recipient isolation: ops alert throws → applicant ack was already attempted; action resolves.** Default verify mock. `sendOpsAlertMock.mockRejectedValueOnce(new Error("smtp boom"))`. `OPS_ALERT_EMAILS=ops@brandsofmalaysia.com`. Assert: `sendApplicantAckMock` was called (applicant attempted first); `email_notification_failed` log with `recipientType: "ops"` fires; action resolves normally.
 
 ### 9.4 Toolchain — vitest config + stub
 
@@ -536,8 +536,8 @@ Local-only — no integration env exists yet.
 
 - `NEXT_PUBLIC_TURNSTILE_SITEKEY=1x00000000000000000000AA` (the always-pass test key from `.env.local.example`).
 - `TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA`.
-- `OPS_ALERT_EMAILS=ops@bomy.my` (any test value; required for the ops alert to dispatch instead of skip-log).
-- `EMAIL_DELIVERY_ENABLED=true SMTP_HOST=localhost SMTP_PORT=1025 SMTP_SECURE=false MAIL_FROM="BOMY <noreply@bomy.my>"` (Mailhog transport).
+- `OPS_ALERT_EMAILS=ops@brandsofmalaysia.com` (any test value; required for the ops alert to dispatch instead of skip-log).
+- `EMAIL_DELIVERY_ENABLED=true SMTP_HOST=localhost SMTP_PORT=1025 SMTP_SECURE=false MAIL_FROM="BOMY <noreply@brandsofmalaysia.com>"` (Mailhog transport).
 - Docker stack up (`docker compose -f infra/docker/compose.yml --env-file infra/docker/.env up -d`).
 
 **Steps:**

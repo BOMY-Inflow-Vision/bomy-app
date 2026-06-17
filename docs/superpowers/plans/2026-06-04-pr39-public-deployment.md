@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship the code-side changes that PR #39 (public deployment of `apps/web` to `https://bomy.my`) needs before its operator-side runbook can be executed: a `paymentsEnabled()` helper that gates `/membership` + `/brands/[slug]/subscribe` CTAs while HitPay creds are unset, a secret-gated `/api/ops/db-identity` diagnostic route that proves the runtime DB role is `bomy_app`, and the full operator cutover runbook.
+**Goal:** Ship the code-side changes that PR #39 (public deployment of `apps/web` to `https://brandsofmalaysia.com`) needs before its operator-side runbook can be executed: a `paymentsEnabled()` helper that gates `/membership` + `/brands/[slug]/subscribe` CTAs while HitPay creds are unset, a secret-gated `/api/ops/db-identity` diagnostic route that proves the runtime DB role is `bomy_app`, and the full operator cutover runbook.
 
 **Architecture:** All work lives in `apps/web` (Next.js 15 + React 19 + Drizzle + NextAuth v5). The helper is a pure env check; the CTA gating is server-component render-time + server-action `notFound()` guard (defence in depth); the diagnostic route is a `force-dynamic` GET handler that gates token-first and lazy-loads `makeDb()` only on authorized paths. No `@bomy/db`, `@bomy/hitpay`, or auth-wrapper code changes. No schema changes.
 
@@ -708,7 +708,7 @@ EOF
 
 ## Task 3: Public deployment cutover runbook
 
-This task maps 1:1 to spec §11 commit 4: `docs(runbooks): public deployment cutover for bomy.my`.
+This task maps 1:1 to spec §11 commit 4: `docs(runbooks): public deployment cutover for brandsofmalaysia.com`.
 
 **Files:**
 
@@ -721,7 +721,7 @@ The content is a faithful operator translation of spec §1 (locked decisions), �
 Create `docs/runbooks/public-deployment-cutover.md` with the structure below. Each `# Section` is a sub-section of the runbook; copy concrete values from the spec verbatim.
 
 ````markdown
-# Public deployment cutover — apps/web to bomy.my
+# Public deployment cutover — apps/web to brandsofmalaysia.com
 
 > **Operator runbook for PR #39.** This document is the executable counterpart to `docs/superpowers/specs/2026-06-04-pr39-public-deployment-design.md`. Every value here comes from the spec — when the spec changes, refresh this runbook.
 
@@ -729,8 +729,8 @@ Create `docs/runbooks/public-deployment-cutover.md` with the structure below. Ea
 
 Before starting:
 
-- [ ] `bomy.my` is registered AND you have access to the registrar's DNS panel.
-- [ ] Existing mail DNS records on `bomy.my` are noted (MX, SPF, DKIM, DMARC) — see "DNS preservation" below.
+- [ ] `brandsofmalaysia.com` is registered AND you have access to the registrar's DNS panel.
+- [ ] Existing mail DNS records on `brandsofmalaysia.com` are noted (MX, SPF, DKIM, DMARC) — see "DNS preservation" below.
 - [ ] Cloudflare account exists (free tier is sufficient for Turnstile).
 - [ ] Google Cloud Console + Meta Developers accounts ready (you can register OAuth apps).
 - [ ] Vercel account ready (personal or team); GitHub repo access ready to grant.
@@ -837,12 +837,12 @@ Required envs (from spec §5):
 | `DATABASE_APP_URL`                          | Same as `DATABASE_URL` (forward-compat)                                                     |
 | `BOMY_RLS_READY`                            | `1`                                                                                         |
 | `AUTH_SECRET`                               | `openssl rand -base64 32`                                                                   |
-| `NEXTAUTH_URL`                              | `https://bomy.my`                                                                           |
-| `APP_URL`                                   | `https://bomy.my`                                                                           |
+| `NEXTAUTH_URL`                              | `https://brandsofmalaysia.com`                                                              |
+| `APP_URL`                                   | `https://brandsofmalaysia.com`                                                              |
 | `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET`     | From Google Cloud Console (step 8)                                                          |
 | `AUTH_FACEBOOK_ID` / `AUTH_FACEBOOK_SECRET` | From Meta Developers (step 8)                                                               |
-| `NEXT_PUBLIC_TURNSTILE_SITEKEY`             | Real bomy.my Turnstile site key (step 9)                                                    |
-| `TURNSTILE_SECRET_KEY`                      | Real bomy.my Turnstile secret key (step 9)                                                  |
+| `NEXT_PUBLIC_TURNSTILE_SITEKEY`             | Real brandsofmalaysia.com Turnstile site key (step 9)                                       |
+| `TURNSTILE_SECRET_KEY`                      | Real brandsofmalaysia.com Turnstile secret key (step 9)                                     |
 | `BOMY_OPS_DIAGNOSTIC_TOKEN`                 | `openssl rand -hex 32`                                                                      |
 | `NEXT_PUBLIC_DEFAULT_LOCALE`                | `en`                                                                                        |
 
@@ -853,7 +853,7 @@ Preview scope (Turnstile only diverges from Production):
 | `NEXT_PUBLIC_TURNSTILE_SITEKEY` | `1x00000000000000000000AA` (Cloudflare always-pass test key)            |
 | `TURNSTILE_SECRET_KEY`          | `1x0000000000000000000000000000000AA` (Cloudflare always-pass test key) |
 
-All other Preview envs mirror Production. Required because the prod Turnstile site is hostname-bound to `bomy.my` and would not validate on `*.vercel.app` preview URLs.
+All other Preview envs mirror Production. Required because the prod Turnstile site is hostname-bound to `brandsofmalaysia.com` and would not validate on `*.vercel.app` preview URLs.
 
 Intentionally unset (in both Production AND Preview):
 
@@ -867,20 +867,20 @@ Do NOT set `NODE_ENV` manually; Vercel sets it to `production` automatically.
 
 **Google Cloud Console:**
 
-- OAuth 2.0 Client → add to authorized JavaScript origins: `https://bomy.my`
-- OAuth 2.0 Client → add to authorized redirect URIs: `https://bomy.my/api/auth/callback/google`
+- OAuth 2.0 Client → add to authorized JavaScript origins: `https://brandsofmalaysia.com`
+- OAuth 2.0 Client → add to authorized redirect URIs: `https://brandsofmalaysia.com/api/auth/callback/google`
 - Copy Client ID + Client Secret into Vercel envs `AUTH_GOOGLE_ID` + `AUTH_GOOGLE_SECRET` (step 7).
 
 **Meta Developers:**
 
-- App → Facebook Login → Settings → Valid OAuth Redirect URIs: add `https://bomy.my/api/auth/callback/facebook`
+- App → Facebook Login → Settings → Valid OAuth Redirect URIs: add `https://brandsofmalaysia.com/api/auth/callback/facebook`
 - Copy App ID + App Secret into Vercel envs `AUTH_FACEBOOK_ID` + `AUTH_FACEBOOK_SECRET` (step 7).
 - If Meta is awaiting app review and the production sign-in won't work yet, document this in the PR body — production smoke (step 17) will mark the Meta sign-in check as "documented gap, not a merge blocker."
 
-### Step 9 — Register Cloudflare Turnstile site for bomy.my
+### Step 9 — Register Cloudflare Turnstile site for brandsofmalaysia.com
 
 - Cloudflare dashboard → Turnstile → Add Site.
-- Hostnames: `bomy.my` (and `www.bomy.my` if it serves before the redirect).
+- Hostnames: `brandsofmalaysia.com` (and `www.brandsofmalaysia.com` if it serves before the redirect).
 - Widget mode: Managed.
 - Copy Site Key + Secret Key into Vercel Production envs `NEXT_PUBLIC_TURNSTILE_SITEKEY` + `TURNSTILE_SECRET_KEY` (step 7).
 - Do NOT add `*.vercel.app` to the prod site — Preview uses Cloudflare always-pass test keys instead (already set in step 7).
@@ -914,13 +914,13 @@ Preview URL: copy from Vercel dashboard → Deployments → most recent.
 
 ### Step 12 — Attach the domain
 
-- Vercel project → Settings → Domains → Add: `bomy.my` (set as Production primary).
-- Add: `www.bomy.my` (configure as 308-redirect to `bomy.my`).
+- Vercel project → Settings → Domains → Add: `brandsofmalaysia.com` (set as Production primary).
+- Add: `www.brandsofmalaysia.com` (configure as 308-redirect to `brandsofmalaysia.com`).
 
 ### Step 13 — Configure DNS at the registrar
 
 - Apex `@` `A` → `76.76.21.21` (Vercel anycast).
-- `www` `CNAME` → exact value from `vercel domains inspect bomy.my` (project-specific).
+- `www` `CNAME` → exact value from `vercel domains inspect brandsofmalaysia.com` (project-specific).
 
 **DNS preservation — preserve these from the registrar's current zone:**
 
@@ -929,7 +929,7 @@ Preview URL: copy from Vercel dashboard → Deployments → most recent.
 - `DKIM` (TXT) records
 - `DMARC` (TXT) record
 
-`contact@bomy.my` is publicly referenced from PR #38; breaking inbound mail is worse than a slower DNS setup. Do NOT delegate the bomy.my nameservers to Vercel unless these mail records are migrated to Vercel's DNS first.
+`contact@brandsofmalaysia.com` is publicly referenced from PR #38; breaking inbound mail is worse than a slower DNS setup. Do NOT delegate the brandsofmalaysia.com nameservers to Vercel unless these mail records are migrated to Vercel's DNS first.
 
 ### Step 14 — Bob R0 review
 
@@ -944,7 +944,7 @@ Open the PR; tag Bob. Bob checks the 6 review points from spec §11:
 
 ### Step 15 — Charlie's "Merge now"
 
-`gh pr merge <PR-number> --squash --subject "feat(web): public deployment to bomy.my (#39)"`
+`gh pr merge <PR-number> --squash --subject "feat(web): public deployment to brandsofmalaysia.com (#39)"`
 
 Vercel auto-deploys main → Production.
 
@@ -953,17 +953,17 @@ Vercel auto-deploys main → Production.
 5–60 min depending on registrar TTLs. Verify with:
 
 ```sh
-dig bomy.my A +short
-dig www.bomy.my CNAME +short
+dig brandsofmalaysia.com A +short
+dig www.brandsofmalaysia.com CNAME +short
 ```
 
-When `bomy.my` resolves to a Vercel IP (in the `76.76.x.x` range) and `www.bomy.my` resolves to the Vercel CNAME target, DNS is live.
+When `brandsofmalaysia.com` resolves to a Vercel IP (in the `76.76.x.x` range) and `www.brandsofmalaysia.com` resolves to the Vercel CNAME target, DNS is live.
 
-### Step 17 — Smoke production at https://bomy.my
+### Step 17 — Smoke production at https://brandsofmalaysia.com
 
-Re-run all preview-smoke checks at `https://bomy.my`. Additionally:
+Re-run all preview-smoke checks at `https://brandsofmalaysia.com`. Additionally:
 
-- [ ] `https://www.bomy.my` 308-redirects to `https://bomy.my`.
+- [ ] `https://www.brandsofmalaysia.com` 308-redirects to `https://brandsofmalaysia.com`.
 - [ ] `/api/ops/db-identity` with correct token returns `{"currentUser":"bomy_app"}`.
 - [ ] Google sign-in round-trip succeeds; creates a NextAuth DB session row in Neon (verify via `SELECT count(*) FROM sessions;` increment).
 - [ ] Meta sign-in round-trip succeeds OR documented gap if Meta approval lags.
@@ -1001,7 +1001,7 @@ If the env is wrong (e.g., owner-role DB URL): Vercel project → Settings → E
 
 ### C — DNS rollback (slow, 5–60 min)
 
-Vercel project → Domains → remove `bomy.my`. Restore previous A record at the registrar. Use only if Vercel itself is unreachable or the deployment is unrecoverable.
+Vercel project → Domains → remove `brandsofmalaysia.com`. Restore previous A record at the registrar. Use only if Vercel itself is unreachable or the deployment is unrecoverable.
 
 ### D — DB rollback (last resort)
 
@@ -1045,7 +1045,7 @@ If prettier reports issues, run `pnpm prettier --write docs/runbooks/public-depl
 git add docs/runbooks/public-deployment-cutover.md
 
 git commit -m "$(cat <<'EOF'
-docs(runbooks): public deployment cutover for bomy.my
+docs(runbooks): public deployment cutover for brandsofmalaysia.com
 
 Operator runbook for PR #39 — full 19-step cutover sequence translated
 from spec §7, preview + production smoke checklists from §8, rollback

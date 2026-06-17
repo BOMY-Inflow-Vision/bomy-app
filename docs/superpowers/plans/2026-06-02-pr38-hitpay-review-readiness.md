@@ -1409,7 +1409,7 @@ Charlie opens each of the 6 files listed above and replaces every `[PLACEHOLDER:
 
 **Business identity (3):**
 
-- `support_email` → e.g. `support@bomy.my`
+- `support_email` → e.g. `support@brandsofmalaysia.com`
 - `business_address` → full registered address line
 - `ssm_registration_number` → SSM registration number for Inflo Vision
 

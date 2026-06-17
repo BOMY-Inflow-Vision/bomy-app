@@ -22,7 +22,7 @@ describe("configFromEnv — enabled validation", () => {
   const ENABLED_BASE = {
     EMAIL_DELIVERY_ENABLED: "true",
     SMTP_HOST: "smtp.example.com",
-    MAIL_FROM: "noreply@bomy.my",
+    MAIL_FROM: "noreply@brandsofmalaysia.com",
   }
 
   it("returns a valid config with sensible defaults when only required vars are set", () => {
@@ -32,7 +32,7 @@ describe("configFromEnv — enabled validation", () => {
       host: "smtp.example.com",
       port: 587,
       secure: false,
-      from: "noreply@bomy.my",
+      from: "noreply@brandsofmalaysia.com",
     })
   })
 
@@ -70,8 +70,8 @@ describe("configFromEnv — enabled validation", () => {
   })
 
   it("passes through replyTo when MAIL_REPLY_TO is set", () => {
-    const cfg = configFromEnv({ ...ENABLED_BASE, MAIL_REPLY_TO: "support@bomy.my" })
-    expect(cfg.replyTo).toBe("support@bomy.my")
+    const cfg = configFromEnv({ ...ENABLED_BASE, MAIL_REPLY_TO: "support@brandsofmalaysia.com" })
+    expect(cfg.replyTo).toBe("support@brandsofmalaysia.com")
   })
 
   it("respects SMTP_SECURE=true", () => {

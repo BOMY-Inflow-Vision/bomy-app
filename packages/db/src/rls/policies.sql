@@ -123,6 +123,10 @@ ALTER TABLE goodie_box_dispatches FORCE ROW LEVEL SECURITY;
 ALTER TABLE admin_bypass_audit ENABLE ROW LEVEL SECURITY;
 ALTER TABLE admin_bypass_audit FORCE ROW LEVEL SECURITY;
 
+-- Stage 6 consent table.
+ALTER TABLE user_consents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_consents FORCE ROW LEVEL SECURITY;
+
 -- ─── 4. Default-deny policies (RESTRICTIVE) ──────────────────────
 -- RESTRICTIVE policies are AND'd with PERMISSIVE ones, so this makes
 -- "no tenant context AND no admin bypass" = "nothing visible".
@@ -172,6 +176,10 @@ CREATE POLICY goodie_box_dispatches_default_deny ON goodie_box_dispatches
   USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
 
 CREATE POLICY admin_bypass_audit_default_deny ON admin_bypass_audit
+  AS RESTRICTIVE
+  USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
+
+CREATE POLICY user_consents_default_deny ON user_consents
   AS RESTRICTIVE
   USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
 
@@ -399,6 +407,22 @@ CREATE POLICY admin_bypass_audit_staff_read ON admin_bypass_audit
 CREATE POLICY admin_bypass_audit_bypass_insert ON admin_bypass_audit
   FOR INSERT
   WITH CHECK (app.is_admin_bypass());
+
+-- user_consents: user reads own; staff sees all; user can insert own.
+CREATE POLICY user_consents_self_read ON user_consents
+  FOR SELECT
+  USING (
+    user_id = app.current_user_id()
+    OR app.is_bomy_staff()
+    OR app.is_admin_bypass()
+  );
+
+CREATE POLICY user_consents_self_insert ON user_consents
+  FOR INSERT
+  WITH CHECK (
+    user_id = app.current_user_id()
+    OR app.is_admin_bypass()
+  );
 
 -- ─── 6. bomy_app role grants ─────────────────────────────────────
 -- bomy_app is the non-superuser application role used by the app and
