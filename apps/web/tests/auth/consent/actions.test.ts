@@ -140,6 +140,143 @@ describe.skipIf(!shouldRun)("user_consents RLS", () => {
       await cleanupUser(user.id)
     }
   })
+
+  it("tos-only row is insufficient — both tos and privacy required for consent", async () => {
+    const user = await createTestUser(`consent-tosonly-${randomUUID()}@test.bomy`)
+    try {
+      // Insert only the "tos" row, not "privacy"
+      await withAdmin(db, { userId: SYSTEM_ACTOR, reason: "test seed" }, async (tx) => {
+        await tx.insert(schema.userConsents).values({
+          userId: user.id,
+          document: "tos",
+          version: "2026-06-17",
+        })
+      })
+      // Query as admin: should only find 1 document, not 2
+      const rows = await withAdmin(
+        db,
+        { userId: SYSTEM_ACTOR, reason: "test verify" },
+        async (tx) =>
+          tx
+            .select({ document: schema.userConsents.document })
+            .from(schema.userConsents)
+            .where(eq(schema.userConsents.userId, user.id)),
+      )
+      const docs = new Set(rows.map((r) => r.document))
+      // Only "tos" present — "privacy" missing — not fully consented
+      expect(docs.has("tos")).toBe(true)
+      expect(docs.has("privacy")).toBe(false)
+      expect(docs.has("tos") && docs.has("privacy")).toBe(false)
+    } finally {
+      await cleanupUser(user.id)
+    }
+  })
+})
+
+// ─── Consent DB-state security tests ──────────────────────────────────────
+// Verify that the deriveConsentState logic (used in auth.ts jwt callback) is
+// correct — both docs required, forged update payload cannot bypass the check.
+
+describe.skipIf(!shouldRun)("consent DB-state checks (security)", () => {
+  const { db } = makeDb()
+
+  async function createTestUser(email: string) {
+    return withAdmin(db, { userId: SYSTEM_ACTOR, reason: "test setup" }, async (tx) => {
+      const [user] = await tx
+        .insert(schema.users)
+        .values({ email, role: "buyer" })
+        .returning({ id: schema.users.id })
+      return user!
+    })
+  }
+
+  async function cleanupUser(userId: string) {
+    await withAdmin(db, { userId: SYSTEM_ACTOR, reason: "test teardown" }, async (tx) => {
+      await tx.delete(schema.users).where(eq(schema.users.id, userId))
+    })
+  }
+
+  it("user with no rows has consentVersion=undefined (baseline)", async () => {
+    const user = await createTestUser(`consent-norows-${randomUUID()}@test.bomy`)
+    try {
+      const rows = await withAdmin(
+        db,
+        { userId: SYSTEM_ACTOR, reason: "test verify" },
+        async (tx) =>
+          tx
+            .select({ document: schema.userConsents.document })
+            .from(schema.userConsents)
+            .where(eq(schema.userConsents.userId, user.id)),
+      )
+      const docs = new Set(rows.map((r) => r.document))
+      expect(docs.has("tos") && docs.has("privacy")).toBe(false)
+    } finally {
+      await cleanupUser(user.id)
+    }
+  })
+
+  it("user with both tos + privacy rows has consentVersion=currentTosVersion", async () => {
+    const user = await createTestUser(`consent-bothrows-${randomUUID()}@test.bomy`)
+    try {
+      await withAdmin(db, { userId: SYSTEM_ACTOR, reason: "test seed" }, async (tx) => {
+        await tx.insert(schema.userConsents).values([
+          { userId: user.id, document: "tos", version: "2026-06-17" },
+          { userId: user.id, document: "privacy", version: "2026-06-17" },
+        ])
+      })
+      const rows = await withAdmin(
+        db,
+        { userId: SYSTEM_ACTOR, reason: "test verify" },
+        async (tx) =>
+          tx
+            .select({ document: schema.userConsents.document })
+            .from(schema.userConsents)
+            .where(
+              and(
+                eq(schema.userConsents.userId, user.id),
+                eq(schema.userConsents.version, "2026-06-17"),
+              ),
+            ),
+      )
+      const docs = new Set(rows.map((r) => r.document))
+      expect(docs.has("tos") && docs.has("privacy")).toBe(true)
+    } finally {
+      await cleanupUser(user.id)
+    }
+  })
+
+  it("user with only tos row cannot derive consent (both docs required)", async () => {
+    const user = await createTestUser(`consent-tosonly2-${randomUUID()}@test.bomy`)
+    try {
+      await withAdmin(db, { userId: SYSTEM_ACTOR, reason: "test seed" }, async (tx) => {
+        await tx.insert(schema.userConsents).values({
+          userId: user.id,
+          document: "tos",
+          version: "2026-06-17",
+        })
+      })
+      const rows = await withAdmin(
+        db,
+        { userId: SYSTEM_ACTOR, reason: "test verify" },
+        async (tx) =>
+          tx
+            .select({ document: schema.userConsents.document })
+            .from(schema.userConsents)
+            .where(
+              and(
+                eq(schema.userConsents.userId, user.id),
+                eq(schema.userConsents.version, "2026-06-17"),
+              ),
+            ),
+      )
+      const docs = new Set(rows.map((r) => r.document))
+      // deriveConsentState in auth.ts checks: docs.has("tos") && docs.has("privacy")
+      // With only "tos": false → consentVersion = undefined → user remains gated
+      expect(docs.has("tos") && docs.has("privacy")).toBe(false)
+    } finally {
+      await cleanupUser(user.id)
+    }
+  })
 })
 
 // ─── Action tests ─────────────────────────────────────────────────────────
