@@ -101,10 +101,9 @@ describe.skipIf(!shouldRun)("user_consents RLS", () => {
     }
   })
 
-  it("user cannot delete their own consent row (no DELETE policy → blocked by default-deny)", async () => {
+  it("user cannot delete their own consent row (append-only: row persists after DELETE attempt)", async () => {
     const user = await createTestUser(`consent-delete-${randomUUID()}@test.bomy`)
     try {
-      // Insert a row first via admin bypass so we have something to try to delete
       await withAdmin(db, { userId: SYSTEM_ACTOR, reason: "test seed" }, async (tx) => {
         await tx.insert(schema.userConsents).values({
           userId: user.id,
@@ -112,30 +111,31 @@ describe.skipIf(!shouldRun)("user_consents RLS", () => {
           version: "2026-06-17",
         })
       })
-      // User attempts to delete their own row — FORCE RLS + no DELETE policy blocks it
-      let deleteErrorThrown = false
+      // Attempt delete as tenant. Two outcomes depending on environment:
+      // - bomy_app lacks DELETE privilege (local): throws "permission denied"
+      // - bomy_app has DELETE privilege but no PERMISSIVE DELETE RLS policy (CI):
+      //   FORCE RLS silently returns 0 rows — no error, no rows removed.
+      // Either way the invariant holds: the row must still exist.
       try {
         await withTenant(db, { userId: user.id, userRole: "buyer" }, async (tx) => {
           await tx.delete(schema.userConsents).where(eq(schema.userConsents.userId, user.id))
         })
       } catch (error: unknown) {
-        // RLS denies the DELETE — permission denied error is expected
         const err = error as { message?: string }
         if (typeof err.message === "string" && err.message.includes("permission denied")) {
-          deleteErrorThrown = true
+          // expected on environments where bomy_app lacks DELETE privilege
         } else {
           throw error
         }
       }
-      expect(deleteErrorThrown).toBe(true)
-      // Verify row still exists via admin bypass
-      await withAdmin(db, { userId: SYSTEM_ACTOR, reason: "test verify" }, async (tx) => {
-        const rows = await tx
-          .select()
-          .from(schema.userConsents)
-          .where(eq(schema.userConsents.userId, user.id))
-        expect(rows).toHaveLength(1)
-      })
+      // The true invariant: row still exists regardless of which block ran
+      const rows = await withAdmin(
+        db,
+        { userId: SYSTEM_ACTOR, reason: "test verify" },
+        async (tx) =>
+          tx.select().from(schema.userConsents).where(eq(schema.userConsents.userId, user.id)),
+      )
+      expect(rows).toHaveLength(1)
     } finally {
       await cleanupUser(user.id)
     }
