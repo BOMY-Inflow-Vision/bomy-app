@@ -46,7 +46,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     session({ session, token }) {
       // Read id and role from the JWT token (set by the jwt callback above).
       const t = token as JWT & { id?: string; role?: UserRole }
-      session.user.id = t.id ?? ""
+      session.user.id = t.id ?? t.sub ?? ""
       session.user.role = t.role ?? "buyer"
       return session
     },
