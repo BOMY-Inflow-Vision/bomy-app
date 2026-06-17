@@ -88,8 +88,8 @@ export default function ShippingPage() {
         <h2 className="mb-3 text-xl font-semibold">10. Contact</h2>
         <p>
           Questions about shipping or about an active order can be sent to{" "}
-          <a href="mailto:contact@bomy.my" className="text-slate-900 underline">
-            contact@bomy.my
+          <a href="mailto:contact@brandsofmalaysia.com" className="text-slate-900 underline">
+            contact@brandsofmalaysia.com
           </a>
           .
         </p>
