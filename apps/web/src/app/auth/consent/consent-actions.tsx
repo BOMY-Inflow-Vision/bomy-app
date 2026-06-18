@@ -1,6 +1,6 @@
 "use client"
 
-import { useTransition } from "react"
+import { useState } from "react"
 
 import { acceptConsent, declineConsent } from "./actions"
 
@@ -18,33 +18,33 @@ function Spinner() {
 }
 
 export function ConsentActions() {
-  const [isAccepting, startAccept] = useTransition()
-  const [isDeclining, startDecline] = useTransition()
-  const isPending = isAccepting || isDeclining
+  const [pending, setPending] = useState<"agree" | "decline" | null>(null)
+
+  const handleAgree = async () => {
+    setPending("agree")
+    await acceptConsent()
+  }
+
+  const handleDecline = async () => {
+    setPending("decline")
+    await declineConsent()
+  }
 
   return (
     <div className="flex flex-col gap-3">
       <button
-        onClick={() =>
-          startAccept(async () => {
-            await acceptConsent()
-          })
-        }
-        disabled={isPending}
+        onClick={() => void handleAgree()}
+        disabled={pending !== null}
         className="flex w-full items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {isAccepting && <Spinner />}I Agree
+        {pending === "agree" && <Spinner />}I Agree
       </button>
       <button
-        onClick={() =>
-          startDecline(async () => {
-            await declineConsent()
-          })
-        }
-        disabled={isPending}
+        onClick={() => void handleDecline()}
+        disabled={pending !== null}
         className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {isDeclining && <Spinner />}
+        {pending === "decline" && <Spinner />}
         Decline
       </button>
     </div>
