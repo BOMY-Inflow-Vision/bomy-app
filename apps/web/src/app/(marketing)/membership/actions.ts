@@ -5,7 +5,7 @@ import { and, desc, eq, inArray } from "drizzle-orm"
 import { notFound, redirect } from "next/navigation"
 
 import { makeDb, schema, withAdmin, withTenant } from "@bomy/db"
-import { HitPayClient, HitPayError, type RecurringBillingResponse } from "@bomy/hitpay"
+import { HitPayClient, type HitPayError, type RecurringBillingResponse } from "@bomy/hitpay"
 
 import { auth } from "@/auth"
 import { formatHitPayStartDate } from "@/lib/hitpay-date"
@@ -133,7 +133,7 @@ export async function joinMembership() {
       amount: senToMyr(priceSen),
       currency: "MYR",
       name: "BOMY Platform Membership",
-      cycle: "annually",
+      cycle: "yearly",
       customer_email: session.user.email ?? "",
       start_date: formatHitPayStartDate(now),
       reference: subId,
@@ -153,8 +153,11 @@ export async function joinMembership() {
       },
     )
   } catch (err) {
-    if (err instanceof HitPayError) {
-      console.error("[joinMembership] HitPay error", err.statusCode, JSON.stringify(err.body))
+    // instanceof HitPayError fails across Next.js chunk boundaries (transpilePackages
+    // can duplicate class identity); check by property shape instead.
+    if (err instanceof Error && "statusCode" in err && "body" in err) {
+      const e = err as unknown as HitPayError
+      console.error("[joinMembership] HitPay error", e.statusCode, JSON.stringify(e.body))
     }
     if (billing) {
       // HitPay succeeded but DB correlation write failed.

@@ -33,7 +33,7 @@ All 8 subsystems are in scope for Stage 4:
 | Platform membership price | RM75/yr (7500 sen). Stored in `platform_config.platform_membership_price_myr_sen`.                                                            |
 | Brand subscription split  | Fee taken off the top, then 90 % brand / 10 % BOMY. `brand_payout + bomy_commission + hitpay_fee = price`. Snapshotted at purchase.           |
 | Architecture              | Option A — Server-Actions-First. `packages/hitpay` client, server actions in `packages/db`, single webhook endpoint in `apps/api`.            |
-| Recurring billing         | HitPay native recurring billing (`/v1/recurring-billing`, `cycle=annually`) for #1. One-time payment requests for #2.                         |
+| Recurring billing         | HitPay native recurring billing (`/v1/recurring-billing`, `cycle=yearly`) for #1. One-time payment requests for #2.                           |
 | Brand payouts             | Manual for Stage 4. Admin triggers HitPay Transfers API to pay brand's bank account. Records `brand_payout_at`.                               |
 | Voucher expiry            | End of issuance month. No rollover.                                                                                                           |
 | No stacking               | Platform #1 voucher and #2 brand discount are mutually exclusive at checkout. Buyer picks one.                                                |

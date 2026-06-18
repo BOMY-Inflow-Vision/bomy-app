@@ -46,7 +46,7 @@ export interface CreateRecurringBillingInput {
   amount: string
   currency: "MYR"
   name: string
-  cycle: "monthly" | "quarterly" | "annually"
+  cycle: "monthly" | "quarterly" | "yearly"
   /** Flat customer email required by the live API (sandbox accepted nested `customer` object). */
   customer_email: string
   customer_name?: string

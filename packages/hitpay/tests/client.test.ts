@@ -78,7 +78,7 @@ describe("HitPayClient", () => {
       amount: "75.00",
       currency: "MYR" as const,
       name: "BOMY Platform Membership",
-      cycle: "annually" as const,
+      cycle: "yearly" as const,
       customer_email: "member@example.com",
       customer_name: "Ali Hassan",
       start_date: "2026-06-18",
@@ -89,7 +89,7 @@ describe("HitPayClient", () => {
         id: "rb_456",
         name: "BOMY Platform Membership",
         description: null,
-        cycle: "annually",
+        cycle: "yearly",
         status: "scheduled",
         amount: "75.00",
         currency: "MYR",
@@ -111,11 +111,11 @@ describe("HitPayClient", () => {
       expect(sentBody["amount"]).toBe("75.00")
       expect(sentBody["currency"]).toBe("MYR")
       expect(sentBody["name"]).toBe("BOMY Platform Membership")
-      expect(sentBody["cycle"]).toBe("annually")
+      expect(sentBody["cycle"]).toBe("yearly")
       expect(sentBody["customer_email"]).toBe("member@example.com")
       expect(sentBody["start_date"]).toBe("2026-06-18")
       expect(result.id).toBe("rb_456")
-      expect(result.cycle).toBe("annually")
+      expect(result.cycle).toBe("yearly")
     })
   })
 
