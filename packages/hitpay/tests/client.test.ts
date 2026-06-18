@@ -75,12 +75,10 @@ describe("HitPayClient", () => {
 
   describe("createRecurringBilling", () => {
     const input = {
-      plan: {
-        amount: "75.00",
-        currency: "MYR" as const,
-        name: "BOMY Platform Membership",
-        cycle: "annually" as const,
-      },
+      amount: "75.00",
+      currency: "MYR" as const,
+      name: "BOMY Platform Membership",
+      cycle: "annually" as const,
       customer_email: "member@example.com",
       customer_name: "Ali Hassan",
       start_date: "2026-06-18",
@@ -105,8 +103,17 @@ describe("HitPayClient", () => {
       const result = await client.createRecurringBilling(input)
 
       expect(spy).toHaveBeenCalledOnce()
-      const [url] = spy.mock.calls[0] as [string, RequestInit]
+      const [url, init] = spy.mock.calls[0] as [string, RequestInit]
       expect(url).toBe(`${BASE_URL}/v1/recurring-billing`)
+      // Live API wants a flat body — no `plan` sub-object
+      const sentBody = JSON.parse(init.body as string) as Record<string, unknown>
+      expect(sentBody["plan"]).toBeUndefined()
+      expect(sentBody["amount"]).toBe("75.00")
+      expect(sentBody["currency"]).toBe("MYR")
+      expect(sentBody["name"]).toBe("BOMY Platform Membership")
+      expect(sentBody["cycle"]).toBe("annually")
+      expect(sentBody["customer_email"]).toBe("member@example.com")
+      expect(sentBody["start_date"]).toBe("2026-06-18")
       expect(result.id).toBe("rb_456")
       expect(result.cycle).toBe("annually")
     })

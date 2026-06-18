@@ -36,14 +36,18 @@ export interface PaymentRequestResponse {
 // ─── Recurring Billing (annual platform membership) ───────────────────────────
 
 export interface CreateRecurringBillingInput {
-  plan: {
-    amount: string
-    currency: "MYR"
-    name: string
-    description?: string
-    cycle: "monthly" | "quarterly" | "annually"
-  }
-  /** Flat fields required by the live HitPay API (sandbox accepted nested `customer` object). */
+  /**
+   * Live HitPay /v1/recurring-billing wants a fully flat body — there is no
+   * `plan` sub-object. When `plan_id` is absent, `name`, `cycle`, `amount`,
+   * `currency`, `customer_email` and `start_date` are all required. The
+   * sandbox silently accepted the nested `plan: {}` shape; the live API does
+   * not (422 "The amount field is required when plan id is not present").
+   */
+  amount: string
+  currency: "MYR"
+  name: string
+  cycle: "monthly" | "quarterly" | "annually"
+  /** Flat customer email required by the live API (sandbox accepted nested `customer` object). */
   customer_email: string
   customer_name?: string
   /** Required by live API when `save_card` is not present. ISO date YYYY-MM-DD. */
