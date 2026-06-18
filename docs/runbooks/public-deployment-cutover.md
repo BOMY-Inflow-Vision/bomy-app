@@ -113,8 +113,7 @@ Required envs (from spec §5):
 | `DATABASE_APP_URL`                          | Same as `DATABASE_URL` (forward-compat)                                                     |
 | `BOMY_RLS_READY`                            | `1`                                                                                         |
 | `AUTH_SECRET`                               | `openssl rand -base64 32`                                                                   |
-| `NEXTAUTH_URL`                              | `https://brandsofmalaysia.com`                                                              |
-| `APP_URL`                                   | `https://brandsofmalaysia.com`                                                              |
+| `AUTH_URL`                                  | `https://brandsofmalaysia.com` (NextAuth v5 primary; replaces legacy `NEXTAUTH_URL`)        |
 | `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET`     | From Google Cloud Console (step 8)                                                          |
 | `AUTH_FACEBOOK_ID` / `AUTH_FACEBOOK_SECRET` | From Meta Developers (step 8)                                                               |
 | `NEXT_PUBLIC_TURNSTILE_SITEKEY`             | Real brandsofmalaysia.com Turnstile site key (step 9)                                       |
