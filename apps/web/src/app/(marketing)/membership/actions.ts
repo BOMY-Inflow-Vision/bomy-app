@@ -8,6 +8,7 @@ import { makeDb, schema, withAdmin, withTenant } from "@bomy/db"
 import { HitPayClient, HitPayError, type RecurringBillingResponse } from "@bomy/hitpay"
 
 import { auth } from "@/auth"
+import { formatHitPayStartDate } from "@/lib/hitpay-date"
 import { paymentsEnabled } from "@/lib/payments-enabled"
 
 // Lazy DB singleton — module is importable without DATABASE_URL at startup
@@ -136,7 +137,7 @@ export async function joinMembership() {
         cycle: "annually",
       },
       customer_email: session.user.email ?? "",
-      start_date: now.toISOString().slice(0, 10),
+      start_date: formatHitPayStartDate(now),
       reference: subId,
       redirect_url: `${appUrl}/membership/success`,
       ...(webhookUrl ? { webhook: webhookUrl } : {}),
