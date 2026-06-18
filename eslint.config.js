@@ -32,6 +32,7 @@ export default tseslint.config(
       "**/next-env.d.ts",
       // Plain-JS runtime scripts — not part of any TypeScript project
       "packages/*/scripts/**",
+      "apps/*/scripts/**",
     ],
   },
 )
