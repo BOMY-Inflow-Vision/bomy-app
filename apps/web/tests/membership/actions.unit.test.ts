@@ -17,7 +17,10 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/auth", () => ({ auth: vi.fn() }))
 
-vi.mock("@bomy/hitpay", () => ({ HitPayClient: vi.fn() }))
+vi.mock("@bomy/hitpay", async (importActual) => {
+  const actual = await importActual<typeof HitPayModule>()
+  return { ...actual, HitPayClient: vi.fn() }
+})
 
 vi.mock("@bomy/db", () => ({
   makeDb: vi.fn().mockReturnValue({ db: {}, close: vi.fn() }),
@@ -28,6 +31,7 @@ vi.mock("@bomy/db", () => ({
 
 import { auth } from "@/auth"
 import { HitPayClient } from "@bomy/hitpay"
+import type * as HitPayModule from "@bomy/hitpay"
 import * as dbModule from "@bomy/db"
 import { joinMembership } from "../../src/app/(marketing)/membership/actions"
 

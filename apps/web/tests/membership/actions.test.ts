@@ -25,14 +25,16 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/auth", () => ({ auth: vi.fn() }))
 
-vi.mock("@bomy/hitpay", () => ({
-  HitPayClient: vi.fn(),
-}))
+vi.mock("@bomy/hitpay", async (importActual) => {
+  const actual = await importActual<typeof HitPayModule>()
+  return { ...actual, HitPayClient: vi.fn() }
+})
 
 // Imports after vi.mock so mocks are in place when actions.ts is loaded
 import { redirect } from "next/navigation"
 import { auth } from "@/auth"
 import { HitPayClient } from "@bomy/hitpay"
+import type * as HitPayModule from "@bomy/hitpay"
 import { cancelMembership, joinMembership } from "../../src/app/(marketing)/membership/actions"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
@@ -177,33 +179,35 @@ describe.skipIf(!shouldRun)("membership actions", () => {
       const url = await expectRedirect(joinMembership)
       expect(url).toBe(mockBilling.url)
 
-      expect(createRecurringBilling).toHaveBeenCalledOnce()
-      const callArg = createRecurringBilling.mock.calls[0]?.[0] as {
-        plan: { amount: string; currency: string; cycle: string }
-        customer: { email: string }
+      try {
+        expect(createRecurringBilling).toHaveBeenCalledOnce()
+        const callArg = createRecurringBilling.mock.calls[0]?.[0] as {
+          plan: { amount: string; currency: string; cycle: string }
+          customer: { email: string }
+        }
+        expect(callArg?.plan?.amount).toBe("75.00")
+        expect(callArg?.plan?.currency).toBe("MYR")
+        expect(callArg?.plan?.cycle).toBe("annually")
+        expect(callArg?.customer?.email).toBe("t@test.bomy")
+
+        const rows = await withAdmin(testDb.db, { userId, reason: "test assert" }, async (tx) =>
+          tx
+            .select()
+            .from(schema.memberSubscriptions)
+            .where(eq(schema.memberSubscriptions.userId, userId)),
+        )
+        expect(rows).toHaveLength(1)
+        const row = rows[0]!
+        expect(row.status).toBe("pending")
+        expect(row.priceMyrSen).toBe(7500n)
+        expect(row.hitpayRecurringId).toBe("recurring-abc123")
+      } finally {
+        await withAdmin(testDb.db, { userId, reason: "test cleanup" }, async (tx) => {
+          await tx
+            .delete(schema.memberSubscriptions)
+            .where(eq(schema.memberSubscriptions.userId, userId))
+        })
       }
-      expect(callArg?.plan?.amount).toBe("75.00")
-      expect(callArg?.plan?.currency).toBe("MYR")
-      expect(callArg?.plan?.cycle).toBe("yearly")
-      expect(callArg?.customer?.email).toBe("t@test.bomy")
-
-      const rows = await withAdmin(testDb.db, { userId, reason: "test assert" }, async (tx) =>
-        tx
-          .select()
-          .from(schema.memberSubscriptions)
-          .where(eq(schema.memberSubscriptions.userId, userId)),
-      )
-      expect(rows).toHaveLength(1)
-      const row = rows[0]!
-      expect(row.status).toBe("pending")
-      expect(row.priceMyrSen).toBe(7500n)
-      expect(row.hitpayRecurringId).toBe("recurring-abc123")
-
-      await withAdmin(testDb.db, { userId, reason: "test cleanup" }, async (tx) => {
-        await tx
-          .delete(schema.memberSubscriptions)
-          .where(eq(schema.memberSubscriptions.userId, userId))
-      })
     })
 
     it("HitPay error: cancels live billing (if created) and cleans up pending row", async () => {
