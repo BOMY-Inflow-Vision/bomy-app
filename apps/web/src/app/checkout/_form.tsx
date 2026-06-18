@@ -11,6 +11,19 @@ import type { ShippingAddressErrors } from "@/lib/shipping-address-schema"
 import { initiateCheckout, priceCheckoutPreview } from "./actions"
 import type { PreviewResult } from "./actions"
 
+function Spinner() {
+  return (
+    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+      />
+    </svg>
+  )
+}
+
 type AddressState = {
   name: string
   phone: string
@@ -300,8 +313,9 @@ export function CheckoutForm() {
       <button
         type="submit"
         disabled={isPending}
-        className="w-full rounded-xl bg-gray-900 px-6 py-3 text-sm font-semibold text-white hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-gray-900 px-6 py-3 text-sm font-semibold text-white hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
       >
+        {isPending && <Spinner />}
         {isPending ? "Processing…" : "Proceed to payment"}
       </button>
     </form>

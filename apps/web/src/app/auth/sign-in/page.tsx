@@ -1,4 +1,5 @@
 import { signIn } from "@/auth"
+import { SubmitButton } from "@/components/submit-button"
 
 export default function SignInPage({
   searchParams,
@@ -22,13 +23,10 @@ export default function SignInPage({
               await signIn("google", { redirectTo: "/auth/consent" })
             }}
           >
-            <button
-              type="submit"
-              className="flex w-full items-center justify-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-            >
+            <SubmitButton className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50">
               <GoogleIcon />
               Continue with Google
-            </button>
+            </SubmitButton>
           </form>
         </div>
 

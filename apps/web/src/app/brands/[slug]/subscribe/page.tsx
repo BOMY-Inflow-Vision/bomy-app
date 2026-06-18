@@ -5,6 +5,7 @@ import { makeDb, schema, withTenant } from "@bomy/db"
 
 import { auth } from "@/auth"
 import { paymentsEnabled } from "@/lib/payments-enabled"
+import { SubmitButton } from "@/components/submit-button"
 import { getStorePlans, subscribeToBrand } from "./actions"
 
 const { db } = makeDb()
@@ -111,12 +112,9 @@ export default async function BrandSubscribePage({ params }: Props) {
                   </div>
                 ) : session ? (
                   <form action={action}>
-                    <button
-                      type="submit"
-                      className="w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow hover:bg-indigo-700 active:bg-indigo-800 transition-colors"
-                    >
+                    <SubmitButton className="w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow hover:bg-indigo-700 active:bg-indigo-800 transition-colors">
                       Subscribe — {priceDisplay}
-                    </button>
+                    </SubmitButton>
                   </form>
                 ) : (
                   <a

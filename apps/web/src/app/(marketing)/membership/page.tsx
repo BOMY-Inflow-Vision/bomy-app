@@ -5,6 +5,7 @@ import { makeDb, schema, withAdmin, withTenant } from "@bomy/db"
 
 import { auth } from "@/auth"
 import { paymentsEnabled } from "@/lib/payments-enabled"
+import { SubmitButton } from "@/components/submit-button"
 import { joinMembership } from "./actions"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001" as const
@@ -99,12 +100,9 @@ export default async function MembershipPage() {
           </div>
         ) : session ? (
           <form action={joinMembership}>
-            <button
-              type="submit"
-              className="w-full rounded-xl bg-amber-500 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-amber-600 active:bg-amber-700 transition-colors"
-            >
+            <SubmitButton className="w-full rounded-xl bg-amber-500 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-amber-600 active:bg-amber-700 transition-colors">
               Join now — {priceDisplay}
-            </button>
+            </SubmitButton>
           </form>
         ) : (
           <a

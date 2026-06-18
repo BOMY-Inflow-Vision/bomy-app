@@ -9,6 +9,7 @@ import {
   updateProduct,
   updateVariant,
 } from "../../actions"
+import { SubmitButton } from "@/components/submit-button"
 
 type Category = { id: string; name: string }
 type Product = {
@@ -110,12 +111,9 @@ export function ProductEditForm({
           </div>
 
           <div className="flex items-center gap-3">
-            <button
-              type="submit"
-              className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-            >
+            <SubmitButton className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white hover:bg-indigo-700">
               Save Changes
-            </button>
+            </SubmitButton>
             {product.status !== "archived" && (
               <button
                 type="button"
@@ -190,12 +188,9 @@ export function ProductEditForm({
                   />
                 </div>
                 <input type="hidden" name="attrs" value="" />
-                <button
-                  type="submit"
-                  className="rounded bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700"
-                >
+                <SubmitButton className="rounded bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700">
                   Save
-                </button>
+                </SubmitButton>
                 <button
                   type="button"
                   onClick={() => setEditingVariantId(null)}
@@ -290,12 +285,9 @@ export function ProductEditForm({
               />
             </div>
             <input type="hidden" name="attrs" value="" />
-            <button
-              type="submit"
-              className="rounded bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700"
-            >
+            <SubmitButton className="rounded bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700">
               Add
-            </button>
+            </SubmitButton>
             <button
               type="button"
               onClick={() => setShowAddVariant(false)}

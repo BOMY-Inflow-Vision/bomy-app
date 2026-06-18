@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import { makeDb, schema, withTenant } from "@bomy/db"
 
 import { auth } from "@/auth"
+import { SubmitButton } from "@/components/submit-button"
 import { cancelMembership } from "../actions"
 
 const { db } = makeDb()
@@ -96,12 +97,9 @@ export default async function MembershipManagePage() {
                 <strong>{formatDate(sub.periodEnd)}</strong>.
               </p>
               <form action={cancelMembership}>
-                <button
-                  type="submit"
-                  className="w-full rounded-xl border border-red-200 bg-white px-6 py-3 text-sm font-semibold text-red-600 hover:bg-red-50 active:bg-red-100 transition-colors"
-                >
+                <SubmitButton className="w-full rounded-xl border border-red-200 bg-white px-6 py-3 text-sm font-semibold text-red-600 hover:bg-red-50 active:bg-red-100 transition-colors">
                   Cancel membership
-                </button>
+                </SubmitButton>
               </form>
             </>
           )}
