@@ -43,14 +43,14 @@ export interface CreateRecurringBillingInput {
     description?: string
     cycle: "monthly" | "quarterly" | "annually"
   }
-  customer: {
-    email: string
-    name?: string
-  }
+  /** Flat fields required by the live HitPay API (sandbox accepted nested `customer` object). */
+  customer_email: string
+  customer_name?: string
+  /** Required by live API when `save_card` is not present. ISO date YYYY-MM-DD. */
+  start_date: string
   reference?: string
   webhook?: string
   redirect_url?: string
-  start_date?: string
 }
 
 export interface RecurringBillingResponse {

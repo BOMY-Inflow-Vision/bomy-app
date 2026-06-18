@@ -183,12 +183,14 @@ describe.skipIf(!shouldRun)("membership actions", () => {
         expect(createRecurringBilling).toHaveBeenCalledOnce()
         const callArg = createRecurringBilling.mock.calls[0]?.[0] as {
           plan: { amount: string; currency: string; cycle: string }
-          customer: { email: string }
+          customer_email: string
+          start_date: string
         }
         expect(callArg?.plan?.amount).toBe("75.00")
         expect(callArg?.plan?.currency).toBe("MYR")
         expect(callArg?.plan?.cycle).toBe("annually")
-        expect(callArg?.customer?.email).toBe("t@test.bomy")
+        expect(callArg?.customer_email).toBe("t@test.bomy")
+        expect(callArg?.start_date).toMatch(/^\d{4}-\d{2}-\d{2}$/)
 
         const rows = await withAdmin(testDb.db, { userId, reason: "test assert" }, async (tx) =>
           tx
