@@ -81,7 +81,9 @@ describe("HitPayClient", () => {
         name: "BOMY Platform Membership",
         cycle: "annually" as const,
       },
-      customer: { email: "member@example.com", name: "Ali Hassan" },
+      customer_email: "member@example.com",
+      customer_name: "Ali Hassan",
+      start_date: "2026-06-18",
     }
 
     it("posts to /v1/recurring-billing and returns response", async () => {
