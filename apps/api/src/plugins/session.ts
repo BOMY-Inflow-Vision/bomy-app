@@ -14,6 +14,11 @@ declare module "fastify" {
   }
 }
 
+const SESSION_COOKIES = [
+  { name: "__Secure-authjs.session-token", secureCookie: true },
+  { name: "authjs.session-token", secureCookie: false },
+] as const
+
 export const sessionPlugin = fp(async (app) => {
   app.decorateRequest("session", null)
 
@@ -21,16 +26,19 @@ export const sessionPlugin = fp(async (app) => {
     const secret = process.env["AUTH_SECRET"]
     if (!secret) return
 
-    // NextAuth v5 uses the cookie name itself as the JWE salt.
-    const secureCookie = request.protocol === "https"
-    const cookieName = secureCookie ? "__Secure-authjs.session-token" : "authjs.session-token"
-
-    const token = await getToken({
-      req: { headers: request.headers as Record<string, string> },
-      secret,
-      secureCookie,
-      salt: cookieName,
-    })
+    let token: Awaited<ReturnType<typeof getToken>> = null
+    for (const cookie of SESSION_COOKIES) {
+      // NextAuth v5 uses the cookie name itself as the JWE salt. Try both names
+      // because API hosts often see plain HTTP behind a TLS terminator.
+      token = await getToken({
+        req: { headers: request.headers as Record<string, string> },
+        secret,
+        cookieName: cookie.name,
+        secureCookie: cookie.secureCookie,
+        salt: cookie.name,
+      })
+      if (token) break
+    }
 
     if (!token) return
 

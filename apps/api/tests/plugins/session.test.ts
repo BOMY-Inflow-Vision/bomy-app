@@ -14,9 +14,10 @@ import { sessionPlugin } from "../../src/plugins/session.js"
 
 const TEST_SECRET = "test-secret-at-least-32-chars-long!!"
 const COOKIE_NAME = "authjs.session-token"
+const SECURE_COOKIE_NAME = "__Secure-authjs.session-token"
 
-async function makeToken(payload: Record<string, unknown>): Promise<string> {
-  return encode({ token: payload, secret: TEST_SECRET, salt: COOKIE_NAME })
+async function makeToken(payload: Record<string, unknown>, salt = COOKIE_NAME): Promise<string> {
+  return encode({ token: payload, secret: TEST_SECRET, salt })
 }
 
 async function buildApp() {
@@ -55,6 +56,19 @@ describe("sessionPlugin", () => {
 
     expect(res.statusCode).toBe(200)
     expect(res.json()).toEqual({ userId: "user-abc", userRole: "buyer" })
+  })
+
+  it("decodes the secure production cookie even when Fastify sees HTTP", async () => {
+    const token = await makeToken({ id: "user-secure", role: "buyer" }, SECURE_COOKIE_NAME)
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/session-echo",
+      headers: { Cookie: `${SECURE_COOKIE_NAME}=${token}` },
+    })
+
+    expect(res.statusCode).toBe(200)
+    expect(res.json()).toEqual({ userId: "user-secure", userRole: "buyer" })
   })
 
   it("returns null session when no cookie is present", async () => {
