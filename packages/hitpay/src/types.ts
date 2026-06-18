@@ -41,7 +41,7 @@ export interface CreateRecurringBillingInput {
     currency: "MYR"
     name: string
     description?: string
-    cycle: "monthly" | "quarterly" | "yearly"
+    cycle: "monthly" | "quarterly" | "annually"
   }
   customer: {
     email: string
