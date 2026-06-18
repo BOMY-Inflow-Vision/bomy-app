@@ -130,12 +130,10 @@ export async function joinMembership() {
   let billing: RecurringBillingResponse | null = null
   try {
     billing = await hitpayClient().createRecurringBilling({
-      plan: {
-        amount: senToMyr(priceSen),
-        currency: "MYR",
-        name: "BOMY Platform Membership",
-        cycle: "annually",
-      },
+      amount: senToMyr(priceSen),
+      currency: "MYR",
+      name: "BOMY Platform Membership",
+      cycle: "annually",
       customer_email: session.user.email ?? "",
       start_date: formatHitPayStartDate(now),
       reference: subId,

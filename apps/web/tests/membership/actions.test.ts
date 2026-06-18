@@ -182,13 +182,17 @@ describe.skipIf(!shouldRun)("membership actions", () => {
       try {
         expect(createRecurringBilling).toHaveBeenCalledOnce()
         const callArg = createRecurringBilling.mock.calls[0]?.[0] as {
-          plan: { amount: string; currency: string; cycle: string }
+          amount: string
+          currency: string
+          name: string
+          cycle: string
           customer_email: string
           start_date: string
         }
-        expect(callArg?.plan?.amount).toBe("75.00")
-        expect(callArg?.plan?.currency).toBe("MYR")
-        expect(callArg?.plan?.cycle).toBe("annually")
+        expect(callArg?.amount).toBe("75.00")
+        expect(callArg?.currency).toBe("MYR")
+        expect(callArg?.name).toBe("BOMY Platform Membership")
+        expect(callArg?.cycle).toBe("annually")
         expect(callArg?.customer_email).toBe("t@test.bomy")
         expect(callArg?.start_date).toMatch(/^\d{4}-\d{2}-\d{2}$/)
 
