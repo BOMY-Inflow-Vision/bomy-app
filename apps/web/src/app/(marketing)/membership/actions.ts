@@ -133,7 +133,7 @@ export async function joinMembership() {
       amount: senToMyr(priceSen),
       currency: "MYR",
       name: "BOMY Platform Membership",
-      cycle: "annually",
+      cycle: "yearly",
       customer_email: session.user.email ?? "",
       start_date: formatHitPayStartDate(now),
       reference: subId,

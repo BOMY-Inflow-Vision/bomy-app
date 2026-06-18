@@ -192,7 +192,7 @@ describe.skipIf(!shouldRun)("membership actions", () => {
         expect(callArg?.amount).toBe("75.00")
         expect(callArg?.currency).toBe("MYR")
         expect(callArg?.name).toBe("BOMY Platform Membership")
-        expect(callArg?.cycle).toBe("annually")
+        expect(callArg?.cycle).toBe("yearly")
         expect(callArg?.customer_email).toBe("t@test.bomy")
         expect(callArg?.start_date).toMatch(/^\d{4}-\d{2}-\d{2}$/)
 
