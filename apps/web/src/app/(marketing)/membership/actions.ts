@@ -55,9 +55,11 @@ export async function joinMembership() {
   const session = await auth()
   if (!session) redirect("/auth/sign-in?callbackUrl=/membership")
 
-  const appUrl = process.env["NEXTAUTH_URL"] ?? process.env["APP_URL"]
+  const appUrl = process.env["AUTH_URL"] ?? process.env["NEXTAUTH_URL"] ?? process.env["APP_URL"]
   if (!appUrl)
-    throw new Error("NEXTAUTH_URL or APP_URL must be set — required for HitPay checkout redirect")
+    throw new Error(
+      "AUTH_URL, NEXTAUTH_URL or APP_URL must be set — required for HitPay checkout redirect",
+    )
   // HITPAY_WEBHOOK_URL is optional. If unset, HitPay uses the global webhook URL
   // configured in the dashboard (typically the apps/api /webhooks/hitpay endpoint).
   // Set this env var to route webhooks to a specific environment or URL.

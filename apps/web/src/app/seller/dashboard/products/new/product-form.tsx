@@ -3,6 +3,7 @@
 import { useState } from "react"
 
 import { createProduct } from "../actions"
+import { SubmitButton } from "@/components/submit-button"
 
 type Category = { id: string; name: string }
 
@@ -191,12 +192,9 @@ export function ProductForm({ categories }: { categories: Category[] }) {
 
       {/* Actions */}
       <div className="flex gap-3">
-        <button
-          type="submit"
-          className="rounded-lg bg-indigo-600 px-6 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-        >
+        <SubmitButton className="rounded-lg bg-indigo-600 px-6 py-2 text-sm font-medium text-white hover:bg-indigo-700">
           Create Product
-        </button>
+        </SubmitButton>
         <a
           href="/seller/dashboard/products"
           className="rounded-lg border border-gray-300 px-6 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"

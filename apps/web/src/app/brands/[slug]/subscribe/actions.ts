@@ -89,9 +89,11 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
   const session = await auth()
   if (!session) redirect("/auth/sign-in?callbackUrl=/account/subscriptions")
 
-  const appUrl = process.env["NEXTAUTH_URL"] ?? process.env["APP_URL"]
+  const appUrl = process.env["AUTH_URL"] ?? process.env["NEXTAUTH_URL"] ?? process.env["APP_URL"]
   if (!appUrl)
-    throw new Error("NEXTAUTH_URL or APP_URL must be set — required for HitPay checkout redirect")
+    throw new Error(
+      "AUTH_URL, NEXTAUTH_URL or APP_URL must be set — required for HitPay checkout redirect",
+    )
   // HITPAY_WEBHOOK_URL is optional — falls back to global webhook in HitPay dashboard.
   const webhookUrl = process.env["HITPAY_WEBHOOK_URL"]
 
