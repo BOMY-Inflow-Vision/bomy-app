@@ -10,7 +10,7 @@ WORKDIR /app
 
 # Workspace manifests — all members must be present so pnpm can resolve the
 # lockfile. Source files are NOT needed here; only package.json files.
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.json tsconfig.base.json ./
 COPY apps/api/package.json   apps/api/
 COPY apps/web/package.json   apps/web/
 COPY apps/admin/package.json apps/admin/
