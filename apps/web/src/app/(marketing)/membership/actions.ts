@@ -5,7 +5,7 @@ import { and, desc, eq, inArray } from "drizzle-orm"
 import { notFound, redirect } from "next/navigation"
 
 import { makeDb, schema, withAdmin, withTenant } from "@bomy/db"
-import { HitPayClient, type RecurringBillingResponse } from "@bomy/hitpay"
+import { HitPayClient, HitPayError, type RecurringBillingResponse } from "@bomy/hitpay"
 
 import { auth } from "@/auth"
 import { paymentsEnabled } from "@/lib/payments-enabled"
@@ -133,7 +133,7 @@ export async function joinMembership() {
         amount: senToMyr(priceSen),
         currency: "MYR",
         name: "BOMY Platform Membership",
-        cycle: "yearly",
+        cycle: "annually",
       },
       customer: { email: session.user.email ?? "" },
       reference: subId,
@@ -153,6 +153,9 @@ export async function joinMembership() {
       },
     )
   } catch (err) {
+    if (err instanceof HitPayError) {
+      console.error("[joinMembership] HitPay error", err.statusCode, JSON.stringify(err.body))
+    }
     if (billing) {
       // HitPay succeeded but DB correlation write failed.
       // Try to cancel the live billing to avoid an unlinked subscription.

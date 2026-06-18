@@ -79,7 +79,7 @@ describe("HitPayClient", () => {
         amount: "75.00",
         currency: "MYR" as const,
         name: "BOMY Platform Membership",
-        cycle: "yearly" as const,
+        cycle: "annually" as const,
       },
       customer: { email: "member@example.com", name: "Ali Hassan" },
     }
@@ -89,7 +89,7 @@ describe("HitPayClient", () => {
         id: "rb_456",
         name: "BOMY Platform Membership",
         description: null,
-        cycle: "yearly",
+        cycle: "annually",
         status: "scheduled",
         amount: "75.00",
         currency: "MYR",
@@ -106,7 +106,7 @@ describe("HitPayClient", () => {
       const [url] = spy.mock.calls[0] as [string, RequestInit]
       expect(url).toBe(`${BASE_URL}/v1/recurring-billing`)
       expect(result.id).toBe("rb_456")
-      expect(result.cycle).toBe("yearly")
+      expect(result.cycle).toBe("annually")
     })
   })
 
