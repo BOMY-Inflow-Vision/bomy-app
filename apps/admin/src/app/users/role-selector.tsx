@@ -1,6 +1,6 @@
 "use client"
 
-import { USER_ROLES, type UserRole } from "@bomy/db"
+import { USER_ROLES, type UserRole } from "@bomy/db/types"
 import { updateUserRole } from "./actions"
 
 export function RoleSelector({ userId, currentRole }: { userId: string; currentRole: UserRole }) {

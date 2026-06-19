@@ -4,6 +4,8 @@ import "./globals.css"
 import { auth } from "@/auth"
 import { Sidebar } from "@/components/sidebar"
 
+export const dynamic = "force-dynamic"
+
 export const metadata: Metadata = { title: "BOMY Admin" }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
