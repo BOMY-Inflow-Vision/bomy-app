@@ -25,6 +25,7 @@
     "@opentelemetry/sdk-node": "^0.57.2",
     "@opentelemetry/semantic-conventions": "^1.32.0",
     "bullmq": "^5.76.6",
+    "ioredis": "^5.6.1",
     "drizzle-orm": "^0.36.4",
     "fastify": "^5.3.2",
     "fastify-plugin": "^5.0.1",

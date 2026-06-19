@@ -1,4 +1,5 @@
 import { Queue, Worker } from "bullmq"
+import { Redis } from "ioredis"
 
 import type { Database } from "@bomy/db"
 
@@ -40,14 +41,10 @@ export async function createScheduler(
   const redisUrl = process.env["REDIS_URL"]
   if (!redisUrl) throw new Error("REDIS_URL is required for the BullMQ scheduler")
 
-  // Parse Redis URL into BullMQ connection options.
-  const parsed = new URL(redisUrl)
-  const connection = {
-    host: parsed.hostname,
-    port: parseInt(parsed.port || "6379", 10),
-    password: parsed.password || undefined,
-    username: parsed.username || undefined,
-  }
+  // Let ioredis parse the URL — more robust than manual new URL() splitting,
+  // handles rediss:// TLS, IPv6, encoded passwords, etc.
+  // maxRetriesPerRequest: null is required by BullMQ workers.
+  const connection = new Redis(redisUrl, { maxRetriesPerRequest: null, enableReadyCheck: false })
 
   // --- Queues ---
   const voucherQueue = new Queue(VOUCHER_QUEUE_NAME, { connection })

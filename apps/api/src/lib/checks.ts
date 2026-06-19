@@ -36,9 +36,13 @@ export function resolveRedisEndpoint(env: NodeJS.ProcessEnv): Endpoint {
 }
 
 function endpointFromUrl(rawUrl: string, defaultPort: number): Endpoint {
-  const url = new URL(rawUrl)
+  // Tolerate URLs without a scheme (e.g. "host:port") by prepending redis://
+  // so that new URL() can parse them. Railway sometimes omits the scheme in
+  // individual variable exports.
+  const normalised = /^[a-z][a-z0-9+\-.]*:\/\//i.test(rawUrl) ? rawUrl : `redis://${rawUrl}`
+  const url = new URL(normalised)
   return {
-    host: url.hostname,
+    host: url.hostname || "localhost",
     port: parsePort(url.port, defaultPort),
   }
 }
