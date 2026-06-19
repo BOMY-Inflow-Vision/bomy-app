@@ -1,19 +1,18 @@
 import { and, eq, inArray } from "drizzle-orm"
 import { redirect } from "next/navigation"
 
-import { makeDb, schema, withTenant } from "@bomy/db"
+import { schema, withTenant } from "@bomy/db"
 
 import { auth } from "@/auth"
+import { getDb } from "@/lib/db"
 import { MembershipActivationPoller } from "./poller"
-
-const { db } = makeDb()
 
 export default async function MembershipSuccessPage() {
   const session = await auth()
   if (!session) redirect("/auth/sign-in?callbackUrl=/membership/success")
 
   const sub = await withTenant(
-    db,
+    getDb(),
     { userId: session.user.id, userRole: session.user.role },
     async (tx) => {
       const rows = await tx

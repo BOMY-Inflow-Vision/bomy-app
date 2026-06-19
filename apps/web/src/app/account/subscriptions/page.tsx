@@ -2,12 +2,11 @@ import { desc, eq } from "drizzle-orm"
 import Link from "next/link"
 import { redirect } from "next/navigation"
 
-import { makeDb, schema, withTenant } from "@bomy/db"
+import { schema, withTenant } from "@bomy/db"
 
 import { auth } from "@/auth"
+import { getDb } from "@/lib/db"
 import { AccountTabs } from "../account-tabs"
-
-const { db } = makeDb()
 
 function formatDate(d: Date): string {
   return d.toLocaleDateString("en-MY", { day: "numeric", month: "short", year: "numeric" })
@@ -39,7 +38,7 @@ export default async function AccountSubscriptionsPage() {
 
   // Fetch all brand subscriptions for this user, joined with store info.
   const subs = await withTenant(
-    db,
+    getDb(),
     { userId: session.user.id, userRole: session.user.role },
     async (tx) =>
       tx

@@ -1,12 +1,11 @@
 import { and, desc, eq, inArray } from "drizzle-orm"
 import { notFound, redirect } from "next/navigation"
 
-import { makeDb, schema, withAdmin, withTenant } from "@bomy/db"
+import { schema, withAdmin, withTenant } from "@bomy/db"
 
 import { auth } from "@/auth"
+import { getDb } from "@/lib/db"
 import { BrandSubscriptionPoller } from "./poller"
-
-const { db } = makeDb()
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001" as const
 
@@ -21,7 +20,7 @@ export default async function BrandSubscribeSuccessPage({ params }: Props) {
 
   // Resolve store by slug.
   const store = await withAdmin(
-    db,
+    getDb(),
     { userId: SYSTEM_ACTOR, reason: "resolve store for brand subscription success page" },
     async (tx) => {
       const rows = await tx
@@ -36,7 +35,7 @@ export default async function BrandSubscribeSuccessPage({ params }: Props) {
   if (!store) notFound()
 
   const sub = await withTenant(
-    db,
+    getDb(),
     { userId: session.user.id, userRole: session.user.role },
     async (tx) => {
       const rows = await tx

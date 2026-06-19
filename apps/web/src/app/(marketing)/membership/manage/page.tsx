@@ -1,13 +1,12 @@
 import { and, eq } from "drizzle-orm"
 import { redirect } from "next/navigation"
 
-import { makeDb, schema, withTenant } from "@bomy/db"
+import { schema, withTenant } from "@bomy/db"
 
 import { auth } from "@/auth"
+import { getDb } from "@/lib/db"
 import { SubmitButton } from "@/components/submit-button"
 import { cancelMembership } from "../actions"
-
-const { db } = makeDb()
 
 function formatDate(d: Date): string {
   return d.toLocaleDateString("en-MY", { day: "numeric", month: "long", year: "numeric" })
@@ -18,7 +17,7 @@ export default async function MembershipManagePage() {
   if (!session) redirect("/auth/sign-in?callbackUrl=/membership/manage")
 
   const sub = await withTenant(
-    db,
+    getDb(),
     { userId: session.user.id, userRole: session.user.role },
     async (tx) => {
       const rows = await tx

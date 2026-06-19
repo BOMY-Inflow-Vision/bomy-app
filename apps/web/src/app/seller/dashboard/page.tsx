@@ -2,11 +2,10 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 import { eq } from "drizzle-orm"
 
-import { makeDb, schema, withTenant } from "@bomy/db"
+import { schema, withTenant } from "@bomy/db"
 
 import { auth } from "@/auth"
-
-const { db } = makeDb()
+import { getDb } from "@/lib/db"
 
 export default async function SellerDashboardPage() {
   const session = await auth()
@@ -14,7 +13,7 @@ export default async function SellerDashboardPage() {
   if (session.user.role !== "seller_owner") redirect("/account")
 
   const store = await withTenant(
-    db,
+    getDb(),
     { userId: session.user.id, userRole: session.user.role },
     async (tx) => {
       const rows = await tx
