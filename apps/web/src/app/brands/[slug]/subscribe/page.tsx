@@ -1,14 +1,13 @@
 import { and, desc, eq, inArray } from "drizzle-orm"
 import { notFound, redirect } from "next/navigation"
 
-import { makeDb, schema, withTenant } from "@bomy/db"
+import { schema, withTenant } from "@bomy/db"
 
 import { auth } from "@/auth"
+import { getDb } from "@/lib/db"
 import { paymentsEnabled } from "@/lib/payments-enabled"
 import { SubmitButton } from "@/components/submit-button"
 import { getStorePlans, subscribeToBrand } from "./actions"
-
-const { db } = makeDb()
 
 function senToMyr(sen: bigint): string {
   return `RM${Number(sen) / 100}`
@@ -31,7 +30,7 @@ export default async function BrandSubscribePage({ params }: Props) {
   let existingStatus: "active" | "pending" | null = null
   if (session) {
     const existing = await withTenant(
-      db,
+      getDb(),
       { userId: session.user.id, userRole: session.user.role },
       async (tx) => {
         const rows = await tx

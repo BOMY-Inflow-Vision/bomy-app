@@ -1,13 +1,12 @@
 "use server"
 
 import { parseOpsEmails } from "@bomy/mailer"
-import { makeDb, schema } from "@bomy/db"
+import { schema } from "@bomy/db"
 
+import { getDb } from "@/lib/db"
 import { getMailer } from "@/lib/mailer"
 import { verifyTurnstile } from "@/lib/turnstile"
 import { sendApplicantAck, sendOpsAlert } from "@/notifications/seller-inquiry"
-
-const { db } = makeDb()
 
 const EMAIL_RE = /^[^\s,;<>"@]+@[^\s,;<>"@]+\.[^\s,;<>"@]+$/
 
@@ -44,7 +43,7 @@ export async function submitSellerInquiry(formData: FormData) {
   }
 
   // 4. DB insert.
-  const [inserted] = await db
+  const [inserted] = await getDb()
     .insert(schema.sellerInquiries)
     .values({ name, email, contactNumber, companyName, storeName, message })
     .returning({ id: schema.sellerInquiries.id })

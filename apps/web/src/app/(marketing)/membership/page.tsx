@@ -1,20 +1,19 @@
 import { and, eq, inArray } from "drizzle-orm"
 import { redirect } from "next/navigation"
 
-import { makeDb, schema, withAdmin, withTenant } from "@bomy/db"
+import { schema, withAdmin, withTenant } from "@bomy/db"
 
 import { auth } from "@/auth"
+import { getDb } from "@/lib/db"
 import { paymentsEnabled } from "@/lib/payments-enabled"
 import { SubmitButton } from "@/components/submit-button"
 import { joinMembership } from "./actions"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001" as const
 
-const { db } = makeDb()
-
 async function getPriceSen(): Promise<bigint> {
   return withAdmin(
-    db,
+    getDb(),
     { userId: SYSTEM_ACTOR, reason: "read platform membership price for landing page" },
     async (tx) => {
       const rows = await tx
@@ -37,7 +36,7 @@ export default async function MembershipPage() {
   // Redirect away if already a member
   if (session) {
     const existing = await withTenant(
-      db,
+      getDb(),
       { userId: session.user.id, userRole: session.user.role },
       async (tx) =>
         tx
