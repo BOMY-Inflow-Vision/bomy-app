@@ -28,7 +28,7 @@ FROM deps AS builder
 COPY packages/ packages/
 COPY apps/admin/ apps/admin/
 
-RUN pnpm --filter @bomy/admin build
+RUN pnpm --filter @bomy/admin build && mkdir -p apps/admin/public
 
 # ── Stage 3: minimal standalone runtime ───────────────────────────────────────
 FROM node:20-alpine AS runner
