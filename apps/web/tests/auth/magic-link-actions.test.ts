@@ -1,11 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const { signInMock, verifyTurnstileMock } = vi.hoisted(() => ({
+const { signInMock, verifyTurnstileMock, limitMock } = vi.hoisted(() => ({
   signInMock: vi.fn(),
   verifyTurnstileMock: vi.fn(),
+  limitMock: vi.fn(),
 }))
 
-vi.mock("@/auth", () => ({ signIn: signInMock }))
+// getAuthDb() returns a chainable query builder; the action calls
+// .select().from().where().limit() to check for an existing magic-link token.
+vi.mock("@/auth", () => ({
+  signIn: signInMock,
+  getAuthDb: () => ({
+    select: () => ({
+      from: () => ({
+        where: () => ({
+          limit: limitMock,
+        }),
+      }),
+    }),
+  }),
+}))
 
 vi.mock("@/lib/turnstile", () => ({
   verifyTurnstile: verifyTurnstileMock,
@@ -25,6 +39,7 @@ describe("sendMagicLinkAction", () => {
     vi.clearAllMocks()
     verifyTurnstileMock.mockResolvedValue({ success: true })
     signInMock.mockResolvedValue(undefined)
+    limitMock.mockResolvedValue([]) // no existing token → cooldown passes
   })
 
   it("runs Turnstile verification before email validation and side effects", async () => {
@@ -64,5 +79,17 @@ describe("sendMagicLinkAction", () => {
       email: "buyer@example.com",
       redirectTo: "/auth/consent",
     })
+  })
+
+  it("rejects with a cooldown message when a token already exists for the address", async () => {
+    limitMock.mockResolvedValueOnce([{ identifier: "buyer@example.com" }])
+
+    const result = await sendMagicLinkAction(null, makeFormData("buyer@example.com"))
+
+    expect(result).toEqual({
+      error:
+        "A sign-in link was already sent — check your inbox or wait a few minutes before requesting another.",
+    })
+    expect(signInMock).not.toHaveBeenCalled()
   })
 })
