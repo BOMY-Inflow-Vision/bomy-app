@@ -1,6 +1,6 @@
 "use server"
 
-import { eq } from "drizzle-orm"
+import { and, eq, gt, lt } from "drizzle-orm"
 
 import { schema } from "@bomy/db"
 
@@ -32,13 +32,30 @@ export async function sendMagicLinkAction(
     return { error: "Please enter a valid email address." }
   }
 
-  // 3. Per-email cooldown: reject if a token already exists for this address.
-  //    NextAuth stores one token per identifier; if one is present the link was
-  //    already sent and hasn't been clicked or expired yet (24 h window).
-  const existing = await getAuthDb()
+  // 3. Per-email cooldown. NextAuth only deletes a verification token when its
+  //    link is clicked, so abandoned requests leave expired rows that nothing
+  //    else cleans up. First drop any expired tokens for this address (prevents
+  //    a permanent lockout and unbounded table growth), then block only if a
+  //    still-live token remains.
+  const db = getAuthDb()
+  await db
+    .delete(schema.verificationTokens)
+    .where(
+      and(
+        eq(schema.verificationTokens.identifier, email),
+        lt(schema.verificationTokens.expires, new Date()),
+      ),
+    )
+
+  const existing = await db
     .select({ identifier: schema.verificationTokens.identifier })
     .from(schema.verificationTokens)
-    .where(eq(schema.verificationTokens.identifier, email))
+    .where(
+      and(
+        eq(schema.verificationTokens.identifier, email),
+        gt(schema.verificationTokens.expires, new Date()),
+      ),
+    )
     .limit(1)
 
   if (existing.length > 0) {
