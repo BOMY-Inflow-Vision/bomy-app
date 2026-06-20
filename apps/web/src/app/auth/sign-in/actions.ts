@@ -1,5 +1,10 @@
 "use server"
 
+import { eq } from "drizzle-orm"
+
+import { schema } from "@bomy/db"
+
+import { getAuthDb } from "@/auth"
 import { signIn } from "@/auth"
 import { verifyTurnstile } from "@/lib/turnstile"
 
@@ -27,7 +32,23 @@ export async function sendMagicLinkAction(
     return { error: "Please enter a valid email address." }
   }
 
-  // 3. On success signIn() sends the magic link and redirects to /auth/verify-request.
+  // 3. Per-email cooldown: reject if a token already exists for this address.
+  //    NextAuth stores one token per identifier; if one is present the link was
+  //    already sent and hasn't been clicked or expired yet (24 h window).
+  const existing = await getAuthDb()
+    .select({ identifier: schema.verificationTokens.identifier })
+    .from(schema.verificationTokens)
+    .where(eq(schema.verificationTokens.identifier, email))
+    .limit(1)
+
+  if (existing.length > 0) {
+    return {
+      error:
+        "A sign-in link was already sent — check your inbox or wait a few minutes before requesting another.",
+    }
+  }
+
+  // 4. On success signIn() sends the magic link and redirects to /auth/verify-request.
   //    On AuthError it throws; NEXT_REDIRECT propagates to the Next.js router.
   await signIn("nodemailer", { email, redirectTo: "/auth/consent" })
 

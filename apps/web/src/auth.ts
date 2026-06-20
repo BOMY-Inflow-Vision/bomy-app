@@ -61,11 +61,20 @@ async function deriveConsentState(
 // DATABASE_APP_URL / DATABASE_URL causes no build-time error.
 // DrizzleAdapter uses instanceof checks (not property access) to detect the DB type, so a
 // Proxy wrapping {} cannot satisfy it — the entire NextAuth({}) call must be deferred.
+
+// Separate singleton so server actions can query auth-only tables (e.g. verificationTokens)
+// without creating a second connection pool.
+let _authDb: ReturnType<typeof makeAuthDb>["db"] | null = null
+export function getAuthDb() {
+  if (!_authDb) _authDb = makeAuthDb().db
+  return _authDb
+}
+
 let _nextAuth: ReturnType<typeof NextAuth> | null = null
 
 function getNextAuth(): ReturnType<typeof NextAuth> {
   if (_nextAuth) return _nextAuth
-  const { db } = makeAuthDb()
+  const db = getAuthDb()
 
   // Build a raw email-provider object rather than using the Nodemailer() factory.
   // The factory throws AuthError("Nodemailer requires a `server` configuration") when
