@@ -1,5 +1,6 @@
 import { Queue } from "bullmq"
 import type { FastifyInstance } from "fastify"
+import { Redis } from "ioredis"
 
 import { VOUCHER_QUEUE_NAME } from "../../scheduler.js"
 
@@ -27,19 +28,16 @@ export async function internalJobRoutes(app: FastifyInstance) {
       return reply.status(503).send({ error: "REDIS_URL not configured" })
     }
 
-    const parsed = new URL(redisUrl)
-    const connection = {
-      host: parsed.hostname,
-      port: parseInt(parsed.port || "6379", 10),
-      password: parsed.password || undefined,
-      username: parsed.username || undefined,
-    }
-
+    // Let ioredis parse the URL (same path as the scheduler) so rediss:// TLS,
+    // IPv6, and encoded passwords work — manual new URL() splitting dropped TLS
+    // and broke scheme-less URLs.
+    const connection = new Redis(redisUrl, { maxRetriesPerRequest: null, enableReadyCheck: false })
     const queue = new Queue(VOUCHER_QUEUE_NAME, { connection })
     try {
       await queue.add("manual-trigger", {})
     } finally {
       await queue.close()
+      await connection.quit()
     }
 
     return reply.status(202).send({ queued: true })

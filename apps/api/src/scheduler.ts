@@ -162,6 +162,9 @@ export async function createScheduler(
         invExpiryQueue.close(),
         orderAutoCompleteQueue.close(),
       ])
+      // BullMQ does not close a shared connection it was handed — quit it here
+      // so Railway redeploys/shutdowns don't leak the Redis handle.
+      await connection.quit()
     },
   }
 }
