@@ -1,6 +1,7 @@
 "use server"
 
 import { eq } from "drizzle-orm"
+import { headers } from "next/headers"
 import { redirect } from "next/navigation"
 
 import { makeDb, schema, withAdmin, withTenant } from "@bomy/db"
@@ -37,13 +38,19 @@ export async function acceptConsent(): Promise<void> {
   const version = typeof rows[0]?.value === "string" ? rows[0].value : null
   if (!version) throw new Error("tos_version not found in platform_config")
 
+  // Capture acceptance provenance for the PDPA audit trail. First x-forwarded-for
+  // hop is the client; behind Vercel/Railway proxies the chain is appended right.
+  const h = await headers()
+  const acceptedIp = h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? h.get("x-real-ip") ?? null
+  const acceptedUserAgent = h.get("user-agent") ?? null
+
   // Write two consent rows (tos + privacy) as the authenticated user (withTenant)
   await withTenant(db, { userId, userRole }, async (tx) => {
     await tx
       .insert(schema.userConsents)
       .values([
-        { userId, document: "tos", version },
-        { userId, document: "privacy", version },
+        { userId, document: "tos", version, acceptedIp, acceptedUserAgent },
+        { userId, document: "privacy", version, acceptedIp, acceptedUserAgent },
       ])
       .onConflictDoNothing()
   })
