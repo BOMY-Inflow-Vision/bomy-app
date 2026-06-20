@@ -1,6 +1,10 @@
 import { signIn } from "@/auth"
 import { SubmitButton } from "@/components/submit-button"
 
+import { MagicLinkForm } from "./magic-link-form"
+
+const emailEnabled = process.env["EMAIL_DELIVERY_ENABLED"] === "true"
+
 export default function SignInPage({
   searchParams,
 }: {
@@ -11,7 +15,11 @@ export default function SignInPage({
       <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-sm ring-1 ring-gray-200">
         <div className="mb-8 text-center">
           <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Sign in to BOMY</h1>
-          <p className="mt-1 text-sm text-gray-500">Continue with your Google account</p>
+          <p className="mt-1 text-sm text-gray-500">
+            {emailEnabled
+              ? "Choose how you'd like to sign in"
+              : "Continue with your Google account"}
+          </p>
         </div>
 
         <ConsentDeclinedBanner searchParams={searchParams} />
@@ -28,6 +36,18 @@ export default function SignInPage({
               Continue with Google
             </SubmitButton>
           </form>
+
+          {emailEnabled && (
+            <>
+              <div className="relative flex items-center">
+                <div className="flex-grow border-t border-gray-200" />
+                <span className="mx-3 flex-shrink text-xs text-gray-400">or</span>
+                <div className="flex-grow border-t border-gray-200" />
+              </div>
+
+              <MagicLinkForm />
+            </>
+          )}
         </div>
 
         <p className="mt-6 text-center text-xs text-gray-400">

@@ -11,6 +11,7 @@ export const authConfig = {
   providers: [Google],
   pages: {
     signIn: "/auth/sign-in",
+    verifyRequest: "/auth/verify-request",
   },
   callbacks: {
     // Propagate custom JWT fields into the session for edge middleware.

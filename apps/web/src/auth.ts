@@ -4,7 +4,9 @@ import NextAuth from "next-auth"
 import type { DefaultSession } from "next-auth"
 
 import { makeAuthDb, schema, type UserRole } from "@bomy/db"
+import { sendMagicLink } from "@bomy/mailer"
 
+import { getMailer } from "@/lib/mailer"
 import { authConfig } from "./auth.config"
 
 declare module "next-auth" {
@@ -64,8 +66,37 @@ let _nextAuth: ReturnType<typeof NextAuth> | null = null
 function getNextAuth(): ReturnType<typeof NextAuth> {
   if (_nextAuth) return _nextAuth
   const { db } = makeAuthDb()
+
+  // Build a raw email-provider object rather than using the Nodemailer() factory.
+  // The factory throws AuthError("Nodemailer requires a `server` configuration") when
+  // no server is supplied — even when a custom sendVerificationRequest is provided.
+  // Our provider routes through @bomy/mailer so we need neither server nor the factory.
+  const emailProvider =
+    process.env["EMAIL_DELIVERY_ENABLED"] === "true"
+      ? {
+          id: "nodemailer",
+          type: "email" as const,
+          name: "Email",
+          from: process.env["MAIL_FROM"] ?? "BOMY <contact@brandsofmalaysia.com>",
+          maxAge: 24 * 60 * 60,
+          sendVerificationRequest: async ({
+            identifier: email,
+            url,
+          }: {
+            identifier: string
+            url: string
+          }) => {
+            await sendMagicLink(getMailer(), { to: email, url })
+          },
+        }
+      : null
+
   _nextAuth = NextAuth({
     ...authConfig,
+    // Cast required: NodemailerConfig.sendVerificationRequest's param type is technically
+    // incompatible with EmailConfig under exactOptionalPropertyTypes; runtime is correct.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
+    providers: [...authConfig.providers, ...(emailProvider ? [emailProvider as any] : [])],
     adapter: DrizzleAdapter(db, {
       usersTable: schema.users,
       accountsTable: schema.accounts,
