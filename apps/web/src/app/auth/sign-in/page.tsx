@@ -1,6 +1,8 @@
 import { signIn } from "@/auth"
 import { SubmitButton } from "@/components/submit-button"
 
+import { MagicLinkForm } from "./magic-link-form"
+
 const emailEnabled = process.env["EMAIL_DELIVERY_ENABLED"] === "true"
 
 export default function SignInPage({
@@ -43,26 +45,7 @@ export default function SignInPage({
                 <div className="flex-grow border-t border-gray-200" />
               </div>
 
-              <form
-                action={async (formData: FormData) => {
-                  "use server"
-                  const email = formData.get("email")
-                  if (typeof email !== "string" || !email) return
-                  await signIn("nodemailer", { email, redirectTo: "/auth/consent" })
-                }}
-                className="flex flex-col gap-2"
-              >
-                <input
-                  type="email"
-                  name="email"
-                  placeholder="you@example.com"
-                  required
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200"
-                />
-                <SubmitButton className="w-full rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-gray-800">
-                  Send magic link
-                </SubmitButton>
-              </form>
+              <MagicLinkForm />
             </>
           )}
         </div>

@@ -2,7 +2,6 @@ import { and, eq } from "drizzle-orm"
 import { DrizzleAdapter } from "@auth/drizzle-adapter"
 import NextAuth from "next-auth"
 import type { DefaultSession } from "next-auth"
-import Nodemailer from "next-auth/providers/nodemailer"
 
 import { makeAuthDb, schema, type UserRole } from "@bomy/db"
 import { sendMagicLink } from "@bomy/mailer"
@@ -68,14 +67,28 @@ function getNextAuth(): ReturnType<typeof NextAuth> {
   if (_nextAuth) return _nextAuth
   const { db } = makeAuthDb()
 
+  // Build a raw email-provider object rather than using the Nodemailer() factory.
+  // The factory throws AuthError("Nodemailer requires a `server` configuration") when
+  // no server is supplied — even when a custom sendVerificationRequest is provided.
+  // Our provider routes through @bomy/mailer so we need neither server nor the factory.
   const emailProvider =
     process.env["EMAIL_DELIVERY_ENABLED"] === "true"
-      ? Nodemailer({
+      ? {
+          id: "nodemailer",
+          type: "email" as const,
+          name: "Email",
           from: process.env["MAIL_FROM"] ?? "BOMY <contact@brandsofmalaysia.com>",
-          sendVerificationRequest: async ({ identifier: email, url }) => {
+          maxAge: 24 * 60 * 60,
+          sendVerificationRequest: async ({
+            identifier: email,
+            url,
+          }: {
+            identifier: string
+            url: string
+          }) => {
             await sendMagicLink(getMailer(), { to: email, url })
           },
-        })
+        }
       : null
 
   _nextAuth = NextAuth({
