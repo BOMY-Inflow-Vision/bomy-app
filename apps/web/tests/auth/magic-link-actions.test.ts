@@ -175,6 +175,25 @@ describe.skipIf(!shouldRun)("sendMagicLinkAction — cooldown expiry (DB)", () =
     expect(signInMock).not.toHaveBeenCalled()
   })
 
+  it("blocks a casing variant of an address with a live token (canonical lowercase)", async () => {
+    // Auth.js stores the identifier lowercased; a live token for the canonical
+    // form must block a mixed-case request or the cooldown is bypassable.
+    await authDb.insert(schema.verificationTokens).values({
+      identifier: email, // already lowercase
+      token: randomUUID(),
+      expires: new Date(Date.now() + 60 * 60_000),
+    })
+
+    const mixedCase = email.toUpperCase()
+    const result = await sendMagicLinkAction(null, makeFormData(mixedCase))
+
+    expect(result).toEqual({
+      error:
+        "A sign-in link was already sent — check your inbox or wait a few minutes before requesting another.",
+    })
+    expect(signInMock).not.toHaveBeenCalled()
+  })
+
   it("an expired token is cleaned up so the table does not grow unbounded", async () => {
     await authDb.insert(schema.verificationTokens).values({
       identifier: email,

@@ -25,9 +25,12 @@ export async function sendMagicLinkAction(
     return { error: "Verification failed. Please try the challenge again." }
   }
 
-  // 2. Server-side single-address email validation.
+  // 2. Server-side single-address email validation. Canonicalize to lowercase:
+  //    Auth.js stores the verification-token identifier lowercased, so the
+  //    cooldown delete/query and signIn() must use the same form — otherwise a
+  //    casing variant (Buyer@Example.com) slips past the per-email cooldown.
   const raw = formData.get("email")
-  const email = typeof raw === "string" ? raw.trim() : ""
+  const email = typeof raw === "string" ? raw.trim().toLowerCase() : ""
   if (!email || !EMAIL_RE.test(email)) {
     return { error: "Please enter a valid email address." }
   }
