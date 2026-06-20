@@ -2,9 +2,12 @@ import { and, eq } from "drizzle-orm"
 import { DrizzleAdapter } from "@auth/drizzle-adapter"
 import NextAuth from "next-auth"
 import type { DefaultSession } from "next-auth"
+import Nodemailer from "next-auth/providers/nodemailer"
 
 import { makeAuthDb, schema, type UserRole } from "@bomy/db"
+import { sendMagicLink } from "@bomy/mailer"
 
+import { getMailer } from "@/lib/mailer"
 import { authConfig } from "./auth.config"
 
 declare module "next-auth" {
@@ -64,8 +67,23 @@ let _nextAuth: ReturnType<typeof NextAuth> | null = null
 function getNextAuth(): ReturnType<typeof NextAuth> {
   if (_nextAuth) return _nextAuth
   const { db } = makeAuthDb()
+
+  const emailProvider =
+    process.env["EMAIL_DELIVERY_ENABLED"] === "true"
+      ? Nodemailer({
+          from: process.env["MAIL_FROM"] ?? "BOMY <contact@brandsofmalaysia.com>",
+          sendVerificationRequest: async ({ identifier: email, url }) => {
+            await sendMagicLink(getMailer(), { to: email, url })
+          },
+        })
+      : null
+
   _nextAuth = NextAuth({
     ...authConfig,
+    // Cast required: NodemailerConfig.sendVerificationRequest's param type is technically
+    // incompatible with EmailConfig under exactOptionalPropertyTypes; runtime is correct.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
+    providers: [...authConfig.providers, ...(emailProvider ? [emailProvider as any] : [])],
     adapter: DrizzleAdapter(db, {
       usersTable: schema.users,
       accountsTable: schema.accounts,
