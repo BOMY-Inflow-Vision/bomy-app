@@ -282,16 +282,21 @@ describe.skipIf(!shouldRun)("consent DB-state checks (security)", () => {
 // ─── Action tests ─────────────────────────────────────────────────────────
 
 // Stable mock handles
-const { authMock, signOutMock, updateMock } = vi.hoisted(() => ({
+const { authMock, signOutMock, updateMock, headersMock } = vi.hoisted(() => ({
   authMock: vi.fn(),
   signOutMock: vi.fn(),
   updateMock: vi.fn(),
+  headersMock: vi.fn(),
 }))
 
 vi.mock("@/auth", () => ({
   auth: authMock,
   signOut: signOutMock,
   unstable_update: updateMock,
+}))
+
+vi.mock("next/headers", () => ({
+  headers: headersMock,
 }))
 
 // redirect() throws a NEXT_REDIRECT error — capture it
@@ -323,6 +328,8 @@ describe.skipIf(!shouldRun)("acceptConsent action", () => {
     signOutMock.mockReset()
     updateMock.mockReset()
     updateMock.mockResolvedValue(null)
+    headersMock.mockReset()
+    headersMock.mockResolvedValue(new Headers())
   })
 
   afterEach(() => {
@@ -374,6 +381,56 @@ describe.skipIf(!shouldRun)("acceptConsent action", () => {
     expect(docs).toEqual(["privacy", "tos"])
 
     // Cleanup
+    await withAdmin(db, { userId: SYSTEM_ACTOR, reason: "test teardown" }, async (tx) => {
+      await tx.delete(schema.users).where(eq(schema.users.id, user.id))
+    })
+  })
+
+  it("captures client IP (first x-forwarded-for hop) and user-agent on both rows", async () => {
+    const { db } = makeDb()
+    const user = await withAdmin(db, { userId: SYSTEM_ACTOR, reason: "test setup" }, async (tx) => {
+      const [u] = await tx
+        .insert(schema.users)
+        .values({ email: `accept-ipua-${randomUUID()}@test.bomy`, role: "buyer" })
+        .returning({ id: schema.users.id })
+      return u!
+    })
+
+    authMock.mockResolvedValue({
+      user: {
+        id: user.id,
+        role: "buyer",
+        consentVersion: undefined,
+        currentTosVersion: "2026-06-17",
+      },
+    })
+    headersMock.mockResolvedValue(
+      new Headers({
+        "x-forwarded-for": "203.0.113.7, 10.0.0.1",
+        "user-agent": "Mozilla/5.0 (TestAgent)",
+      }),
+    )
+
+    const { acceptConsent } = await import("../../../src/app/auth/consent/actions.js")
+    await catchRedirect(() => acceptConsent())
+
+    const rows = await withAdmin(db, { userId: SYSTEM_ACTOR, reason: "test verify" }, async (tx) =>
+      tx
+        .select({
+          document: schema.userConsents.document,
+          acceptedIp: schema.userConsents.acceptedIp,
+          acceptedUserAgent: schema.userConsents.acceptedUserAgent,
+        })
+        .from(schema.userConsents)
+        .where(eq(schema.userConsents.userId, user.id)),
+    )
+
+    expect(rows).toHaveLength(2)
+    for (const row of rows) {
+      expect(row.acceptedIp).toBe("203.0.113.7")
+      expect(row.acceptedUserAgent).toBe("Mozilla/5.0 (TestAgent)")
+    }
+
     await withAdmin(db, { userId: SYSTEM_ACTOR, reason: "test teardown" }, async (tx) => {
       await tx.delete(schema.users).where(eq(schema.users.id, user.id))
     })
