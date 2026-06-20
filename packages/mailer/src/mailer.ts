@@ -1,7 +1,12 @@
 import nodemailer from "nodemailer"
 
 export interface Mailer {
-  sendMail(opts: { to: string | string[]; subject: string; text: string }): Promise<void>
+  sendMail(opts: {
+    to: string | string[]
+    subject: string
+    text: string
+    from?: string
+  }): Promise<void>
   close(): Promise<void>
 }
 
@@ -23,7 +28,10 @@ export function createMailer(
   if (!config.enabled) {
     return {
       async sendMail(opts) {
-        log.info({ to: opts.to, subject: opts.subject }, "email_notification_skipped")
+        log.info(
+          { to: opts.to, subject: opts.subject, from: opts.from ?? config.from },
+          "email_notification_skipped",
+        )
       },
       async close() {},
     }
@@ -39,7 +47,7 @@ export function createMailer(
   return {
     async sendMail(opts) {
       await transport.sendMail({
-        from: config.from,
+        from: opts.from ?? config.from,
         to: opts.to,
         subject: opts.subject,
         text: opts.text,

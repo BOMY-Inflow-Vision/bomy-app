@@ -95,7 +95,12 @@ function getNextAuth(): ReturnType<typeof NextAuth> {
             identifier: string
             url: string
           }) => {
-            await sendMagicLink(getMailer(), { to: email, url })
+            const noReplyFrom = process.env["MAIL_FROM_NOREPLY"]
+            await sendMagicLink(getMailer(), {
+              to: email,
+              url,
+              ...(noReplyFrom ? { from: noReplyFrom } : {}),
+            })
           },
         }
       : null

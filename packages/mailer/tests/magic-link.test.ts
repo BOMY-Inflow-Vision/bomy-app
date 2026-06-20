@@ -23,5 +23,19 @@ describe("sendMagicLink", () => {
     expect(message.text).toContain(
       "https://brandsofmalaysia.com/api/auth/callback/nodemailer?token=abc",
     )
+    expect(message.from).toBeUndefined()
+  })
+
+  it("passes an explicit from address through to sendMail", async () => {
+    const sendMail = vi.fn<Mailer["sendMail"]>().mockResolvedValue(undefined)
+    const mailer: Mailer = { sendMail, close: vi.fn().mockResolvedValue(undefined) }
+
+    await sendMagicLink(mailer, {
+      to: "buyer@example.com",
+      url: "https://brandsofmalaysia.com/api/auth/callback/nodemailer?token=abc",
+      from: "BOMY <no-reply@brandsofmalaysia.com>",
+    })
+
+    expect(sendMail.mock.calls[0]![0].from).toBe("BOMY <no-reply@brandsofmalaysia.com>")
   })
 })
