@@ -10,7 +10,7 @@
 
 1. **SMTP provider configured** — you have an outbound SMTP account for `contact@brandsofmalaysia.com` (e.g. Google Workspace relay, Brevo, Postmark, or similar).
 2. **Turnstile already active** — `NEXT_PUBLIC_TURNSTILE_SITEKEY` and `TURNSTILE_SECRET_KEY` are set in Vercel production. (Wired in PR #37 for the seller-apply form; magic link reuses the same site key.)
-3. **`verificationTokens` table in prod DB** — applied via migration 0003 (Stage 2); confirm with `SELECT COUNT(*) FROM verification_tokens;` against the Neon prod DB.
+3. **`verification_tokens` table in prod DB** — applied via migration `0001_auth_tables`; confirm with `SELECT COUNT(*) FROM verification_tokens;` against the Neon prod DB.
 
 ---
 
@@ -81,6 +81,6 @@ Google OAuth sign-in is unaffected by this rollback.
 | Email form not visible                                  | `EMAIL_DELIVERY_ENABLED` not set to `true` or deployment not triggered | Set var + redeploy                                                                                 |
 | Turnstile widget doesn't render                         | Missing `NEXT_PUBLIC_TURNSTILE_SITEKEY`                                | Check Vercel vars; Turnstile must be set up on brandsofmalaysia.com domain in Cloudflare dashboard |
 | "Verification failed" error                             | Turnstile secret mismatch or network error                             | Check `TURNSTILE_SECRET_KEY` in Vercel                                                             |
-| Email not received                                      | SMTP misconfigured, spam filter, or wrong `MAIL_FROM`                  | Check Railway `apps/api` logs (mailer logs errors); verify SMTP credentials                        |
+| Email not received                                      | SMTP misconfigured, spam filter, or wrong `MAIL_FROM`                  | Check Vercel web runtime logs; verify SMTP credentials                                             |
 | Magic link redirects to NextAuth error page             | `NEXTAUTH_URL` / `AUTH_URL` mismatch                                   | Confirm `AUTH_URL=https://brandsofmalaysia.com` in Vercel                                          |
 | `AuthError: Nodemailer requires a server configuration` | Old code (pre-PR #57 fix) still deployed                               | Ensure latest deployment is active                                                                 |
