@@ -112,8 +112,48 @@ Admin never stops working on the Railway URL, so rollback is just reverting the 
 - **DNS:** Cloudflare → delete the `admin` CNAME (or leave it; with `AUTH_URL` reverted it's just an idle alias).
 - No code or DB involved at any point.
 
-## 5. Reference
+## 5. Admin auth prerequisites (these blocked sign-in during the first cutover)
 
-- Admin auth: `apps/admin/src/auth.config.ts` (Google provider), `apps/admin/.env.example` (`AUTH_URL`).
+The domain steps above are necessary but **not sufficient** — the first real admin
+login surfaced three latent gaps. Verify all three before declaring the login
+working, independent of the domain:
+
+1. **`AUTH_GOOGLE_ID` + `AUTH_GOOGLE_SECRET` must be set on the admin Railway
+   service.** `auth.config.ts` uses `providers: [Google]` with no explicit
+   creds, so NextAuth v5 auto-reads these env vars. If unset, Google returns
+   **`invalid_client` / "OAuth client was not found"** (empty client_id). Fix:
+   reuse the web app's existing Google OAuth client — copy its ID/secret from
+   Vercel (`bomy-web`) into Railway, and add **both** redirect URIs to that one
+   client (`https://brandsofmalaysia.com/...` and
+   `https://admin.brandsofmalaysia.com/api/auth/callback/google`). Admin access
+   is still role-gated separately, so sharing the identity client is safe.
+
+2. **`DATABASE_URL` must be the UNPOOLED/direct Neon endpoint.** The NextAuth
+   adapter connects via `makeAuthDb()`, which sets the `app.bypass_rls` startup
+   parameter (`options=-c app.bypass_rls=true`). Neon's **pooled** endpoint
+   (`...-pooler...`, PgBouncer) rejects startup parameters →
+   **`AdapterError: unsupported startup parameter in options: app.bypass_rls`**
+   → "Server configuration" error on the callback. Fix: remove `-pooler` from
+   the host (matches the web app's `bomy_app` direct/unpooled string).
+
+3. **Admin uses JWT session strategy** (`apps/admin/src/auth.ts`,
+   `session.strategy = "jwt"`; PR #65). Database session strategy sets an opaque
+   cookie the **edge middleware** can't decode → **`JWTSessionError: Invalid
+Compact JWE`** → every sign-in bounces back to `/auth/sign-in`. The
+   `auth.config.ts` `session()` callback propagates `id`/`role` from the token so
+   the middleware's `authorized()` gate can read the role. The `authorized()`
+   gate also allowlists `/auth/sign-in` + `/unauthorized` to avoid a redirect
+   loop when a non-BOMY user is bounced.
+
+4. **First admin is a DB bootstrap.** A brand-new Google sign-in creates a
+   `users` row with the default `buyer` role, which the gate rejects. Promote the
+   first admin directly in the DB (`update users set role='bomy_admin' where
+email=...`, via a `app.bypass_rls`/owner connection) — there's no admin UI
+   path until one admin exists.
+
+## 6. Reference
+
+- Admin auth: `apps/admin/src/auth.config.ts` + `apps/admin/src/auth.ts` (Google provider, JWT strategy), `apps/admin/.env.example`.
+- Session-strategy fix: PR #65 (`fix(admin): JWT session strategy ...`).
 - Predecessor domain runbook: `docs/runbooks/public-deployment-cutover.md` (apps/web → brandsofmalaysia.com, Vercel).
 - Railway custom domains + Cloudflare: grey-cloud CNAME required for cert issuance.
