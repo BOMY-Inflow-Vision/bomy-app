@@ -53,12 +53,11 @@ describe.skipIf(!shouldRun)("submitSellerInquiry — server action", () => {
     fd.set("companyName", overrides["companyName"] ?? "Aisyah Sdn Bhd")
     fd.set("storeName", overrides["storeName"] ?? "Kedai Aisyah")
     fd.set("message", overrides["message"] ?? "Looking forward.")
-    // Default: verify-passes via the mock; token value is arbitrary.
-    if (!("cf-turnstile-response" in overrides)) {
-      fd.set("cf-turnstile-response", "test-token")
-    } else if (overrides["cf-turnstile-response"]) {
-      fd.set("cf-turnstile-response", overrides["cf-turnstile-response"])
-    }
+    // Token defaults to "test-token" (value is arbitrary — the mock decides
+    // pass/fail). An explicit override is honoured literally, including "" for
+    // empty-token cases; to omit the field entirely, delete() it after building
+    // (see the "missing cf-turnstile-response" test).
+    fd.set("cf-turnstile-response", overrides["cf-turnstile-response"] ?? "test-token")
     return fd
   }
 
