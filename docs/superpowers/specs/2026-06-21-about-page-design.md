@@ -86,7 +86,7 @@ strength._
 
 - **A curated marketplace** — We don't list everything — we curate. Every brand earns its place and gets a dedicated space to tell its story, philosophy, and craft. That means less time sifting and less risk for you, and the confidence that what you're discovering is the real, quality-driven thing.
 - **Membership & community** — Become a BOMY member and join a community of people who love discovering and backing local. Members enjoy a quarterly curated BOMY Goodie Box, early access to new launches and promotions, member-only vouchers, and a seat in our feedback community. It's more than perks — it's belonging to a movement that supports local.
-- **Shop with purpose** — Every order backs a homegrown brand and the people behind it. When you buy on BOMY you're not just getting something you'll love — you're helping a Malaysian maker grow and keeping the local economy thriving.
+- **Shop with purpose** — Shopping on BOMY is designed to back homegrown brands and the people behind them. It's a way to celebrate Malaysian makers, support the local economy, and feel good about where your discovery leads. _(Phrased to avoid implying live orders — regular checkout is paused behind `checkout_enabled=false`; keep present-tense "designed to / a way to" framing, no "every order" / "when you buy".)_
 
 ### 5. For brands
 
