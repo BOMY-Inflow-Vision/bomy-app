@@ -42,6 +42,17 @@ describe("admin authConfig.session — JWT → session propagation (edge middlew
 })
 
 describe("admin authConfig.authorized — BOMY role gate", () => {
+  it.each(["/auth/sign-in", "/unauthorized"] as const)(
+    "allows %s so auth redirects cannot loop",
+    (pathname) => {
+      expect(authorize(pathname, { role: "buyer" })).toBe(true)
+    },
+  )
+
+  it("allows signed-out users to reach the sign-in page", () => {
+    expect(authorize("/auth/sign-in", null)).toBe(true)
+  })
+
   it.each(["bomy_ops", "bomy_admin", "bomy_finance"] as const)(
     "allows %s into the console",
     (role) => {

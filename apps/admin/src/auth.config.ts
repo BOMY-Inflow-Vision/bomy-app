@@ -4,6 +4,7 @@ import Google from "next-auth/providers/google"
 import type { UserRole } from "@bomy/db"
 
 const BOMY_ROLES: UserRole[] = ["bomy_ops", "bomy_admin", "bomy_finance"]
+const PUBLIC_AUTH_PATHS = ["/auth/sign-in", "/unauthorized"]
 
 export const authConfig = {
   providers: [Google],
@@ -19,6 +20,8 @@ export const authConfig = {
       return session
     },
     authorized({ auth, request: { nextUrl } }) {
+      if (PUBLIC_AUTH_PATHS.some((path) => nextUrl.pathname.startsWith(path))) return true
+
       if (!auth?.user) return false
       const role = (auth.user as typeof auth.user & { role?: UserRole }).role
       if (!role || !BOMY_ROLES.includes(role)) {
