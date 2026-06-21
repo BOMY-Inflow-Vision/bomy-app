@@ -74,6 +74,13 @@ describe("authConfig.authorized — consent gate", () => {
     expect(redirectTarget(result)).toBe("/auth/consent")
   })
 
+  it("gates globally — redirects an unconsented user from a public route (/) too", () => {
+    // The consent gate applies to ANY logged-in unconsented user, not only
+    // protected routes: an un-allowlisted public path still redirects.
+    const result = authorize("/", { role: "buyer", currentTosVersion: TOS })
+    expect(redirectTarget(result)).toBe("/auth/consent")
+  })
+
   it.each(["/auth/consent", "/auth/sign-in", "/terms", "/privacy", "/api/auth/signout"])(
     "does not redirect an unconsented user already on allowlisted path %s",
     (path) => {
@@ -103,5 +110,24 @@ describe("authConfig.authorized — seller-role gate", () => {
   it("redirects a consented non-seller away from /seller/dashboard to /account", () => {
     const result = authorize("/seller/dashboard", consented)
     expect(redirectTarget(result)).toBe("/account")
+  })
+})
+
+// The gate matches with startsWith(), so nested sub-routes inherit the parent's
+// rule. These guard against a future refactor narrowing the match to exact paths.
+describe("authConfig.authorized — nested (prefix) route matching", () => {
+  const seller: TestUser = { role: "seller_owner", consentVersion: TOS, currentTosVersion: TOS }
+
+  it("blocks an anonymous visitor from a nested login-required route (/account/orders)", () => {
+    expect(authorize("/account/orders", null)).toBe(false)
+  })
+
+  it("redirects a consented buyer from a nested seller route (/seller/dashboard/products)", () => {
+    const result = authorize("/seller/dashboard/products", consented)
+    expect(redirectTarget(result)).toBe("/account")
+  })
+
+  it("allows a consented seller_owner into a nested seller route (/seller/dashboard/products)", () => {
+    expect(authorize("/seller/dashboard/products", seller)).toBe(true)
   })
 })
