@@ -5,6 +5,7 @@ import { schema, withAdmin } from "@bomy/db"
 import { auth } from "@/auth"
 import { getDb } from "@/lib/db"
 import { RoleSelector } from "./role-selector"
+import { UserEditor } from "./user-editor"
 
 const ROLE_COLORS: Record<string, string> = {
   buyer: "bg-gray-100 text-gray-700",
@@ -18,6 +19,8 @@ const ROLE_COLORS: Record<string, string> = {
 export default async function UsersPage() {
   const session = await auth()
   if (!session) return null
+
+  const canEdit = session.user.role === "bomy_admin"
 
   const rows = await withAdmin(
     getDb(),
@@ -52,8 +55,14 @@ export default async function UsersPage() {
             {rows.map((row) => (
               <tr key={row.id} className="border-b border-gray-100 last:border-0">
                 <td className="px-4 py-3">
-                  <div className="font-medium text-gray-900">{row.name ?? "—"}</div>
-                  <div className="text-xs text-gray-400">{row.email}</div>
+                  {canEdit ? (
+                    <UserEditor userId={row.id} name={row.name} email={row.email} />
+                  ) : (
+                    <>
+                      <div className="font-medium text-gray-900">{row.name ?? "—"}</div>
+                      <div className="text-xs text-gray-400">{row.email}</div>
+                    </>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <span
@@ -64,7 +73,11 @@ export default async function UsersPage() {
                 </td>
                 <td className="px-4 py-3 text-gray-400">{row.createdAt.toLocaleDateString()}</td>
                 <td className="px-4 py-3">
-                  <RoleSelector userId={row.id} currentRole={row.role} />
+                  {canEdit ? (
+                    <RoleSelector userId={row.id} currentRole={row.role} />
+                  ) : (
+                    <span className="text-xs text-gray-300">—</span>
+                  )}
                 </td>
               </tr>
             ))}
