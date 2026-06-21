@@ -31,13 +31,24 @@ function getNextAuth(): ReturnType<typeof NextAuth> {
       sessionsTable: schema.sessions,
       verificationTokensTable: schema.verificationTokens,
     }),
-    session: { strategy: "database" },
+    // JWT strategy: the session lives in an encrypted cookie the edge
+    // middleware can decode (database sessions are opaque tokens the middleware
+    // can't read — that mismatch bounced every sign-in). The adapter is still
+    // used for user/account persistence.
+    session: { strategy: "jwt" },
     callbacks: {
       ...authConfig.callbacks,
-      session({ session, user }) {
-        const dbUser = user as typeof user & { role?: UserRole }
-        session.user.id = user.id
-        session.user.role = dbUser.role ?? "buyer"
+      jwt({ token, user }) {
+        if (user?.id) {
+          const dbUser = user as typeof user & { role?: UserRole }
+          token["id"] = user.id
+          token["role"] = dbUser.role ?? "buyer"
+        }
+        return token
+      },
+      session({ session, token }) {
+        session.user.id = (token["id"] as string) ?? token.sub ?? ""
+        session.user.role = (token["role"] as UserRole) ?? "buyer"
         return session
       },
     },
