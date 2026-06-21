@@ -14,6 +14,12 @@ export function Footer() {
             <p className="mt-3 text-sm text-slate-600">
               A curated Malaysian multivendor marketplace.
             </p>
+            <a
+              href="/about"
+              className="mt-3 inline-block text-sm text-slate-700 hover:text-slate-900 hover:underline"
+            >
+              About BOMY
+            </a>
           </div>
           <div>
             <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">Policies</p>
