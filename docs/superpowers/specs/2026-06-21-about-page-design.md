@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-21
 **Author:** Andy (Opus 4.8), copy by professional-copywriter subagent
-**Status:** Awaiting Charlie's review before implementation plan
+**Status:** Revised per Bob's review (2026-06-21) — 3 fixes applied; ready for implementation plan on Charlie's go
 
 ## Overview
 
@@ -15,9 +15,10 @@ legal pages, but tight in scope. Closes the launch-backlog `/about` item.
 
 1. **Positioning:** Mission + what's live only. Tells the "window to Malaysian
    brands" story, anchored in the curated marketplace, membership/community, and
-   egg gamification. **Excludes** the broader business-plan vision that isn't
-   built: the BOMY Studio content arm and the paid BOMY Collective partner
-   network.
+   purpose-driven local shopping. **Excludes** the broader business-plan vision
+   that isn't built: the BOMY Studio content arm, the paid BOMY Collective
+   partner network, and the egg/mascot gamification (not yet implemented in
+   web/API/DB — must not be described as a live feature).
 2. **Format:** Lightweight designed page (custom simple layout), **not**
    `LegalPageLayout`. Reuses the site-wide `Footer`.
 3. **Company voice:** BOMY speaks as the company ("we" / "BOMY"). **Inflo Vision
@@ -39,8 +40,9 @@ legal pages, but tight in scope. Closes the launch-backlog `/about` item.
 - **Footer:** site-wide `Footer` renders below automatically. Add an **"About"**
   link to the footer — as a link under the brand blurb in the first column (the
   "Policies" list is the wrong home since About isn't a policy).
-- **CTA targets:** shopper CTA → `/brands`; brand CTA → `/seller/apply`. Both
-  routes exist.
+- **CTA targets:** shopper CTA → `/products` (the live catalog page); brand CTA
+  → `/seller/apply`. Both exist. **`/brands` has no index page** (only
+  `/brands/[slug]`), so it must not be used as a CTA target.
 - **SEO:** export Next.js `metadata` (title + description below).
 - **Out of scope:** imagery/photography, stats bands, brand carousels,
   testimonials (those belong to the future, currently-unscheduled UI/UX stage);
@@ -53,7 +55,7 @@ Hero uses **Option A** (recommended); B/C retained as alternatives for Charlie.
 ### Meta
 
 - **Title:** `BOMY — Brands of Malaysia | Discover Local Brands`
-- **Description:** `BOMY is the curated home for authentic Malaysian brands. Discover quality local makers, join the BOMY Insider community, and back the brands you love.`
+- **Description:** `BOMY is the curated home for authentic Malaysian brands. Discover quality local makers, join the BOMY community, and back the brands you love.`
 
 ### 1. Hero
 
@@ -83,8 +85,8 @@ strength._
 ### 4. How it works (3 cards)
 
 - **A curated marketplace** — We don't list everything — we curate. Every brand earns its place and gets a dedicated space to tell its story, philosophy, and craft. That means less time sifting and less risk for you, and the confidence that what you're discovering is the real, quality-driven thing.
-- **Membership & community** — Become a BOMY Insider and join a community of people who love discovering and backing local. Members enjoy a quarterly curated BOMY Goodie Box, early access to new launches and promotions, member-only vouchers, and a seat in our feedback community. It's more than perks — it's belonging to a movement that supports local.
-- **Hatch & Collect** — Meet your BOMY companion. As you explore and support brands, your virtual egg grows and hatches into a one-of-a-kind mascot shaped by how you play. Customise it, collect more, and make the journey of backing local genuinely delightful.
+- **Membership & community** — Become a BOMY member and join a community of people who love discovering and backing local. Members enjoy a quarterly curated BOMY Goodie Box, early access to new launches and promotions, member-only vouchers, and a seat in our feedback community. It's more than perks — it's belonging to a movement that supports local.
+- **Shop with purpose** — Every order backs a homegrown brand and the people behind it. When you buy on BOMY you're not just getting something you'll love — you're helping a Malaysian maker grow and keeping the local economy thriving.
 
 ### 5. For brands
 
@@ -96,7 +98,7 @@ strength._
 
 - **Heading:** Discover what Malaysia makes.
 - **Support line:** Join the community backing local brands — and the makers building them.
-- **Button (shoppers):** Explore brands → `/brands`
+- **Button (shoppers):** Shop the marketplace → `/products`
 - **Button (brands):** Become a seller → `/seller/apply`
 
 ## Testing
