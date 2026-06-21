@@ -96,6 +96,9 @@ export default function SellerApplyPage() {
 
   return (
     <main className="flex min-h-screen items-start justify-center bg-gray-50 pt-16">
+      {/* Scoped to the form branch: the state.success early-return above unmounts
+          this, so a back-nav to the form re-fetches the script. Harmless — the
+          render effect's widgetIdRef guard prevents a duplicate widget. */}
       <Script
         src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
         strategy="afterInteractive"
