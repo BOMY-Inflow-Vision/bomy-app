@@ -15,6 +15,10 @@ describe("Footer", () => {
     expect(html).toContain('href="/contact"')
   })
 
+  it("renders the About link", () => {
+    expect(html).toContain('href="/about"')
+  })
+
   it("renders brand block + business identity + copyright", () => {
     expect(html).toContain("BOMY")
     expect(html).toContain("A curated Malaysian multivendor marketplace.")
