@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useEffect, useState, useTransition } from "react"
 
 import { updateUserProfile } from "./actions"
+import { validateUserProfile } from "./user-profile-schema"
 
 export function UserEditor({
   userId,
@@ -14,16 +15,25 @@ export function UserEditor({
   email: string
 }) {
   const [editing, setEditing] = useState(false)
+  const [displayName, setDisplayName] = useState(name)
+  const [displayEmail, setDisplayEmail] = useState(email)
   const [nameVal, setNameVal] = useState(name ?? "")
   const [emailVal, setEmailVal] = useState(email)
   const [errors, setErrors] = useState<{ name?: string; email?: string }>({})
   const [pending, startTransition] = useTransition()
 
+  useEffect(() => {
+    setDisplayName(name)
+    setDisplayEmail(email)
+    setNameVal(name ?? "")
+    setEmailVal(email)
+  }, [name, email])
+
   if (!editing) {
     return (
       <div>
-        <div className="font-medium text-gray-900">{name ?? "—"}</div>
-        <div className="text-xs text-gray-400">{email}</div>
+        <div className="font-medium text-gray-900">{displayName ?? "—"}</div>
+        <div className="text-xs text-gray-400">{displayEmail}</div>
         <button
           type="button"
           onClick={() => setEditing(true)}
@@ -58,9 +68,22 @@ export function UserEditor({
           onClick={() => {
             setErrors({})
             startTransition(async () => {
+              const parsed = validateUserProfile({ name: nameVal, email: emailVal })
+              if (!parsed.ok) {
+                setErrors(parsed.errors)
+                return
+              }
+
               const res = await updateUserProfile(userId, { name: nameVal, email: emailVal })
-              if (res.ok) setEditing(false)
-              else setErrors(res.errors)
+              if (res.ok) {
+                setDisplayName(parsed.value.name)
+                setDisplayEmail(parsed.value.email)
+                setNameVal(parsed.value.name ?? "")
+                setEmailVal(parsed.value.email)
+                setEditing(false)
+              } else {
+                setErrors(res.errors)
+              }
             })
           }}
           className="text-xs text-indigo-600 hover:underline disabled:opacity-50"
@@ -72,8 +95,8 @@ export function UserEditor({
           disabled={pending}
           onClick={() => {
             setEditing(false)
-            setNameVal(name ?? "")
-            setEmailVal(email)
+            setNameVal(displayName ?? "")
+            setEmailVal(displayEmail)
             setErrors({})
           }}
           className="text-xs text-gray-500 hover:underline disabled:opacity-50"
