@@ -14,14 +14,18 @@ First item in the function-by-function admin pass.
 ## Decisions (locked during brainstorming)
 
 1. **Fields:** edit `name` + `email`. (Not role — already exists; not image/password.)
-2. **Email handling:** edit allowed, **validate format + dedupe** against the
-   `users_email_unique_idx`. No re-verification (`emailVerified` left as-is).
-   OAuth re-login is unaffected — Google links by `accounts` row (provider +
-   providerAccountId), not by `users.email`.
-3. **Permission:** **`bomy_admin` only** (server-enforced). Note: the existing
-   `updateUserRole` has no per-role gate (any BOMY console role can change
-   roles); this feature is intentionally stricter. Aligning role-edit permission
-   is **out of scope** (possible follow-up).
+2. **Email handling:** edit allowed, **validate format + case-insensitive dedupe**.
+   Admin email edits are treated as a **trusted, already-verified identity
+   change** — `emailVerified` is intentionally left **unchanged** (asserted in a
+   test). OAuth re-login is unaffected — Google links by `accounts` row (provider
+   - providerAccountId), not by `users.email`.
+3. **Permission:** **`bomy_admin` only** (server-enforced) for **both** the new
+   profile edit **and** the existing `updateUserRole` (Bob R1). The role edit must
+   be pulled in: today it has no per-role gate, so a non-admin console user
+   (`bomy_ops` / `bomy_finance`, both allowed past the middleware) could promote
+   _themselves_ to `bomy_admin` and bypass the profile-edit restriction. So this
+   plan also gates `updateUserRole` to `bomy_admin` and hides `RoleSelector` for
+   non-admins.
 4. **UI:** inline **Edit toggle** in the "User" cell — text by default; reveals
    name/email inputs + Save/Cancel for admins. Read-only for non-admin BOMY roles.
 
@@ -59,12 +63,20 @@ updateUserProfile(userId: string, input: { name: string; email: string }):
 - If `session.user.role !== "bomy_admin"` throw `"Forbidden"` (server gate — not just UI).
 - `validateUserProfile(input)`; on failure return `{ ok: false, errors }`.
 - `withAdmin(getDb(), { userId: session.user.id, reason: "admin update user profile" }, tx => …)`:
-  - Pre-check: `SELECT id FROM users WHERE email = <new> AND id <> <userId>` → if found,
-    return `{ ok: false, errors: { email: "Email already in use" } }`.
+  - Pre-check (**case-insensitive**): `SELECT id FROM users WHERE lower(email) = <normalizedEmail> AND id <> <userId>`
+    → if found, return `{ ok: false, errors: { email: "Email already in use" } }`.
+    The `users_email_unique_idx` is on raw `text` (**case-sensitive**), so it
+    would NOT catch a case-variant duplicate (`User@Example.com` vs
+    `user@example.com`) — this `lower()` pre-check is the real guard.
   - `UPDATE users SET name, email, updatedAt = now() WHERE id = userId`.
-  - The `users_email_unique_idx` is the backstop: catch a unique violation
-    (Postgres `23505`) and return the same `email` error rather than a 500.
+  - The unique index stays a backstop for exact-case collisions: catch a unique
+    violation (Postgres `23505`) → same `email` error, not a 500.
 - `revalidatePath("/users")`; return `{ ok: true }`.
+
+### 2b. `updateUserRole` — add the `bomy_admin` gate (Bob R1)
+
+Same server gate as `updateUserProfile`: after `await auth()`, throw `"Forbidden"`
+when `session.user.role !== "bomy_admin"`. No other behavior change.
 
 ### 3. UI — `apps/admin/src/app/users/user-editor.tsx` (client)
 
@@ -75,19 +87,27 @@ updateUserProfile(userId: string, input: { name: string; email: string }):
   collapses to text on `{ ok: true }`.
 - `page.tsx`: compute `canEdit = session.user.role === "bomy_admin"`; render
   `<UserEditor …>` when `canEdit`, else the existing read-only name/email block.
+  **Likewise render `<RoleSelector>` only when `canEdit`** — non-admins see just
+  the read-only role badge (already in the "Role" column).
 
 ## Testing
 
 - **Validator unit tests** (`tests/users/user-profile-schema.test.ts`): valid input
   trims+lowercases email and nulls empty name; rejects empty email, bad format.
-- **Action integration tests** (`tests/users/actions.test.ts`, DB env): `bomy_admin`
-  updates name+email (row changes; `admin_bypass_audit` row written); non-`bomy_admin`
-  session → throws Forbidden, no write; duplicate email → `{ ok: false, errors.email }`,
-  no write. Mirrors existing admin action-test patterns.
+- **Action integration tests** (`tests/users/actions.test.ts`, DB env):
+  - `bomy_admin` updates name+email (row changes; `admin_bypass_audit` row written);
+    **`emailVerified` unchanged** after the email edit.
+  - non-`bomy_admin` session → `updateUserProfile` **and** `updateUserRole` both
+    throw Forbidden, no write.
+  - duplicate email → `{ ok: false, errors.email }`, no write — including a
+    **mixed-case** duplicate (`User@Example.com` already present, update another
+    user to `user@example.com`).
+  - Mirrors existing admin action-test patterns.
 - `pnpm --filter @bomy/admin typecheck` + `lint` clean.
 
 ## Out of scope
 
-- Editing role (exists), avatar/image, password (OAuth-only).
-- Aligning `updateUserRole` permission to `bomy_admin`.
+- Avatar/image, password (OAuth-only).
+- A `lower(email)` unique index migration (the `lower()` pre-check covers this
+  feature; a DB-level case-insensitive constraint is a separate change).
 - Bulk edit, search/pagination on `/users`.
