@@ -544,6 +544,76 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
       expect(ledger[0]?.revenueSource).toBe("platform_subscription")
     })
 
+    it("late webhook activating an abandoned checkout expires a newer pending sibling, so the newer payment does not 500", async () => {
+      const buyerId = await seedUser()
+      const oldRecurringId = `rb_${randomUUID()}`
+      const newRecurringId = `rb_${randomUUID()}`
+      const oldPaymentId = `pay_${randomUUID()}`
+      const newPaymentId = `pay_${randomUUID()}`
+      const oldId = randomUUID()
+      const newId = randomUUID()
+      const now = new Date()
+      const periodEnd = new Date(now)
+      periodEnd.setFullYear(periodEnd.getFullYear() + 1)
+
+      await withAdmin(setupDb.db, { userId: buyerId, reason: "test seed" }, async (tx) => {
+        // Old checkout abandoned via "Start over" → expired, never paid.
+        await tx.insert(schema.memberSubscriptions).values({
+          id: oldId,
+          userId: buyerId,
+          status: "expired",
+          priceMyrSen: 7500n,
+          periodStart: now,
+          periodEnd,
+          hitpayRecurringId: oldRecurringId,
+        })
+        // New checkout the user started afterwards: pending, never paid.
+        await tx.insert(schema.memberSubscriptions).values({
+          id: newId,
+          userId: buyerId,
+          status: "pending",
+          priceMyrSen: 7500n,
+          periodStart: now,
+          periodEnd,
+          hitpayRecurringId: newRecurringId,
+        })
+      })
+
+      // Old checkout's late payment lands FIRST — activates the old row.
+      const res1 = await webhookInject(app, {
+        recurring_billing_id: oldRecurringId,
+        payment_id: oldPaymentId,
+        status: "succeeded",
+        amount: "75.00",
+      })
+      expect(res1.statusCode).toBe(200)
+
+      // Then the user also pays the newer checkout. This must NOT 500.
+      const res2 = await webhookInject(app, {
+        recurring_billing_id: newRecurringId,
+        payment_id: newPaymentId,
+        status: "succeeded",
+        amount: "75.00",
+      })
+      expect(res2.statusCode).toBe(200)
+
+      const rows = await withAdmin(setupDb.db, { userId: buyerId, reason: "verify" }, async (tx) =>
+        tx
+          .select()
+          .from(schema.memberSubscriptions)
+          .where(eq(schema.memberSubscriptions.userId, buyerId)),
+      )
+      // Exactly one active membership (the old checkout that paid first).
+      const active = rows.filter((r) => r.status === "active")
+      expect(active).toHaveLength(1)
+      expect(active[0]?.id).toBe(oldId)
+      // The newer checkout was expired on activation, and its later payment is
+      // recorded for refund rather than breaching the one-active-row index.
+      const newer = rows.find((r) => r.id === newId)
+      expect(newer?.status).toBe("expired")
+      expect(newer?.hitpayPaymentId).toBe(newPaymentId)
+    })
+
     it("late succeeded webhook on an abandoned checkout does NOT double-activate when the user is already a member", async () => {
       const buyerId = await seedUser()
       const abandonedRecurringId = `rb_${randomUUID()}`
