@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 
 import { auth } from "@/auth"
 
+import { listAddresses } from "../account/addresses/actions"
 import { readCheckoutEnabled } from "./actions"
 import { CheckoutForm } from "./_form"
 
@@ -25,10 +26,23 @@ export default async function CheckoutPage() {
     )
   }
 
+  const savedAddresses = (await listAddresses()).map((a) => ({
+    id: a.id,
+    label: a.label,
+    recipientName: a.recipientName,
+    phone: a.phone,
+    line1: a.line1,
+    line2: a.line2,
+    city: a.city,
+    postcode: a.postcode,
+    state: a.state,
+    isDefault: a.isDefault,
+  }))
+
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
       <h1 className="mb-4 text-2xl font-bold text-gray-900">Checkout</h1>
-      <CheckoutForm />
+      <CheckoutForm savedAddresses={savedAddresses} />
     </main>
   )
 }

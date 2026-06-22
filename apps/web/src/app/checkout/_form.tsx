@@ -8,8 +8,22 @@ import { formatMyrSen } from "@/lib/format"
 import { MY_STATES, validateShippingAddress } from "@/lib/shipping-address-schema"
 import type { ShippingAddressErrors } from "@/lib/shipping-address-schema"
 
+import { addAddress } from "../account/addresses/actions"
 import { initiateCheckout, priceCheckoutPreview } from "./actions"
 import type { PreviewResult } from "./actions"
+
+type SavedAddress = {
+  id: string
+  label: string | null
+  recipientName: string
+  phone: string
+  line1: string
+  line2: string | null
+  city: string
+  postcode: string
+  state: string
+  isDefault: boolean
+}
 
 function Spinner() {
   return (
@@ -46,6 +60,19 @@ const INITIAL_ADDRESS: AddressState = {
   country: "MY",
 }
 
+function savedToState(a: SavedAddress): AddressState {
+  return {
+    name: a.recipientName,
+    phone: a.phone,
+    line1: a.line1,
+    line2: a.line2 ?? "",
+    city: a.city,
+    postcode: a.postcode,
+    state: a.state,
+    country: "MY",
+  }
+}
+
 const INVALID_LINE_COPY: Record<string, string> = {
   missing: "No longer available",
   variant_inactive: "No longer available",
@@ -55,14 +82,25 @@ const INVALID_LINE_COPY: Record<string, string> = {
   invalid_quantity: "Invalid quantity",
 }
 
-export function CheckoutForm() {
+export function CheckoutForm({ savedAddresses = [] }: { savedAddresses?: SavedAddress[] }) {
   const { items, clearCart, hydrated } = useCart()
   const [preview, setPreview] = useState<PreviewResult | null>(null)
   const [voucherId, setVoucherId] = useState<string | null>(null)
-  const [address, setAddress] = useState<AddressState>(INITIAL_ADDRESS)
+  const defaultAddr = savedAddresses.find((a) => a.isDefault) ?? savedAddresses[0]
+  const [selectedId, setSelectedId] = useState<string>(defaultAddr?.id ?? "new")
+  const [saveToBook, setSaveToBook] = useState(false)
+  const [address, setAddress] = useState<AddressState>(() =>
+    defaultAddr ? savedToState(defaultAddr) : INITIAL_ADDRESS,
+  )
   const [fieldErrors, setFieldErrors] = useState<ShippingAddressErrors>({})
   const [topError, setTopError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+
+  useEffect(() => {
+    if (selectedId === "new") return
+    const a = savedAddresses.find((x) => x.id === selectedId)
+    if (a) setAddress(savedToState(a))
+  }, [selectedId])
 
   useEffect(() => {
     if (!hydrated || items.length === 0) {
@@ -96,6 +134,13 @@ export function CheckoutForm() {
     }
 
     startTransition(async () => {
+      if (selectedId === "new" && saveToBook) {
+        const saved = await addAddress({ label: null, ...v.value })
+        if (!saved.ok) {
+          setTopError(saved.errors.form ?? "Couldn't save the address. Uncheck save to continue.")
+          return
+        }
+      }
       const r = await initiateCheckout({
         items: items.map((i) => ({ variantId: i.variantId, quantity: i.quantity })),
         voucherId,
@@ -218,89 +263,130 @@ export function CheckoutForm() {
       {/* Shipping address */}
       <section>
         <h2 className="mb-3 text-base font-semibold text-gray-900">Shipping address</h2>
-        <div className="space-y-4">
-          <Field label="Full name" error={fieldErrors.name}>
-            <input
-              type="text"
-              autoComplete="name"
-              value={address.name}
-              onChange={handleAddressField("name")}
-              className={inputClass(!!fieldErrors.name)}
-            />
-          </Field>
-
-          <Field label="Phone" error={fieldErrors.phone}>
-            <input
-              type="tel"
-              autoComplete="tel"
-              placeholder="+60123456789"
-              value={address.phone}
-              onChange={handleAddressField("phone")}
-              className={inputClass(!!fieldErrors.phone)}
-            />
-          </Field>
-
-          <Field label="Address line 1" error={fieldErrors.line1}>
-            <input
-              type="text"
-              autoComplete="address-line1"
-              value={address.line1}
-              onChange={handleAddressField("line1")}
-              className={inputClass(!!fieldErrors.line1)}
-            />
-          </Field>
-
-          <Field label="Address line 2 (optional)" error={fieldErrors.line2}>
-            <input
-              type="text"
-              autoComplete="address-line2"
-              value={address.line2}
-              onChange={handleAddressField("line2")}
-              className={inputClass(!!fieldErrors.line2)}
-            />
-          </Field>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="City" error={fieldErrors.city}>
-              <input
-                type="text"
-                autoComplete="address-level2"
-                value={address.city}
-                onChange={handleAddressField("city")}
-                className={inputClass(!!fieldErrors.city)}
-              />
-            </Field>
-
-            <Field label="Postcode" error={fieldErrors.postcode}>
-              <input
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]{5}"
-                maxLength={5}
-                autoComplete="postal-code"
-                value={address.postcode}
-                onChange={handleAddressField("postcode")}
-                className={inputClass(!!fieldErrors.postcode)}
-              />
-            </Field>
-          </div>
-
-          <Field label="State" error={fieldErrors.state}>
+        {savedAddresses.length > 0 && (
+          <div className="mb-4">
             <select
-              autoComplete="address-level1"
-              value={address.state}
-              onChange={handleAddressField("state")}
-              className={inputClass(!!fieldErrors.state)}
+              value={selectedId}
+              onChange={(e) => setSelectedId(e.target.value)}
+              className={inputClass(false)}
             >
-              <option value="">Select state…</option>
-              {MY_STATES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
+              {savedAddresses.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {`${a.label ? `${a.label} — ` : ""}${a.line1}${a.isDefault ? " (default)" : ""}`}
                 </option>
               ))}
+              <option value="new">Use a new address</option>
             </select>
-          </Field>
-        </div>
+          </div>
+        )}
+        {selectedId !== "new" ? (
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+            {[
+              address.name,
+              address.phone,
+              address.line1,
+              address.line2,
+              address.city,
+              address.postcode,
+              address.state,
+            ]
+              .filter(Boolean)
+              .join(", ")}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <Field label="Full name" error={fieldErrors.name}>
+              <input
+                type="text"
+                autoComplete="name"
+                value={address.name}
+                onChange={handleAddressField("name")}
+                className={inputClass(!!fieldErrors.name)}
+              />
+            </Field>
+
+            <Field label="Phone" error={fieldErrors.phone}>
+              <input
+                type="tel"
+                autoComplete="tel"
+                placeholder="+60123456789"
+                value={address.phone}
+                onChange={handleAddressField("phone")}
+                className={inputClass(!!fieldErrors.phone)}
+              />
+            </Field>
+
+            <Field label="Address line 1" error={fieldErrors.line1}>
+              <input
+                type="text"
+                autoComplete="address-line1"
+                value={address.line1}
+                onChange={handleAddressField("line1")}
+                className={inputClass(!!fieldErrors.line1)}
+              />
+            </Field>
+
+            <Field label="Address line 2 (optional)" error={fieldErrors.line2}>
+              <input
+                type="text"
+                autoComplete="address-line2"
+                value={address.line2}
+                onChange={handleAddressField("line2")}
+                className={inputClass(!!fieldErrors.line2)}
+              />
+            </Field>
+
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="City" error={fieldErrors.city}>
+                <input
+                  type="text"
+                  autoComplete="address-level2"
+                  value={address.city}
+                  onChange={handleAddressField("city")}
+                  className={inputClass(!!fieldErrors.city)}
+                />
+              </Field>
+
+              <Field label="Postcode" error={fieldErrors.postcode}>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]{5}"
+                  maxLength={5}
+                  autoComplete="postal-code"
+                  value={address.postcode}
+                  onChange={handleAddressField("postcode")}
+                  className={inputClass(!!fieldErrors.postcode)}
+                />
+              </Field>
+            </div>
+
+            <Field label="State" error={fieldErrors.state}>
+              <select
+                autoComplete="address-level1"
+                value={address.state}
+                onChange={handleAddressField("state")}
+                className={inputClass(!!fieldErrors.state)}
+              >
+                <option value="">Select state…</option>
+                {MY_STATES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={saveToBook}
+                onChange={(e) => setSaveToBook(e.target.checked)}
+              />
+              Save this address to my book
+            </label>
+          </div>
+        )}
       </section>
 
       {/* Top error banner */}
