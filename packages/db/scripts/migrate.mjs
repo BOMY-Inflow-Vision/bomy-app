@@ -96,6 +96,10 @@ const MIGRATIONS = [
     name: "0014_tos_consent",
     file: join(__dirname, "../drizzle/0014_tos_consent.sql"),
   },
+  {
+    name: "0015_user_addresses",
+    file: join(__dirname, "../drizzle/0015_user_addresses.sql"),
+  },
 ]
 
 try {
