@@ -5,6 +5,7 @@ import { schema, withAdmin, withTenant } from "@bomy/db"
 
 import { auth } from "@/auth"
 import { getDb } from "@/lib/db"
+import { isPendingAbandoned } from "@/lib/membership"
 import { paymentsEnabled } from "@/lib/payments-enabled"
 import { SubmitButton } from "@/components/submit-button"
 import { joinMembership } from "./actions"
@@ -40,7 +41,12 @@ export default async function MembershipPage() {
       { userId: session.user.id, userRole: session.user.role },
       async (tx) =>
         tx
-          .select({ id: schema.memberSubscriptions.id, status: schema.memberSubscriptions.status })
+          .select({
+            id: schema.memberSubscriptions.id,
+            status: schema.memberSubscriptions.status,
+            hitpayPaymentId: schema.memberSubscriptions.hitpayPaymentId,
+            createdAt: schema.memberSubscriptions.createdAt,
+          })
           .from(schema.memberSubscriptions)
           .where(
             and(
@@ -51,7 +57,11 @@ export default async function MembershipPage() {
           .limit(1),
     )
     if (existing[0]?.status === "active") redirect("/membership/manage")
-    if (existing[0]?.status === "pending") redirect("/membership/success")
+    // Only forward a genuinely in-flight (fresh) pending checkout to the poller.
+    // A stale/abandoned pending row falls through to the Join CTA — clicking it
+    // expires the stale row and starts a fresh checkout (see joinMembership).
+    if (existing[0]?.status === "pending" && !isPendingAbandoned(existing[0], new Date()))
+      redirect("/membership/success")
   }
 
   return (
