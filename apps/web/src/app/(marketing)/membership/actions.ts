@@ -1,7 +1,7 @@
 "use server"
 
 import { randomUUID } from "node:crypto"
-import { and, desc, eq, inArray } from "drizzle-orm"
+import { and, desc, eq, inArray, isNull } from "drizzle-orm"
 import { notFound, redirect } from "next/navigation"
 
 import { makeDb, schema, withAdmin, withTenant } from "@bomy/db"
@@ -111,16 +111,52 @@ export async function joinMembership() {
       // Abandoned checkout (back-button out of HitPay, never paid). Expire it so
       // the partial unique index on (user_id) WHERE status='pending' no longer
       // blocks a fresh checkout, then fall through to create a new pending row.
-      await withAdmin(
+      //
+      // Compare-and-swap: a delayed webhook may have activated (and paid) this
+      // exact row between the read above and now. Guard the UPDATE on
+      // status='pending' AND hitpay_payment_id IS NULL — matching the reaper — so
+      // we never clobber a paid membership back to expired.
+      const expired = await withAdmin(
         getDb(),
         { userId: session.user.id, reason: "expire abandoned pending membership on re-join" },
-        async (tx) => {
-          await tx
+        async (tx) =>
+          tx
             .update(schema.memberSubscriptions)
             .set({ status: "expired", updatedAt: new Date() })
-            .where(eq(schema.memberSubscriptions.id, current.id))
-        },
+            .where(
+              and(
+                eq(schema.memberSubscriptions.id, current.id),
+                eq(schema.memberSubscriptions.userId, session.user.id),
+                eq(schema.memberSubscriptions.status, "pending"),
+                isNull(schema.memberSubscriptions.hitpayPaymentId),
+              ),
+            )
+            .returning({ id: schema.memberSubscriptions.id }),
       )
+
+      if (expired.length === 0) {
+        // The row changed under us (a webhook activated/paid it, or it was already
+        // reaped). Re-read and route correctly rather than creating a duplicate
+        // checkout on top of a paid membership.
+        const recheck = await withTenant(
+          getDb(),
+          { userId: session.user.id, userRole: session.user.role },
+          async (tx) =>
+            tx
+              .select({ status: schema.memberSubscriptions.status })
+              .from(schema.memberSubscriptions)
+              .where(
+                and(
+                  eq(schema.memberSubscriptions.userId, session.user.id),
+                  inArray(schema.memberSubscriptions.status, ["active", "pending"]),
+                ),
+              )
+              .limit(1),
+        )
+        if (recheck[0]?.status === "active") redirect("/membership/manage")
+        if (recheck[0]?.status === "pending") redirect("/membership/success")
+        // Otherwise nothing active/pending — safe to fall through and create one.
+      }
     } else {
       // Genuinely in-flight (just paid, awaiting webhook) — show the poller.
       redirect("/membership/success")
