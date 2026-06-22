@@ -14,6 +14,7 @@ import {
   deleteAddress,
   listAddresses,
   setDefault,
+  updateAddress,
 } from "../../src/app/account/addresses/actions"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
@@ -113,10 +114,58 @@ describe.skipIf(!shouldRun)("address book actions", () => {
     expect(after.find((r) => r.isDefault)?.label).toBe("Office")
   })
 
-  it("deleting the default leaves no default", async () => {
+  it("deleting the default leaves the remaining address WITHOUT auto-promotion", async () => {
+    await addAddress({ ...base, label: "Home" }) // default
+    await addAddress({ ...base, label: "Office", line1: "2 Jalan" })
+    const home = (await listAddresses()).find((r) => r.label === "Home")!
+    expect(home.isDefault).toBe(true)
+    expect(await deleteAddress(home.id)).toEqual({ ok: true })
+    const rows = await listAddresses()
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.label).toBe("Office")
+    expect(rows[0]!.isDefault).toBe(false) // no auto-promote
+  })
+
+  it("updateAddress edits fields and preserves isDefault", async () => {
+    await addAddress({ ...base, label: "Home" }) // default
+    const home = (await listAddresses())[0]!
+    expect(home.isDefault).toBe(true)
+    const res = await updateAddress(home.id, {
+      ...base,
+      label: "Home",
+      name: "Updated",
+      line1: "99 Jalan Baru",
+    })
+    expect(res).toEqual({ ok: true })
+    const after = (await listAddresses()).find((r) => r.id === home.id)!
+    expect(after.line1).toBe("99 Jalan Baru")
+    expect(after.recipientName).toBe("Updated")
+    expect(after.isDefault).toBe(true) // preserved
+  })
+
+  it("updateAddress rejects a nonexistent/other-user id (no write)", async () => {
     await addAddress({ ...base, label: "Home" })
-    const [row] = await listAddresses()
-    expect(await deleteAddress(row!.id)).toEqual({ ok: true })
-    expect(await listAddresses()).toHaveLength(0)
+    const bobAddr = randomUUID()
+    await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "seed bob" }, async (tx) => {
+      await tx.insert(schema.userAddresses).values({
+        id: bobAddr,
+        userId: bob,
+        recipientName: "Bob",
+        phone: "+60123456789",
+        line1: "9 Jalan",
+        city: "George Town",
+        postcode: "10000",
+        state: "Pulau Pinang",
+      })
+    })
+    const res = await updateAddress(bobAddr, { ...base, label: "Hijack", line1: "evil" })
+    expect(res.ok).toBe(false)
+    const [bobRow] = await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "read bob" }, (tx) =>
+      tx
+        .select({ line1: schema.userAddresses.line1 })
+        .from(schema.userAddresses)
+        .where(eq(schema.userAddresses.id, bobAddr)),
+    )
+    expect(bobRow!.line1).toBe("9 Jalan") // bob's row untouched
   })
 })

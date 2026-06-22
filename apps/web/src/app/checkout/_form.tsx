@@ -97,7 +97,12 @@ export function CheckoutForm({ savedAddresses = [] }: { savedAddresses?: SavedAd
   const [isPending, startTransition] = useTransition()
 
   useEffect(() => {
-    if (selectedId === "new") return
+    setFieldErrors({})
+    setTopError(null)
+    if (selectedId === "new") {
+      setAddress(INITIAL_ADDRESS)
+      return
+    }
     const a = savedAddresses.find((x) => x.id === selectedId)
     if (a) setAddress(savedToState(a))
   }, [selectedId])
