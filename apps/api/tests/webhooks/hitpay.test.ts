@@ -811,7 +811,7 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
       expect(legs).toHaveLength(0)
     })
 
-    it("does NOT reactivate an expired (abandoned-then-expired) subscription on a late payment, and writes no ledger", async () => {
+    it("does NOT reactivate an expired (abandoned-then-expired) subscription on a late payment; records payment_id for refund correlation but writes no ledger", async () => {
       const ownerId = await seedUser("seller_owner")
       const buyerId = await seedUser()
       const storeId = await seedStore(ownerId)
@@ -855,7 +855,64 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
         tx.select().from(schema.brandSubscriptions).where(eq(schema.brandSubscriptions.id, subId)),
       )
       expect(rows[0]?.status).toBe("expired") // NOT reactivated
-      expect(rows[0]?.hitpayPaymentId).toBeNull()
+      // The duplicate payment_id is stamped onto the row (it held none) so a
+      // later refund webhook can correlate by hitpay_payment_id.
+      expect(rows[0]?.hitpayPaymentId).toBe(paymentId)
+
+      const legs = await withAdmin(setupDb.db, { userId: buyerId, reason: "verify" }, async (tx) =>
+        tx.select().from(schema.ledgerEntries).where(eq(schema.ledgerEntries.referenceId, subId)),
+      )
+      expect(legs).toHaveLength(0)
+    })
+
+    it("does NOT clobber the original payment_id of a paid-then-expired subscription on a late duplicate payment", async () => {
+      const ownerId = await seedUser("seller_owner")
+      const buyerId = await seedUser()
+      const storeId = await seedStore(ownerId)
+      const planId = await seedBrandPlan(storeId)
+
+      const paymentRequestId = `pr_${randomUUID()}`
+      const originalPaymentId = `pay_${randomUUID()}`
+      const duplicatePaymentId = `pay_${randomUUID()}`
+      const subId = randomUUID()
+      const now = new Date()
+      const priceSen = 50000n
+
+      // Paid subscription that the expiry job later expired at period_end — it
+      // already holds its original hitpay_payment_id.
+      await withAdmin(setupDb.db, { userId: buyerId, reason: "test seed" }, async (tx) => {
+        await tx.insert(schema.brandSubscriptions).values({
+          id: subId,
+          userId: buyerId,
+          storeId,
+          planId,
+          status: "expired",
+          priceMyrSen: priceSen,
+          discountPct: 5,
+          periodStart: new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000),
+          periodEnd: new Date(now.getTime() - 24 * 60 * 60 * 1000),
+          hitpayPaymentRequestId: paymentRequestId,
+          hitpayPaymentId: originalPaymentId,
+          bomyCommissionSen: 0n,
+          brandPayoutSen: 0n,
+        })
+      })
+
+      const res = await webhookInject(app, {
+        payment_request_id: paymentRequestId,
+        payment_id: duplicatePaymentId,
+        status: "completed",
+        amount: "500.00",
+        fees: "1.50",
+      })
+      expect(res.statusCode).toBe(200)
+
+      const rows = await withAdmin(setupDb.db, { userId: buyerId, reason: "verify" }, async (tx) =>
+        tx.select().from(schema.brandSubscriptions).where(eq(schema.brandSubscriptions.id, subId)),
+      )
+      expect(rows[0]?.status).toBe("expired")
+      // Original payment id preserved — NOT overwritten by the duplicate.
+      expect(rows[0]?.hitpayPaymentId).toBe(originalPaymentId)
 
       const legs = await withAdmin(setupDb.db, { userId: buyerId, reason: "verify" }, async (tx) =>
         tx.select().from(schema.ledgerEntries).where(eq(schema.ledgerEntries.referenceId, subId)),

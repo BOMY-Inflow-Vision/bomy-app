@@ -351,6 +351,54 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
   redirect(paymentRequest.url)
 }
 
+/**
+ * Escape hatch for the success page: the user gave up waiting / never paid for a
+ * brand subscription. Mark any abandoned pending row for this store expired so
+ * the partial unique index no longer blocks a fresh checkout and they can start
+ * over. Guarded on hitpay_payment_id IS NULL so a row a webhook has already paid
+ * is never clobbered back to expired — that delayed webhook (or a re-read on the
+ * subscribe page) still routes the user to the active subscription.
+ */
+export async function abandonPendingBrandSubscription(slug: string) {
+  const session = await auth()
+  if (!session) redirect(`/auth/sign-in?callbackUrl=/brands/${slug}/subscribe`)
+
+  const store = await withAdmin(
+    getDb(),
+    { userId: session.user.id, reason: "resolve store to abandon pending brand subscription" },
+    async (tx) => {
+      const rows = await tx
+        .select({ id: schema.stores.id })
+        .from(schema.stores)
+        .where(eq(schema.stores.slug, slug))
+        .limit(1)
+      return rows[0] ?? null
+    },
+  )
+
+  if (!store) notFound()
+
+  await withAdmin(
+    getDb(),
+    { userId: session.user.id, reason: "user abandoned pending brand subscription checkout" },
+    async (tx) => {
+      await tx
+        .update(schema.brandSubscriptions)
+        .set({ status: "expired", updatedAt: new Date() })
+        .where(
+          and(
+            eq(schema.brandSubscriptions.userId, session.user.id),
+            eq(schema.brandSubscriptions.storeId, store.id),
+            eq(schema.brandSubscriptions.status, "pending"),
+            isNull(schema.brandSubscriptions.hitpayPaymentId),
+          ),
+        )
+    },
+  )
+
+  redirect(`/brands/${slug}/subscribe`)
+}
+
 // Returns the active brand discount for a given user+store pair.
 // Called by the checkout server action (Stage 5+) to apply the discount to order subtotal.
 // Filters period_end > now() so expired subscriptions (not yet swept by the expiry job)

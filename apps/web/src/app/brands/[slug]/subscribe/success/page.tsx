@@ -5,6 +5,7 @@ import { schema, withAdmin, withTenant } from "@bomy/db"
 
 import { auth } from "@/auth"
 import { getDb } from "@/lib/db"
+import { isPendingAbandoned } from "@/lib/membership"
 import { BrandSubscriptionPoller } from "./poller"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001" as const
@@ -39,7 +40,11 @@ export default async function BrandSubscribeSuccessPage({ params }: Props) {
     { userId: session.user.id, userRole: session.user.role },
     async (tx) => {
       const rows = await tx
-        .select({ status: schema.brandSubscriptions.status })
+        .select({
+          status: schema.brandSubscriptions.status,
+          hitpayPaymentId: schema.brandSubscriptions.hitpayPaymentId,
+          createdAt: schema.brandSubscriptions.createdAt,
+        })
         .from(schema.brandSubscriptions)
         .where(
           and(
@@ -54,9 +59,19 @@ export default async function BrandSubscribeSuccessPage({ params }: Props) {
     },
   )
 
+  // Only poll when a payment is genuinely in flight: a pending row created
+  // within the grace window. A stale pending row (abandoned checkout) or no row
+  // at all must NOT show a "payment received / activating" screen.
+  const pendingFresh = sub?.status === "pending" && !isPendingAbandoned(sub, new Date())
+
   return (
     <main className="flex min-h-screen items-start justify-center bg-gray-50 pt-20 px-4">
-      <BrandSubscriptionPoller initialActive={sub?.status === "active"} storeName={store.name} />
+      <BrandSubscriptionPoller
+        initialActive={sub?.status === "active"}
+        pendingFresh={pendingFresh}
+        storeSlug={slug}
+        storeName={store.name}
+      />
     </main>
   )
 }

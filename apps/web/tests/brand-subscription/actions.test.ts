@@ -29,7 +29,10 @@ vi.mock("@bomy/hitpay", () => ({ HitPayClient: vi.fn() }))
 
 import { auth } from "@/auth"
 import { HitPayClient } from "@bomy/hitpay"
-import { subscribeToBrand } from "../../src/app/brands/[slug]/subscribe/actions"
+import {
+  abandonPendingBrandSubscription,
+  subscribeToBrand,
+} from "../../src/app/brands/[slug]/subscribe/actions"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
 
@@ -311,4 +314,103 @@ describe.skipIf(!shouldRun)("subscribeToBrand", () => {
   })
 
   // DB correlation failure compensation paths are covered in actions.unit.test.ts
+
+  // ── abandonPendingBrandSubscription ───────────────────────────────────────
+
+  describe("abandonPendingBrandSubscription", () => {
+    function storeSlug(): string {
+      return `test-brand-${storeId.slice(0, 8)}`
+    }
+
+    it("unauthenticated → redirects to sign-in", async () => {
+      mockAuth.mockResolvedValue(null)
+      const url = await expectRedirect(() => abandonPendingBrandSubscription(storeSlug()))
+      expect(url).toBe(`/auth/sign-in?callbackUrl=/brands/${storeSlug()}/subscribe`)
+    })
+
+    it("expires the user's unpaid pending row and redirects back to subscribe", async () => {
+      mockAuth.mockResolvedValue({ user: { id: userId, role: "buyer", email: "t@test.bomy" } })
+
+      const subId = randomUUID()
+      await withAdmin(testDb.db, { userId, reason: "test seed" }, async (tx) => {
+        await tx.insert(schema.brandSubscriptions).values({
+          id: subId,
+          userId,
+          storeId,
+          planId,
+          status: "pending",
+          priceMyrSen: 5000n,
+          discountPct: 5,
+          periodStart: new Date(),
+          periodEnd: new Date(Date.now() + 90 * 86400 * 1000),
+          bomyCommissionSen: 0n,
+          brandPayoutSen: 0n,
+        })
+      })
+
+      try {
+        const url = await expectRedirect(() => abandonPendingBrandSubscription(storeSlug()))
+        expect(url).toBe(`/brands/${storeSlug()}/subscribe`)
+
+        const rows = await withAdmin(testDb.db, { userId, reason: "test assert" }, async (tx) =>
+          tx
+            .select({ status: schema.brandSubscriptions.status })
+            .from(schema.brandSubscriptions)
+            .where(eq(schema.brandSubscriptions.id, subId)),
+        )
+        expect(rows[0]?.status).toBe("expired")
+      } finally {
+        await withAdmin(testDb.db, { userId, reason: "test cleanup" }, async (tx) => {
+          await tx.delete(schema.brandSubscriptions).where(eq(schema.brandSubscriptions.id, subId))
+        })
+      }
+    })
+
+    it("does NOT expire a pending row that a webhook has already paid", async () => {
+      mockAuth.mockResolvedValue({ user: { id: userId, role: "buyer", email: "t@test.bomy" } })
+
+      const subId = randomUUID()
+      // A delayed webhook paid this row (stamped hitpay_payment_id) but status is
+      // still pending in this read — "Start over" must NOT clobber it to expired.
+      await withAdmin(testDb.db, { userId, reason: "test seed" }, async (tx) => {
+        await tx.insert(schema.brandSubscriptions).values({
+          id: subId,
+          userId,
+          storeId,
+          planId,
+          status: "pending",
+          priceMyrSen: 5000n,
+          discountPct: 5,
+          periodStart: new Date(),
+          periodEnd: new Date(Date.now() + 90 * 86400 * 1000),
+          hitpayPaymentId: `pay_${randomUUID()}`,
+          bomyCommissionSen: 0n,
+          brandPayoutSen: 0n,
+        })
+      })
+
+      try {
+        const url = await expectRedirect(() => abandonPendingBrandSubscription(storeSlug()))
+        expect(url).toBe(`/brands/${storeSlug()}/subscribe`)
+
+        const rows = await withAdmin(testDb.db, { userId, reason: "test assert" }, async (tx) =>
+          tx
+            .select({ status: schema.brandSubscriptions.status })
+            .from(schema.brandSubscriptions)
+            .where(eq(schema.brandSubscriptions.id, subId)),
+        )
+        expect(rows[0]?.status).toBe("pending") // untouched
+      } finally {
+        await withAdmin(testDb.db, { userId, reason: "test cleanup" }, async (tx) => {
+          await tx.delete(schema.brandSubscriptions).where(eq(schema.brandSubscriptions.id, subId))
+        })
+      }
+    })
+
+    it("no pending row → still redirects without error", async () => {
+      mockAuth.mockResolvedValue({ user: { id: userId, role: "buyer", email: "t@test.bomy" } })
+      const url = await expectRedirect(() => abandonPendingBrandSubscription(storeSlug()))
+      expect(url).toBe(`/brands/${storeSlug()}/subscribe`)
+    })
+  })
 })
