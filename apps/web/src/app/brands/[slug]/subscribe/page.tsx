@@ -5,6 +5,7 @@ import { schema, withTenant } from "@bomy/db"
 
 import { auth } from "@/auth"
 import { getDb } from "@/lib/db"
+import { isPendingAbandoned } from "@/lib/membership"
 import { paymentsEnabled } from "@/lib/payments-enabled"
 import { SubmitButton } from "@/components/submit-button"
 import { getStorePlans, subscribeToBrand } from "./actions"
@@ -26,15 +27,18 @@ export default async function BrandSubscribePage({ params }: Props) {
 
   const { store, plans } = storeData
 
-  // Check for existing active subscription to this store.
-  let existingStatus: "active" | "pending" | null = null
+  // Check for an existing active subscription / in-flight checkout for this store.
   if (session) {
     const existing = await withTenant(
       getDb(),
       { userId: session.user.id, userRole: session.user.role },
       async (tx) => {
         const rows = await tx
-          .select({ status: schema.brandSubscriptions.status })
+          .select({
+            status: schema.brandSubscriptions.status,
+            hitpayPaymentId: schema.brandSubscriptions.hitpayPaymentId,
+            createdAt: schema.brandSubscriptions.createdAt,
+          })
           .from(schema.brandSubscriptions)
           .where(
             and(
@@ -48,13 +52,13 @@ export default async function BrandSubscribePage({ params }: Props) {
         return rows[0] ?? null
       },
     )
-    if (existing?.status === "active" || existing?.status === "pending") {
-      existingStatus = existing.status
-    }
+    if (existing?.status === "active") redirect(`/brands/${slug}/subscribe/success`)
+    // Only forward a genuinely in-flight (fresh) pending checkout to the poller.
+    // A stale/abandoned pending row falls through to the Subscribe CTA — clicking
+    // it expires the stale row and starts a fresh checkout (see subscribeToBrand).
+    if (existing?.status === "pending" && !isPendingAbandoned(existing, new Date()))
+      redirect(`/brands/${slug}/subscribe/success`)
   }
-
-  if (existingStatus === "active") redirect(`/brands/${slug}/subscribe/success`)
-  if (existingStatus === "pending") redirect(`/brands/${slug}/subscribe/success`)
 
   const enabled = paymentsEnabled()
 

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto"
 
 import { schema, withAdmin } from "@bomy/db"
 import { verifyWebhookSignature } from "@bomy/hitpay"
-import { and, desc, eq, ne } from "drizzle-orm"
+import { and, desc, eq, isNull, ne } from "drizzle-orm"
 import type { FastifyPluginAsync } from "fastify"
 
 import { trace } from "@opentelemetry/api"
@@ -511,7 +511,7 @@ async function handleBrandSubscriptionPayment({
 
         const now = new Date()
 
-        await tx
+        const activated = await tx
           .update(schema.brandSubscriptions)
           .set({
             status: "active",
@@ -521,7 +521,52 @@ async function handleBrandSubscriptionPayment({
             brandPayoutSen,
             updatedAt: now,
           })
-          .where(eq(schema.brandSubscriptions.id, sub.id))
+          // Status guard (CAS): only a still-`pending` row may be activated. If
+          // the user abandoned this checkout and re-subscribed, the web action
+          // expired this exact row — a late payment must NOT reactivate it (that
+          // would double-charge). Mirrors the re-subscribe / joinMembership CAS.
+          .where(
+            and(
+              eq(schema.brandSubscriptions.id, sub.id),
+              eq(schema.brandSubscriptions.status, "pending"),
+            ),
+          )
+          .returning({ id: schema.brandSubscriptions.id })
+
+        if (activated.length === 0) {
+          // Late/duplicate payment for a brand subscription that is no longer
+          // pending (expired/cancelled after abandonment + re-subscribe). Money
+          // moved for a sub we won't honour — do NOT activate it or write revenue
+          // ledger legs; flag for manual refund/reconciliation.
+          //
+          // Record this payment_id on the row IF it never held one (an
+          // abandoned-unpaid row that was expired by "Start over" / the reaper /
+          // re-subscribe). The refund handler correlates by hitpay_payment_id, so
+          // without this stamp a later refund webhook for this duplicate charge
+          // could not attach to the subscription. Guard on hitpay_payment_id IS
+          // NULL so we never clobber the original payment id of a row that was
+          // paid-then-expired at period_end. (Mirrors the membership double-charge
+          // record path.)
+          let recorded = false
+          if (sub.hitpayPaymentId === null) {
+            const stamped = await tx
+              .update(schema.brandSubscriptions)
+              .set({ hitpayPaymentId: paymentId, updatedAt: now })
+              .where(
+                and(
+                  eq(schema.brandSubscriptions.id, sub.id),
+                  isNull(schema.brandSubscriptions.hitpayPaymentId),
+                ),
+              )
+              .returning({ id: schema.brandSubscriptions.id })
+            recorded = stamped.length > 0
+          }
+          app.log.error(
+            { paymentId, subId: sub.id, priorStatus: sub.status, recordedPaymentId: recorded },
+            "hitpay webhook: brand sub payment for non-pending row — skipped activation, needs refund/reconciliation",
+          )
+          return
+        }
 
         // Ledger: revenue credit + payout debit always; processing_fee debit
         // only when feeSen > 0 (ledger_entries.amount_minor > 0 constraint).
