@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-22
 **Author:** Andy (Opus 4.8)
-**Status:** Awaiting Charlie's review before implementation plan
+**Status:** Revised per Bob's review (2026-06-22) — 5 findings patched; awaiting Charlie's go
 
 ## Overview
 
@@ -54,11 +54,15 @@ like `vouchers` / `user_consents`):
 
 - **One default per user:** partial unique index
   `CREATE UNIQUE INDEX user_addresses_one_default_idx ON user_addresses (user_id) WHERE is_default;`
-- **RLS:** enable + RESTRICTIVE default-deny + permissive owner policy
-  (`user_id = current_setting('app.current_user_id')`) for SELECT/INSERT/UPDATE/DELETE,
-  plus the standard `app.bypass_rls` allowance. `bomy_app` grants. Applied via the
-  migration SQL the same way other tables' RLS is (canonical reference
-  `packages/db/src/rls/policies.sql`).
+- **RLS (Bob R4):** enable + RESTRICTIVE default-deny, then **operation-specific
+  owner policies** matching the house style in `packages/db/src/rls/policies.sql`
+  — use the `app.current_user_id()` helper (not raw `current_setting`):
+  - `FOR SELECT USING (user_id = app.current_user_id() OR app.is_admin_bypass())`
+  - `FOR INSERT WITH CHECK (user_id = app.current_user_id() OR app.is_admin_bypass())`
+  - `FOR UPDATE USING (<owner predicate>) WITH CHECK (<owner predicate>)` — the
+    `WITH CHECK` stops a row being re-assigned to another `user_id`
+  - `FOR DELETE USING (user_id = app.current_user_id() OR app.is_admin_bypass())`
+    `bomy_app` grants as usual. RLS SQL appended to the generated migration.
 - Migration generated via `pnpm --filter @bomy/db db:generate`, with the RLS
   policy SQL appended to the generated migration file.
 
@@ -77,14 +81,25 @@ validator — single source of truth.
   "Default" badge; links to add/edit; delete + "Set default" controls.
 - `actions.ts` (server, all `withTenant`, RLS-enforced — a user can only touch
   their own rows):
-  - `addAddress(input)` — validate; if it's the user's first address, set
-    `isDefault = true`; enforce the 20-cap (count check → friendly error); insert.
-  - `updateAddress(addressId, input)` — validate; update own row.
+  - **Race safety (Bob R2):** every mutating action takes a **per-user advisory
+    lock first**, inside the `withTenant` tx, mirroring checkout's pattern:
+    `SELECT pg_advisory_xact_lock(hashtext('address_book:' || <userId>::text))`.
+    This serialises the first-default and 20-cap checks so they can't race.
+  - `addAddress(input)` — validate; advisory lock; **count** the user's
+    addresses → reject if ≥ 20 (friendly error); set `isDefault = true` only if
+    count == 0; insert.
+  - `updateAddress(addressId, input)` — validate; update own row (RLS-scoped).
   - `deleteAddress(addressId)` — delete own row (no auto-promote).
-  - `setDefault(addressId)` — in one tx: set all the user's addresses
-    `isDefault = false`, then set the chosen one `true` (order avoids the partial
-    unique-index conflict at commit).
-  - Each returns the `{ ok } | { ok:false, errors }` shape; `revalidatePath("/account/addresses")`.
+  - `setDefault(addressId)` (Bob R1) — advisory lock; **first SELECT the target
+    row owned by the current user**. If it's absent (nonexistent or another
+    user's), return `{ ok:false, errors:{ form: "Address not found" } }` with
+    **no writes** — so the caller's existing default is never cleared. Only then
+    set all the user's addresses `isDefault = false` and the target `true`.
+  - Each returns `{ ok } | { ok:false, errors }`; `revalidatePath("/account/addresses")`.
+- **Discoverability (Bob R5):** add `"addresses"` to the `AccountTabs` `active`
+  union (`profile | subscriptions | orders | addresses`) and an **Addresses** nav
+  link in `apps/web/src/app/account/account-tabs.tsx`; the page renders
+  `<AccountTabs active="addresses" />`.
 
 ## 4. Checkout integration — `apps/web/src/app/checkout/`
 
@@ -93,7 +108,13 @@ validator — single source of truth.
 - `_form.tsx`: if saved addresses exist, render a **selector pre-selected to the
   default**. Selecting one fills the address state. A **"Use a new address"**
   toggle reveals the existing manual form; an optional **"Save this address to my
-  book"** checkbox (only in new-address mode) calls `addAddress` on submit.
+  book"** checkbox (only in new-address mode).
+- **Save sequencing (Bob R3):** when the checkbox is set, the form validates the
+  address, then calls `addAddress` **before** `initiateCheckout`. If the save
+  fails, show an address-book error and **do not start payment** (the user can
+  uncheck and proceed). If `addAddress` succeeds but checkout later fails, the
+  saved address is kept (acceptable). When unchecked, go straight to
+  `initiateCheckout` exactly as today.
 - On submit the chosen/typed address goes through `validateShippingAddress` and
   is passed to `initiateCheckout` → snapshotted into `orders.shippingAddress`
   **unchanged** (the Invariant above). No change to `initiateCheckout`'s contract.
@@ -106,6 +127,8 @@ validator — single source of truth.
 - **Account actions** (web integration, DB env): add (first → auto-default;
   20-cap rejection), update, delete (default → no default left), setDefault
   (unsets previous; one-default invariant holds), validation failures.
+  - **Bob R1:** `setDefault` with a nonexistent/another-user's id → error **and
+    the caller's existing default stays unchanged** (no writes).
 - **Checkout**: selector pre-selects default and prefills; submitting still
   writes the `orders.shippingAddress` snapshot; "save this address" persists a
   new book entry.
