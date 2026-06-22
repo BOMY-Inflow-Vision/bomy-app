@@ -204,6 +204,53 @@ describe.skipIf(!shouldRun)("subscribeToBrand", () => {
     }
   })
 
+  it("abandoned pending → expires the stale row and creates a fresh checkout", async () => {
+    mockAuth.mockResolvedValue({ user: { id: userId, role: "buyer", email: "t@test.bomy" } })
+
+    const mockPR = { id: "pr-rejoin-xyz", url: "https://securecheckout.hit-pay.com/pr-rejoin-xyz" }
+    const createPaymentRequest = vi.fn().mockResolvedValue(mockPR)
+    MockHitPayClient.mockImplementation(() => ({ createPaymentRequest }))
+
+    const staleId = randomUUID()
+    // Pending, never paid, started > 30 min ago → abandoned.
+    await withAdmin(testDb.db, { userId, reason: "test seed" }, async (tx) => {
+      await tx.insert(schema.brandSubscriptions).values({
+        id: staleId,
+        userId,
+        storeId,
+        planId,
+        status: "pending",
+        priceMyrSen: 5000n,
+        discountPct: 5,
+        periodStart: new Date(),
+        periodEnd: new Date(Date.now() + 90 * 86400 * 1000),
+        bomyCommissionSen: 0n,
+        brandPayoutSen: 0n,
+        createdAt: new Date(Date.now() - 60 * 60 * 1000),
+      })
+    })
+
+    try {
+      const url = await expectRedirect(() => subscribeToBrand(planId))
+      expect(url).toBe(mockPR.url) // fresh checkout, NOT the success page
+
+      const rows = await withAdmin(testDb.db, { userId, reason: "test assert" }, async (tx) =>
+        tx
+          .select({ id: schema.brandSubscriptions.id, status: schema.brandSubscriptions.status })
+          .from(schema.brandSubscriptions)
+          .where(eq(schema.brandSubscriptions.userId, userId)),
+      )
+      expect(rows.find((r) => r.id === staleId)?.status).toBe("expired") // stale row expired
+      expect(rows.find((r) => r.id !== staleId && r.status === "pending")).toBeDefined() // new checkout
+    } finally {
+      await withAdmin(testDb.db, { userId, reason: "test cleanup" }, async (tx) => {
+        await tx
+          .delete(schema.brandSubscriptions)
+          .where(eq(schema.brandSubscriptions.userId, userId))
+      })
+    }
+  })
+
   it("already active → redirects to success page", async () => {
     mockAuth.mockResolvedValue({ user: { id: userId, role: "buyer", email: "t@test.bomy" } })
 

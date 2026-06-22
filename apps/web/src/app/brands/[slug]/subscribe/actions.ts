@@ -1,13 +1,14 @@
 "use server"
 
 import { randomUUID } from "node:crypto"
-import { and, desc, eq, gt, inArray } from "drizzle-orm"
+import { and, desc, eq, gt, inArray, isNull } from "drizzle-orm"
 import { notFound, redirect } from "next/navigation"
 
 import { makeDb, schema, withAdmin, withTenant, type UserRole } from "@bomy/db"
 import { HitPayClient, type PaymentRequestResponse } from "@bomy/hitpay"
 
 import { auth } from "@/auth"
+import { isPendingAbandoned } from "@/lib/membership"
 import { paymentsEnabled } from "@/lib/payments-enabled"
 
 let _client: ReturnType<typeof makeDb> | null = null
@@ -136,7 +137,12 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
     { userId: session.user.id, userRole: session.user.role },
     async (tx) =>
       tx
-        .select({ id: schema.brandSubscriptions.id, status: schema.brandSubscriptions.status })
+        .select({
+          id: schema.brandSubscriptions.id,
+          status: schema.brandSubscriptions.status,
+          hitpayPaymentId: schema.brandSubscriptions.hitpayPaymentId,
+          createdAt: schema.brandSubscriptions.createdAt,
+        })
         .from(schema.brandSubscriptions)
         .where(
           and(
@@ -149,8 +155,69 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
         .limit(1),
   )
 
-  if (existing[0]?.status === "active") redirect(`/brands/${store.slug}/subscribe/success`)
-  if (existing[0]?.status === "pending") redirect(`/brands/${store.slug}/subscribe/success`)
+  const successUrl = `/brands/${store.slug}/subscribe/success`
+  const current = existing[0]
+  if (current?.status === "active") redirect(successUrl)
+  if (current?.status === "pending") {
+    if (isPendingAbandoned(current, new Date())) {
+      // Abandoned checkout (back-button out of HitPay, never paid). Expire it so
+      // the partial unique index on (user_id, store_id) WHERE status IN
+      // ('active','pending') no longer blocks a fresh checkout, then fall through.
+      //
+      // Compare-and-swap: a delayed webhook may have activated (and paid) this
+      // exact row between the read above and now. Guard the UPDATE on
+      // status='pending' AND hitpay_payment_id IS NULL so we never clobber a paid
+      // subscription back to expired. (Mirrors joinMembership + the webhook guard.)
+      const expired = await withAdmin(
+        getDb(),
+        {
+          userId: session.user.id,
+          reason: "expire abandoned pending brand_subscription on re-subscribe",
+        },
+        async (tx) =>
+          tx
+            .update(schema.brandSubscriptions)
+            .set({ status: "expired", updatedAt: new Date() })
+            .where(
+              and(
+                eq(schema.brandSubscriptions.id, current.id),
+                eq(schema.brandSubscriptions.userId, session.user.id),
+                eq(schema.brandSubscriptions.storeId, store.id),
+                eq(schema.brandSubscriptions.status, "pending"),
+                isNull(schema.brandSubscriptions.hitpayPaymentId),
+              ),
+            )
+            .returning({ id: schema.brandSubscriptions.id }),
+      )
+
+      if (expired.length === 0) {
+        // The row changed under us (a webhook paid it, or it was reaped). Re-read
+        // and route rather than creating a duplicate checkout on a paid sub.
+        const recheck = await withTenant(
+          getDb(),
+          { userId: session.user.id, userRole: session.user.role },
+          async (tx) =>
+            tx
+              .select({ status: schema.brandSubscriptions.status })
+              .from(schema.brandSubscriptions)
+              .where(
+                and(
+                  eq(schema.brandSubscriptions.userId, session.user.id),
+                  eq(schema.brandSubscriptions.storeId, store.id),
+                  inArray(schema.brandSubscriptions.status, ["active", "pending"]),
+                ),
+              )
+              .limit(1),
+        )
+        if (recheck[0]?.status === "active") redirect(successUrl)
+        if (recheck[0]?.status === "pending") redirect(successUrl)
+        // else: nothing active/pending — fall through to create one.
+      }
+    } else {
+      // Genuinely in-flight (just paid, awaiting webhook) — show the success poller.
+      redirect(successUrl)
+    }
+  }
 
   const now = new Date()
   const subId = randomUUID()

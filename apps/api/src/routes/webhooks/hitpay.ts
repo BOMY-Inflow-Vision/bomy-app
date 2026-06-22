@@ -511,7 +511,7 @@ async function handleBrandSubscriptionPayment({
 
         const now = new Date()
 
-        await tx
+        const activated = await tx
           .update(schema.brandSubscriptions)
           .set({
             status: "active",
@@ -521,7 +521,29 @@ async function handleBrandSubscriptionPayment({
             brandPayoutSen,
             updatedAt: now,
           })
-          .where(eq(schema.brandSubscriptions.id, sub.id))
+          // Status guard (CAS): only a still-`pending` row may be activated. If
+          // the user abandoned this checkout and re-subscribed, the web action
+          // expired this exact row — a late payment must NOT reactivate it (that
+          // would double-charge). Mirrors the re-subscribe / joinMembership CAS.
+          .where(
+            and(
+              eq(schema.brandSubscriptions.id, sub.id),
+              eq(schema.brandSubscriptions.status, "pending"),
+            ),
+          )
+          .returning({ id: schema.brandSubscriptions.id })
+
+        if (activated.length === 0) {
+          // Late/duplicate payment for a brand subscription that is no longer
+          // pending (expired/cancelled after abandonment + re-subscribe). Money
+          // moved for a sub we won't honour — do NOT write ledger legs; flag for
+          // manual refund/reconciliation.
+          app.log.error(
+            { paymentId, subId: sub.id, priorStatus: sub.status },
+            "hitpay webhook: brand sub payment for non-pending row — skipped activation, needs refund/reconciliation",
+          )
+          return
+        }
 
         // Ledger: revenue credit + payout debit always; processing_fee debit
         // only when feeSen > 0 (ledger_entries.amount_minor > 0 constraint).
