@@ -471,6 +471,149 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
       expect(rows[0]?.status).toBe("cancelled")
       expect(rows[0]?.cancelledAt).not.toBeNull()
     })
+
+    it("late succeeded webhook on an abandoned (expired, never-paid) checkout activates it fresh — not as a future-dated renewal", async () => {
+      const buyerId = await seedUser()
+      const recurringId = `rb_${randomUUID()}`
+      const paymentId = `pay_${randomUUID()}`
+      const subId = randomUUID()
+
+      // Abandoned checkout expired by "Start over" / the reaper: never paid
+      // (no hitpayPaymentId), and its period bounds are stale (set ~1y from the
+      // original join an hour ago).
+      const joinTime = new Date(Date.now() - 60 * 60 * 1000)
+      const stalePeriodEnd = new Date(joinTime)
+      stalePeriodEnd.setFullYear(stalePeriodEnd.getFullYear() + 1)
+
+      await withAdmin(setupDb.db, { userId: buyerId, reason: "test seed" }, async (tx) => {
+        await tx.insert(schema.memberSubscriptions).values({
+          id: subId,
+          userId: buyerId,
+          status: "expired",
+          priceMyrSen: 7500n,
+          periodStart: joinTime,
+          periodEnd: stalePeriodEnd,
+          hitpayRecurringId: recurringId,
+        })
+      })
+
+      const before = Date.now()
+      const res = await webhookInject(app, {
+        recurring_billing_id: recurringId,
+        payment_id: paymentId,
+        status: "succeeded",
+        amount: "75.00",
+      })
+      expect(res.statusCode).toBe(200)
+
+      const rows = await withAdmin(setupDb.db, { userId: buyerId, reason: "verify" }, async (tx) =>
+        tx
+          .select()
+          .from(schema.memberSubscriptions)
+          .where(eq(schema.memberSubscriptions.userId, buyerId)),
+      )
+      // Activated in place — NOT a renewal that inserts a second row.
+      expect(rows).toHaveLength(1)
+      expect(rows[0]?.id).toBe(subId)
+      expect(rows[0]?.status).toBe("active")
+      expect(rows[0]?.hitpayPaymentId).toBe(paymentId)
+      // Membership starts NOW, not a year in the future.
+      const periodStart = rows[0]!.periodStart.getTime()
+      expect(periodStart).toBeGreaterThanOrEqual(before - 5000)
+      expect(periodStart).toBeLessThanOrEqual(Date.now() + 5000)
+      const expectedEnd = new Date(rows[0]!.periodStart)
+      expectedEnd.setFullYear(expectedEnd.getFullYear() + 1)
+      expect(rows[0]!.periodEnd.getTime()).toBe(expectedEnd.getTime())
+
+      const ledger = await withAdmin(
+        setupDb.db,
+        { userId: buyerId, reason: "verify" },
+        async (tx) =>
+          tx
+            .select()
+            .from(schema.ledgerEntries)
+            .where(
+              and(
+                eq(schema.ledgerEntries.referenceId, subId),
+                eq(schema.ledgerEntries.direction, "credit"),
+              ),
+            ),
+      )
+      expect(ledger).toHaveLength(1)
+      expect(ledger[0]?.amountMinor).toBe(7500n)
+      expect(ledger[0]?.revenueSource).toBe("platform_subscription")
+    })
+
+    it("late succeeded webhook on an abandoned checkout does NOT double-activate when the user is already a member", async () => {
+      const buyerId = await seedUser()
+      const abandonedRecurringId = `rb_${randomUUID()}`
+      const activeRecurringId = `rb_${randomUUID()}`
+      const latePaymentId = `pay_${randomUUID()}`
+      const abandonedId = randomUUID()
+      const activeId = randomUUID()
+      const now = new Date()
+      const periodEnd = new Date(now)
+      periodEnd.setFullYear(periodEnd.getFullYear() + 1)
+
+      await withAdmin(setupDb.db, { userId: buyerId, reason: "test seed" }, async (tx) => {
+        // The user re-joined and is active via a different checkout.
+        await tx.insert(schema.memberSubscriptions).values({
+          id: activeId,
+          userId: buyerId,
+          status: "active",
+          priceMyrSen: 7500n,
+          periodStart: now,
+          periodEnd,
+          hitpayRecurringId: activeRecurringId,
+          hitpayPaymentId: `pay_${randomUUID()}`,
+        })
+        // The earlier abandoned checkout — expired, never paid.
+        await tx.insert(schema.memberSubscriptions).values({
+          id: abandonedId,
+          userId: buyerId,
+          status: "expired",
+          priceMyrSen: 7500n,
+          periodStart: now,
+          periodEnd,
+          hitpayRecurringId: abandonedRecurringId,
+        })
+      })
+
+      const res = await webhookInject(app, {
+        recurring_billing_id: abandonedRecurringId,
+        payment_id: latePaymentId,
+        status: "succeeded",
+        amount: "75.00",
+      })
+      expect(res.statusCode).toBe(200)
+
+      const rows = await withAdmin(setupDb.db, { userId: buyerId, reason: "verify" }, async (tx) =>
+        tx
+          .select()
+          .from(schema.memberSubscriptions)
+          .where(eq(schema.memberSubscriptions.userId, buyerId)),
+      )
+      // No third row inserted; still exactly one active membership.
+      expect(rows).toHaveLength(2)
+      const active = rows.filter((r) => r.status === "active")
+      expect(active).toHaveLength(1)
+      expect(active[0]?.id).toBe(activeId)
+      // The abandoned row records the late payment id for reconciliation/refund.
+      const abandoned = rows.find((r) => r.id === abandonedId)
+      expect(abandoned?.status).toBe("expired")
+      expect(abandoned?.hitpayPaymentId).toBe(latePaymentId)
+      // No revenue ledger credit for the double charge — refund handled by ops.
+      const ledger = await withAdmin(
+        setupDb.db,
+        { userId: buyerId, reason: "verify" },
+        async (tx) =>
+          tx
+            .select()
+            .from(schema.ledgerEntries)
+            .where(eq(schema.ledgerEntries.referenceId, abandonedId)),
+      )
+      expect(ledger).toHaveLength(0)
+    })
   })
 
   // ── brand subscription ─────────────────────────────────────────────────────

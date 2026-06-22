@@ -224,10 +224,63 @@ async function handleMembershipCharge({
             .update(schema.memberSubscriptions)
             .set({ status: "active", hitpayPaymentId: paymentId, updatedAt: now })
             .where(eq(schema.memberSubscriptions.id, sub.id))
+        } else if (sub.hitpayPaymentId === null) {
+          // Late FIRST payment for a checkout that was abandoned and expired (by
+          // the "Start over" action or the abandoned-pending reaper) before this
+          // charge confirmed. This is not a renewal — the row was never paid, and
+          // its period bounds are stale — so activate it in place starting now.
+          const activeRows = await tx
+            .select({ id: schema.memberSubscriptions.id })
+            .from(schema.memberSubscriptions)
+            .where(
+              and(
+                eq(schema.memberSubscriptions.userId, sub.userId),
+                eq(schema.memberSubscriptions.status, "active"),
+              ),
+            )
+            .limit(1)
+
+          if (activeRows[0]) {
+            // The user already re-joined and holds an active membership via a
+            // different checkout, yet this abandoned one also charged — a double
+            // charge. Activating would breach the one-active-row index. Record the
+            // payment id on the abandoned row (traceability + idempotency) and flag
+            // ops for a refund; do not activate or write a revenue ledger leg.
+            await tx
+              .update(schema.memberSubscriptions)
+              .set({ hitpayPaymentId: paymentId, updatedAt: now })
+              .where(eq(schema.memberSubscriptions.id, sub.id))
+            app.log.error(
+              {
+                recurringBillingId,
+                paymentId,
+                abandonedSubId: sub.id,
+                activeSubId: activeRows[0].id,
+              },
+              "hitpay webhook: late payment on abandoned membership but user already active — possible double charge, needs refund",
+            )
+            return
+          }
+
+          const periodStart = now
+          const periodEnd = new Date(now)
+          periodEnd.setFullYear(periodEnd.getFullYear() + 1)
+          await tx
+            .update(schema.memberSubscriptions)
+            .set({
+              status: "active",
+              hitpayPaymentId: paymentId,
+              periodStart,
+              periodEnd,
+              updatedAt: now,
+            })
+            .where(eq(schema.memberSubscriptions.id, sub.id))
+          // Falls through to the first-activation ledger leg below.
         } else {
-          // Renewal: expire the current active row first (satisfies the partial
-          // unique index member_subscriptions_active_user_unique_idx which allows
-          // only one active row per user), then insert the new period row.
+          // Renewal: the current row was already paid (has a payment id). Expire
+          // it first (satisfies the partial unique index
+          // member_subscriptions_active_user_unique_idx which allows only one
+          // active row per user), then insert the new period row.
           await tx
             .update(schema.memberSubscriptions)
             .set({ status: "expired", updatedAt: now })
