@@ -4,6 +4,7 @@ import { schema, withAdmin } from "@bomy/db"
 
 import { auth } from "@/auth"
 import { getDb } from "@/lib/db"
+import { CopyId } from "./copy-id"
 import { RoleSelector } from "./role-selector"
 import { UserEditor } from "./user-editor"
 
@@ -63,6 +64,7 @@ export default async function UsersPage() {
                       <div className="text-xs text-gray-400">{row.email}</div>
                     </>
                   )}
+                  <CopyId id={row.id} />
                 </td>
                 <td className="px-4 py-3">
                   <span
