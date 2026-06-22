@@ -3,6 +3,7 @@ import sensible from "@fastify/sensible"
 import Fastify from "fastify"
 
 import { dbPlugin } from "./plugins/db.js"
+import { expireAbandonedPendingMemberships } from "./jobs/expire-abandoned-pending-memberships.js"
 import { expireCancelledMemberships } from "./jobs/expire-cancelled-memberships.js"
 import { loggingPlugin } from "./plugins/logging.js"
 import { mailerPlugin } from "./plugins/mailer.js"
@@ -59,6 +60,13 @@ export async function createApp(opts: { enableJobs?: boolean } = {}) {
           })
           .catch((err: unknown) => {
             app.log.error({ err }, "jobs: expire-cancelled-memberships failed")
+          })
+        void expireAbandonedPendingMemberships(db)
+          .then((n) => {
+            if (n > 0) app.log.info({ expired: n }, "jobs: expired abandoned pending memberships")
+          })
+          .catch((err: unknown) => {
+            app.log.error({ err }, "jobs: expire-abandoned-pending-memberships failed")
           })
       }
       runExpiry()

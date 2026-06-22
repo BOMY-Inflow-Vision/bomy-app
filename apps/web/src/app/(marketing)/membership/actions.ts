@@ -1,7 +1,7 @@
 "use server"
 
 import { randomUUID } from "node:crypto"
-import { and, desc, eq, inArray } from "drizzle-orm"
+import { and, desc, eq, inArray, isNull } from "drizzle-orm"
 import { notFound, redirect } from "next/navigation"
 
 import { makeDb, schema, withAdmin, withTenant } from "@bomy/db"
@@ -9,6 +9,7 @@ import { HitPayClient, type HitPayError, type RecurringBillingResponse } from "@
 
 import { auth } from "@/auth"
 import { formatHitPayStartDate } from "@/lib/hitpay-date"
+import { isPendingAbandoned } from "@/lib/membership"
 import { paymentsEnabled } from "@/lib/payments-enabled"
 
 // Lazy DB singleton — module is importable without DATABASE_URL at startup
@@ -87,7 +88,12 @@ export async function joinMembership() {
     { userId: session.user.id, userRole: session.user.role },
     async (tx) =>
       tx
-        .select({ id: schema.memberSubscriptions.id, status: schema.memberSubscriptions.status })
+        .select({
+          id: schema.memberSubscriptions.id,
+          status: schema.memberSubscriptions.status,
+          hitpayPaymentId: schema.memberSubscriptions.hitpayPaymentId,
+          createdAt: schema.memberSubscriptions.createdAt,
+        })
         .from(schema.memberSubscriptions)
         .where(
           and(
@@ -98,8 +104,64 @@ export async function joinMembership() {
         .limit(1),
   )
 
-  if (existing[0]?.status === "active") redirect("/membership/manage")
-  if (existing[0]?.status === "pending") redirect("/membership/success")
+  const current = existing[0]
+  if (current?.status === "active") redirect("/membership/manage")
+  if (current?.status === "pending") {
+    if (isPendingAbandoned(current, new Date())) {
+      // Abandoned checkout (back-button out of HitPay, never paid). Expire it so
+      // the partial unique index on (user_id) WHERE status='pending' no longer
+      // blocks a fresh checkout, then fall through to create a new pending row.
+      //
+      // Compare-and-swap: a delayed webhook may have activated (and paid) this
+      // exact row between the read above and now. Guard the UPDATE on
+      // status='pending' AND hitpay_payment_id IS NULL — matching the reaper — so
+      // we never clobber a paid membership back to expired.
+      const expired = await withAdmin(
+        getDb(),
+        { userId: session.user.id, reason: "expire abandoned pending membership on re-join" },
+        async (tx) =>
+          tx
+            .update(schema.memberSubscriptions)
+            .set({ status: "expired", updatedAt: new Date() })
+            .where(
+              and(
+                eq(schema.memberSubscriptions.id, current.id),
+                eq(schema.memberSubscriptions.userId, session.user.id),
+                eq(schema.memberSubscriptions.status, "pending"),
+                isNull(schema.memberSubscriptions.hitpayPaymentId),
+              ),
+            )
+            .returning({ id: schema.memberSubscriptions.id }),
+      )
+
+      if (expired.length === 0) {
+        // The row changed under us (a webhook activated/paid it, or it was already
+        // reaped). Re-read and route correctly rather than creating a duplicate
+        // checkout on top of a paid membership.
+        const recheck = await withTenant(
+          getDb(),
+          { userId: session.user.id, userRole: session.user.role },
+          async (tx) =>
+            tx
+              .select({ status: schema.memberSubscriptions.status })
+              .from(schema.memberSubscriptions)
+              .where(
+                and(
+                  eq(schema.memberSubscriptions.userId, session.user.id),
+                  inArray(schema.memberSubscriptions.status, ["active", "pending"]),
+                ),
+              )
+              .limit(1),
+        )
+        if (recheck[0]?.status === "active") redirect("/membership/manage")
+        if (recheck[0]?.status === "pending") redirect("/membership/success")
+        // Otherwise nothing active/pending — safe to fall through and create one.
+      }
+    } else {
+      // Genuinely in-flight (just paid, awaiting webhook) — show the poller.
+      redirect("/membership/success")
+    }
+  }
 
   const now = new Date()
   const subId = randomUUID()
@@ -221,6 +283,36 @@ export async function joinMembership() {
   }
 
   redirect(billing.url)
+}
+
+/**
+ * Escape hatch for the success page: the user gave up waiting / never paid.
+ * Mark any pending row expired so they can start over and re-join. We do NOT
+ * cancel the HitPay recurring billing here — if a payment actually completed
+ * and the webhook is merely slow, the webhook still activates the membership
+ * (its non-pending branch reactivates), so no real payment is lost.
+ */
+export async function abandonPendingMembership() {
+  const session = await auth()
+  if (!session) redirect("/auth/sign-in?callbackUrl=/membership")
+
+  await withAdmin(
+    getDb(),
+    { userId: session.user.id, reason: "user abandoned pending membership checkout" },
+    async (tx) => {
+      await tx
+        .update(schema.memberSubscriptions)
+        .set({ status: "expired", updatedAt: new Date() })
+        .where(
+          and(
+            eq(schema.memberSubscriptions.userId, session.user.id),
+            eq(schema.memberSubscriptions.status, "pending"),
+          ),
+        )
+    },
+  )
+
+  redirect("/membership")
 }
 
 export async function cancelMembership() {

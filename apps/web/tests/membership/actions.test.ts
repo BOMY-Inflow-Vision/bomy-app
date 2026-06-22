@@ -35,7 +35,12 @@ import { redirect } from "next/navigation"
 import { auth } from "@/auth"
 import { HitPayClient } from "@bomy/hitpay"
 import type * as HitPayModule from "@bomy/hitpay"
-import { cancelMembership, joinMembership } from "../../src/app/(marketing)/membership/actions"
+import {
+  abandonPendingMembership,
+  cancelMembership,
+  joinMembership,
+} from "../../src/app/(marketing)/membership/actions"
+import { PENDING_GRACE_MS } from "../../src/lib/membership"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
 
@@ -166,6 +171,85 @@ describe.skipIf(!shouldRun)("membership actions", () => {
       }
     })
 
+    it("stale abandoned pending → expires it and starts a fresh checkout", async () => {
+      mockAuth.mockResolvedValue({ user: { id: userId, role: "buyer", email: "t@test.bomy" } })
+
+      const staleId = randomUUID()
+      const staleCreatedAt = new Date(Date.now() - PENDING_GRACE_MS - 60_000)
+      await withAdmin(testDb.db, { userId, reason: "test seed" }, async (tx) => {
+        await tx.insert(schema.memberSubscriptions).values({
+          id: staleId,
+          userId,
+          status: "pending",
+          priceMyrSen: 7500n,
+          periodStart: new Date(),
+          periodEnd: new Date(Date.now() + 365 * 86400 * 1000),
+          createdAt: staleCreatedAt,
+        })
+      })
+
+      const mockBilling = {
+        id: "recurring-fresh",
+        url: "https://securecheckout.hit-pay.com/recurring/fresh",
+      }
+      const createRecurringBilling = vi.fn().mockResolvedValue(mockBilling)
+      MockHitPayClient.mockImplementation(() => ({ createRecurringBilling }))
+
+      try {
+        const url = await expectRedirect(joinMembership)
+        expect(url).toBe(mockBilling.url)
+
+        const rows = await withAdmin(testDb.db, { userId, reason: "test assert" }, async (tx) =>
+          tx
+            .select({
+              id: schema.memberSubscriptions.id,
+              status: schema.memberSubscriptions.status,
+            })
+            .from(schema.memberSubscriptions)
+            .where(eq(schema.memberSubscriptions.userId, userId)),
+        )
+        // Stale row expired; a new pending row created for the fresh checkout.
+        const stale = rows.find((r) => r.id === staleId)
+        expect(stale?.status).toBe("expired")
+        const pending = rows.filter((r) => r.status === "pending")
+        expect(pending).toHaveLength(1)
+      } finally {
+        await withAdmin(testDb.db, { userId, reason: "test cleanup" }, async (tx) => {
+          await tx
+            .delete(schema.memberSubscriptions)
+            .where(eq(schema.memberSubscriptions.userId, userId))
+        })
+      }
+    })
+
+    it("fresh pending (within grace) → still redirects to /membership/success", async () => {
+      mockAuth.mockResolvedValue({ user: { id: userId, role: "buyer", email: "t@test.bomy" } })
+
+      const subId = randomUUID()
+      await withAdmin(testDb.db, { userId, reason: "test seed" }, async (tx) => {
+        await tx.insert(schema.memberSubscriptions).values({
+          id: subId,
+          userId,
+          status: "pending",
+          priceMyrSen: 7500n,
+          periodStart: new Date(),
+          periodEnd: new Date(Date.now() + 365 * 86400 * 1000),
+          createdAt: new Date(Date.now() - 60_000),
+        })
+      })
+
+      try {
+        const url = await expectRedirect(joinMembership)
+        expect(url).toBe("/membership/success")
+      } finally {
+        await withAdmin(testDb.db, { userId, reason: "test cleanup" }, async (tx) => {
+          await tx
+            .delete(schema.memberSubscriptions)
+            .where(eq(schema.memberSubscriptions.id, subId))
+        })
+      }
+    })
+
     it("success: creates pending row, stores recurring ID, redirects to checkout", async () => {
       mockAuth.mockResolvedValue({ user: { id: userId, role: "buyer", email: "t@test.bomy" } })
 
@@ -243,6 +327,57 @@ describe.skipIf(!shouldRun)("membership actions", () => {
     // DB correlation failure compensation is covered in actions.unit.test.ts
     // (fully mocked, no DB required — see that file for both cancel-succeeds
     // and cancel-fails branches).
+  })
+
+  // ── abandonPendingMembership ──────────────────────────────────────────────
+
+  describe("abandonPendingMembership", () => {
+    it("unauthenticated → redirects to sign-in", async () => {
+      mockAuth.mockResolvedValue(null)
+      const url = await expectRedirect(abandonPendingMembership)
+      expect(url).toBe("/auth/sign-in?callbackUrl=/membership")
+    })
+
+    it("expires the user's pending row and redirects to /membership", async () => {
+      mockAuth.mockResolvedValue({ user: { id: userId, role: "buyer", email: "t@test.bomy" } })
+
+      const subId = randomUUID()
+      await withAdmin(testDb.db, { userId, reason: "test seed" }, async (tx) => {
+        await tx.insert(schema.memberSubscriptions).values({
+          id: subId,
+          userId,
+          status: "pending",
+          priceMyrSen: 7500n,
+          periodStart: new Date(),
+          periodEnd: new Date(Date.now() + 365 * 86400 * 1000),
+        })
+      })
+
+      try {
+        const url = await expectRedirect(abandonPendingMembership)
+        expect(url).toBe("/membership")
+
+        const rows = await withAdmin(testDb.db, { userId, reason: "test assert" }, async (tx) =>
+          tx
+            .select({ status: schema.memberSubscriptions.status })
+            .from(schema.memberSubscriptions)
+            .where(eq(schema.memberSubscriptions.id, subId)),
+        )
+        expect(rows[0]?.status).toBe("expired")
+      } finally {
+        await withAdmin(testDb.db, { userId, reason: "test cleanup" }, async (tx) => {
+          await tx
+            .delete(schema.memberSubscriptions)
+            .where(eq(schema.memberSubscriptions.id, subId))
+        })
+      }
+    })
+
+    it("no pending row → still redirects to /membership without error", async () => {
+      mockAuth.mockResolvedValue({ user: { id: userId, role: "buyer", email: "t@test.bomy" } })
+      const url = await expectRedirect(abandonPendingMembership)
+      expect(url).toBe("/membership")
+    })
   })
 
   // ── cancelMembership ────────────────────────────────────────────────────

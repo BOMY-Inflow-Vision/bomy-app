@@ -122,6 +122,93 @@ describe("joinMembership — DB correlation failure compensation", () => {
   })
 })
 
+describe("joinMembership — stale-pending rejoin race (Bob R3)", () => {
+  const STALE_PENDING = {
+    id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+    status: "pending" as const,
+    hitpayPaymentId: null,
+    createdAt: new Date(Date.now() - 60 * 60 * 1000), // 1h ago → abandoned
+  }
+
+  beforeEach(() => {
+    process.env["HITPAY_API_KEY"] = "test-key"
+    process.env["HITPAY_API_URL"] = "https://api.sandbox.hit-pay.com"
+    process.env["APP_URL"] = "http://localhost:3000"
+    ;(auth as unknown as Mock).mockResolvedValue({
+      user: { id: USER_ID, role: "buyer", email: "t@test.bomy" },
+    })
+  })
+
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it("guarded expire matches 0 rows (a webhook activated it mid-flight) → redirects to manage, no new checkout", async () => {
+    const createRecurringBilling = vi.fn()
+    ;(HitPayClient as unknown as Mock).mockImplementation(() => ({ createRecurringBilling }))
+
+    // withTenant: 1st = existing read (stale pending), 2nd = re-read (now active)
+    ;(dbModule.withTenant as unknown as Mock)
+      .mockResolvedValueOnce([STALE_PENDING])
+      .mockResolvedValueOnce([{ status: "active" }])
+
+    // withAdmin: 1 = price, 2 = guarded CAS expire → [] (matched nothing)
+    let call = 0
+    ;(dbModule.withAdmin as unknown as Mock).mockImplementation(() => {
+      call++
+      if (call === 1) return 7500n
+      if (call === 2) return [] // CAS expire matched nothing — row changed under us
+      return undefined
+    })
+
+    await expect(joinMembership()).rejects.toThrow("REDIRECT:/membership/manage")
+    // Must NOT create a fresh checkout after declining to clobber the paid row.
+    expect(createRecurringBilling).not.toHaveBeenCalled()
+  })
+
+  it("guarded expire matches 0 rows and re-read finds nothing active/pending → creates a fresh checkout", async () => {
+    const createRecurringBilling = vi
+      .fn()
+      .mockResolvedValue({ id: "rec-new", url: "https://pay/rec-new" })
+    ;(HitPayClient as unknown as Mock).mockImplementation(() => ({ createRecurringBilling }))
+    ;(dbModule.withTenant as unknown as Mock)
+      .mockResolvedValueOnce([STALE_PENDING])
+      .mockResolvedValueOnce([]) // re-read: already reaped, nothing active/pending
+
+    let call = 0
+    ;(dbModule.withAdmin as unknown as Mock).mockImplementation(() => {
+      call++
+      if (call === 1) return 7500n
+      if (call === 2) return [] // CAS expire matched nothing (concurrent reaper)
+      return undefined // insert + store-recurring
+    })
+
+    await expect(joinMembership()).rejects.toThrow("REDIRECT:https://pay/rec-new")
+    expect(createRecurringBilling).toHaveBeenCalledOnce()
+  })
+
+  it("guarded expire matches the row → proceeds to create a fresh checkout", async () => {
+    const createRecurringBilling = vi
+      .fn()
+      .mockResolvedValue({ id: "rec-fresh", url: "https://pay/rec-fresh" })
+    ;(HitPayClient as unknown as Mock).mockImplementation(() => ({ createRecurringBilling }))
+    ;(dbModule.withTenant as unknown as Mock).mockResolvedValueOnce([STALE_PENDING])
+
+    let call = 0
+    ;(dbModule.withAdmin as unknown as Mock).mockImplementation(() => {
+      call++
+      if (call === 1) return 7500n
+      if (call === 2) return [{ id: STALE_PENDING.id }] // CAS expire matched
+      return undefined // insert + store-recurring
+    })
+
+    await expect(joinMembership()).rejects.toThrow("REDIRECT:https://pay/rec-fresh")
+    expect(createRecurringBilling).toHaveBeenCalledOnce()
+    // No second withTenant re-read when the expire succeeded.
+    expect((dbModule.withTenant as unknown as Mock).mock.calls).toHaveLength(1)
+  })
+})
+
 describe("joinMembership — payments disabled guard (PR #39)", () => {
   beforeEach(() => {
     // Explicitly UNSET — overriding the outer compensation-suite beforeEach
