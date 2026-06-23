@@ -672,7 +672,8 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
       const abandoned = rows.find((r) => r.id === abandonedId)
       expect(abandoned?.status).toBe("expired")
       expect(abandoned?.hitpayPaymentId).toBe(latePaymentId)
-      // No revenue ledger credit for the double charge — refund handled by ops.
+      // No revenue/payout ledger legs reference the subscription row — a
+      // liability credit is written instead (referenceId = duplicate_charges row).
       const ledger = await withAdmin(
         setupDb.db,
         { userId: buyerId, reason: "verify" },
@@ -683,6 +684,38 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
             .where(eq(schema.ledgerEntries.referenceId, abandonedId)),
       )
       expect(ledger).toHaveLength(0)
+
+      // Exactly one liability credit for this duplicate payment id.
+      const dupCredits = await withAdmin(
+        setupDb.db,
+        { userId: buyerId, reason: "verify" },
+        async (tx) =>
+          tx
+            .select()
+            .from(schema.ledgerEntries)
+            .where(eq(schema.ledgerEntries.idempotencyKey, `dup_charge:${latePaymentId}:credit`)),
+      )
+      expect(dupCredits).toHaveLength(1)
+      expect(dupCredits[0]?.direction).toBe("credit")
+      expect(dupCredits[0]?.account).toBe("liability:duplicate_charge_payable")
+      expect(dupCredits[0]?.revenueSource).toBe("duplicate_charge")
+
+      // No revenue or payout leg was written for the duplicate.
+      const revOrPayout = await withAdmin(
+        setupDb.db,
+        { userId: buyerId, reason: "verify" },
+        async (tx) =>
+          tx
+            .select()
+            .from(schema.ledgerEntries)
+            .where(
+              and(
+                eq(schema.ledgerEntries.idempotencyKey, `dup_charge:${latePaymentId}:credit`),
+                eq(schema.ledgerEntries.account, "revenue:platform_subscription"),
+              ),
+            ),
+      )
+      expect(revOrPayout).toHaveLength(0)
     })
 
     it("detection: recurring charge while already active creates a duplicate_charges row + liability credit", async () => {
@@ -933,7 +966,7 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
       expect(legs).toHaveLength(0)
     })
 
-    it("does NOT reactivate an expired (abandoned-then-expired) subscription on a late payment; records payment_id for refund correlation but writes no ledger", async () => {
+    it("does NOT reactivate an expired (abandoned-then-expired) subscription on a late payment; records payment_id for refund correlation, writes no revenue/payout legs but writes one liability credit", async () => {
       const ownerId = await seedUser("seller_owner")
       const buyerId = await seedUser()
       const storeId = await seedStore(ownerId)
@@ -981,10 +1014,43 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
       // later refund webhook can correlate by hitpay_payment_id.
       expect(rows[0]?.hitpayPaymentId).toBe(paymentId)
 
+      // No ledger leg references the subscription row directly.
       const legs = await withAdmin(setupDb.db, { userId: buyerId, reason: "verify" }, async (tx) =>
         tx.select().from(schema.ledgerEntries).where(eq(schema.ledgerEntries.referenceId, subId)),
       )
       expect(legs).toHaveLength(0)
+
+      // Exactly one liability credit for this duplicate payment id.
+      const dupCredits = await withAdmin(
+        setupDb.db,
+        { userId: buyerId, reason: "verify" },
+        async (tx) =>
+          tx
+            .select()
+            .from(schema.ledgerEntries)
+            .where(eq(schema.ledgerEntries.idempotencyKey, `dup_charge:${paymentId}:credit`)),
+      )
+      expect(dupCredits).toHaveLength(1)
+      expect(dupCredits[0]?.direction).toBe("credit")
+      expect(dupCredits[0]?.account).toBe("liability:duplicate_charge_payable")
+      expect(dupCredits[0]?.revenueSource).toBe("duplicate_charge")
+
+      // No revenue or payout leg was written for the duplicate.
+      const revOrPayout = await withAdmin(
+        setupDb.db,
+        { userId: buyerId, reason: "verify" },
+        async (tx) =>
+          tx
+            .select()
+            .from(schema.ledgerEntries)
+            .where(
+              and(
+                eq(schema.ledgerEntries.idempotencyKey, `dup_charge:${paymentId}:credit`),
+                eq(schema.ledgerEntries.account, "revenue:brand_subscription"),
+              ),
+            ),
+      )
+      expect(revOrPayout).toHaveLength(0)
     })
 
     it("does NOT clobber the original payment_id of a paid-then-expired subscription on a late duplicate payment", async () => {
@@ -1036,10 +1102,45 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
       // Original payment id preserved — NOT overwritten by the duplicate.
       expect(rows[0]?.hitpayPaymentId).toBe(originalPaymentId)
 
+      // No ledger leg references the subscription row directly.
       const legs = await withAdmin(setupDb.db, { userId: buyerId, reason: "verify" }, async (tx) =>
         tx.select().from(schema.ledgerEntries).where(eq(schema.ledgerEntries.referenceId, subId)),
       )
       expect(legs).toHaveLength(0)
+
+      // Exactly one liability credit for the distinct duplicate payment id.
+      const dupCredits = await withAdmin(
+        setupDb.db,
+        { userId: buyerId, reason: "verify" },
+        async (tx) =>
+          tx
+            .select()
+            .from(schema.ledgerEntries)
+            .where(
+              eq(schema.ledgerEntries.idempotencyKey, `dup_charge:${duplicatePaymentId}:credit`),
+            ),
+      )
+      expect(dupCredits).toHaveLength(1)
+      expect(dupCredits[0]?.direction).toBe("credit")
+      expect(dupCredits[0]?.account).toBe("liability:duplicate_charge_payable")
+      expect(dupCredits[0]?.revenueSource).toBe("duplicate_charge")
+
+      // No revenue or payout leg was written for the duplicate.
+      const revOrPayout = await withAdmin(
+        setupDb.db,
+        { userId: buyerId, reason: "verify" },
+        async (tx) =>
+          tx
+            .select()
+            .from(schema.ledgerEntries)
+            .where(
+              and(
+                eq(schema.ledgerEntries.idempotencyKey, `dup_charge:${duplicatePaymentId}:credit`),
+                eq(schema.ledgerEntries.account, "revenue:brand_subscription"),
+              ),
+            ),
+      )
+      expect(revOrPayout).toHaveLength(0)
     })
 
     it("detection: late payment on an expired brand sub creates a duplicate_charges row + one liability credit", async () => {
