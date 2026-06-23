@@ -128,6 +128,14 @@ describe.skipIf(!shouldRun)("refundDuplicateCharge", () => {
     expect((await read(id))?.status).toBe("detected")
   })
 
+  it("NOT_FOUND when id does not exist", async () => {
+    vi.clearAllMocks()
+    mockAuth.mockResolvedValue({ user: { id: adminId, role: "bomy_finance" } })
+    const res = await refundDuplicateCharge(randomUUID())
+    expect(res).toEqual({ ok: false, error: "NOT_FOUND" })
+    expect(createRefund).not.toHaveBeenCalled()
+  })
+
   it("unknown/network error → REFUND_OUTCOME_UNKNOWN, row stays refund_pending (no throw)", async () => {
     vi.clearAllMocks()
     mockAuth.mockResolvedValue({ user: { id: adminId, role: "bomy_admin" } })

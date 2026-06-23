@@ -45,6 +45,10 @@ export async function refundDuplicateCharge(id: string): Promise<Result> {
     return { ok: false, error: "UNAUTHENTICATED" }
   }
 
+  // Construct the HitPay client BEFORE the CAS so a missing-env error leaves the
+  // row untouched (stays 'detected') instead of claiming it with no way to contact HitPay.
+  const client = hitpayClient()
+
   // CAS the row to refund_pending BEFORE any external call. Closes the
   // double-click / double-refund window: only one caller can flip detected→pending.
   const claimed = await withAdmin(
@@ -81,7 +85,7 @@ export async function refundDuplicateCharge(id: string): Promise<Result> {
 
   const row = claimed[0]!
   try {
-    const refund = await hitpayClient().createRefund({
+    const refund = await client.createRefund({
       payment_id: row.hitpayPaymentId,
       amount: senToMyr(row.amountSen),
       reason: "Duplicate subscription charge",
@@ -93,7 +97,12 @@ export async function refundDuplicateCharge(id: string): Promise<Result> {
         tx
           .update(schema.duplicateCharges)
           .set({ hitpayRefundId: refund.id })
-          .where(eq(schema.duplicateCharges.id, row.id)),
+          .where(
+            and(
+              eq(schema.duplicateCharges.id, row.id),
+              eq(schema.duplicateCharges.status, "refund_pending"),
+            ),
+          ),
     )
     revalidatePath("/payouts/reconciliation")
     return { ok: true }
