@@ -100,6 +100,10 @@ const MIGRATIONS = [
     name: "0015_user_addresses",
     file: join(__dirname, "../drizzle/0015_user_addresses.sql"),
   },
+  {
+    name: "0016_duplicate_charge_reconciliation",
+    file: join(__dirname, "../drizzle/0016_duplicate_charge_reconciliation.sql"),
+  },
 ]
 
 try {

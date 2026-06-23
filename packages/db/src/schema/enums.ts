@@ -4,6 +4,7 @@ import {
   CHECKOUT_SESSION_STATUSES,
   CURRENCIES,
   DISPATCH_STATUSES,
+  DUPLICATE_CHARGE_STATUSES,
   INVENTORY_RESERVATION_STATUSES,
   LEDGER_DIRECTIONS,
   ORDER_FULFILMENT_STATUSES,
@@ -42,3 +43,7 @@ export const orderFulfilmentStatusEnum = pgEnum(
   ORDER_FULFILMENT_STATUSES,
 )
 export const orderPayoutStatusEnum = pgEnum("order_payout_status", ORDER_PAYOUT_STATUSES)
+export const duplicateChargeStatusEnum = pgEnum(
+  "duplicate_charge_status",
+  DUPLICATE_CHARGE_STATUSES,
+)
