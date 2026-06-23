@@ -684,6 +684,128 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
       )
       expect(ledger).toHaveLength(0)
     })
+
+    it("detection: recurring charge while already active creates a duplicate_charges row + liability credit", async () => {
+      const buyerId = await seedUser()
+      const abandonedRecurringId = `rb_${randomUUID()}`
+      const activeRecurringId = `rb_${randomUUID()}`
+      const paymentId = `pay_${randomUUID()}`
+      const abandonedId = randomUUID()
+      const activeId = randomUUID()
+      const now = new Date()
+      const periodEnd = new Date(now)
+      periodEnd.setFullYear(periodEnd.getFullYear() + 1)
+
+      await withAdmin(setupDb.db, { userId: buyerId, reason: "test seed" }, async (tx) => {
+        // The user re-joined and is active via a different checkout.
+        await tx.insert(schema.memberSubscriptions).values({
+          id: activeId,
+          userId: buyerId,
+          status: "active",
+          priceMyrSen: 7500n,
+          periodStart: now,
+          periodEnd,
+          hitpayRecurringId: activeRecurringId,
+          hitpayPaymentId: `pay_${randomUUID()}`,
+        })
+        // The earlier abandoned checkout — expired, never paid.
+        await tx.insert(schema.memberSubscriptions).values({
+          id: abandonedId,
+          userId: buyerId,
+          status: "expired",
+          priceMyrSen: 7500n,
+          periodStart: now,
+          periodEnd,
+          hitpayRecurringId: abandonedRecurringId,
+        })
+      })
+
+      const res = await webhookInject(app, {
+        recurring_billing_id: abandonedRecurringId,
+        payment_id: paymentId,
+        status: "succeeded",
+        amount: "75.00",
+      })
+      expect(res.statusCode).toBe(200)
+
+      const dup = await withAdmin(setupDb.db, { userId: buyerId, reason: "verify" }, async (tx) =>
+        tx
+          .select()
+          .from(schema.duplicateCharges)
+          .where(eq(schema.duplicateCharges.hitpayPaymentId, paymentId)),
+      )
+      expect(dup).toHaveLength(1)
+      expect(dup[0]?.subscriptionType).toBe("member_subscription")
+
+      const credits = await withAdmin(
+        setupDb.db,
+        { userId: buyerId, reason: "verify" },
+        async (tx) =>
+          tx
+            .select()
+            .from(schema.ledgerEntries)
+            .where(eq(schema.ledgerEntries.idempotencyKey, `dup_charge:${paymentId}:credit`)),
+      )
+      expect(credits).toHaveLength(1)
+      expect(credits[0]?.account).toBe("liability:duplicate_charge_payable")
+    })
+
+    it("idempotency: re-delivered duplicate webhook → still one row, one credit", async () => {
+      const ownerId = await seedUser("seller_owner")
+      const buyerId = await seedUser()
+      const storeId = await seedStore(ownerId)
+      const planId = await seedBrandPlan(storeId)
+
+      const paymentRequestId = `pr_${randomUUID()}`
+      const paymentId = `pay_${randomUUID()}`
+      const subId = randomUUID()
+      const now = new Date()
+
+      await withAdmin(setupDb.db, { userId: buyerId, reason: "test seed" }, async (tx) => {
+        await tx.insert(schema.brandSubscriptions).values({
+          id: subId,
+          userId: buyerId,
+          storeId,
+          planId,
+          status: "expired",
+          priceMyrSen: 50000n,
+          discountPct: 5,
+          periodStart: now,
+          periodEnd: new Date(now.getTime() + 90 * 86400 * 1000),
+          hitpayPaymentRequestId: paymentRequestId,
+          bomyCommissionSen: 0n,
+          brandPayoutSen: 0n,
+        })
+      })
+
+      const payload = {
+        payment_request_id: paymentRequestId,
+        payment_id: paymentId,
+        status: "completed",
+        amount: "500.00",
+        fees: "1.50",
+      }
+      await webhookInject(app, payload)
+      await webhookInject(app, payload) // retry
+
+      const dup = await withAdmin(setupDb.db, { userId: buyerId, reason: "verify" }, async (tx) =>
+        tx
+          .select()
+          .from(schema.duplicateCharges)
+          .where(eq(schema.duplicateCharges.hitpayPaymentId, paymentId)),
+      )
+      expect(dup).toHaveLength(1)
+      const credits = await withAdmin(
+        setupDb.db,
+        { userId: buyerId, reason: "verify" },
+        async (tx) =>
+          tx
+            .select()
+            .from(schema.ledgerEntries)
+            .where(eq(schema.ledgerEntries.idempotencyKey, `dup_charge:${paymentId}:credit`)),
+      )
+      expect(credits).toHaveLength(1)
+    })
   })
 
   // ── brand subscription ─────────────────────────────────────────────────────
@@ -918,6 +1040,71 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
         tx.select().from(schema.ledgerEntries).where(eq(schema.ledgerEntries.referenceId, subId)),
       )
       expect(legs).toHaveLength(0)
+    })
+
+    it("detection: late payment on an expired brand sub creates a duplicate_charges row + one liability credit", async () => {
+      const ownerId = await seedUser("seller_owner")
+      const buyerId = await seedUser()
+      const storeId = await seedStore(ownerId)
+      const planId = await seedBrandPlan(storeId)
+
+      const paymentRequestId = `pr_${randomUUID()}`
+      const paymentId = `pay_${randomUUID()}`
+      const subId = randomUUID()
+      const now = new Date()
+
+      await withAdmin(setupDb.db, { userId: buyerId, reason: "test seed" }, async (tx) => {
+        await tx.insert(schema.brandSubscriptions).values({
+          id: subId,
+          userId: buyerId,
+          storeId,
+          planId,
+          status: "expired",
+          priceMyrSen: 50000n,
+          discountPct: 5,
+          periodStart: now,
+          periodEnd: new Date(now.getTime() + 90 * 86400 * 1000),
+          hitpayPaymentRequestId: paymentRequestId,
+          bomyCommissionSen: 0n,
+          brandPayoutSen: 0n,
+        })
+      })
+
+      const res = await webhookInject(app, {
+        payment_request_id: paymentRequestId,
+        payment_id: paymentId,
+        status: "completed",
+        amount: "500.00",
+        fees: "1.50",
+      })
+      expect(res.statusCode).toBe(200)
+
+      const dup = await withAdmin(setupDb.db, { userId: buyerId, reason: "verify" }, async (tx) =>
+        tx
+          .select()
+          .from(schema.duplicateCharges)
+          .where(eq(schema.duplicateCharges.hitpayPaymentId, paymentId)),
+      )
+      expect(dup).toHaveLength(1)
+      expect(dup[0]?.subscriptionType).toBe("brand_subscription")
+      expect(dup[0]?.subscriptionId).toBe(subId)
+      expect(dup[0]?.amountSen).toBe(50000n)
+      expect(dup[0]?.status).toBe("detected")
+
+      const credits = await withAdmin(
+        setupDb.db,
+        { userId: buyerId, reason: "verify" },
+        async (tx) =>
+          tx
+            .select()
+            .from(schema.ledgerEntries)
+            .where(eq(schema.ledgerEntries.idempotencyKey, `dup_charge:${paymentId}:credit`)),
+      )
+      expect(credits).toHaveLength(1)
+      expect(credits[0]?.direction).toBe("credit")
+      expect(credits[0]?.account).toBe("liability:duplicate_charge_payable")
+      expect(credits[0]?.amountMinor).toBe(50000n)
+      expect(credits[0]?.revenueSource).toBe("duplicate_charge")
     })
 
     it("sets status = payment_failed on failed payment", async () => {
