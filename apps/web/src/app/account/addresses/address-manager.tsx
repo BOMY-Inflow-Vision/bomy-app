@@ -4,7 +4,7 @@ import { useState, useTransition } from "react"
 
 import { MY_STATES } from "@/lib/shipping-address-schema"
 
-import { addAddress, deleteAddress, setDefault } from "./actions"
+import { addAddress, deleteAddress, setDefault, updateAddress } from "./actions"
 import type { AddressBookErrors } from "./address-schema"
 
 type Row = {
@@ -33,13 +33,39 @@ const EMPTY = {
 
 export function AddressManager({ initial }: { initial: Row[] }) {
   const [adding, setAdding] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState(EMPTY)
   const [errors, setErrors] = useState<AddressBookErrors & { form?: string }>({})
   const [pending, startTransition] = useTransition()
 
+  const formOpen = adding || editingId !== null
+
   function field(k: keyof typeof EMPTY) {
     return (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
       setForm((p) => ({ ...p, [k]: e.target.value }))
+  }
+
+  function resetForm() {
+    setAdding(false)
+    setEditingId(null)
+    setErrors({})
+    setForm(EMPTY)
+  }
+
+  function startEdit(a: Row) {
+    setAdding(false)
+    setEditingId(a.id)
+    setErrors({})
+    setForm({
+      label: a.label ?? "",
+      name: a.name,
+      phone: a.phone,
+      line1: a.line1,
+      line2: a.line2,
+      city: a.city,
+      postcode: a.postcode,
+      state: a.state,
+    })
   }
 
   return (
@@ -75,6 +101,14 @@ export function AddressManager({ initial }: { initial: Row[] }) {
                 <button
                   type="button"
                   disabled={pending}
+                  onClick={() => startEdit(a)}
+                  className="text-xs text-indigo-600 hover:underline disabled:opacity-50"
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  disabled={pending}
                   onClick={() => startTransition(async () => void (await deleteAddress(a.id)))}
                   className="text-xs text-red-600 hover:underline disabled:opacity-50"
                 >
@@ -87,10 +121,13 @@ export function AddressManager({ initial }: { initial: Row[] }) {
         {initial.length === 0 && <li className="text-sm text-gray-500">No saved addresses yet.</li>}
       </ul>
 
-      {!adding ? (
+      {!formOpen ? (
         <button
           type="button"
-          onClick={() => setAdding(true)}
+          onClick={() => {
+            setForm(EMPTY)
+            setAdding(true)
+          }}
           className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-700"
         >
           Add address
@@ -102,7 +139,7 @@ export function AddressManager({ initial }: { initial: Row[] }) {
             e.preventDefault()
             setErrors({})
             startTransition(async () => {
-              const res = await addAddress({
+              const input = {
                 label: form.label,
                 name: form.name,
                 phone: form.phone,
@@ -111,11 +148,13 @@ export function AddressManager({ initial }: { initial: Row[] }) {
                 city: form.city,
                 postcode: form.postcode,
                 state: form.state as (typeof MY_STATES)[number],
-                country: "MY",
-              })
+                country: "MY" as const,
+              }
+              const res = editingId
+                ? await updateAddress(editingId, input)
+                : await addAddress(input)
               if (res.ok) {
-                setForm(EMPTY)
-                setAdding(false)
+                resetForm()
               } else {
                 setErrors(res.errors)
               }
@@ -179,16 +218,12 @@ export function AddressManager({ initial }: { initial: Row[] }) {
               disabled={pending}
               className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
             >
-              {pending ? "Saving…" : "Save address"}
+              {pending ? "Saving…" : editingId ? "Save changes" : "Save address"}
             </button>
             <button
               type="button"
               disabled={pending}
-              onClick={() => {
-                setAdding(false)
-                setErrors({})
-                setForm(EMPTY)
-              }}
+              onClick={resetForm}
               className="text-sm text-gray-500 hover:underline"
             >
               Cancel
