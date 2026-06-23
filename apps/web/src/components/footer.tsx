@@ -67,7 +67,7 @@ export function Footer() {
           </div>
         </div>
         <div className="mt-10 border-t border-slate-200 pt-6">
-          <p className="text-xs text-slate-500">© 2026 Inflo Vision. All rights reserved.</p>
+          <p className="text-xs text-slate-500">© 2026 BOMY. All rights reserved.</p>
         </div>
       </div>
     </footer>
