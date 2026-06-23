@@ -891,3 +891,30 @@ CREATE POLICY processed_webhook_events_admin_select ON processed_webhook_events
 CREATE POLICY processed_webhook_events_admin_insert ON processed_webhook_events
   FOR INSERT WITH CHECK (app.is_admin_bypass());
 -- No UPDATE / DELETE policies — append-only by omission + RLS.
+
+-- ── duplicate_charges (Launch-prep: double-charge refund & reconciliation) ──
+-- Inserted by webhook handler under withAdmin when a duplicate subscription
+-- payment is detected. Updated by the admin refund flow. No DELETE policy —
+-- records are permanent by design (forensic + reconciliation evidence).
+-- Mirrors the 0008_admin_bypass_audit pattern.
+-- See migration 0016 for the authoritative applied copy.
+
+ALTER TABLE duplicate_charges ENABLE ROW LEVEL SECURITY;
+ALTER TABLE duplicate_charges FORCE ROW LEVEL SECURITY;
+
+CREATE POLICY duplicate_charges_default_deny ON duplicate_charges
+  AS RESTRICTIVE
+  USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
+
+CREATE POLICY duplicate_charges_staff_read ON duplicate_charges
+  FOR SELECT
+  USING (app.is_bomy_staff() OR app.is_admin_bypass());
+
+CREATE POLICY duplicate_charges_bypass_insert ON duplicate_charges
+  FOR INSERT
+  WITH CHECK (app.is_admin_bypass());
+
+CREATE POLICY duplicate_charges_bypass_update ON duplicate_charges
+  FOR UPDATE
+  USING (app.is_admin_bypass())
+  WITH CHECK (app.is_admin_bypass());

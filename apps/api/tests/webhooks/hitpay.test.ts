@@ -672,7 +672,8 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
       const abandoned = rows.find((r) => r.id === abandonedId)
       expect(abandoned?.status).toBe("expired")
       expect(abandoned?.hitpayPaymentId).toBe(latePaymentId)
-      // No revenue ledger credit for the double charge — refund handled by ops.
+      // No revenue/payout ledger legs reference the subscription row — a
+      // liability credit is written instead (referenceId = duplicate_charges row).
       const ledger = await withAdmin(
         setupDb.db,
         { userId: buyerId, reason: "verify" },
@@ -683,6 +684,160 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
             .where(eq(schema.ledgerEntries.referenceId, abandonedId)),
       )
       expect(ledger).toHaveLength(0)
+
+      // Exactly one liability credit for this duplicate payment id.
+      const dupCredits = await withAdmin(
+        setupDb.db,
+        { userId: buyerId, reason: "verify" },
+        async (tx) =>
+          tx
+            .select()
+            .from(schema.ledgerEntries)
+            .where(eq(schema.ledgerEntries.idempotencyKey, `dup_charge:${latePaymentId}:credit`)),
+      )
+      expect(dupCredits).toHaveLength(1)
+      expect(dupCredits[0]?.direction).toBe("credit")
+      expect(dupCredits[0]?.account).toBe("liability:duplicate_charge_payable")
+      expect(dupCredits[0]?.revenueSource).toBe("duplicate_charge")
+
+      // No revenue or payout leg was written for the duplicate.
+      const revOrPayout = await withAdmin(
+        setupDb.db,
+        { userId: buyerId, reason: "verify" },
+        async (tx) =>
+          tx
+            .select()
+            .from(schema.ledgerEntries)
+            .where(
+              and(
+                eq(schema.ledgerEntries.idempotencyKey, `dup_charge:${latePaymentId}:credit`),
+                eq(schema.ledgerEntries.account, "revenue:platform_subscription"),
+              ),
+            ),
+      )
+      expect(revOrPayout).toHaveLength(0)
+    })
+
+    it("detection: recurring charge while already active creates a duplicate_charges row + liability credit", async () => {
+      const buyerId = await seedUser()
+      const abandonedRecurringId = `rb_${randomUUID()}`
+      const activeRecurringId = `rb_${randomUUID()}`
+      const paymentId = `pay_${randomUUID()}`
+      const abandonedId = randomUUID()
+      const activeId = randomUUID()
+      const now = new Date()
+      const periodEnd = new Date(now)
+      periodEnd.setFullYear(periodEnd.getFullYear() + 1)
+
+      await withAdmin(setupDb.db, { userId: buyerId, reason: "test seed" }, async (tx) => {
+        // The user re-joined and is active via a different checkout.
+        await tx.insert(schema.memberSubscriptions).values({
+          id: activeId,
+          userId: buyerId,
+          status: "active",
+          priceMyrSen: 7500n,
+          periodStart: now,
+          periodEnd,
+          hitpayRecurringId: activeRecurringId,
+          hitpayPaymentId: `pay_${randomUUID()}`,
+        })
+        // The earlier abandoned checkout — expired, never paid.
+        await tx.insert(schema.memberSubscriptions).values({
+          id: abandonedId,
+          userId: buyerId,
+          status: "expired",
+          priceMyrSen: 7500n,
+          periodStart: now,
+          periodEnd,
+          hitpayRecurringId: abandonedRecurringId,
+        })
+      })
+
+      const res = await webhookInject(app, {
+        recurring_billing_id: abandonedRecurringId,
+        payment_id: paymentId,
+        status: "succeeded",
+        amount: "75.00",
+      })
+      expect(res.statusCode).toBe(200)
+
+      const dup = await withAdmin(setupDb.db, { userId: buyerId, reason: "verify" }, async (tx) =>
+        tx
+          .select()
+          .from(schema.duplicateCharges)
+          .where(eq(schema.duplicateCharges.hitpayPaymentId, paymentId)),
+      )
+      expect(dup).toHaveLength(1)
+      expect(dup[0]?.subscriptionType).toBe("member_subscription")
+
+      const credits = await withAdmin(
+        setupDb.db,
+        { userId: buyerId, reason: "verify" },
+        async (tx) =>
+          tx
+            .select()
+            .from(schema.ledgerEntries)
+            .where(eq(schema.ledgerEntries.idempotencyKey, `dup_charge:${paymentId}:credit`)),
+      )
+      expect(credits).toHaveLength(1)
+      expect(credits[0]?.account).toBe("liability:duplicate_charge_payable")
+    })
+
+    it("idempotency: re-delivered duplicate webhook → still one row, one credit", async () => {
+      const ownerId = await seedUser("seller_owner")
+      const buyerId = await seedUser()
+      const storeId = await seedStore(ownerId)
+      const planId = await seedBrandPlan(storeId)
+
+      const paymentRequestId = `pr_${randomUUID()}`
+      const paymentId = `pay_${randomUUID()}`
+      const subId = randomUUID()
+      const now = new Date()
+
+      await withAdmin(setupDb.db, { userId: buyerId, reason: "test seed" }, async (tx) => {
+        await tx.insert(schema.brandSubscriptions).values({
+          id: subId,
+          userId: buyerId,
+          storeId,
+          planId,
+          status: "expired",
+          priceMyrSen: 50000n,
+          discountPct: 5,
+          periodStart: now,
+          periodEnd: new Date(now.getTime() + 90 * 86400 * 1000),
+          hitpayPaymentRequestId: paymentRequestId,
+          bomyCommissionSen: 0n,
+          brandPayoutSen: 0n,
+        })
+      })
+
+      const payload = {
+        payment_request_id: paymentRequestId,
+        payment_id: paymentId,
+        status: "completed",
+        amount: "500.00",
+        fees: "1.50",
+      }
+      await webhookInject(app, payload)
+      await webhookInject(app, payload) // retry
+
+      const dup = await withAdmin(setupDb.db, { userId: buyerId, reason: "verify" }, async (tx) =>
+        tx
+          .select()
+          .from(schema.duplicateCharges)
+          .where(eq(schema.duplicateCharges.hitpayPaymentId, paymentId)),
+      )
+      expect(dup).toHaveLength(1)
+      const credits = await withAdmin(
+        setupDb.db,
+        { userId: buyerId, reason: "verify" },
+        async (tx) =>
+          tx
+            .select()
+            .from(schema.ledgerEntries)
+            .where(eq(schema.ledgerEntries.idempotencyKey, `dup_charge:${paymentId}:credit`)),
+      )
+      expect(credits).toHaveLength(1)
     })
   })
 
@@ -811,7 +966,7 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
       expect(legs).toHaveLength(0)
     })
 
-    it("does NOT reactivate an expired (abandoned-then-expired) subscription on a late payment; records payment_id for refund correlation but writes no ledger", async () => {
+    it("does NOT reactivate an expired (abandoned-then-expired) subscription on a late payment; records payment_id for refund correlation, writes no revenue/payout legs but writes one liability credit", async () => {
       const ownerId = await seedUser("seller_owner")
       const buyerId = await seedUser()
       const storeId = await seedStore(ownerId)
@@ -859,10 +1014,43 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
       // later refund webhook can correlate by hitpay_payment_id.
       expect(rows[0]?.hitpayPaymentId).toBe(paymentId)
 
+      // No ledger leg references the subscription row directly.
       const legs = await withAdmin(setupDb.db, { userId: buyerId, reason: "verify" }, async (tx) =>
         tx.select().from(schema.ledgerEntries).where(eq(schema.ledgerEntries.referenceId, subId)),
       )
       expect(legs).toHaveLength(0)
+
+      // Exactly one liability credit for this duplicate payment id.
+      const dupCredits = await withAdmin(
+        setupDb.db,
+        { userId: buyerId, reason: "verify" },
+        async (tx) =>
+          tx
+            .select()
+            .from(schema.ledgerEntries)
+            .where(eq(schema.ledgerEntries.idempotencyKey, `dup_charge:${paymentId}:credit`)),
+      )
+      expect(dupCredits).toHaveLength(1)
+      expect(dupCredits[0]?.direction).toBe("credit")
+      expect(dupCredits[0]?.account).toBe("liability:duplicate_charge_payable")
+      expect(dupCredits[0]?.revenueSource).toBe("duplicate_charge")
+
+      // No revenue or payout leg was written for the duplicate.
+      const revOrPayout = await withAdmin(
+        setupDb.db,
+        { userId: buyerId, reason: "verify" },
+        async (tx) =>
+          tx
+            .select()
+            .from(schema.ledgerEntries)
+            .where(
+              and(
+                eq(schema.ledgerEntries.idempotencyKey, `dup_charge:${paymentId}:credit`),
+                eq(schema.ledgerEntries.account, "revenue:brand_subscription"),
+              ),
+            ),
+      )
+      expect(revOrPayout).toHaveLength(0)
     })
 
     it("does NOT clobber the original payment_id of a paid-then-expired subscription on a late duplicate payment", async () => {
@@ -914,10 +1102,110 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
       // Original payment id preserved — NOT overwritten by the duplicate.
       expect(rows[0]?.hitpayPaymentId).toBe(originalPaymentId)
 
+      // No ledger leg references the subscription row directly.
       const legs = await withAdmin(setupDb.db, { userId: buyerId, reason: "verify" }, async (tx) =>
         tx.select().from(schema.ledgerEntries).where(eq(schema.ledgerEntries.referenceId, subId)),
       )
       expect(legs).toHaveLength(0)
+
+      // Exactly one liability credit for the distinct duplicate payment id.
+      const dupCredits = await withAdmin(
+        setupDb.db,
+        { userId: buyerId, reason: "verify" },
+        async (tx) =>
+          tx
+            .select()
+            .from(schema.ledgerEntries)
+            .where(
+              eq(schema.ledgerEntries.idempotencyKey, `dup_charge:${duplicatePaymentId}:credit`),
+            ),
+      )
+      expect(dupCredits).toHaveLength(1)
+      expect(dupCredits[0]?.direction).toBe("credit")
+      expect(dupCredits[0]?.account).toBe("liability:duplicate_charge_payable")
+      expect(dupCredits[0]?.revenueSource).toBe("duplicate_charge")
+
+      // No revenue or payout leg was written for the duplicate.
+      const revOrPayout = await withAdmin(
+        setupDb.db,
+        { userId: buyerId, reason: "verify" },
+        async (tx) =>
+          tx
+            .select()
+            .from(schema.ledgerEntries)
+            .where(
+              and(
+                eq(schema.ledgerEntries.idempotencyKey, `dup_charge:${duplicatePaymentId}:credit`),
+                eq(schema.ledgerEntries.account, "revenue:brand_subscription"),
+              ),
+            ),
+      )
+      expect(revOrPayout).toHaveLength(0)
+    })
+
+    it("detection: late payment on an expired brand sub creates a duplicate_charges row + one liability credit", async () => {
+      const ownerId = await seedUser("seller_owner")
+      const buyerId = await seedUser()
+      const storeId = await seedStore(ownerId)
+      const planId = await seedBrandPlan(storeId)
+
+      const paymentRequestId = `pr_${randomUUID()}`
+      const paymentId = `pay_${randomUUID()}`
+      const subId = randomUUID()
+      const now = new Date()
+
+      await withAdmin(setupDb.db, { userId: buyerId, reason: "test seed" }, async (tx) => {
+        await tx.insert(schema.brandSubscriptions).values({
+          id: subId,
+          userId: buyerId,
+          storeId,
+          planId,
+          status: "expired",
+          priceMyrSen: 50000n,
+          discountPct: 5,
+          periodStart: now,
+          periodEnd: new Date(now.getTime() + 90 * 86400 * 1000),
+          hitpayPaymentRequestId: paymentRequestId,
+          bomyCommissionSen: 0n,
+          brandPayoutSen: 0n,
+        })
+      })
+
+      const res = await webhookInject(app, {
+        payment_request_id: paymentRequestId,
+        payment_id: paymentId,
+        status: "completed",
+        amount: "500.00",
+        fees: "1.50",
+      })
+      expect(res.statusCode).toBe(200)
+
+      const dup = await withAdmin(setupDb.db, { userId: buyerId, reason: "verify" }, async (tx) =>
+        tx
+          .select()
+          .from(schema.duplicateCharges)
+          .where(eq(schema.duplicateCharges.hitpayPaymentId, paymentId)),
+      )
+      expect(dup).toHaveLength(1)
+      expect(dup[0]?.subscriptionType).toBe("brand_subscription")
+      expect(dup[0]?.subscriptionId).toBe(subId)
+      expect(dup[0]?.amountSen).toBe(50000n)
+      expect(dup[0]?.status).toBe("detected")
+
+      const credits = await withAdmin(
+        setupDb.db,
+        { userId: buyerId, reason: "verify" },
+        async (tx) =>
+          tx
+            .select()
+            .from(schema.ledgerEntries)
+            .where(eq(schema.ledgerEntries.idempotencyKey, `dup_charge:${paymentId}:credit`)),
+      )
+      expect(credits).toHaveLength(1)
+      expect(credits[0]?.direction).toBe("credit")
+      expect(credits[0]?.account).toBe("liability:duplicate_charge_payable")
+      expect(credits[0]?.amountMinor).toBe(50000n)
+      expect(credits[0]?.revenueSource).toBe("duplicate_charge")
     })
 
     it("sets status = payment_failed on failed payment", async () => {
@@ -1190,6 +1478,267 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
           ),
       )
       expect(legs).toHaveLength(0)
+    })
+
+    it("refund webhook for a duplicate charge → liability debit, status refunded, no revenue debit", async () => {
+      const buyerId = await seedUser()
+      const paymentId = `pay_${randomUUID()}`
+      const refundId = `ref_${randomUUID()}`
+      const dupId = await withAdmin(
+        setupDb.db,
+        { userId: SYSTEM_ACTOR, reason: "seed" },
+        async (tx) => {
+          const [row] = await tx
+            .insert(schema.duplicateCharges)
+            .values({
+              subscriptionType: "brand_subscription",
+              subscriptionId: randomUUID(),
+              userId: buyerId,
+              hitpayPaymentId: paymentId,
+              amountSen: 50000n,
+              currency: "MYR",
+              status: "refund_pending",
+              hitpayRefundId: refundId,
+            })
+            .returning({ id: schema.duplicateCharges.id })
+          // detection credit (so the account can net to zero)
+          await tx.insert(schema.ledgerEntries).values({
+            transactionId: randomUUID(),
+            idempotencyKey: `dup_charge:${paymentId}:credit`,
+            direction: "credit",
+            account: "liability:duplicate_charge_payable",
+            amountMinor: 50000n,
+            currency: "MYR",
+            revenueSource: "duplicate_charge",
+            referenceId: row!.id,
+            referenceType: "duplicate_charge",
+          })
+          return row!.id
+        },
+      )
+
+      // charge.updated is routed by the hitpay-event-type HEADER, not the body
+      // (matches the existing refund tests in this file).
+      const res = await webhookInject(
+        app,
+        { payment_id: paymentId, refund_amount: "500.00", refund_id: refundId, status: "refunded" },
+        { "hitpay-event-type": "charge.updated" },
+      )
+      expect(res.statusCode).toBe(200)
+
+      const legs = await withAdmin(setupDb.db, { userId: buyerId, reason: "verify" }, async (tx) =>
+        tx.select().from(schema.ledgerEntries).where(eq(schema.ledgerEntries.referenceId, dupId)),
+      )
+      const debit = legs.find((l) => l.direction === "debit")
+      expect(debit?.account).toBe("liability:duplicate_charge_payable")
+      expect(debit?.amountMinor).toBe(50000n)
+      expect(legs.some((l) => l.account.startsWith("revenue:"))).toBe(false)
+
+      const row = await withAdmin(setupDb.db, { userId: buyerId, reason: "verify" }, async (tx) =>
+        tx.select().from(schema.duplicateCharges).where(eq(schema.duplicateCharges.id, dupId)),
+      )
+      expect(row[0]?.status).toBe("refunded")
+      expect(row[0]?.resolvedAt).not.toBeNull()
+    })
+
+    it("refund webhook for a NORMAL subscription payment still uses the revenue path", async () => {
+      const ownerId = await seedUser("seller_owner")
+      const buyerId = await seedUser()
+      const storeId = await seedStore(ownerId)
+      const planId = await seedBrandPlan(storeId)
+      const paymentId = `pay_${randomUUID()}`
+      const subId = randomUUID()
+      const now = new Date()
+
+      // A real prior sale: an ACTIVE brand sub with hitpayPaymentId set and a
+      // valid split (fee + commission + payout = price, per brand_subscriptions_split_chk).
+      // price 50000, fee 100 → net 49900 → payout floor(49900*0.9)=44910, commission 4990.
+      // No duplicate_charges row → the refund must take the existing revenue path.
+      await withAdmin(setupDb.db, { userId: buyerId, reason: "seed" }, async (tx) => {
+        await tx.insert(schema.brandSubscriptions).values({
+          id: subId,
+          userId: buyerId,
+          storeId,
+          planId,
+          status: "active",
+          priceMyrSen: 50000n,
+          discountPct: 5,
+          periodStart: now,
+          periodEnd: new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000),
+          hitpayPaymentRequestId: `pr_${randomUUID()}`,
+          hitpayPaymentId: paymentId,
+          hitpayFeeSen: 100n,
+          bomyCommissionSen: 4990n,
+          brandPayoutSen: 44910n,
+        })
+      })
+
+      const res = await webhookInject(
+        app,
+        {
+          payment_id: paymentId,
+          refund_amount: "500.00",
+          refund_id: `ref_${randomUUID()}`,
+          status: "refunded",
+        },
+        { "hitpay-event-type": "charge.updated" },
+      )
+      expect(res.statusCode).toBe(200)
+
+      // Existing revenue-refund path: a debit to revenue:brand_subscription must exist.
+      const legs = await withAdmin(setupDb.db, { userId: buyerId, reason: "verify" }, async (tx) =>
+        tx.select().from(schema.ledgerEntries).where(eq(schema.ledgerEntries.referenceId, subId)),
+      )
+      const revenueDebit = legs.find(
+        (l) => l.direction === "debit" && l.account === "revenue:brand_subscription",
+      )
+      expect(revenueDebit).toBeDefined()
+    })
+
+    it("idempotent: a re-delivered duplicate refund webhook writes no second debit", async () => {
+      const buyerId = await seedUser()
+      const paymentId = `pay_${randomUUID()}`
+      const refundId = `ref_${randomUUID()}`
+      const dupId = await withAdmin(
+        setupDb.db,
+        { userId: SYSTEM_ACTOR, reason: "seed" },
+        async (tx) => {
+          const [row] = await tx
+            .insert(schema.duplicateCharges)
+            .values({
+              subscriptionType: "brand_subscription",
+              subscriptionId: randomUUID(),
+              userId: buyerId,
+              hitpayPaymentId: paymentId,
+              amountSen: 50000n,
+              currency: "MYR",
+              status: "detected",
+              hitpayRefundId: refundId,
+            })
+            .returning({ id: schema.duplicateCharges.id })
+          await tx.insert(schema.ledgerEntries).values({
+            transactionId: randomUUID(),
+            idempotencyKey: `dup_charge:${paymentId}:credit`,
+            direction: "credit",
+            account: "liability:duplicate_charge_payable",
+            amountMinor: 50000n,
+            currency: "MYR",
+            revenueSource: "duplicate_charge",
+            referenceId: row!.id,
+            referenceType: "duplicate_charge",
+          })
+          return row!.id
+        },
+      )
+
+      const payload = {
+        payment_id: paymentId,
+        refund_amount: "500.00",
+        refund_id: refundId,
+        status: "refunded",
+      }
+      const headers = { "hitpay-event-type": "charge.updated" }
+
+      // Inject twice — simulates re-delivery.
+      await webhookInject(app, payload, headers)
+      const res2 = await webhookInject(app, payload, headers)
+      expect(res2.statusCode).toBe(200)
+
+      // Exactly one liability debit entry.
+      const legs = await withAdmin(setupDb.db, { userId: buyerId, reason: "verify" }, async (tx) =>
+        tx
+          .select()
+          .from(schema.ledgerEntries)
+          .where(
+            and(
+              eq(schema.ledgerEntries.referenceId, dupId),
+              eq(schema.ledgerEntries.direction, "debit"),
+            ),
+          ),
+      )
+      expect(legs).toHaveLength(1)
+      expect(legs[0]?.account).toBe("liability:duplicate_charge_payable")
+
+      // Status must be 'refunded'.
+      const row = await withAdmin(setupDb.db, { userId: buyerId, reason: "verify" }, async (tx) =>
+        tx.select().from(schema.duplicateCharges).where(eq(schema.duplicateCharges.id, dupId)),
+      )
+      expect(row[0]?.status).toBe("refunded")
+    })
+
+    it("full-amount guard: a partial refund on a duplicate writes no debit and leaves status unchanged", async () => {
+      const buyerId = await seedUser()
+      const paymentId = `pay_${randomUUID()}`
+      const dupId = await withAdmin(
+        setupDb.db,
+        { userId: SYSTEM_ACTOR, reason: "seed" },
+        async (tx) => {
+          const [row] = await tx
+            .insert(schema.duplicateCharges)
+            .values({
+              subscriptionType: "brand_subscription",
+              subscriptionId: randomUUID(),
+              userId: buyerId,
+              hitpayPaymentId: paymentId,
+              amountSen: 50000n,
+              currency: "MYR",
+              status: "refund_pending",
+            })
+            .returning({ id: schema.duplicateCharges.id })
+          await tx.insert(schema.ledgerEntries).values({
+            transactionId: randomUUID(),
+            idempotencyKey: `dup_charge:${paymentId}:credit`,
+            direction: "credit",
+            account: "liability:duplicate_charge_payable",
+            amountMinor: 50000n,
+            currency: "MYR",
+            revenueSource: "duplicate_charge",
+            referenceId: row!.id,
+            referenceType: "duplicate_charge",
+          })
+          return row!.id
+        },
+      )
+
+      // Partial refund: 300.00 MYR instead of the full 500.00 MYR.
+      const res = await webhookInject(
+        app,
+        { payment_id: paymentId, refund_amount: "300.00", status: "refunded" },
+        { "hitpay-event-type": "charge.updated" },
+      )
+      expect(res.statusCode).toBe(200)
+
+      // No debit leg written for the dup.
+      const debits = await withAdmin(
+        setupDb.db,
+        { userId: buyerId, reason: "verify" },
+        async (tx) =>
+          tx
+            .select()
+            .from(schema.ledgerEntries)
+            .where(
+              and(
+                eq(schema.ledgerEntries.referenceId, dupId),
+                eq(schema.ledgerEntries.direction, "debit"),
+              ),
+            ),
+      )
+      expect(debits).toHaveLength(0)
+
+      // Status still 'refund_pending'.
+      const row = await withAdmin(setupDb.db, { userId: buyerId, reason: "verify" }, async (tx) =>
+        tx.select().from(schema.duplicateCharges).where(eq(schema.duplicateCharges.id, dupId)),
+      )
+      expect(row[0]?.status).toBe("refund_pending")
+
+      // No revenue debit either — fetch all legs for the dup and filter in JS.
+      const allLegs = await withAdmin(
+        setupDb.db,
+        { userId: buyerId, reason: "verify" },
+        async (tx) =>
+          tx.select().from(schema.ledgerEntries).where(eq(schema.ledgerEntries.referenceId, dupId)),
+      )
+      expect(allLegs.some((l) => l.account.startsWith("revenue:"))).toBe(false)
     })
   })
 

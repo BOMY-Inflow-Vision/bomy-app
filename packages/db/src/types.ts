@@ -38,8 +38,12 @@ export const REVENUE_SOURCES = [
   "refund",
   "referral_grant",
   "processing_fee",
+  "duplicate_charge",
 ] as const
 export type RevenueSource = (typeof REVENUE_SOURCES)[number]
+
+export const DUPLICATE_CHARGE_STATUSES = ["detected", "refund_pending", "refunded"] as const
+export type DuplicateChargeStatus = (typeof DUPLICATE_CHARGE_STATUSES)[number]
 
 export const LEDGER_DIRECTIONS = ["debit", "credit"] as const
 export type LedgerDirection = (typeof LEDGER_DIRECTIONS)[number]

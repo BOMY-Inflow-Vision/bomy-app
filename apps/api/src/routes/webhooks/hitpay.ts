@@ -28,6 +28,49 @@ function parseSen(amount: string): bigint {
   return BigInt(whole) * 100n + BigInt(cents)
 }
 
+// Records a duplicate subscription charge (a payment we will not honour) and
+// books the inflow to a liability account. Idempotent: ON CONFLICT on the unique
+// hitpay_payment_id means a retried webhook neither double-inserts nor
+// double-credits. Returns true when this call created the record.
+async function recordDuplicateCharge(
+  tx: Parameters<Parameters<typeof withAdmin>[2]>[0],
+  args: {
+    subscriptionType: "member_subscription" | "brand_subscription"
+    subscriptionId: string
+    userId: string
+    paymentId: string
+    amountSen: bigint
+  },
+): Promise<boolean> {
+  const inserted = await tx
+    .insert(schema.duplicateCharges)
+    .values({
+      subscriptionType: args.subscriptionType,
+      subscriptionId: args.subscriptionId,
+      userId: args.userId,
+      hitpayPaymentId: args.paymentId,
+      amountSen: args.amountSen,
+      currency: "MYR",
+    })
+    .onConflictDoNothing({ target: schema.duplicateCharges.hitpayPaymentId })
+    .returning({ id: schema.duplicateCharges.id })
+
+  if (inserted.length === 0) return false
+
+  await tx.insert(schema.ledgerEntries).values({
+    transactionId: randomUUID(),
+    idempotencyKey: `dup_charge:${args.paymentId}:credit`,
+    direction: "credit",
+    account: "liability:duplicate_charge_payable",
+    amountMinor: args.amountSen,
+    currency: "MYR",
+    revenueSource: "duplicate_charge",
+    referenceId: inserted[0]!.id,
+    referenceType: "duplicate_charge",
+  })
+  return true
+}
+
 export const hitpayWebhookRoutes: FastifyPluginAsync = async (app) => {
   // Fail at registration time — an empty salt means anyone can forge a
   // valid signature. Do not allow the app to start without this secret.
@@ -245,6 +288,13 @@ async function handleMembershipCharge({
               .update(schema.memberSubscriptions)
               .set({ hitpayPaymentId: paymentId, updatedAt: now })
               .where(eq(schema.memberSubscriptions.id, sub.id))
+            await recordDuplicateCharge(tx, {
+              subscriptionType: "member_subscription",
+              subscriptionId: sub.id,
+              userId: sub.userId,
+              paymentId,
+              amountSen: sub.priceMyrSen,
+            })
             app.log.error(
               {
                 recurringBillingId,
@@ -561,9 +611,16 @@ async function handleBrandSubscriptionPayment({
               .returning({ id: schema.brandSubscriptions.id })
             recorded = stamped.length > 0
           }
+          await recordDuplicateCharge(tx, {
+            subscriptionType: "brand_subscription",
+            subscriptionId: sub.id,
+            userId: sub.userId,
+            paymentId,
+            amountSen: webhookAmountSen,
+          })
           app.log.error(
             { paymentId, subId: sub.id, priorStatus: sub.status, recordedPaymentId: recorded },
-            "hitpay webhook: brand sub payment for non-pending row — skipped activation, needs refund/reconciliation",
+            "hitpay webhook: brand sub payment for non-pending row — recorded duplicate, needs refund/reconciliation",
           )
           return
         }
@@ -686,6 +743,75 @@ async function handleRefund({
     app.db.db,
     { userId: SYSTEM_ACTOR, reason: "hitpay webhook: refund" },
     async (tx) => {
+      // Duplicate-charge refunds clear the liability account, never revenue.
+      // Checked first because the duplicate payment_id is also stamped on the
+      // subscription row, which the member/brand lookups below would match.
+      const dupRows = await tx
+        .select()
+        .from(schema.duplicateCharges)
+        .where(eq(schema.duplicateCharges.hitpayPaymentId, paymentId))
+        .limit(1)
+
+      if (dupRows[0]) {
+        const dup = dupRows[0]
+
+        // Full-amount guard: duplicates are always full-price. A partial/mismatched
+        // refund is an anomaly for a human — do not debit, do not mark refunded,
+        // do not fall through to the revenue path.
+        if (refundAmountSen !== dup.amountSen) {
+          app.log.error(
+            { paymentId, dupId: dup.id, refundAmountSen, expected: dup.amountSen },
+            "hitpay webhook: partial/mismatched refund on a duplicate charge — manual review",
+          )
+          return
+        }
+
+        const idemKey = refundId
+          ? `dup_charge:${paymentId}:${refundId}:debit`
+          : `dup_charge:${paymentId}:debit`
+
+        const existing = await tx
+          .select({ id: schema.ledgerEntries.id })
+          .from(schema.ledgerEntries)
+          .where(
+            and(
+              eq(schema.ledgerEntries.idempotencyKey, idemKey),
+              eq(schema.ledgerEntries.direction, "debit"),
+            ),
+          )
+          .limit(1)
+
+        if (existing[0] || dup.status === "refunded") {
+          app.log.info({ paymentId }, "hitpay webhook: duplicate charge refund already recorded")
+          return
+        }
+
+        await tx.insert(schema.ledgerEntries).values({
+          transactionId: randomUUID(),
+          idempotencyKey: idemKey,
+          direction: "debit",
+          account: "liability:duplicate_charge_payable",
+          amountMinor: refundAmountSen,
+          currency: "MYR",
+          revenueSource: "duplicate_charge",
+          referenceId: dup.id,
+          referenceType: "duplicate_charge",
+        })
+        await tx
+          .update(schema.duplicateCharges)
+          .set({
+            status: "refunded",
+            resolvedAt: new Date(),
+            hitpayRefundId: dup.hitpayRefundId ?? refundId,
+          })
+          .where(eq(schema.duplicateCharges.id, dup.id))
+        app.log.info(
+          { paymentId, dupId: dup.id },
+          "hitpay webhook: duplicate charge refund reconciled",
+        )
+        return
+      }
+
       // Search membership subscriptions first, then brand subscriptions.
       const memberRows = await tx
         .select()
