@@ -5,6 +5,7 @@ import {
   CURRENCIES,
   DISPATCH_STATUSES,
   DUPLICATE_CHARGE_STATUSES,
+  INQUIRY_STATUSES,
   INVENTORY_RESERVATION_STATUSES,
   LEDGER_DIRECTIONS,
   ORDER_FULFILMENT_STATUSES,
@@ -21,6 +22,7 @@ import {
 
 export const userRoleEnum = pgEnum("user_role", USER_ROLES)
 export const storeStatusEnum = pgEnum("store_status", STORE_STATUSES)
+export const inquiryStatusEnum = pgEnum("inquiry_status", INQUIRY_STATUSES)
 export const currencyEnum = pgEnum("currency_code", CURRENCIES)
 export const revenueSourceEnum = pgEnum("revenue_source", REVENUE_SOURCES)
 export const ledgerDirectionEnum = pgEnum("ledger_direction", LEDGER_DIRECTIONS)
