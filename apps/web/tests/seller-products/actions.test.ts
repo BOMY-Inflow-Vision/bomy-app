@@ -31,6 +31,7 @@ import {
   createProduct,
   deactivateVariant,
   getPresignedUploadUrl,
+  getProductForEdit,
   removeProductImage,
   updateProduct,
   updateVariant,
@@ -814,6 +815,80 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       })
       const result = await getPresignedUploadUrl("image/jpeg", 6 * 1024 * 1024)
       expect(result).toEqual({ error: "File must be between 1 byte and 5 MB" })
+    })
+  })
+
+  // ─── getProductForEdit — inactive category regression ────────────────────
+
+  describe("getProductForEdit", () => {
+    let inactiveCatId: string
+    let productWithInactiveCatId: string
+
+    beforeAll(async () => {
+      inactiveCatId = randomUUID()
+      productWithInactiveCatId = randomUUID()
+
+      await withAdmin(
+        testDb.db,
+        { userId: SYSTEM_ACTOR, reason: "test seed inactive category" },
+        async (tx) => {
+          await tx.insert(schema.categories).values({
+            id: inactiveCatId,
+            name: "Inactive Category",
+            slug: `inactive-cat-${inactiveCatId.slice(0, 8)}`,
+            isActive: false,
+          })
+          await tx.insert(schema.products).values({
+            id: productWithInactiveCatId,
+            storeId,
+            categoryId: inactiveCatId,
+            name: "Product With Inactive Cat",
+            slug: `prod-inactive-cat-${productWithInactiveCatId.slice(0, 8)}`,
+            status: "draft",
+          })
+          await tx.insert(schema.productVariants).values({
+            productId: productWithInactiveCatId,
+            name: "Default",
+            priceMyrSen: 1000n,
+            stockCount: 1,
+          })
+        },
+      )
+    })
+
+    afterAll(async () => {
+      await withAdmin(
+        testDb.db,
+        { userId: SYSTEM_ACTOR, reason: "test cleanup inactive category" },
+        async (tx) => {
+          await tx
+            .delete(schema.productVariants)
+            .where(eq(schema.productVariants.productId, productWithInactiveCatId))
+          await tx.delete(schema.products).where(eq(schema.products.id, productWithInactiveCatId))
+          await tx.delete(schema.categories).where(eq(schema.categories.id, inactiveCatId))
+        },
+      )
+    })
+
+    it("includes the product's current inactive category in the returned list", async () => {
+      mockAuth.mockResolvedValue({
+        user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
+      })
+
+      const result = await getProductForEdit(productWithInactiveCatId)
+      expect(result).not.toBeNull()
+      const ids = result!.categories.map((c) => c.id)
+      expect(ids).toContain(inactiveCatId)
+    })
+
+    it("marks the inactive category as isActive=false", async () => {
+      mockAuth.mockResolvedValue({
+        user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
+      })
+
+      const result = await getProductForEdit(productWithInactiveCatId)
+      const inactiveCat = result!.categories.find((c) => c.id === inactiveCatId)
+      expect(inactiveCat?.isActive).toBe(false)
     })
   })
 })
