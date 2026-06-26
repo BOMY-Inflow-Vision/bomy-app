@@ -6,6 +6,7 @@ import { schema, withTenant } from "@bomy/db"
 
 import { auth } from "@/auth"
 import { getDb } from "@/lib/db"
+import { CopyStoreId } from "./copy-store-id"
 
 export default async function SellerDashboardPage() {
   const session = await auth()
@@ -53,6 +54,10 @@ export default async function SellerDashboardPage() {
           <div>
             <h1 className="text-xl font-semibold text-gray-900">{store.name}</h1>
             <p className="mt-0.5 font-mono text-sm text-gray-400">/{store.slug}</p>
+            <div className="mt-1 flex items-center gap-2 text-sm">
+              <span className="text-gray-500">Store ID:</span>
+              <CopyStoreId id={store.id} />
+            </div>
             {store.description && <p className="mt-2 text-sm text-gray-600">{store.description}</p>}
           </div>
           <span
