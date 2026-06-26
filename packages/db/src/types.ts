@@ -88,6 +88,9 @@ export const INVENTORY_RESERVATION_STATUSES = [
 ] as const
 export type InventoryReservationStatus = (typeof INVENTORY_RESERVATION_STATUSES)[number]
 
+export const INQUIRY_STATUSES = ["pending", "approved", "rejected"] as const
+export type InquiryStatus = (typeof INQUIRY_STATUSES)[number]
+
 // Dual-PSP seam. PR #31 only writes 'hitpay'; 'stripe' is reserved.
 export const PSP_PROVIDERS = ["hitpay", "stripe"] as const
 export type PspProvider = (typeof PSP_PROVIDERS)[number]

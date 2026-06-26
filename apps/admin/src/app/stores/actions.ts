@@ -60,8 +60,16 @@ export async function createStore(formData: FormData) {
       .select({ id: schema.users.id })
       .from(schema.users)
       .where(eq(schema.users.email, ownerEmail))
+      .for("update")
       .limit(1)
     if (!owner) throw new Error(`No user found with email: ${ownerEmail}`)
+
+    const existingStore = await tx
+      .select({ id: schema.stores.id })
+      .from(schema.stores)
+      .where(eq(schema.stores.ownerId, owner.id))
+      .limit(1)
+    if (existingStore.length > 0) throw new Error("Owner already has a store")
 
     await tx.insert(schema.stores).values({
       ownerId: owner.id,
