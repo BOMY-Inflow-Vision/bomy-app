@@ -297,4 +297,9 @@ describe.skipIf(!shouldRun)("seller-inquiry review actions", () => {
     const res = await rejectInquiry(inquiryId)
     expect(res).toEqual({ ok: false, error: "Already reviewed" })
   })
+
+  it("reject not found: random id returns error", async () => {
+    const res = await rejectInquiry(randomUUID())
+    expect(res).toEqual({ ok: false, error: "Inquiry not found" })
+  })
 })

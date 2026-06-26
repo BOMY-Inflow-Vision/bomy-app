@@ -146,9 +146,9 @@ export async function approveInquiry(inquiryId: string, slug: string): Promise<R
     throw err
   }
 
-  // Short-circuit on an error result (has `ok` key set to false).
-  if ("ok" in result && !result.ok) return result
-  const payload = result as ApprovePayload
+  // ReviewResult always has `ok`; ApprovePayload never does — `in` narrows cleanly.
+  if ("ok" in result) return result
+  const payload = result
 
   // 8. Send email after tx (await + catch; not fire-and-forget).
   try {
