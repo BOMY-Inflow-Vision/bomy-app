@@ -11,7 +11,7 @@ import {
 } from "../../actions"
 import { SubmitButton } from "@/components/submit-button"
 
-type Category = { id: string; name: string }
+type Category = { id: string; name: string; isActive: boolean }
 type Product = {
   id: string
   name: string
@@ -83,6 +83,7 @@ export function ProductEditForm({
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
+                    {!c.isActive ? " (inactive)" : ""}
                   </option>
                 ))}
               </select>

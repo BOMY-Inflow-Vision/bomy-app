@@ -108,6 +108,14 @@ const MIGRATIONS = [
     name: "0017_seller_inquiry_review",
     file: join(__dirname, "../drizzle/0017_seller_inquiry_review.sql"),
   },
+  {
+    name: "0018_seed_categories",
+    file: join(__dirname, "../drizzle/0018_seed_categories.sql"),
+  },
+  {
+    name: "0019_categories_seller_inactive_read",
+    file: join(__dirname, "../drizzle/0019_categories_seller_inactive_read.sql"),
+  },
 ]
 
 try {

@@ -489,6 +489,21 @@ CREATE POLICY categories_admin_delete ON categories
   FOR DELETE
   USING (app.is_bomy_staff() OR app.is_admin_bypass());
 
+-- Sellers may SELECT an inactive category that one of their own products currently references,
+-- so the product edit form can surface (and preserve) it rather than silently resetting to null.
+CREATE POLICY categories_seller_owned_product_ref ON categories
+  FOR SELECT
+  USING (
+    app.current_user_role() = 'seller_owner'
+    AND EXISTS (
+      SELECT 1
+      FROM   products p
+      JOIN   stores   s ON s.id = p.store_id
+      WHERE  p.category_id = categories.id
+        AND  s.owner_id    = app.current_user_id()
+    )
+  );
+
 -- products: active = publicly visible. Seller owns via store FK.
 CREATE POLICY products_default_deny ON products
   AS RESTRICTIVE

@@ -1,6 +1,6 @@
 "use server"
 
-import { and, eq } from "drizzle-orm"
+import { and, eq, or } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 
@@ -123,6 +123,8 @@ export async function getProductForEdit(productId: string) {
 
       if (!products[0]) return null
 
+      const currentCategoryId = products[0].categoryId
+
       const [variants, images, categories] = await Promise.all([
         tx
           .select()
@@ -135,9 +137,20 @@ export async function getProductForEdit(productId: string) {
           .where(eq(schema.productImages.productId, productId))
           .orderBy(schema.productImages.sortOrder),
         tx
-          .select({ id: schema.categories.id, name: schema.categories.name })
+          .select({
+            id: schema.categories.id,
+            name: schema.categories.name,
+            isActive: schema.categories.isActive,
+          })
           .from(schema.categories)
-          .where(eq(schema.categories.isActive, true))
+          .where(
+            currentCategoryId
+              ? or(
+                  eq(schema.categories.isActive, true),
+                  eq(schema.categories.id, currentCategoryId),
+                )
+              : eq(schema.categories.isActive, true),
+          )
           .orderBy(schema.categories.name),
       ])
 
@@ -210,7 +223,7 @@ export async function createProduct(formData: FormData): Promise<void> {
     })
   }
 
-  await withTenant(
+  const productId = await withTenant(
     getDb(),
     { userId: session.user.id, userRole: session.user.role },
     async (tx) => {
@@ -232,11 +245,13 @@ export async function createProduct(formData: FormData): Promise<void> {
           sortOrder: i,
         })),
       )
+
+      return product!.id
     },
   )
 
   revalidatePath("/seller/dashboard/products")
-  redirect("/seller/dashboard/products")
+  redirect(`/seller/dashboard/products/${productId}/edit`)
 }
 
 export async function updateProduct(productId: string, formData: FormData): Promise<void> {
