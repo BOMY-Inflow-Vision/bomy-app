@@ -210,7 +210,7 @@ export async function createProduct(formData: FormData): Promise<void> {
     })
   }
 
-  await withTenant(
+  const productId = await withTenant(
     getDb(),
     { userId: session.user.id, userRole: session.user.role },
     async (tx) => {
@@ -232,11 +232,13 @@ export async function createProduct(formData: FormData): Promise<void> {
           sortOrder: i,
         })),
       )
+
+      return product!.id
     },
   )
 
   revalidatePath("/seller/dashboard/products")
-  redirect("/seller/dashboard/products")
+  redirect(`/seller/dashboard/products/${productId}/edit`)
 }
 
 export async function updateProduct(productId: string, formData: FormData): Promise<void> {
