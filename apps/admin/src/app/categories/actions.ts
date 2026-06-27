@@ -69,6 +69,8 @@ export async function updateCategory(
   const adminId = await getAdminId()
   const trimmed = name.trim()
   if (!trimmed) return { ok: false, error: "Name is required" }
+  if (!Number.isSafeInteger(sortOrder) || sortOrder < 0 || sortOrder > 2_147_483_647)
+    return { ok: false, error: "Sort order must be a whole number between 0 and 2,147,483,647" }
 
   await withAdmin(getDb(), { userId: adminId, reason: "admin update category" }, async (tx) => {
     await tx

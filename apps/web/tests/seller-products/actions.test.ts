@@ -10,7 +10,7 @@
  */
 import { createHmac, randomUUID } from "node:crypto"
 
-import { and, eq } from "drizzle-orm"
+import { and, asc, eq } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi, type Mock } from "vitest"
 
 import { makeDb, schema, withAdmin } from "@bomy/db"
@@ -837,6 +837,193 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
         await tx.delete(schema.productImages).where(eq(schema.productImages.id, suspImageId))
         await tx.delete(schema.products).where(eq(schema.products.id, suspProductId))
       })
+    })
+  })
+
+  // ─── cover image sync ────────────────────────────────────────────────────
+
+  describe("cover image sync", () => {
+    let productId: string
+
+    beforeAll(async () => {
+      mockAuth.mockResolvedValue({
+        user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
+      })
+      await createProduct(
+        fd({
+          name: "Cover Sync Product",
+          slug: "",
+          categoryId: "",
+          description: "",
+          status: "draft",
+          variant_count: "1",
+          variant_name_0: "Default",
+          variant_price_0: "10.00",
+          variant_stock_0: "1",
+          variant_sku_0: "",
+          variant_attrs_0: "",
+        }),
+      ).catch((e: Error) => {
+        if (!e.message.startsWith("REDIRECT:")) throw e
+      })
+
+      const [row] = await withAdmin(
+        testDb.db,
+        { userId: SYSTEM_ACTOR, reason: "test setup" },
+        async (tx) =>
+          tx
+            .select({ id: schema.products.id })
+            .from(schema.products)
+            .where(
+              and(
+                eq(schema.products.storeId, storeId),
+                eq(schema.products.name, "Cover Sync Product"),
+              ),
+            ),
+      )
+      productId = row!.id
+      process.env["S3_PUBLIC_URL"] = "https://cdn.example.com"
+      process.env["AUTH_SECRET"] = TEST_AUTH_SECRET
+    })
+
+    it("sets coverImageUrl on first image upload", async () => {
+      mockAuth.mockResolvedValue({
+        user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
+      })
+
+      const key = "products/aaaaaaaa-0000-0000-0000-000000000001.jpg"
+      await addProductImage(productId, key, makeTestClaim(sellerId, key))
+
+      const [prod] = await withAdmin(
+        testDb.db,
+        { userId: SYSTEM_ACTOR, reason: "test assert" },
+        (tx) =>
+          tx
+            .select({ coverImageUrl: schema.products.coverImageUrl })
+            .from(schema.products)
+            .where(eq(schema.products.id, productId)),
+      )
+      expect(prod!.coverImageUrl).toBe(`https://cdn.example.com/${key}`)
+    })
+
+    it("does not overwrite coverImageUrl when a second image is added", async () => {
+      mockAuth.mockResolvedValue({
+        user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
+      })
+
+      const firstUrl = `https://cdn.example.com/products/aaaaaaaa-0000-0000-0000-000000000001.jpg`
+
+      const key2 = "products/aaaaaaaa-0000-0000-0000-000000000002.jpg"
+      await addProductImage(productId, key2, makeTestClaim(sellerId, key2))
+
+      const [prod] = await withAdmin(
+        testDb.db,
+        { userId: SYSTEM_ACTOR, reason: "test assert" },
+        (tx) =>
+          tx
+            .select({ coverImageUrl: schema.products.coverImageUrl })
+            .from(schema.products)
+            .where(eq(schema.products.id, productId)),
+      )
+      expect(prod!.coverImageUrl).toBe(firstUrl)
+    })
+
+    it("promotes next image to cover when the cover image is removed", async () => {
+      mockAuth.mockResolvedValue({
+        user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
+      })
+
+      const secondUrl = `https://cdn.example.com/products/aaaaaaaa-0000-0000-0000-000000000002.jpg`
+
+      const images = await withAdmin(
+        testDb.db,
+        { userId: SYSTEM_ACTOR, reason: "test setup" },
+        (tx) =>
+          tx
+            .select({ id: schema.productImages.id, url: schema.productImages.url })
+            .from(schema.productImages)
+            .where(eq(schema.productImages.productId, productId))
+            .orderBy(asc(schema.productImages.sortOrder)),
+      )
+      const coverImageId = images[0]!.id
+
+      await removeProductImage(coverImageId)
+
+      const [prod] = await withAdmin(
+        testDb.db,
+        { userId: SYSTEM_ACTOR, reason: "test assert" },
+        (tx) =>
+          tx
+            .select({ coverImageUrl: schema.products.coverImageUrl })
+            .from(schema.products)
+            .where(eq(schema.products.id, productId)),
+      )
+      expect(prod!.coverImageUrl).toBe(secondUrl)
+    })
+
+    it("clears coverImageUrl when the last image is removed", async () => {
+      mockAuth.mockResolvedValue({
+        user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
+      })
+
+      const [remaining] = await withAdmin(
+        testDb.db,
+        { userId: SYSTEM_ACTOR, reason: "test setup" },
+        (tx) =>
+          tx
+            .select({ id: schema.productImages.id })
+            .from(schema.productImages)
+            .where(eq(schema.productImages.productId, productId)),
+      )
+      await removeProductImage(remaining!.id)
+
+      const [prod] = await withAdmin(
+        testDb.db,
+        { userId: SYSTEM_ACTOR, reason: "test assert" },
+        (tx) =>
+          tx
+            .select({ coverImageUrl: schema.products.coverImageUrl })
+            .from(schema.products)
+            .where(eq(schema.products.id, productId)),
+      )
+      expect(prod!.coverImageUrl).toBeNull()
+    })
+
+    it("does not change coverImageUrl when a non-cover image is removed", async () => {
+      mockAuth.mockResolvedValue({
+        user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
+      })
+
+      const key1 = "products/bbbbbbbb-0000-0000-0000-000000000001.jpg"
+      const key2 = "products/bbbbbbbb-0000-0000-0000-000000000002.jpg"
+      await addProductImage(productId, key1, makeTestClaim(sellerId, key1))
+      await addProductImage(productId, key2, makeTestClaim(sellerId, key2))
+
+      const images = await withAdmin(
+        testDb.db,
+        { userId: SYSTEM_ACTOR, reason: "test setup" },
+        (tx) =>
+          tx
+            .select({ id: schema.productImages.id, url: schema.productImages.url })
+            .from(schema.productImages)
+            .where(eq(schema.productImages.productId, productId))
+            .orderBy(asc(schema.productImages.sortOrder)),
+      )
+      const coverUrl = images[0]!.url
+      const nonCoverId = images[1]!.id
+
+      await removeProductImage(nonCoverId)
+
+      const [prod] = await withAdmin(
+        testDb.db,
+        { userId: SYSTEM_ACTOR, reason: "test assert" },
+        (tx) =>
+          tx
+            .select({ coverImageUrl: schema.products.coverImageUrl })
+            .from(schema.products)
+            .where(eq(schema.products.id, productId)),
+      )
+      expect(prod!.coverImageUrl).toBe(coverUrl)
     })
   })
 
