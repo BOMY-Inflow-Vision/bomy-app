@@ -1,6 +1,6 @@
 "use server"
 
-import { and, eq, or } from "drizzle-orm"
+import { and, asc, eq, isNull, or } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 
@@ -520,6 +520,12 @@ export async function addProductImage(
           altText: schema.productImages.altText,
           sortOrder: schema.productImages.sortOrder,
         })
+
+      await tx
+        .update(schema.products)
+        .set({ coverImageUrl: url })
+        .where(and(eq(schema.products.id, productId), isNull(schema.products.coverImageUrl)))
+
       return inserted!
     },
   ).catch((err) => {
@@ -568,6 +574,27 @@ export async function removeProductImage(imageId: string): Promise<void> {
 
   await withAdmin(db, { userId: session.user.id, reason: "seller image removal" }, async (tx) => {
     await tx.delete(schema.productImages).where(eq(schema.productImages.id, imageId))
+
+    const removedUrl = imageRows[0]!.url
+    const removedProductId = imageRows[0]!.productId
+    const [prod] = await tx
+      .select({ coverImageUrl: schema.products.coverImageUrl })
+      .from(schema.products)
+      .where(eq(schema.products.id, removedProductId))
+      .limit(1)
+
+    if (prod?.coverImageUrl === removedUrl) {
+      const [next] = await tx
+        .select({ url: schema.productImages.url })
+        .from(schema.productImages)
+        .where(eq(schema.productImages.productId, removedProductId))
+        .orderBy(asc(schema.productImages.sortOrder))
+        .limit(1)
+      await tx
+        .update(schema.products)
+        .set({ coverImageUrl: next?.url ?? null })
+        .where(eq(schema.products.id, removedProductId))
+    }
   })
 
   revalidatePath(`/seller/dashboard/products/${imageRows[0].productId}/edit`)
