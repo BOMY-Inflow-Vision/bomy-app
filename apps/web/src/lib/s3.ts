@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto"
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto"
 
 import { DeleteObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
@@ -68,4 +68,20 @@ export async function deleteObject(key: string): Promise<void> {
   const bucket = process.env["S3_BUCKET"]
   if (!bucket) throw new Error("S3_BUCKET is required")
   await getS3().send(new DeleteObjectCommand({ Bucket: bucket, Key: key }))
+}
+
+export function signUploadClaim(userId: string, key: string): string {
+  const secret = process.env["AUTH_SECRET"]
+  if (!secret) throw new Error("AUTH_SECRET is required")
+  return createHmac("sha256", secret).update(`${userId}:${key}`).digest("hex")
+}
+
+export function verifyUploadClaim(userId: string, key: string, claim: string): boolean {
+  try {
+    const expected = Buffer.from(signUploadClaim(userId, key))
+    const actual = Buffer.from(claim)
+    return expected.length === actual.length && timingSafeEqual(expected, actual)
+  } catch {
+    return false
+  }
 }

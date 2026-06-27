@@ -8,7 +8,7 @@
  *   DATABASE_APP_URL=postgresql://bomy_app:changeme_local@localhost:5432/bomy \
  *   BOMY_RLS_READY=1 pnpm --filter @bomy/web test
  */
-import { randomUUID } from "node:crypto"
+import { createHmac, randomUUID } from "node:crypto"
 
 import { and, eq } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi, type Mock } from "vitest"
@@ -22,6 +22,10 @@ vi.mock("next/navigation", () => ({
 }))
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 vi.mock("@/auth", () => ({ auth: vi.fn() }))
+vi.mock("@/lib/s3", async (importOriginal) => {
+  const actual = await importOriginal()
+  return { ...(actual as object), deleteObject: vi.fn().mockResolvedValue(undefined) }
+})
 
 import { auth } from "@/auth"
 import {
@@ -43,6 +47,11 @@ const RLS_READY = process.env["BOMY_RLS_READY"] === "1"
 const shouldRun = Boolean(DATABASE_URL) && RLS_READY
 
 const mockAuth = auth as unknown as Mock
+
+const TEST_AUTH_SECRET = "test-secret"
+function makeTestClaim(userId: string, key: string): string {
+  return createHmac("sha256", TEST_AUTH_SECRET).update(`${userId}:${key}`).digest("hex")
+}
 
 function fd(fields: Record<string, string>): FormData {
   const f = new FormData()
@@ -550,9 +559,10 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
         user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
       })
       process.env["S3_PUBLIC_URL"] = "https://cdn.example.com"
+      process.env["AUTH_SECRET"] = TEST_AUTH_SECRET
 
       const validKey = `products/00000000-0000-0000-0000-000000000002.jpg`
-      await addProductImage(productId, validKey)
+      await addProductImage(productId, validKey, makeTestClaim(sellerId, validKey))
 
       const images = await withAdmin(
         testDb.db,
@@ -568,14 +578,29 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       imageId = images[0]!.id
     })
 
+    it("rejects addProductImage with a claim signed for a different user", async () => {
+      mockAuth.mockResolvedValue({
+        user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
+      })
+      process.env["S3_PUBLIC_URL"] = "https://cdn.example.com"
+      process.env["AUTH_SECRET"] = TEST_AUTH_SECRET
+
+      const key = "products/00000000-0000-0000-0000-000000000099.jpg"
+      await expect(
+        addProductImage(productId, key, makeTestClaim(otherSellerId, key)),
+      ).rejects.toThrow("Invalid upload claim")
+    })
+
     it("rejects addProductImage for another seller's product", async () => {
       mockAuth.mockResolvedValue({
         user: { id: otherSellerId, role: "seller_owner", email: "other@test.bomy" },
       })
       process.env["S3_PUBLIC_URL"] = "https://cdn.example.com"
+      process.env["AUTH_SECRET"] = TEST_AUTH_SECRET
 
+      const key = "products/00000000-0000-0000-0000-000000000003.jpg"
       await expect(
-        addProductImage(productId, "products/00000000-0000-0000-0000-000000000003.jpg"),
+        addProductImage(productId, key, makeTestClaim(otherSellerId, key)),
       ).rejects.toThrow("Product not found or not authorized")
     })
 
@@ -587,12 +612,21 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       await expect(removeProductImage(imageId)).rejects.toThrow("Image not found or not authorized")
     })
 
-    it("removes own product image (audit row written)", async () => {
+    it("removes own product image (R2 deleted, audit row written)", async () => {
       mockAuth.mockResolvedValue({
         user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
       })
+      process.env["S3_PUBLIC_URL"] = "https://cdn.example.com"
+
+      const { deleteObject } = await import("@/lib/s3")
+      const deleteObjectMock = vi.mocked(deleteObject)
+      deleteObjectMock.mockClear()
 
       await removeProductImage(imageId)
+
+      expect(deleteObjectMock).toHaveBeenCalledWith(
+        `products/00000000-0000-0000-0000-000000000002.jpg`,
+      )
 
       const images = await withAdmin(
         testDb.db,
@@ -626,10 +660,10 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       mockAuth.mockResolvedValue({
         user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
       })
-      await expect(addProductImage(productId, "https://cdn.evil.com/img.jpg")).rejects.toThrow(
-        "Invalid image key",
-      )
-      await expect(addProductImage(productId, "../escape/path.jpg")).rejects.toThrow(
+      await expect(
+        addProductImage(productId, "https://cdn.evil.com/img.jpg", "any-claim"),
+      ).rejects.toThrow("Invalid image key")
+      await expect(addProductImage(productId, "../escape/path.jpg", "any-claim")).rejects.toThrow(
         "Invalid image key",
       )
     })
@@ -809,12 +843,12 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
   // ─── getPresignedUploadUrl size enforcement ──────────────────────────────
 
   describe("getPresignedUploadUrl", () => {
-    it("rejects contentLength over 5 MB", async () => {
+    it("rejects contentLength over 2 MB", async () => {
       mockAuth.mockResolvedValue({
         user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
       })
-      const result = await getPresignedUploadUrl("image/jpeg", 6 * 1024 * 1024)
-      expect(result).toEqual({ error: "File must be between 1 byte and 5 MB" })
+      const result = await getPresignedUploadUrl("image/jpeg", 3 * 1024 * 1024)
+      expect(result).toEqual({ error: "File must be between 1 byte and 2 MB" })
     })
   })
 

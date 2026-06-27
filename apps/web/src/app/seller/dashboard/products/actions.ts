@@ -479,6 +479,7 @@ export async function deactivateVariant(variantId: string): Promise<void> {
 export async function addProductImage(
   productId: string,
   key: string,
+  claim: string,
   altText?: string,
   sortOrder?: number,
 ): Promise<{ id: string; url: string; altText: string | null; sortOrder: number }> {
@@ -486,10 +487,11 @@ export async function addProductImage(
     /^products\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp|gif|avif)$/
   if (!KEY_PATTERN.test(key)) throw new Error("Invalid image key")
 
-  const { buildPublicUrl } = await import("@/lib/s3")
+  const { buildPublicUrl, verifyUploadClaim } = await import("@/lib/s3")
   const url = buildPublicUrl(key)
 
   const session = await requireSeller()
+  if (!verifyUploadClaim(session.user.id, key, claim)) throw new Error("Invalid upload claim")
 
   const newImage = await withTenant(
     getDb(),
@@ -558,17 +560,15 @@ export async function removeProductImage(imageId: string): Promise<void> {
 
   if (!imageRows[0]) throw new Error("Image not found or not authorized")
 
-  await withAdmin(db, { userId: session.user.id, reason: "seller image removal" }, async (tx) => {
-    await tx.delete(schema.productImages).where(eq(schema.productImages.id, imageId))
-  })
-
   const { keyFromPublicUrl, deleteObject } = await import("@/lib/s3")
   const key = keyFromPublicUrl(imageRows[0].url)
   if (key) {
-    await deleteObject(key).catch((err) => {
-      console.error("[removeProductImage] R2 delete failed, DB row already removed:", err)
-    })
+    await deleteObject(key)
   }
+
+  await withAdmin(db, { userId: session.user.id, reason: "seller image removal" }, async (tx) => {
+    await tx.delete(schema.productImages).where(eq(schema.productImages.id, imageId))
+  })
 
   revalidatePath(`/seller/dashboard/products/${imageRows[0].productId}/edit`)
 }
@@ -578,7 +578,7 @@ export async function removeProductImage(imageId: string): Promise<void> {
 export async function getPresignedUploadUrl(
   contentType: string,
   contentLength: number,
-): Promise<{ url: string; key: string } | { error: string }> {
+): Promise<{ url: string; key: string; claim: string } | { error: string }> {
   const session = await requireSeller()
 
   const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"]
@@ -602,7 +602,8 @@ export async function getPresignedUploadUrl(
   )
   if (!storeCheck[0]) return { error: "Store is not active" }
 
-  const { createPresignedPutUrl } = await import("@/lib/s3")
+  const { createPresignedPutUrl, signUploadClaim } = await import("@/lib/s3")
   const { url, key } = await createPresignedPutUrl(contentType, contentLength)
-  return { url, key }
+  const claim = signUploadClaim(session.user.id, key)
+  return { url, key, claim }
 }

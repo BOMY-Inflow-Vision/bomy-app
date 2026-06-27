@@ -49,7 +49,7 @@ export function ImageManager({
     try {
       const result = await getPresignedUploadUrl(file.type, file.size)
       if ("error" in result) throw new Error(result.error)
-      const { url, key } = result
+      const { url, key, claim } = result
 
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest()
@@ -66,7 +66,7 @@ export function ImageManager({
         xhr.send(file)
       })
 
-      const newImage = await addProductImage(productId, key)
+      const newImage = await addProductImage(productId, key, claim)
       setImages((prev) => [...prev, newImage])
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed")
