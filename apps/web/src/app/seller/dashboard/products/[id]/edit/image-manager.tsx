@@ -1,8 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
-
-import { useRouter } from "next/navigation"
+import { useEffect, useRef, useState } from "react"
 
 import { addProductImage, getPresignedUploadUrl, removeProductImage } from "../../actions"
 
@@ -20,11 +18,15 @@ export function ImageManager({
   productId: string
   images: ProductImage[]
 }) {
-  const router = useRouter()
   const [images, setImages] = useState(initialImages)
   const [uploading, setUploading] = useState(false)
+  const [progress, setProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    setImages(initialImages)
+  }, [initialImages])
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -35,33 +37,42 @@ export function ImageManager({
       return
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      setError("Image must be smaller than 5 MB")
+    if (file.size > 2 * 1024 * 1024) {
+      setError("Image must be smaller than 2 MB")
       return
     }
 
     setError(null)
     setUploading(true)
+    setProgress(0)
 
     try {
       const result = await getPresignedUploadUrl(file.type, file.size)
       if ("error" in result) throw new Error(result.error)
       const { url, key } = result
 
-      const res = await fetch(url, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type },
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) setProgress(Math.round((e.loaded / e.total) * 100))
+        }
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) resolve()
+          else reject(new Error(`Upload failed: ${xhr.status}`))
+        }
+        xhr.onerror = () => reject(new Error("Upload failed"))
+        xhr.open("PUT", url)
+        xhr.setRequestHeader("Content-Type", file.type)
+        xhr.send(file)
       })
-      if (!res.ok) throw new Error(`Upload failed: ${res.status}`)
 
-      await addProductImage(productId, key)
-
-      router.refresh()
+      const newImage = await addProductImage(productId, key)
+      setImages((prev) => [...prev, newImage])
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed")
     } finally {
       setUploading(false)
+      setProgress(0)
       if (fileInputRef.current) fileInputRef.current.value = ""
     }
   }
@@ -110,10 +121,16 @@ export function ImageManager({
         ))}
 
         <label
-          className={`flex h-24 w-24 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 text-gray-400 hover:border-indigo-400 hover:text-indigo-500 ${uploading ? "pointer-events-none opacity-50" : ""}`}
+          className={`relative flex h-24 w-24 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-gray-300 text-gray-400 hover:border-indigo-400 hover:text-indigo-500 ${uploading ? "pointer-events-none" : ""}`}
         >
           {uploading ? (
-            <span className="text-xs">Uploading…</span>
+            <>
+              <span className="z-10 text-xs font-medium text-indigo-600">{progress}%</span>
+              <div
+                className="absolute bottom-0 left-0 h-1.5 bg-indigo-500 transition-all duration-150"
+                style={{ width: `${progress}%` }}
+              />
+            </>
           ) : (
             <>
               <span className="text-2xl">+</span>
@@ -134,7 +151,7 @@ export function ImageManager({
       </div>
 
       <p className="text-xs text-gray-400">
-        JPEG, PNG, WebP. Max 5 MB per image. Images are uploaded directly to cloud storage.
+        JPEG, PNG, WebP. Max 2 MB per image. Images are uploaded directly to cloud storage.
       </p>
     </div>
   )

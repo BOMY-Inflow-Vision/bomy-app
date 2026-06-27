@@ -481,7 +481,7 @@ export async function addProductImage(
   key: string,
   altText?: string,
   sortOrder?: number,
-): Promise<void> {
+): Promise<{ id: string; url: string; altText: string | null; sortOrder: number }> {
   const KEY_PATTERN =
     /^products\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp|gif|avif)$/
   if (!KEY_PATTERN.test(key)) throw new Error("Invalid image key")
@@ -491,7 +491,7 @@ export async function addProductImage(
 
   const session = await requireSeller()
 
-  await withTenant(
+  const newImage = await withTenant(
     getDb(),
     { userId: session.user.id, userRole: session.user.role },
     async (tx) => {
@@ -509,12 +509,16 @@ export async function addProductImage(
         .limit(1)
       if (!rows[0]) throw new Error("Product not found or not authorized")
 
-      await tx.insert(schema.productImages).values({
-        productId,
-        url,
-        altText: altText ?? null,
-        sortOrder: sortOrder ?? 0,
-      })
+      const [inserted] = await tx
+        .insert(schema.productImages)
+        .values({ productId, url, altText: altText ?? null, sortOrder: sortOrder ?? 0 })
+        .returning({
+          id: schema.productImages.id,
+          url: schema.productImages.url,
+          altText: schema.productImages.altText,
+          sortOrder: schema.productImages.sortOrder,
+        })
+      return inserted!
     },
   ).catch((err) => {
     if (isRlsViolation(err)) throw new Error("Product not found or not authorized")
@@ -522,6 +526,7 @@ export async function addProductImage(
   })
 
   revalidatePath(`/seller/dashboard/products/${productId}/edit`)
+  return newImage
 }
 
 export async function removeProductImage(imageId: string): Promise<void> {
@@ -536,6 +541,7 @@ export async function removeProductImage(imageId: string): Promise<void> {
         .select({
           id: schema.productImages.id,
           productId: schema.productImages.productId,
+          url: schema.productImages.url,
         })
         .from(schema.productImages)
         .innerJoin(schema.products, eq(schema.products.id, schema.productImages.productId))
@@ -556,6 +562,14 @@ export async function removeProductImage(imageId: string): Promise<void> {
     await tx.delete(schema.productImages).where(eq(schema.productImages.id, imageId))
   })
 
+  const { keyFromPublicUrl, deleteObject } = await import("@/lib/s3")
+  const key = keyFromPublicUrl(imageRows[0].url)
+  if (key) {
+    await deleteObject(key).catch((err) => {
+      console.error("[removeProductImage] R2 delete failed, DB row already removed:", err)
+    })
+  }
+
   revalidatePath(`/seller/dashboard/products/${imageRows[0].productId}/edit`)
 }
 
@@ -572,8 +586,8 @@ export async function getPresignedUploadUrl(
     return { error: "Unsupported image type" }
   }
 
-  if (contentLength <= 0 || contentLength > 5 * 1024 * 1024) {
-    return { error: "File must be between 1 byte and 5 MB" }
+  if (contentLength <= 0 || contentLength > 2 * 1024 * 1024) {
+    return { error: "File must be between 1 byte and 2 MB" }
   }
 
   const storeCheck = await withTenant(
