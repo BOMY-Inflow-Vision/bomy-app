@@ -1,12 +1,10 @@
-# Product Rich Text Body Implementation Plan
-
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+# Product Rich Text Body — Design Specification
 
 **Goal:** Add a WYSIWYG rich-text "Product Details" body to each product — editable by sellers in the edit dashboard, rendered below the gallery and add-to-cart section on the public product page.
 
 **Architecture:** TipTap editor (client component inside `ProductEditForm`) stores sanitized HTML in a new `products.body_html` column. Inline images upload directly to R2 via server-generated presigned PUT URLs. On save, the action sanitizes, validates, and diffs old vs new R2 keys post-commit. A nightly BullMQ job in `apps/api` provides a two-run quarantine safety net for abandoned uploads.
 
-**Tech Stack:** TipTap 2.x, `@tiptap/extension-table` (TableKit), `node-html-parser`, `isomorphic-dompurify`, `@aws-sdk/client-s3`, `@aws-sdk/s3-request-presigner` (web only), `@tailwindcss/typography`, BullMQ (existing in `apps/api`), Redis (existing).
+**Tech Stack:** TipTap 3.x (all `@tiptap/*` packages pinned to the same version), `node-html-parser`, `isomorphic-dompurify`, `@aws-sdk/client-s3`, `@aws-sdk/s3-request-presigner` (already in `apps/web`), `@tailwindcss/typography`, BullMQ + Redis (existing in `apps/api`).
 
 ---
 
@@ -33,6 +31,16 @@
 ALTER TABLE products
   ADD COLUMN body_html TEXT,
   ADD COLUMN body_revision INTEGER NOT NULL DEFAULT 0;
+
+-- Rate-limit log for body image upload signing (database-backed; no Redis needed in apps/web).
+-- Rows older than 2 hours are cleaned up by the nightly cleanup job.
+CREATE TABLE body_image_upload_log (
+  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID        NOT NULL REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX body_image_upload_log_user_window_idx
+  ON body_image_upload_log (user_id, created_at);
 ```
 
 ### R2 key convention
@@ -57,12 +65,29 @@ Location: `apps/web/src/app/seller/dashboard/products/actions.ts`
 2. Validate `contentType` against allow-list: `image/jpeg`, `image/png`, `image/webp`, `image/gif`, `image/avif`. Reject `image/svg+xml` and any `data:` URI.
 3. Validate `contentLength <= 2 * 1024 * 1024` (2 MB). Reject if missing or over limit.
 4. Generate server-side: `const uuid = randomUUID(); const ext = mimeToExt[contentType]; const key = \`body/${productId}/${uuid}.${ext}\``.
-5. Generate R2 presigned PUT URL via `@aws-sdk/client-s3-request-presigner` + `PutObjectCommand` scoped to the exact key and content type. Include `ContentLength` in the command.
+5. Generate R2 presigned PUT URL via `@aws-sdk/s3-request-presigner` + `PutObjectCommand` scoped to the exact key and content type. Include `ContentLength` in the command.
 6. Return `{ uploadUrl, key, publicUrl: \`${S3_PUBLIC_URL}/${key}\`, expiresAt }`.
 
 **The client never provides the key.** An application HMAC claim is unnecessary — the R2 presigned URL is already a bearer credential scoped to one operation and object.
 
-**Rate limit:** 20 presign requests per `seller_owner` per hour. Enforce with a Redis counter keyed to `body-img-sign:{userId}` with 1-hour TTL.
+**Rate limit — database-backed (no Redis in `apps/web`):** Before signing, count rows in `body_image_upload_log` for the caller within the past hour:
+
+```ts
+const since = new Date(Date.now() - 60 * 60 * 1000)
+const [{ count }] = await db
+  .select({ count: sql<number>`count(*)::int` })
+  .from(schema.bodyImageUploadLog)
+  .where(
+    and(
+      eq(schema.bodyImageUploadLog.userId, userId),
+      gte(schema.bodyImageUploadLog.createdAt, since),
+    ),
+  )
+if (count >= 20) return { ok: false, error: "rate_limited" }
+await db.insert(schema.bodyImageUploadLog).values({ userId })
+```
+
+Old rows (older than 2 hours) are deleted by the nightly cleanup job. This query runs outside the `withTenant` body-image transaction — insert one log row, no rollback needed on presign failure.
 
 **Client upload contract:**
 
@@ -84,15 +109,14 @@ Imported normally (not `dynamic`) inside `ProductEditForm` (which is already a c
 
 ### Extensions
 
-| Extension               | Notes                                                                                                                                                   |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `StarterKit`            | bold, italic, strike, code, codeBlock, blockquote, bulletList, orderedList, horizontalRule, paragraph, hardBreak                                        |
-| `Underline`             | official `@tiptap/extension-underline`; `<u>` is in the sanitizer allowlist only because this extension is included                                     |
-| `Heading`               | configured `levels: [3, 4]` — H1 is the product name, H2 is "Product Details"                                                                           |
-| `Link`                  | `autolink: true`, `openOnClick: false`                                                                                                                  |
-| `Image` (custom)        | rejects `data:` URIs before upload; calls `getBodyImageUploadUrl`; uses XHR with progress; stores `width`, `height`, `alt`; see image upload flow below |
-| `TableKit`              | `@tiptap/extension-table` bundle (replaces four separate table extensions)                                                                              |
-| `YoutubeEmbed` (custom) | see YouTube section below                                                                                                                               |
+All `@tiptap/*` packages must be pinned to the **same TipTap 3.x version**. In v3, `Link` and `Underline` are bundled in `StarterKit` — do not register them separately.
+
+| Extension               | Notes                                                                                                                                                                                                                                          |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `StarterKit`            | bold, italic, underline, strike, link, code, codeBlock, blockquote, bulletList, orderedList, horizontalRule, paragraph, hardBreak — configure `heading: { levels: [3, 4] }` inside StarterKit; H1 is the product name, H2 is "Product Details" |
+| `Image` (custom)        | rejects `data:` URIs before upload; calls `getBodyImageUploadUrl`; uses XHR with progress; stores `width`, `height`, `alt`; see image upload flow below                                                                                        |
+| `TableKit`              | `@tiptap/extension-table` bundle                                                                                                                                                                                                               |
+| `YoutubeEmbed` (custom) | see YouTube section below                                                                                                                                                                                                                      |
 
 ### Image upload flow (inside custom Image extension)
 
@@ -145,7 +169,11 @@ Never store an `<iframe>` in `body_html`. The TipTap YouTube extension is not us
 ```
 
 - Disable the Save button while `onUploadStateChange(true)` is active.
-- Use `beforeunload` + Next.js router guard to warn on navigation when dirty.
+- **Toolbar accessibility:** every toolbar button has `aria-label`. Toggle-state buttons (bold, italic, etc.) carry `aria-pressed={isActive}`.
+- **Upload progress region:** a `<div role="status" aria-live="polite">` shows the current upload state: idle / "Uploading… {n}%" / "Upload failed: {message}" / "Saved".
+- **Navigation warning:** `useEffect(() => { window.onbeforeunload = dirty ? () => "" : null }, [dirty])` — warns on browser tab close and hard reload. For in-app navigation (Next.js links), render a visible inline banner "You have unsaved changes" when dirty; the banner contains a "Save now" shortcut button. App Router does not expose `beforePopState`; the banner is the in-app guard.
+- **Post-save canonical reset:** on `{ ok: true, revision, html }` response, update local `revision` state to the returned value, update the hidden `bodyRevision` input, set dirty to `false`, and replace the editor content with the returned `html` (the server-sanitized canonical form).
+- **Conflict recovery:** on `{ ok: false, error: "conflict" }`, show: "Another tab or device saved this product. Copy your changes, then reload to get the latest version." with a "Reload page" button. Do **not** auto-reload — this would silently discard unsaved edits.
 
 ---
 
@@ -164,13 +192,13 @@ Location: `apps/web/src/app/seller/dashboard/products/actions.ts`
 
 ```
 raw bodyHtml
-  → DOMPurify.sanitize(html, SANITIZE_CONFIG)   // removes disallowed tags/attrs
-  → check byte length ≤ 200 KB                   // reject if over
-  → normalise empty string to null               // if no meaningful content
-  → parse with node-html-parser                  // structural extraction
-  → classify and count images                    // see URL classification below
-  → validate image count ≤ 10                   // all img nodes, not just R2
-  → normalise links                              // rel="noopener noreferrer nofollow ugc"
+  → DOMPurify.sanitize(html, SANITIZE_CONFIG)                           // removes disallowed tags/attrs
+  → Buffer.byteLength(sanitized, "utf8") > 200 * 1024 → reject         // 200 KB limit on sanitized output
+  → sanitized.trim() === "" → normalise to null                         // no meaningful content
+  → parse with node-html-parser                                         // structural extraction
+  → classify every img src with isManagedBodyImageUrl / HTTPS check     // see URL classification below
+  → count all img nodes (including external) → reject if > 10          // server-side image count limit
+  → normalise links                                                     // rel="noopener noreferrer nofollow ugc"
 ```
 
 **DOMPurify allow-list (`SANITIZE_CONFIG`):**
@@ -187,18 +215,23 @@ Attributes:
 
 Strip: all `on*` event attributes, `javascript:` hrefs, `style` attributes, `script`, `style`, `iframe` elements.
 
-**URL classification (using `new URL()`):**
+**URL classification — use `isManagedBodyImageUrl` (strict) from the shared package:**
 
 ```
-parsed.origin === R2_ORIGIN && pathname starts with /body/{productId}/  → managed R2 image ✓
-parsed.origin === R2_ORIGIN && any other pathname                        → REJECT (cross-product R2 URL)
-different origin && protocol === "https:"                                → external image ✓
-anything else (data:, http:, blob:, relative)                           → REJECT
+R2 origin + pathname matches /^\/body\/{productId}\/[0-9a-f-]{36}\.(jpg|jpeg|png|webp|gif|avif)$/i  → managed R2 image ✓
+R2 origin + any other pathname                                                                        → REJECT (cross-product URL)
+Different HTTPS origin                                                                                → external image ✓
+http:, data:, blob:, javascript:, relative, or unparseable                                           → REJECT
 ```
+
+Parse with `new URL(src)` inside a try/catch; a parse error is treated as REJECT. Compare `new URL(src).origin` to `new URL(S3_PUBLIC_URL).origin` for exact origin equality — do not use `startsWith`.
 
 **Video figure validation:** `data-video-provider` must equal `"youtube"`. `data-video-id` must match `/^[a-zA-Z0-9_-]{1,11}$/`. Reject figures that fail validation.
 
-**Shared extractor:** Import `extractManagedBodyImageKeys(html, productId, publicOrigin): Set<string>` from `packages/shared/src/body-image-keys.ts`. Used by both save action and cleanup job.
+**Shared functions:** Import from `packages/shared/src/body-image-keys.ts`:
+
+- `isManagedBodyImageUrl(url, productId, publicOrigin): boolean` — strict exact-pattern validation used by the save action.
+- `extractManagedBodyImageKeys(html, productId, publicOrigin): Set<string>` — tolerant extractor (parse errors skipped) used by the cleanup job and post-commit diff.
 
 **DB write (inside `withTenant`):**
 
@@ -310,7 +343,8 @@ Omit the section entirely when `bodyHtml` is null or the renderer produces no me
 
 ### Registration
 
-`apps/api/src/jobs/body-image-cleanup.ts`, registered in the existing BullMQ setup:
+Job file: `apps/api/src/jobs/body-image-cleanup.ts`
+Registration: `apps/api/src/scheduler.ts` (existing BullMQ scheduler file)
 
 ```ts
 { name: "body-image-cleanup", cron: "0 2 * * *", tz: "Asia/Kuala_Lumpur" }
@@ -358,14 +392,14 @@ For each object:
 - Skip if `LastModified` is missing → log and skip.
 - Skip if `LastModified` is within 48 hours.
 - Skip if key is in the reference set.
-- Check Redis: `HGET body-img-candidates {key}` → `{ firstSeenAt: ISO string }`.
-  - If no entry: `HSET body-img-candidates {key} {firstSeenAt: now()}` — mark candidate, do **not** delete.
+- Check Redis using a **per-object key** (not a shared hash): `GET body-img-candidate:{encodedKey}`.
+  - If no entry: `SET body-img-candidate:{encodedKey} {ISO timestamp} EX 259200` (72-hour TTL) — mark candidate, do **not** delete. If the object later becomes referenced, the marker expires harmlessly or is cleared explicitly (see below).
   - If entry exists and `now() - firstSeenAt < 24h`: skip (quarantine period not elapsed).
   - If entry exists and elapsed ≥ 24h:
-    1. **Final reference check:** parse `productId` from key (`body/{productId}/...`), fetch that product's `body_html` from DB, run `extractManagedBodyImageKeys`. If key is now referenced: `HDEL body-img-candidates {key}`, skip.
+    1. **Final reference check:** parse `productId` from the validated key path, fetch that product's `body_html` from DB, run `extractManagedBodyImageKeys`. If key is now referenced: `DEL body-img-candidate:{encodedKey}` — clear marker, skip.
     2. Delete from R2.
-    3. On success: `HDEL body-img-candidates {key}`. On failure: log, continue.
-  - If key becomes referenced between runs: the Phase 1 set will contain it next run → `HDEL` marker then.
+    3. On success: `DEL body-img-candidate:{encodedKey}`. On failure: log, continue (marker remains; next run will retry).
+  - **Explicit marker cleanup when an object re-enters the reference set:** in Phase 1, after accumulating the reference set, issue `DEL body-img-candidate:{encodedKey}` for any key found in the reference set that has a candidate marker. This prevents a 24h false-positive window after a seller re-references an image.
 
 **Bounded concurrency:** delete at most 5 objects concurrently (`Promise.allSettled` with batching).
 
@@ -381,12 +415,14 @@ For each object:
 | Final-check parse failure       | Skip object, log               |
 | Individual R2 delete failure    | Log and continue               |
 
+**Upload-log housekeeping:** at the end of each run, delete rows from `body_image_upload_log` where `created_at < now() - interval '2 hours'`. Runs inside `withAdmin`.
+
 **Logging at completion:**
 
 ```
 body-image-cleanup: scanned={n} skipped_recent={n} skipped_referenced={n}
   quarantined_new={n} quarantined_pending={n} final_check_saved={n}
-  deleted={n} failed={n}
+  deleted={n} failed={n} upload_log_pruned={n}
 ```
 
 ### Environment
@@ -401,11 +437,36 @@ Add `@aws-sdk/client-s3` to `apps/api` dependencies (no presigner needed for lis
 
 ## Shared Package
 
+`packages/shared` does not currently exist and requires full scaffolding: `package.json` (name `@bomy/shared`), `tsconfig.json` extending `@bomy/config/tsconfig.base.json`, and entries in `apps/web/package.json` and `apps/api/package.json` workspace dependencies. See existing packages (e.g. `packages/hitpay`) for the scaffold pattern.
+
 ### `packages/shared/src/body-image-keys.ts`
 
 ```ts
 import { parse } from "node-html-parser"
 
+const ALLOWED_EXTS = new Set(["jpg", "jpeg", "png", "webp", "gif", "avif"])
+const KEY_RE = /^body\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|jpeg|png|webp|gif|avif)$/i
+
+/** Strict validation — used by save action. Rejects malformed or cross-product R2 URLs. */
+export function isManagedBodyImageUrl(
+  url: string,
+  productId: string,
+  publicOrigin: string,
+): boolean {
+  try {
+    const u = new URL(url)
+    const r2Origin = new URL(publicOrigin).origin
+    if (u.origin !== r2Origin) return false
+    const path = decodeURIComponent(u.pathname).replace(/^\//, "")
+    const expectedPrefix = `body/${productId}/`
+    if (!path.startsWith(expectedPrefix)) return false
+    return KEY_RE.test(path)
+  } catch {
+    return false
+  }
+}
+
+/** Tolerant extractor — used by cleanup job and post-commit diff. Parse errors are skipped. */
 export function extractManagedBodyImageKeys(
   html: string,
   productId: string,
@@ -414,17 +475,19 @@ export function extractManagedBodyImageKeys(
   if (!html) return new Set()
   const root = parse(html)
   const keys = new Set<string>()
-  const origin = new URL(publicOrigin).origin
-  const prefix = `/body/${productId}/`
+  const r2Origin = new URL(publicOrigin).origin
+  const expectedPrefix = `body/${productId}/`
   for (const img of root.querySelectorAll("img")) {
     const src = img.getAttribute("src") ?? ""
     try {
       const u = new URL(src)
-      if (u.origin === origin && decodeURIComponent(u.pathname).startsWith(prefix)) {
-        keys.add(decodeURIComponent(u.pathname).slice(1)) // strip leading /
+      if (u.origin !== r2Origin) continue
+      const path = decodeURIComponent(u.pathname).replace(/^\//, "")
+      if (path.startsWith(expectedPrefix) && KEY_RE.test(path)) {
+        keys.add(path)
       }
     } catch {
-      // ignore unparseable URLs
+      // skip unparseable URLs
     }
   }
   return keys
@@ -433,22 +496,96 @@ export function extractManagedBodyImageKeys(
 
 ---
 
+## Test Plan
+
+Tests live alongside the code they cover. Integration tests follow the `describe.skipIf(!shouldRun)` pattern with `BOMY_RLS_READY=1`.
+
+### Sanitizer / XSS (`apps/web/tests/seller-products/body-sanitizer.test.ts`)
+
+- Strips `<script>` tags and `on*` event attributes
+- Strips `javascript:` hrefs
+- Strips `data:` URIs from `<img src>`
+- Strips `<iframe>` elements
+- Strips `style` attributes
+- Preserves all allowlisted elements and attributes
+- Normalises links with `rel="noopener noreferrer nofollow ugc"`
+- Rejects sanitized output exceeding 200 KB (`Buffer.byteLength`)
+- Normalises empty/whitespace-only content to `null`
+
+### URL classification (`apps/web/tests/seller-products/body-image-keys.test.ts`)
+
+- `isManagedBodyImageUrl`: accepts exact `body/{productId}/{uuid}.{ext}` at R2 origin
+- `isManagedBodyImageUrl`: rejects cross-product R2 URL (different productId)
+- `isManagedBodyImageUrl`: rejects R2 URL with nested path (`body/pid/subdir/uuid.jpg`)
+- `isManagedBodyImageUrl`: rejects `data:` URI
+- `isManagedBodyImageUrl`: rejects `http:` external URL
+- `isManagedBodyImageUrl`: rejects relative URL
+- `isManagedBodyImageUrl`: rejects unparseable string (try/catch returns false)
+- `extractManagedBodyImageKeys`: returns only R2 keys for correct productId, skips external images and other products' R2 URLs
+
+### Ownership + revision (`apps/web/tests/seller-products/actions.test.ts`)
+
+- `saveProductBody` rejects if caller does not own the product (`not_found`)
+- `saveProductBody` returns `conflict` when submitted revision differs from DB revision; DB row unchanged
+- `saveProductBody` increments `bodyRevision` on success and returns new value
+- `saveProductBody` rejects non-integer revision (negative, decimal, non-safe)
+
+### Size and image limits
+
+- `saveProductBody` rejects body with > 10 `<img>` tags (all images counted, not just R2)
+- `saveProductBody` rejects body exceeding 200 KB after sanitization
+- `getBodyImageUploadUrl` rejects `contentLength > 2 MB`
+- `getBodyImageUploadUrl` rejects `contentLength <= 0`
+- `getBodyImageUploadUrl` rejects disallowed MIME types (`image/svg+xml`, `text/html`)
+
+### Upload rate limiting
+
+- 20th request in 1-hour window succeeds; 21st returns `rate_limited`
+- Rate limit is per-user (different seller is unaffected)
+- Window resets after 1 hour
+
+### Renderer allow-list (`apps/web/tests/products/body-renderer.test.ts`)
+
+- Unknown tags are discarded; their children are preserved
+- Disallowed attributes are stripped from known tags
+- `<a href="javascript:...">` is rejected (href revalidated as HTTPS)
+- `<img src="http://...">` is rejected (src revalidated as HTTPS)
+- `<figure data-video-provider="youtube" data-video-id="abc123">` renders `<VideoEmbed>`
+- `<figure>` with invalid video ID is discarded
+- `<table>` is wrapped in `overflow-x-auto` container
+
+### Cleanup quarantine (`apps/api/tests/jobs/body-image-cleanup.test.ts`)
+
+- Object younger than 48h is skipped; no Redis marker written
+- Object not in reference set and older than 48h: marker written on first run, not deleted
+- Object still unreferenced on second run ≥ 24h later: deleted, marker cleared
+- Object that re-enters reference set between runs: marker deleted in Phase 1 explicit cleanup, object skipped
+- Final-reference check fires before deletion; if product now references key, delete is skipped
+- Individual R2 delete failure: logged, job continues, marker not cleared (retry next run)
+- Phase 1 DB pagination failure: job aborts before entering deletion phase
+
+---
+
 ## Files Created / Modified
 
-| File                                                                           | Action                                                                                                                                                     |
-| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/db/drizzle/0021_product_body_html.sql`                               | Create — migration                                                                                                                                         |
-| `packages/db/scripts/migrate.mjs`                                              | Modify — register 0021                                                                                                                                     |
-| `packages/shared/src/body-image-keys.ts`                                       | Create — shared extractor                                                                                                                                  |
-| `apps/web/src/app/seller/dashboard/products/actions.ts`                        | Modify — add `getBodyImageUploadUrl`, `saveProductBody`                                                                                                    |
-| `apps/web/src/app/seller/dashboard/products/[id]/edit/product-body-editor.tsx` | Create — TipTap client component                                                                                                                           |
-| `apps/web/src/app/seller/dashboard/products/[id]/edit/page.tsx`                | Modify — pass `bodyHtml`, `bodyRevision` to edit form                                                                                                      |
-| `apps/web/src/app/products/queries.ts`                                         | Modify — add `bodyHtml` to `getProductBySlug` select                                                                                                       |
-| `apps/web/src/app/products/[storeSlug]/[productSlug]/page.tsx`                 | Modify — render body section                                                                                                                               |
-| `apps/web/src/app/products/[storeSlug]/[productSlug]/body-renderer.tsx`        | Create — AST-to-React renderer                                                                                                                             |
-| `apps/web/src/app/products/[storeSlug]/[productSlug]/video-embed.tsx`          | Create — click-to-load YouTube client component                                                                                                            |
-| `apps/api/src/jobs/body-image-cleanup.ts`                                      | Create — BullMQ cleanup job                                                                                                                                |
-| `apps/api/src/jobs/index.ts`                                                   | Modify — register cleanup job                                                                                                                              |
-| `apps/web/package.json`                                                        | Modify — add TipTap packages, `isomorphic-dompurify`, `node-html-parser`, `@tailwindcss/typography`, `@aws-sdk/client-s3`, `@aws-sdk/s3-request-presigner` |
-| `apps/api/package.json`                                                        | Modify — add `@aws-sdk/client-s3` (no presigner needed for list/delete)                                                                                    |
-| `packages/shared/package.json`                                                 | Modify — add `node-html-parser`                                                                                                                            |
+| File                                                                           | Action                                                                                                                  |
+| ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| `packages/db/drizzle/0021_product_body_html.sql`                               | Create — migration (adds `body_html`, `body_revision`, `body_image_upload_log`)                                         |
+| `packages/db/scripts/migrate.mjs`                                              | Modify — register 0021                                                                                                  |
+| `packages/db/src/schema/products.ts`                                           | Modify — add `bodyHtml`, `bodyRevision` columns                                                                         |
+| `packages/db/src/schema/body-image-upload-log.ts`                              | Create — Drizzle schema for `body_image_upload_log`                                                                     |
+| `packages/shared/package.json`                                                 | Create — scaffold `@bomy/shared` package (name, tsconfig, exports)                                                      |
+| `packages/shared/tsconfig.json`                                                | Create — extends `@bomy/config/tsconfig.base.json`                                                                      |
+| `packages/shared/src/body-image-keys.ts`                                       | Create — `isManagedBodyImageUrl` (strict) + `extractManagedBodyImageKeys` (tolerant)                                    |
+| `apps/web/src/app/seller/dashboard/products/actions.ts`                        | Modify — add `getBodyImageUploadUrl`, `saveProductBody`                                                                 |
+| `apps/web/src/app/seller/dashboard/products/[id]/edit/product-body-editor.tsx` | Create — TipTap client component                                                                                        |
+| `apps/web/src/app/seller/dashboard/products/[id]/edit/page.tsx`                | Modify — pass `bodyHtml`, `bodyRevision` to edit form                                                                   |
+| `apps/web/src/app/products/queries.ts`                                         | Modify — add `bodyHtml` to `getProductBySlug` select                                                                    |
+| `apps/web/src/app/products/[storeSlug]/[productSlug]/page.tsx`                 | Modify — render body section                                                                                            |
+| `apps/web/src/app/products/[storeSlug]/[productSlug]/body-renderer.tsx`        | Create — AST-to-React renderer (server component)                                                                       |
+| `apps/web/src/app/products/[storeSlug]/[productSlug]/video-embed.tsx`          | Create — click-to-load YouTube client component                                                                         |
+| `apps/web/tailwind.config.ts`                                                  | Modify — register `@tailwindcss/typography` plugin                                                                      |
+| `apps/web/package.json`                                                        | Modify — add TipTap 3.x packages, `isomorphic-dompurify`, `node-html-parser`, `@tailwindcss/typography`, `@bomy/shared` |
+| `apps/api/src/jobs/body-image-cleanup.ts`                                      | Create — BullMQ cleanup job                                                                                             |
+| `apps/api/src/scheduler.ts`                                                    | Modify — register `body-image-cleanup` job                                                                              |
+| `apps/api/package.json`                                                        | Modify — add `@aws-sdk/client-s3`, `@bomy/shared`                                                                       |
