@@ -943,7 +943,11 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
             .select({ id: schema.productImages.id, url: schema.productImages.url })
             .from(schema.productImages)
             .where(eq(schema.productImages.productId, productId))
-            .orderBy(asc(schema.productImages.sortOrder)),
+            .orderBy(
+              asc(schema.productImages.sortOrder),
+              asc(schema.productImages.createdAt),
+              asc(schema.productImages.id),
+            ),
       )
       const coverImageId = images[0]!.id
 
@@ -1007,7 +1011,11 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
             .select({ id: schema.productImages.id, url: schema.productImages.url })
             .from(schema.productImages)
             .where(eq(schema.productImages.productId, productId))
-            .orderBy(asc(schema.productImages.sortOrder)),
+            .orderBy(
+              asc(schema.productImages.sortOrder),
+              asc(schema.productImages.createdAt),
+              asc(schema.productImages.id),
+            ),
       )
       const coverUrl = images[0]!.url
       const nonCoverId = images[1]!.id

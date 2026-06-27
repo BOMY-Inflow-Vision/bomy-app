@@ -7,7 +7,7 @@ SET cover_image_url = (
   SELECT url
   FROM product_images
   WHERE product_id = products.id
-  ORDER BY sort_order ASC
+  ORDER BY sort_order ASC, created_at ASC, id ASC
   LIMIT 1
 )
 WHERE cover_image_url IS NULL

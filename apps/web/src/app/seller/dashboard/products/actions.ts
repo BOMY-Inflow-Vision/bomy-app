@@ -1,6 +1,6 @@
 "use server"
 
-import { and, asc, eq, isNull, or } from "drizzle-orm"
+import { and, asc, eq, isNull, max, or } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 
@@ -511,9 +511,20 @@ export async function addProductImage(
         .limit(1)
       if (!rows[0]) throw new Error("Product not found or not authorized")
 
+      const nextSortOrder =
+        sortOrder !== undefined
+          ? sortOrder
+          : await (async () => {
+              const [maxRow] = await tx
+                .select({ maxOrder: max(schema.productImages.sortOrder) })
+                .from(schema.productImages)
+                .where(eq(schema.productImages.productId, productId))
+              return (maxRow?.maxOrder ?? -1) + 1
+            })()
+
       const [inserted] = await tx
         .insert(schema.productImages)
-        .values({ productId, url, altText: altText ?? null, sortOrder: sortOrder ?? 0 })
+        .values({ productId, url, altText: altText ?? null, sortOrder: nextSortOrder })
         .returning({
           id: schema.productImages.id,
           url: schema.productImages.url,
@@ -588,7 +599,11 @@ export async function removeProductImage(imageId: string): Promise<void> {
         .select({ url: schema.productImages.url })
         .from(schema.productImages)
         .where(eq(schema.productImages.productId, removedProductId))
-        .orderBy(asc(schema.productImages.sortOrder))
+        .orderBy(
+          asc(schema.productImages.sortOrder),
+          asc(schema.productImages.createdAt),
+          asc(schema.productImages.id),
+        )
         .limit(1)
       await tx
         .update(schema.products)
