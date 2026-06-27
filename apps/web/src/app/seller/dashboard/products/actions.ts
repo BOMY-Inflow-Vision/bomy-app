@@ -135,7 +135,11 @@ export async function getProductForEdit(productId: string) {
           .select()
           .from(schema.productImages)
           .where(eq(schema.productImages.productId, productId))
-          .orderBy(schema.productImages.sortOrder),
+          .orderBy(
+            asc(schema.productImages.sortOrder),
+            asc(schema.productImages.createdAt),
+            asc(schema.productImages.id),
+          ),
         tx
           .select({
             id: schema.categories.id,
@@ -509,6 +513,7 @@ export async function addProductImage(
           ),
         )
         .limit(1)
+        .for("update", { of: schema.products })
       if (!rows[0]) throw new Error("Product not found or not authorized")
 
       const nextSortOrder =
