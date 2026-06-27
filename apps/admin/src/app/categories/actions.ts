@@ -60,3 +60,54 @@ export async function toggleCategory(id: string, isActive: boolean): Promise<voi
   })
   revalidatePath("/categories")
 }
+
+export async function updateCategory(
+  id: string,
+  name: string,
+  sortOrder: number,
+): Promise<{ ok: false; error: string } | { ok: true }> {
+  const adminId = await getAdminId()
+  const trimmed = name.trim()
+  if (!trimmed) return { ok: false, error: "Name is required" }
+  if (!Number.isSafeInteger(sortOrder) || sortOrder < 0 || sortOrder > 2_147_483_647)
+    return { ok: false, error: "Sort order must be a whole number between 0 and 2,147,483,647" }
+
+  await withAdmin(getDb(), { userId: adminId, reason: "admin update category" }, async (tx) => {
+    await tx
+      .update(schema.categories)
+      .set({ name: trimmed, sortOrder })
+      .where(eq(schema.categories.id, id))
+  })
+  revalidatePath("/categories")
+  return { ok: true }
+}
+
+export async function deleteCategory(
+  id: string,
+): Promise<{ ok: false; error: string } | { ok: true }> {
+  const adminId = await getAdminId()
+
+  try {
+    await withAdmin(getDb(), { userId: adminId, reason: "admin delete category" }, async (tx) => {
+      const [inUse] = await tx
+        .select({ id: schema.products.id })
+        .from(schema.products)
+        .where(eq(schema.products.categoryId, id))
+        .limit(1)
+
+      if (inUse) throw new Error("IN_USE")
+
+      await tx.delete(schema.categories).where(eq(schema.categories.id, id))
+    })
+  } catch (e: unknown) {
+    if (e instanceof Error && e.message === "IN_USE")
+      return {
+        ok: false,
+        error: "Cannot delete: products are assigned to this category. Deactivate it instead.",
+      }
+    throw e
+  }
+
+  revalidatePath("/categories")
+  return { ok: true }
+}

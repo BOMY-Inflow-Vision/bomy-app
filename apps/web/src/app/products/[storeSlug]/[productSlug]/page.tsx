@@ -2,6 +2,7 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 
 import { getProductBySlug } from "../../queries"
+import { ProductImageGallery } from "./product-image-gallery"
 import { VariantPicker } from "./variant-picker"
 
 interface Props {
@@ -29,39 +30,7 @@ export default async function ProductDetailPage({ params }: Props) {
 
       <div className="grid gap-8 md:grid-cols-2">
         {/* Images */}
-        <div>
-          {product.images.length > 0 ? (
-            <div className="space-y-3">
-              <div className="aspect-square overflow-hidden rounded-xl bg-gray-100">
-                <img
-                  src={product.images[0]!.url}
-                  alt={product.images[0]!.altText ?? product.name}
-                  className="h-full w-full object-cover"
-                />
-              </div>
-              {product.images.length > 1 && (
-                <div className="flex gap-2 overflow-x-auto">
-                  {product.images.slice(1).map((img) => (
-                    <div
-                      key={img.id}
-                      className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-gray-100"
-                    >
-                      <img
-                        src={img.url}
-                        alt={img.altText ?? ""}
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="flex aspect-square items-center justify-center rounded-xl bg-gray-100 text-6xl text-gray-300">
-              📦
-            </div>
-          )}
-        </div>
+        <ProductImageGallery images={product.images} productName={product.name} />
 
         {/* Info */}
         <div className="flex flex-col gap-4">

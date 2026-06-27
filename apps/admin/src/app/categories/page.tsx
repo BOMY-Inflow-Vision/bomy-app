@@ -4,8 +4,8 @@ import { schema, withAdmin } from "@bomy/db"
 
 import { auth } from "@/auth"
 import { getDb } from "@/lib/db"
+import { CategoryRow } from "./category-row"
 import { NewCategoryForm } from "./new-category-form"
-import { ToggleButton } from "./toggle-button"
 
 export default async function CategoriesPage() {
   const session = await auth()
@@ -47,25 +47,7 @@ export default async function CategoriesPage() {
           </thead>
           <tbody className="divide-y divide-gray-100">
             {rows.map((cat) => (
-              <tr key={cat.id} className={cat.isActive ? "" : "opacity-50"}>
-                <td className="px-4 py-3 font-medium text-gray-900">{cat.name}</td>
-                <td className="px-4 py-3 font-mono text-xs text-gray-500">{cat.slug}</td>
-                <td className="px-4 py-3 text-gray-500">{cat.sortOrder}</td>
-                <td className="px-4 py-3">
-                  <span
-                    className={
-                      cat.isActive
-                        ? "rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700"
-                        : "rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500"
-                    }
-                  >
-                    {cat.isActive ? "Active" : "Inactive"}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <ToggleButton id={cat.id} isActive={cat.isActive} />
-                </td>
-              </tr>
+              <CategoryRow key={cat.id} cat={cat} />
             ))}
             {rows.length === 0 && (
               <tr>

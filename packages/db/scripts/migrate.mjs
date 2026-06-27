@@ -116,6 +116,10 @@ const MIGRATIONS = [
     name: "0019_categories_seller_inactive_read",
     file: join(__dirname, "../drizzle/0019_categories_seller_inactive_read.sql"),
   },
+  {
+    name: "0020_cover_image_backfill",
+    file: join(__dirname, "../drizzle/0020_cover_image_backfill.sql"),
+  },
 ]
 
 try {

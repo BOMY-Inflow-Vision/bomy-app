@@ -1,4 +1,4 @@
-import { and, count, desc, eq, sql } from "drizzle-orm"
+import { and, asc, count, desc, eq, sql } from "drizzle-orm"
 
 import { makeDb, schema, withPublicRead } from "@bomy/db"
 
@@ -167,7 +167,11 @@ export async function getProductBySlug(storeSlug: string, productSlug: string) {
         })
         .from(schema.productImages)
         .where(eq(schema.productImages.productId, product.id))
-        .orderBy(schema.productImages.sortOrder),
+        .orderBy(
+          asc(schema.productImages.sortOrder),
+          asc(schema.productImages.createdAt),
+          asc(schema.productImages.id),
+        ),
     ])
 
     return {

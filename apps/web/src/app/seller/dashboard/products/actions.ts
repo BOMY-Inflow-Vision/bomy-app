@@ -1,6 +1,6 @@
 "use server"
 
-import { and, eq, or } from "drizzle-orm"
+import { and, asc, eq, isNull, max, or } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 
@@ -135,7 +135,11 @@ export async function getProductForEdit(productId: string) {
           .select()
           .from(schema.productImages)
           .where(eq(schema.productImages.productId, productId))
-          .orderBy(schema.productImages.sortOrder),
+          .orderBy(
+            asc(schema.productImages.sortOrder),
+            asc(schema.productImages.createdAt),
+            asc(schema.productImages.id),
+          ),
         tx
           .select({
             id: schema.categories.id,
@@ -509,17 +513,35 @@ export async function addProductImage(
           ),
         )
         .limit(1)
+        .for("update", { of: schema.products })
       if (!rows[0]) throw new Error("Product not found or not authorized")
+
+      const nextSortOrder =
+        sortOrder !== undefined
+          ? sortOrder
+          : await (async () => {
+              const [maxRow] = await tx
+                .select({ maxOrder: max(schema.productImages.sortOrder) })
+                .from(schema.productImages)
+                .where(eq(schema.productImages.productId, productId))
+              return (maxRow?.maxOrder ?? -1) + 1
+            })()
 
       const [inserted] = await tx
         .insert(schema.productImages)
-        .values({ productId, url, altText: altText ?? null, sortOrder: sortOrder ?? 0 })
+        .values({ productId, url, altText: altText ?? null, sortOrder: nextSortOrder })
         .returning({
           id: schema.productImages.id,
           url: schema.productImages.url,
           altText: schema.productImages.altText,
           sortOrder: schema.productImages.sortOrder,
         })
+
+      await tx
+        .update(schema.products)
+        .set({ coverImageUrl: url })
+        .where(and(eq(schema.products.id, productId), isNull(schema.products.coverImageUrl)))
+
       return inserted!
     },
   ).catch((err) => {
@@ -568,6 +590,31 @@ export async function removeProductImage(imageId: string): Promise<void> {
 
   await withAdmin(db, { userId: session.user.id, reason: "seller image removal" }, async (tx) => {
     await tx.delete(schema.productImages).where(eq(schema.productImages.id, imageId))
+
+    const removedUrl = imageRows[0]!.url
+    const removedProductId = imageRows[0]!.productId
+    const [prod] = await tx
+      .select({ coverImageUrl: schema.products.coverImageUrl })
+      .from(schema.products)
+      .where(eq(schema.products.id, removedProductId))
+      .limit(1)
+
+    if (prod?.coverImageUrl === removedUrl) {
+      const [next] = await tx
+        .select({ url: schema.productImages.url })
+        .from(schema.productImages)
+        .where(eq(schema.productImages.productId, removedProductId))
+        .orderBy(
+          asc(schema.productImages.sortOrder),
+          asc(schema.productImages.createdAt),
+          asc(schema.productImages.id),
+        )
+        .limit(1)
+      await tx
+        .update(schema.products)
+        .set({ coverImageUrl: next?.url ?? null })
+        .where(eq(schema.products.id, removedProductId))
+    }
   })
 
   revalidatePath(`/seller/dashboard/products/${imageRows[0].productId}/edit`)
