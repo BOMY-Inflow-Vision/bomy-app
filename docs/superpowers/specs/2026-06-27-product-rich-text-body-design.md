@@ -70,24 +70,48 @@ Location: `apps/web/src/app/seller/dashboard/products/actions.ts`
 
 **The client never provides the key.** An application HMAC claim is unnecessary — the R2 presigned URL is already a bearer credential scoped to one operation and object.
 
-**Rate limit — database-backed (no Redis in `apps/web`):** Before signing, count rows in `body_image_upload_log` for the caller within the past hour:
+**Rate limit — database-backed, race-safe:** Ownership validation, advisory lock, count, and insert all run inside one `withTenant` transaction. This serialises concurrent presign requests from the same user and prevents the race where all concurrent requests read a count below 20 before any insert commits:
 
 ```ts
-const since = new Date(Date.now() - 60 * 60 * 1000)
-const [{ count }] = await db
-  .select({ count: sql<number>`count(*)::int` })
-  .from(schema.bodyImageUploadLog)
-  .where(
-    and(
-      eq(schema.bodyImageUploadLog.userId, userId),
-      gte(schema.bodyImageUploadLog.createdAt, since),
-    ),
-  )
-if (count >= 20) return { ok: false, error: "rate_limited" }
-await db.insert(schema.bodyImageUploadLog).values({ userId })
+const result = await withTenant(db, { userId, userRole: "seller_owner", sellerId }, async (tx) => {
+  // Advisory lock serialises concurrent requests from the same seller.
+  await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('body-img-sign:' || ${userId}))`)
+
+  const [product] = await tx
+    .select({ id: schema.products.id })
+    .from(schema.products)
+    .where(and(eq(schema.products.id, productId), eq(schema.products.storeId, sellerStoreId)))
+    .limit(1)
+  if (!product) return { ok: false as const, error: "not_found" }
+
+  const since = new Date(Date.now() - 60 * 60 * 1000)
+  const [{ count }] = await tx
+    .select({ count: sql<number>`count(*)::int` })
+    .from(schema.bodyImageUploadLog)
+    .where(
+      and(
+        eq(schema.bodyImageUploadLog.userId, userId),
+        gte(schema.bodyImageUploadLog.createdAt, since),
+      ),
+    )
+  if (count >= 20) return { ok: false as const, error: "rate_limited" }
+
+  await tx.insert(schema.bodyImageUploadLog).values({ userId })
+  return { ok: true as const }
+})
+if (!result.ok) return result
+// Generate presigned URL after the transaction commits.
 ```
 
-Old rows (older than 2 hours) are deleted by the nightly cleanup job. This query runs outside the `withTenant` body-image transaction — insert one log row, no rollback needed on presign failure.
+`body_image_upload_log` schema requirements:
+
+- `user_id` FK carries `ON DELETE CASCADE` so rows are removed when a user is deleted
+- RLS `INSERT` policy: seller may only insert rows where `user_id = current_setting('app.current_user_id')::uuid`
+- RLS `SELECT` policy: seller may only read their own rows
+- `bomy_app` role granted `INSERT, SELECT, DELETE` on the table
+- Concurrent-request regression test: fire 25 simultaneous presign calls for the same seller; assert exactly 20 succeed and 5 return `rate_limited`
+
+Old rows (older than 2 hours) are pruned by the nightly cleanup job.
 
 **Client upload contract:**
 
@@ -171,7 +195,21 @@ Never store an `<iframe>` in `body_html`. The TipTap YouTube extension is not us
 - Disable the Save button while `onUploadStateChange(true)` is active.
 - **Toolbar accessibility:** every toolbar button has `aria-label`. Toggle-state buttons (bold, italic, etc.) carry `aria-pressed={isActive}`.
 - **Upload progress region:** a `<div role="status" aria-live="polite">` shows the current upload state: idle / "Uploading… {n}%" / "Upload failed: {message}" / "Saved".
-- **Navigation warning:** `useEffect(() => { window.onbeforeunload = dirty ? () => "" : null }, [dirty])` — warns on browser tab close and hard reload. For in-app navigation (Next.js links), render a visible inline banner "You have unsaved changes" when dirty; the banner contains a "Save now" shortcut button. App Router does not expose `beforePopState`; the banner is the in-app guard.
+- **Navigation warning:** use `addEventListener` with effect cleanup — `window.onbeforeunload` assignment does not clean up on unmount:
+  ```ts
+  useEffect(() => {
+    if (!dirty) return
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+    }
+    window.addEventListener("beforeunload", handler)
+    return () => window.removeEventListener("beforeunload", handler)
+  }, [dirty])
+  ```
+  For in-app navigation (Next.js links), render a visible inline banner "You have unsaved changes" with a "Save now" button when dirty. App Router does not expose `beforePopState`; the banner is the in-app guard.
+- **Toolbar touch targets:** minimum 44 × 44 px per button (WCAG 2.5.5).
+- **Toolbar focus states:** all toolbar buttons must have a visible `focus-visible` outline.
+- **Toolbar tooltips:** icon-only buttons must carry a `title` attribute (or `aria-describedby` tooltip) naming the action (e.g. "Bold", "Insert table", "Embed YouTube video").
 - **Post-save canonical reset:** on `{ ok: true, revision, html }` response, update local `revision` state to the returned value, update the hidden `bodyRevision` input, set dirty to `false`, and replace the editor content with the returned `html` (the server-sanitized canonical form).
 - **Conflict recovery:** on `{ ok: false, error: "conflict" }`, show: "Another tab or device saved this product. Copy your changes, then reload to get the latest version." with a "Reload page" button. Do **not** auto-reload — this would silently discard unsaved edits.
 
@@ -193,12 +231,22 @@ Location: `apps/web/src/app/seller/dashboard/products/actions.ts`
 ```
 raw bodyHtml
   → DOMPurify.sanitize(html, SANITIZE_CONFIG)                           // removes disallowed tags/attrs
-  → Buffer.byteLength(sanitized, "utf8") > 200 * 1024 → reject         // 200 KB limit on sanitized output
-  → sanitized.trim() === "" → normalise to null                         // no meaningful content
-  → parse with node-html-parser                                         // structural extraction
-  → classify every img src with isManagedBodyImageUrl / HTTPS check     // see URL classification below
-  → count all img nodes (including external) → reject if > 10          // server-side image count limit
-  → normalise links                                                     // rel="noopener noreferrer nofollow ugc"
+  → parse with node-html-parser                                         // structural parse (needed for steps below)
+  → normalise links                                                     // rel="noopener noreferrer nofollow ugc" (may add bytes)
+  → re-serialize to HTML string                                         // canonical output after link normalization
+  → Buffer.byteLength(serialized, "utf8") > 200 * 1024 → reject        // 200 KB limit AFTER normalization (not before)
+  → hasmeaningfulContent(root) === false → normalise to null            // structural emptiness check (see below)
+  → classify every img src                                              // see URL classification below
+  → count all img nodes → reject if > 10                               // server-side image count limit
+```
+
+**Meaningful content check (`hasmeaningfulContent`):** TipTap commonly produces `<p></p>` when the editor is cleared, which survives `trim()`. A document is empty if it contains no `<img>`, no `<figure>`, and no element with non-whitespace text content. Implemented structurally via the parsed tree, not string matching:
+
+```ts
+function hasmeaningfulContent(root: HTMLElement): boolean {
+  if (root.querySelectorAll("img, figure").length > 0) return true
+  return root.textContent.trim().length > 0
+}
 ```
 
 **DOMPurify allow-list (`SANITIZE_CONFIG`):**
@@ -230,47 +278,88 @@ Parse with `new URL(src)` inside a try/catch; a parse error is treated as REJECT
 
 **Shared functions:** Import from `packages/shared/src/body-image-keys.ts`:
 
-- `isManagedBodyImageUrl(url, productId, publicOrigin): boolean` — strict exact-pattern validation used by the save action.
+- `classifyImageUrl(url, productId, publicOrigin): "managed" | "external" | "invalid"` — strict discriminated classification used by the save action. Returns `"managed"` only when origin matches R2 AND key exactly matches `body/{productId}/{uuid}.{ext}`. Returns `"external"` for valid HTTPS non-R2 URLs. Returns `"invalid"` for same-origin R2 URLs with a malformed path, `data:` URIs, `http:` URLs, relative paths, and unparseable strings. A boolean cannot distinguish `"invalid"` same-origin from `"external"`.
 - `extractManagedBodyImageKeys(html, productId, publicOrigin): Set<string>` — tolerant extractor (parse errors skipped) used by the cleanup job and post-commit diff.
+
+**Pre-transaction setup:** Before entering `withTenant`, resolve `sellerStoreId` from the authenticated session:
+
+```ts
+const session = await auth()
+const userId = session?.user?.id
+const userRole = session?.user?.role
+if (!userId || userRole !== "seller_owner") return { ok: false, error: "unauthorized" }
+
+// Fetch the seller's store ID — needed both for ownership check and withTenant context.
+const store = await withPublicRead(db, (tx) =>
+  tx
+    .select({ id: schema.stores.id })
+    .from(schema.stores)
+    .where(eq(schema.stores.ownerId, userId))
+    .limit(1),
+)
+const sellerId = store[0]?.id
+if (!sellerId) return { ok: false, error: "not_found" }
+```
 
 **DB write (inside `withTenant`):**
 
 ```ts
-// Fetch existing row with ownership check
-const [existing] = await tx
-  .select({ bodyHtml: schema.products.bodyHtml, bodyRevision: schema.products.bodyRevision })
-  .from(schema.products)
-  .where(and(eq(schema.products.id, productId), eq(schema.products.storeId, sellerStoreId)))
-  .for("update")
-  .limit(1)
+const txResult = await withTenant(
+  db,
+  { userId, userRole: "seller_owner", sellerId },
+  async (tx) => {
+    // Fetch existing row with ownership check, slugs for revalidation, and row lock.
+    const [existing] = await tx
+      .select({
+        bodyHtml: schema.products.bodyHtml,
+        bodyRevision: schema.products.bodyRevision,
+        storeSlug: schema.stores.slug,
+        productSlug: schema.products.slug,
+      })
+      .from(schema.products)
+      .innerJoin(schema.stores, eq(schema.stores.id, schema.products.storeId))
+      .where(and(eq(schema.products.id, productId), eq(schema.products.storeId, sellerId)))
+      .for("update")
+      .limit(1)
 
-if (!existing) return { ok: false, error: "not_found" }
-if (existing.bodyRevision !== revision) return { ok: false, error: "conflict" }
+    if (!existing) return { ok: false as const, error: "not_found" }
+    if (existing.bodyRevision !== revision) return { ok: false as const, error: "conflict" }
 
-await tx
-  .update(schema.products)
-  .set({ bodyHtml: sanitized, bodyRevision: revision + 1, updatedAt: new Date() })
-  .where(eq(schema.products.id, productId))
+    await tx
+      .update(schema.products)
+      .set({ bodyHtml: sanitized, bodyRevision: revision + 1, updatedAt: new Date() })
+      .where(eq(schema.products.id, productId))
+
+    // Return everything needed for post-commit work.
+    return {
+      ok: true as const,
+      oldHtml: existing.bodyHtml,
+      storeSlug: existing.storeSlug,
+      productSlug: existing.productSlug,
+    }
+  },
+)
+
+if (!txResult.ok) return txResult
 ```
 
 On conflict (`existing.bodyRevision !== revision`): return `{ ok: false, error: "conflict" }` — delete nothing.
 
-**Post-commit R2 cleanup (only on success):**
+**Post-commit R2 cleanup (only on success, using slugs returned from transaction):**
 
 ```ts
-const oldKeys = extractManagedBodyImageKeys(existing.bodyHtml ?? "", productId, S3_PUBLIC_URL)
+const oldKeys = extractManagedBodyImageKeys(txResult.oldHtml ?? "", productId, S3_PUBLIC_URL)
 const newKeys = extractManagedBodyImageKeys(sanitized ?? "", productId, S3_PUBLIC_URL)
 const orphaned = [...oldKeys].filter((k) => !newKeys.has(k))
-
 await Promise.allSettled(orphaned.map((key) => deleteFromR2(key)))
 // Log failures; do not surface them in the response
 ```
 
-**Revalidation (after success):**
+**Revalidation (using slugs from transaction return):**
 
 ```ts
 revalidatePath(`/seller/dashboard/products/${productId}/edit`)
-revalidatePath(`/products/${storeSlug}/${productSlug}`)
+revalidatePath(`/products/${txResult.storeSlug}/${txResult.productSlug}`)
 ```
 
 **Return:** `{ ok: true, revision: revision + 1, html: sanitized }`
@@ -370,18 +459,21 @@ Used by both `apps/web` save action and `apps/api` cleanup job.
 
 **Phase 1 — Build reference set:**
 
-Keyset-paginate through all products with non-null `body_html`:
+All DB reads in the cleanup job use `withAdmin(db, { userId: SYSTEM_ACTOR, reason: "body-image-cleanup" }, tx => ...)`. Without `withAdmin`, RLS (which applies to the `bomy_app` role) will hide products belonging to other sellers, causing valid referenced images to appear unreferenced and be deleted.
 
-```sql
-SELECT id, body_html FROM products
-WHERE body_html IS NOT NULL AND id > $lastSeenId
-ORDER BY id
-LIMIT 100
+Keyset-paginate inside `withAdmin`:
+
+```ts
+await withAdmin(db, { userId: SYSTEM_ACTOR, reason: "body-image-cleanup" }, async (tx) => {
+  // paginate: WHERE body_html IS NOT NULL AND id > lastSeenId ORDER BY id LIMIT 100
+})
 ```
 
-For each page: call `extractManagedBodyImageKeys(row.bodyHtml, row.id, S3_PUBLIC_URL)` and accumulate into a global `Set<string>` of all referenced R2 keys.
+For each page: call `extractManagedBodyImageKeys(row.bodyHtml, row.id, S3_PUBLIC_URL)` and accumulate into a global `Set<string>` of all referenced R2 keys. After building the reference set, also `DEL body-img-candidate:{key}` in Redis for any key found to be referenced (explicit marker cleanup).
 
 **Abort if any page fails** — do not proceed to deletion if reference set is incomplete.
+
+Add an RLS regression test: run Phase 1 as `bomy_app` role without `withAdmin` and assert it returns zero rows for another seller's products; confirm `withAdmin` returns the full set.
 
 **Phase 2 — Scan R2 and apply two-run quarantine:**
 
@@ -396,24 +488,29 @@ For each object:
   - If no entry: `SET body-img-candidate:{encodedKey} {ISO timestamp} EX 259200` (72-hour TTL) — mark candidate, do **not** delete. If the object later becomes referenced, the marker expires harmlessly or is cleared explicitly (see below).
   - If entry exists and `now() - firstSeenAt < 24h`: skip (quarantine period not elapsed).
   - If entry exists and elapsed ≥ 24h:
-    1. **Final reference check:** parse `productId` from the validated key path, fetch that product's `body_html` from DB, run `extractManagedBodyImageKeys`. If key is now referenced: `DEL body-img-candidate:{encodedKey}` — clear marker, skip.
+    1. **Final reference check:** parse `productId` from the validated key path, fetch that product's `body_html` using `withAdmin(db, { userId: SYSTEM_ACTOR, reason: "body-image-cleanup-final-check" }, ...)`, run `extractManagedBodyImageKeys`. If key is now referenced: `DEL body-img-candidate:{encodedKey}` — clear marker, skip.
     2. Delete from R2.
     3. On success: `DEL body-img-candidate:{encodedKey}`. On failure: log, continue (marker remains; next run will retry).
   - **Explicit marker cleanup when an object re-enters the reference set:** in Phase 1, after accumulating the reference set, issue `DEL body-img-candidate:{encodedKey}` for any key found in the reference set that has a candidate marker. This prevents a 24h false-positive window after a seller re-references an image.
 
+**Complete listing before deletion:** collect all candidate keys across all `ListObjectsV2` pages into an in-memory set _before_ starting any R2 deletes. This makes the "R2 listing error aborts before deletion" guarantee unconditional — an error during page N of listing cannot leave partial deletion state.
+
 **Bounded concurrency:** delete at most 5 objects concurrently (`Promise.allSettled` with batching).
+
+**Redis failure semantics (fail-safe):** if a Redis `GET`, `SET`, or `DEL` call fails, treat the affected object as if it has no quarantine marker — skip it (do not delete). Log the Redis error. A Redis outage delays cleanup but never causes an unsafe deletion.
 
 **Failure handling:**
 
-| Failure                         | Action                         |
-| ------------------------------- | ------------------------------ |
-| DB pagination error             | Abort before any deletion, log |
-| R2 listing error                | Abort before any deletion, log |
-| Reference set build parse error | Abort before any deletion, log |
-| Missing `LastModified`          | Skip object, log               |
-| Final-check query failure       | Skip object, log               |
-| Final-check parse failure       | Skip object, log               |
-| Individual R2 delete failure    | Log and continue               |
+| Failure                         | Action                                |
+| ------------------------------- | ------------------------------------- |
+| DB pagination error             | Abort before any deletion, log        |
+| R2 listing page error           | Abort before any deletion, log        |
+| Reference set build parse error | Abort before any deletion, log        |
+| Redis read/write failure        | Skip affected object (fail-safe), log |
+| Missing `LastModified`          | Skip object, log                      |
+| Final-check DB query failure    | Skip object, log                      |
+| Final-check parse failure       | Skip object, log                      |
+| Individual R2 delete failure    | Log and continue; marker not cleared  |
 
 **Upload-log housekeeping:** at the end of each run, delete rows from `body_image_upload_log` where `created_at < now() - interval '2 hours'`. Runs inside `withAdmin`.
 
@@ -437,32 +534,33 @@ Add `@aws-sdk/client-s3` to `apps/api` dependencies (no presigner needed for lis
 
 ## Shared Package
 
-`packages/shared` does not currently exist and requires full scaffolding: `package.json` (name `@bomy/shared`), `tsconfig.json` extending `@bomy/config/tsconfig.base.json`, and entries in `apps/web/package.json` and `apps/api/package.json` workspace dependencies. See existing packages (e.g. `packages/hitpay`) for the scaffold pattern.
+`packages/shared` does not currently exist and requires full scaffolding: `package.json` (name `@bomy/shared`, include `node-html-parser` as a dependency), `tsconfig.json` extending `../../tsconfig.base.json` (not `@bomy/config/...` — match the path used by existing packages), and entries in `apps/web/package.json` and `apps/api/package.json` workspace dependencies. See `packages/hitpay` for the scaffold pattern.
 
 ### `packages/shared/src/body-image-keys.ts`
 
 ```ts
 import { parse } from "node-html-parser"
 
-const ALLOWED_EXTS = new Set(["jpg", "jpeg", "png", "webp", "gif", "avif"])
-const KEY_RE = /^body\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|jpeg|png|webp|gif|avif)$/i
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const KEY_RE =
+  /^body\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|jpeg|png|webp|gif|avif)$/i
 
-/** Strict validation — used by save action. Rejects malformed or cross-product R2 URLs. */
-export function isManagedBodyImageUrl(
+/** Strict discriminated classification — used by save action. */
+export function classifyImageUrl(
   url: string,
   productId: string,
   publicOrigin: string,
-): boolean {
+): "managed" | "external" | "invalid" {
   try {
     const u = new URL(url)
     const r2Origin = new URL(publicOrigin).origin
-    if (u.origin !== r2Origin) return false
-    const path = decodeURIComponent(u.pathname).replace(/^\//, "")
-    const expectedPrefix = `body/${productId}/`
-    if (!path.startsWith(expectedPrefix)) return false
-    return KEY_RE.test(path)
+    if (u.origin === r2Origin) {
+      const path = decodeURIComponent(u.pathname).replace(/^\//, "")
+      return KEY_RE.test(path) && path.startsWith(`body/${productId}/`) ? "managed" : "invalid" // same-origin but wrong path — cross-product or malformed
+    }
+    return u.protocol === "https:" ? "external" : "invalid"
   } catch {
-    return false
+    return "invalid"
   }
 }
 
@@ -574,9 +672,11 @@ Tests live alongside the code they cover. Integration tests follow the `describe
 | `packages/db/scripts/migrate.mjs`                                              | Modify — register 0021                                                                                                  |
 | `packages/db/src/schema/products.ts`                                           | Modify — add `bodyHtml`, `bodyRevision` columns                                                                         |
 | `packages/db/src/schema/body-image-upload-log.ts`                              | Create — Drizzle schema for `body_image_upload_log`                                                                     |
-| `packages/shared/package.json`                                                 | Create — scaffold `@bomy/shared` package (name, tsconfig, exports)                                                      |
-| `packages/shared/tsconfig.json`                                                | Create — extends `@bomy/config/tsconfig.base.json`                                                                      |
-| `packages/shared/src/body-image-keys.ts`                                       | Create — `isManagedBodyImageUrl` (strict) + `extractManagedBodyImageKeys` (tolerant)                                    |
+| `packages/db/src/schema/index.ts`                                              | Modify — export `bodyImageUploadLog` schema                                                                             |
+| `packages/db/src/rls/policies.sql`                                             | Modify — add RLS policies and grants for `body_image_upload_log`                                                        |
+| `packages/shared/package.json`                                                 | Create — scaffold `@bomy/shared` (name `@bomy/shared`, exports, `node-html-parser` dep)                                 |
+| `packages/shared/tsconfig.json`                                                | Create — extends `../../tsconfig.base.json` (matches existing packages pattern)                                         |
+| `packages/shared/src/body-image-keys.ts`                                       | Create — `classifyImageUrl` (discriminated) + `extractManagedBodyImageKeys` (tolerant)                                  |
 | `apps/web/src/app/seller/dashboard/products/actions.ts`                        | Modify — add `getBodyImageUploadUrl`, `saveProductBody`                                                                 |
 | `apps/web/src/app/seller/dashboard/products/[id]/edit/product-body-editor.tsx` | Create — TipTap client component                                                                                        |
 | `apps/web/src/app/seller/dashboard/products/[id]/edit/page.tsx`                | Modify — pass `bodyHtml`, `bodyRevision` to edit form                                                                   |
