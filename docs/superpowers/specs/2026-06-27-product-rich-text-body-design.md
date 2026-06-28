@@ -45,10 +45,14 @@ CREATE INDEX body_image_upload_log_user_window_idx
 ALTER TABLE body_image_upload_log ENABLE ROW LEVEL SECURITY;
 ALTER TABLE body_image_upload_log FORCE ROW LEVEL SECURITY;
 
--- Sellers may read and insert only their own rows.
+-- Sellers may read their own rows; withAdmin bypass must also be able to SELECT for DELETE to work.
+-- PostgreSQL evaluates SELECT policies on DELETE queries that reference columns in WHERE clauses.
 CREATE POLICY body_image_upload_log_self_select ON body_image_upload_log
   FOR SELECT TO bomy_app
-  USING (user_id = current_setting('app.current_user_id')::uuid);
+  USING (
+    user_id = current_setting('app.current_user_id')::uuid
+    OR current_setting('app.bypass_rls', true) = 'true'
+  );
 
 CREATE POLICY body_image_upload_log_self_insert ON body_image_upload_log
   FOR INSERT TO bomy_app
@@ -99,7 +103,7 @@ const result = await withTenant(db, { userId, userRole: "seller_owner" }, async 
   const [store] = await tx
     .select({ id: schema.stores.id })
     .from(schema.stores)
-    .where(eq(schema.stores.ownerId, userId))
+    .where(and(eq(schema.stores.ownerId, userId), eq(schema.stores.status, "active")))
     .limit(1)
   if (!store) return { ok: false as const, error: "not_found" }
 
@@ -274,10 +278,10 @@ raw bodyHtml
 
 `canonicalHtml` is the single variable used for the DB update, the key diff, and the return value. `sanitized` and `reserialized` are intermediate steps only.
 
-**Meaningful content check (`hasmeaningfulContent`):** TipTap commonly produces `<p></p>` when the editor is cleared, which survives `trim()`. A document is empty if it contains no `<img>`, no `<figure>`, and no element with non-whitespace text content. Implemented structurally via the parsed tree, not string matching:
+**Meaningful content check (`hasMeaningfulContent`):** TipTap commonly produces `<p></p>` when the editor is cleared, which survives `trim()`. A document is empty if it contains no `<img>`, no `<figure>`, and no element with non-whitespace text content. Implemented structurally via the parsed tree, not string matching:
 
 ```ts
-function hasmeaningfulContent(root: HTMLElement): boolean {
+function hasMeaningfulContent(root: HTMLElement): boolean {
   if (root.querySelectorAll("img, figure").length > 0) return true
   return root.textContent.trim().length > 0
 }
@@ -297,7 +301,7 @@ Attributes:
 
 Strip: all `on*` event attributes, `javascript:` hrefs, `style` attributes, `script`, `style`, `iframe` elements.
 
-**URL classification — use `isManagedBodyImageUrl` (strict) from the shared package:**
+**URL classification — use `classifyImageUrl` (strict) from the shared package:**
 
 ```
 R2 origin + pathname matches /^\/body\/{productId}\/[0-9a-f-]{36}\.(jpg|jpeg|png|webp|gif|avif)$/i  → managed R2 image ✓
@@ -323,7 +327,7 @@ const txResult = await withTenant(db, { userId, userRole: "seller_owner" }, asyn
   const [store] = await tx
     .select({ id: schema.stores.id, slug: schema.stores.slug })
     .from(schema.stores)
-    .where(eq(schema.stores.ownerId, userId))
+    .where(and(eq(schema.stores.ownerId, userId), eq(schema.stores.status, "active")))
     .limit(1)
   if (!store) return { ok: false as const, error: "not_found" }
 
