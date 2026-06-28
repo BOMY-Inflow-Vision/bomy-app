@@ -120,6 +120,7 @@ export async function getProductBySlug(storeSlug: string, productSlug: string) {
         slug: schema.products.slug,
         description: schema.products.description,
         coverImageUrl: schema.products.coverImageUrl,
+        bodyHtml: schema.products.bodyHtml,
         storeId: schema.stores.id,
         storeName: schema.stores.name,
         storeSlug: schema.stores.slug,
