@@ -933,3 +933,28 @@ CREATE POLICY duplicate_charges_bypass_update ON duplicate_charges
   FOR UPDATE
   USING (app.is_admin_bypass())
   WITH CHECK (app.is_admin_bypass());
+
+-- ── body_image_upload_log (upload rate-limit log) ────────────────────────────
+-- SELECT policy includes bypass_rls=true so PostgreSQL's per-column SELECT
+-- evaluation (applied to DELETE WHERE clauses) allows the nightly cleanup job
+-- to see rows via withAdmin.
+
+ALTER TABLE body_image_upload_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE body_image_upload_log FORCE ROW LEVEL SECURITY;
+
+CREATE POLICY body_image_upload_log_self_select ON body_image_upload_log
+  FOR SELECT TO bomy_app
+  USING (
+    user_id = current_setting('app.current_user_id')::uuid
+    OR current_setting('app.bypass_rls', true) = 'true'
+  );
+
+CREATE POLICY body_image_upload_log_self_insert ON body_image_upload_log
+  FOR INSERT TO bomy_app
+  WITH CHECK (user_id = current_setting('app.current_user_id')::uuid);
+
+CREATE POLICY body_image_upload_log_admin_delete ON body_image_upload_log
+  FOR DELETE TO bomy_app
+  USING (current_setting('app.bypass_rls', true) = 'true');
+
+GRANT SELECT, INSERT, DELETE ON body_image_upload_log TO bomy_app;

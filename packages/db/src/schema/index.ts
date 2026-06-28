@@ -1,5 +1,6 @@
 export * from "./admin_bypass_audit.js"
 export * from "./auth.js"
+export * from "./body_image_upload_log.js"
 export * from "./brand_subscription_plans.js"
 export * from "./brand_subscriptions.js"
 export * from "./categories.js"

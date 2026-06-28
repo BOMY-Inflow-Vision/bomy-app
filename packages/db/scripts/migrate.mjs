@@ -120,6 +120,10 @@ const MIGRATIONS = [
     name: "0020_cover_image_backfill",
     file: join(__dirname, "../drizzle/0020_cover_image_backfill.sql"),
   },
+  {
+    name: "0021_product_body_html",
+    file: join(__dirname, "../drizzle/0021_product_body_html.sql"),
+  },
 ]
 
 try {
