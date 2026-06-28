@@ -124,4 +124,26 @@ describe("normalizeBodyHtml", () => {
     )
     expect(r).toMatchObject({ ok: true })
   })
+
+  it("rejects raw input exceeding 400 KB before sanitization", () => {
+    const huge = "<p>" + "a".repeat(401 * 1024) + "</p>"
+    const r = normalizeBodyHtml(huge, PID, R2)
+    expect(r).toMatchObject({ ok: false, error: "too_large" })
+  })
+
+  it("strips href from <p> elements (not an allowed attr for p)", () => {
+    const r = normalizeBodyHtml('<p href="https://example.com">text</p>', PID, R2)
+    expect(r.ok).toBe(true)
+    expect((r as { ok: true; canonicalHtml: string }).canonicalHtml).not.toContain("href=")
+  })
+
+  it("strips src from <a> elements (not an allowed attr for a)", () => {
+    const r = normalizeBodyHtml(
+      '<a src="https://example.com/img.jpg" href="https://example.com">link</a>',
+      PID,
+      R2,
+    )
+    expect(r.ok).toBe(true)
+    expect((r as { ok: true; canonicalHtml: string }).canonicalHtml).not.toContain("src=")
+  })
 })

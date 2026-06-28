@@ -35,7 +35,7 @@ vi.mock("@/lib/s3", async (importOriginal) => {
 })
 
 import { auth } from "@/auth"
-import { createBodyPresignedPutUrl } from "@/lib/s3"
+import { createBodyPresignedPutUrl, deleteObject } from "@/lib/s3"
 import {
   addProductImage,
   addVariant,
@@ -1177,8 +1177,16 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       await db.close()
     })
 
-    beforeEach(() => {
+    beforeEach(async () => {
       mockAuth.mockResolvedValue({ user: { id: sellerId, role: "seller_owner" } })
+      // Reset revision to known state so tests don't depend on prior test order
+      await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "reset revision" }, async (tx) => {
+        await tx
+          .update(schema.products)
+          .set({ bodyHtml: null, bodyRevision: 0 })
+          .where(eq(schema.products.id, productId))
+      })
+      process.env["S3_PUBLIC_URL"] = "https://r2.test"
     })
 
     it("rejects non-integer revision (negative)", async () => {
@@ -1216,7 +1224,8 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
     })
 
     it("second save with stale revision returns conflict; DB row unchanged", async () => {
-      // Product now has revision=1 from previous test. Use 0 → should conflict.
+      // First advance to revision=1, then try stale revision=0 → conflict
+      await saveProductBody(productId, "<p>first</p>", 0)
       const r = await saveProductBody(productId, "<p>new</p>", 0)
       expect(r).toMatchObject({ ok: false, error: "conflict" })
       const [row] = await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "test assert" }, (tx) =>
@@ -1229,9 +1238,9 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
     })
 
     it("saves null canonicalHtml when body is empty (<p></p>)", async () => {
-      // Use revision=1 (from the success test above)
-      const r = await saveProductBody(productId, "<p></p>", 1)
-      expect(r).toMatchObject({ ok: true, revision: 2, html: null })
+      // Starts at revision=0 (reset by beforeEach)
+      const r = await saveProductBody(productId, "<p></p>", 0)
+      expect(r).toMatchObject({ ok: true, revision: 1, html: null })
       const [row] = await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "test assert" }, (tx) =>
         tx
           .select({ bodyHtml: schema.products.bodyHtml })
@@ -1239,6 +1248,76 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
           .where(eq(schema.products.id, productId)),
       )
       expect(row?.bodyHtml).toBeNull()
+    })
+
+    it("deleteObject is called for keys removed from body", async () => {
+      vi.mocked(deleteObject).mockClear()
+      const fakeKey = `body/${productId}/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee.jpg`
+      const fakeUrl = `https://r2.test/${fakeKey}`
+      await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "test setup" }, async (tx) => {
+        await tx
+          .update(schema.products)
+          .set({ bodyHtml: `<p>old</p><img src="${fakeUrl}" alt="x" />`, bodyRevision: 0 })
+          .where(eq(schema.products.id, productId))
+      })
+      const r = await saveProductBody(productId, "<p>new content no image</p>", 0)
+      expect(r).toMatchObject({ ok: true })
+      expect(vi.mocked(deleteObject)).toHaveBeenCalledWith(fakeKey)
+    })
+
+    it("save succeeds even when deleteObject rejects", async () => {
+      vi.mocked(deleteObject).mockRejectedValueOnce(new Error("S3 offline"))
+      const fakeKey = `body/${productId}/bbbbbbbb-cccc-dddd-eeee-ffffffffffff.jpg`
+      const fakeUrl = `https://r2.test/${fakeKey}`
+      await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "test setup" }, async (tx) => {
+        await tx
+          .update(schema.products)
+          .set({ bodyHtml: `<p>old</p><img src="${fakeUrl}" alt="x" />`, bodyRevision: 0 })
+          .where(eq(schema.products.id, productId))
+      })
+      const r = await saveProductBody(productId, "<p>new</p>", 0)
+      expect(r).toMatchObject({ ok: true })
+      // Verify DB revision advanced despite deletion failure
+      const [row] = await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "verify" }, (tx) =>
+        tx
+          .select({ rev: schema.products.bodyRevision })
+          .from(schema.products)
+          .where(eq(schema.products.id, productId)),
+      )
+      expect(row?.rev).toBe(1)
+    })
+
+    it("does not call deleteObject for a key that still appears in new body", async () => {
+      vi.mocked(deleteObject).mockClear()
+      const fakeKey = `body/${productId}/cccccccc-dddd-eeee-ffff-000000000000.jpg`
+      const fakeUrl = `https://r2.test/${fakeKey}`
+      await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "test setup" }, async (tx) => {
+        await tx
+          .update(schema.products)
+          .set({ bodyHtml: `<img src="${fakeUrl}" alt="x" />`, bodyRevision: 0 })
+          .where(eq(schema.products.id, productId))
+      })
+      const r = await saveProductBody(productId, `<img src="${fakeUrl}" alt="x" />`, 0)
+      expect(r).toMatchObject({ ok: true })
+      expect(vi.mocked(deleteObject)).not.toHaveBeenCalled()
+    })
+
+    it("returns not_found when seller's store is suspended", async () => {
+      await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "suspend store" }, async (tx) => {
+        await tx
+          .update(schema.stores)
+          .set({ status: "suspended" })
+          .where(eq(schema.stores.id, storeId))
+      })
+      const r = await saveProductBody(productId, "<p>hello</p>", 0)
+      expect(r).toMatchObject({ ok: false, error: "not_found" })
+      // Restore active status
+      await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "restore store" }, async (tx) => {
+        await tx
+          .update(schema.stores)
+          .set({ status: "active" })
+          .where(eq(schema.stores.id, storeId))
+      })
     })
   })
 
@@ -1248,38 +1327,65 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
     let sellerId: string
     let storeId: string
     let productId: string
+    let seller2Id: string
+    let store2Id: string
+    let product2Id: string
 
     beforeAll(async () => {
       db = makeDb({ url: DATABASE_URL as string })
       sellerId = randomUUID()
       storeId = randomUUID()
       productId = randomUUID()
+      seller2Id = randomUUID()
+      store2Id = randomUUID()
+      product2Id = randomUUID()
 
       await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "test seed" }, async (tx) => {
-        await tx
-          .insert(schema.users)
-          .values({ id: sellerId, email: `upload-${sellerId}@test.bomy`, role: "seller_owner" })
-        await tx.insert(schema.stores).values({
-          id: storeId,
-          ownerId: sellerId,
-          name: "Upload Test Store",
-          slug: `upload-test-${storeId.slice(0, 8)}`,
-          status: "active",
-        })
-        await tx.insert(schema.products).values({
-          id: productId,
-          storeId,
-          name: "Upload Product",
-          slug: `upload-prod-${productId.slice(0, 8)}`,
-        })
+        await tx.insert(schema.users).values([
+          { id: sellerId, email: `upload-${sellerId}@test.bomy`, role: "seller_owner" },
+          { id: seller2Id, email: `upload2-${seller2Id}@test.bomy`, role: "seller_owner" },
+        ])
+        await tx.insert(schema.stores).values([
+          {
+            id: storeId,
+            ownerId: sellerId,
+            name: "Upload Test Store",
+            slug: `upload-test-${storeId.slice(0, 8)}`,
+            status: "active",
+          },
+          {
+            id: store2Id,
+            ownerId: seller2Id,
+            name: "Upload Test Store 2",
+            slug: `upload-test2-${store2Id.slice(0, 8)}`,
+            status: "active",
+          },
+        ])
+        await tx.insert(schema.products).values([
+          {
+            id: productId,
+            storeId,
+            name: "Upload Product",
+            slug: `upload-prod-${productId.slice(0, 8)}`,
+          },
+          {
+            id: product2Id,
+            storeId: store2Id,
+            name: "Upload Product 2",
+            slug: `upload-prod2-${product2Id.slice(0, 8)}`,
+          },
+        ])
       })
     })
 
     afterAll(async () => {
       await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
         await tx.delete(schema.products).where(eq(schema.products.id, productId))
+        await tx.delete(schema.products).where(eq(schema.products.id, product2Id))
         await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
+        await tx.delete(schema.stores).where(eq(schema.stores.id, store2Id))
         await tx.delete(schema.users).where(eq(schema.users.id, sellerId))
+        await tx.delete(schema.users).where(eq(schema.users.id, seller2Id))
       })
       await db.close()
     })
@@ -1312,8 +1418,9 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       expect(result).toMatchObject({ ok: false, error: "invalid_size" })
     })
 
-    it("returns not_found for a product belonging to a different store", async () => {
-      const result = await getBodyImageUploadUrl(randomUUID(), "image/jpeg", 1024)
+    it("returns not_found when caller does not own the product (cross-store)", async () => {
+      // seller1 attempts to upload to product2 (owned by store2/seller2)
+      const result = await getBodyImageUploadUrl(product2Id, "image/jpeg", 1024)
       expect(result).toMatchObject({ ok: false, error: "not_found" })
     })
 
@@ -1339,42 +1446,37 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
 
     it("rate limit is per-user: second seller is unaffected", async () => {
       // First seller already has 21 requests from the previous test; the second seller
-      // has never made one.
-      const seller2Id = randomUUID()
-      const store2Id = randomUUID()
-      const product2Id = randomUUID()
-      await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "test seed seller2" }, async (tx) => {
-        await tx.insert(schema.users).values({
-          id: seller2Id,
-          email: `upload2-${seller2Id}@test.bomy`,
-          role: "seller_owner",
-        })
-        await tx.insert(schema.stores).values({
-          id: store2Id,
-          ownerId: seller2Id,
-          name: "Upload Test Store 2",
-          slug: `upload-test2-${store2Id.slice(0, 8)}`,
-          status: "active",
-        })
-        await tx.insert(schema.products).values({
-          id: product2Id,
-          storeId: store2Id,
-          name: "Upload Product 2",
-          slug: `upload-prod2-${product2Id.slice(0, 8)}`,
-        })
-      })
+      // (seeded in beforeAll as seller2Id) has never made one.
+      await withAdmin(
+        db.db,
+        { userId: SYSTEM_ACTOR, reason: "clear rate log seller2" },
+        async (tx) => {
+          await tx
+            .delete(schema.bodyImageUploadLog)
+            .where(eq(schema.bodyImageUploadLog.userId, seller2Id))
+        },
+      )
       mockAuth.mockResolvedValue({ user: { id: seller2Id, role: "seller_owner" } })
       const result = await getBodyImageUploadUrl(product2Id, "image/jpeg", 512)
       expect(result).toMatchObject({ ok: true })
-      await withAdmin(
-        db.db,
-        { userId: SYSTEM_ACTOR, reason: "test cleanup seller2" },
-        async (tx) => {
-          await tx.delete(schema.products).where(eq(schema.products.id, product2Id))
-          await tx.delete(schema.stores).where(eq(schema.stores.id, store2Id))
-          await tx.delete(schema.users).where(eq(schema.users.id, seller2Id))
-        },
-      )
+    })
+
+    it("returns not_found when seller's store is suspended", async () => {
+      await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "suspend store" }, async (tx) => {
+        await tx
+          .update(schema.stores)
+          .set({ status: "suspended" })
+          .where(eq(schema.stores.id, storeId))
+      })
+      const result = await getBodyImageUploadUrl(productId, "image/jpeg", 1024)
+      expect(result).toMatchObject({ ok: false, error: "not_found" })
+      // Restore active status
+      await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "restore store" }, async (tx) => {
+        await tx
+          .update(schema.stores)
+          .set({ status: "active" })
+          .where(eq(schema.stores.id, storeId))
+      })
     })
   })
 })

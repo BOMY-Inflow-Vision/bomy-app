@@ -53,6 +53,14 @@ const SANITIZE_CONFIG = {
 
 const VIDEO_ID_RE = /^[a-zA-Z0-9_-]{1,11}$/
 
+const PER_ELEMENT_ALLOWED_ATTRS: Record<string, ReadonlySet<string>> = {
+  a: new Set(["href", "rel", "target"]),
+  img: new Set(["src", "alt", "width", "height", "loading", "decoding", "referrerpolicy"]),
+  figure: new Set(["data-video-provider", "data-video-id", "data-video-title"]),
+  th: new Set(["colspan", "rowspan", "scope"]),
+  td: new Set(["colspan", "rowspan"]),
+}
+
 function hasMeaningfulContent(root: HTMLElement): boolean {
   if (root.querySelectorAll("img, figure").length > 0) return true
   return root.textContent.trim().length > 0
@@ -63,6 +71,14 @@ export function normalizeBodyHtml(
   productId: string,
   publicOrigin: string,
 ): { ok: true; canonicalHtml: string | null } | { ok: false; error: string } {
+  if (typeof raw !== "string") {
+    return { ok: false, error: "invalid_input" }
+  }
+  const RAW_LIMIT = 400 * 1024
+  if (Buffer.byteLength(raw, "utf8") > RAW_LIMIT) {
+    return { ok: false, error: "too_large" }
+  }
+
   const sanitized = DOMPurify.sanitize(raw, SANITIZE_CONFIG)
   const root = parse(sanitized)
 
@@ -72,6 +88,15 @@ export function normalizeBodyHtml(
     const src = img.getAttribute("src") ?? ""
     if (src.startsWith("data:")) {
       img.remove()
+    }
+  }
+
+  // Per-element attribute allow-list: strip any attribute not explicitly allowed on each tag.
+  for (const el of root.querySelectorAll("*")) {
+    const tag = el.tagName?.toLowerCase() ?? ""
+    const allowed = PER_ELEMENT_ALLOWED_ATTRS[tag] ?? new Set<string>()
+    for (const attr of Object.keys(el.rawAttributes ?? {})) {
+      if (!allowed.has(attr)) el.removeAttribute(attr)
     }
   }
 

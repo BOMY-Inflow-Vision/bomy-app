@@ -1,6 +1,6 @@
 "use server"
 
-import { and, asc, eq, gte, isNull, max, or, sql } from "drizzle-orm"
+import { and, asc, eq, isNull, max, or, sql } from "drizzle-orm"
 import { randomUUID } from "node:crypto"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
@@ -676,6 +676,12 @@ export async function saveProductBody(
   }
 
   const S3_PUBLIC_URL = process.env["S3_PUBLIC_URL"] ?? ""
+  try {
+    const u = new URL(S3_PUBLIC_URL)
+    if (u.protocol !== "https:") throw new Error()
+  } catch {
+    return { ok: false, error: "misconfigured" }
+  }
   const { normalizeBodyHtml } = await import("./body-sanitizer")
   const normalized = normalizeBodyHtml(bodyHtml, productId, S3_PUBLIC_URL)
   if (!normalized.ok) return normalized
@@ -719,11 +725,37 @@ export async function saveProductBody(
   if (!txResult.ok) return txResult
 
   const { extractManagedBodyImageKeys } = await import("@bomy/shared")
-  const { deleteObject } = await import("@/lib/s3")
   const oldKeys = extractManagedBodyImageKeys(txResult.oldHtml ?? "", productId, S3_PUBLIC_URL)
   const newKeys = extractManagedBodyImageKeys(canonicalHtml ?? "", productId, S3_PUBLIC_URL)
   const orphaned = [...oldKeys].filter((k) => !newKeys.has(k))
-  await Promise.allSettled(orphaned.map((key) => deleteObject(key)))
+
+  if (orphaned.length > 0) {
+    const { deleteObject } = await import("@/lib/s3")
+
+    // Re-read current body to avoid deleting keys re-referenced by a concurrent save
+    const currentRows = await withTenant(getDb(), { userId, userRole: "seller_owner" }, (tx) =>
+      tx
+        .select({ bodyHtml: schema.products.bodyHtml })
+        .from(schema.products)
+        .where(eq(schema.products.id, productId))
+        .limit(1),
+    )
+    const currentBody = currentRows[0]?.bodyHtml ?? null
+    const currentKeys = extractManagedBodyImageKeys(currentBody ?? "", productId, S3_PUBLIC_URL)
+    const safeOrphaned = orphaned.filter((k) => !currentKeys.has(k))
+
+    const deleteResults = await Promise.allSettled(safeOrphaned.map((key) => deleteObject(key)))
+    for (let i = 0; i < deleteResults.length; i++) {
+      const result = deleteResults[i]!
+      if (result.status === "rejected") {
+        const reason: unknown = result.reason
+        console.error("[saveProductBody] orphaned key delete failed", {
+          key: safeOrphaned[i],
+          reason,
+        })
+      }
+    }
+  }
 
   revalidatePath(`/seller/dashboard/products/${productId}/edit`)
   revalidatePath(`/products/${txResult.storeSlug}/${txResult.productSlug}`)
@@ -762,8 +794,15 @@ export async function getBodyImageUploadUrl(
   if (!BODY_IMAGE_ALLOWED_TYPES.includes(contentType)) {
     return { ok: false, error: "invalid_type" }
   }
-  if (contentLength <= 0 || contentLength > 2 * 1024 * 1024) {
+  if (
+    !Number.isSafeInteger(contentLength) ||
+    contentLength <= 0 ||
+    contentLength > 2 * 1024 * 1024
+  ) {
     return { ok: false, error: "invalid_size" }
+  }
+  if (!UUID_RE.test(productId)) {
+    return { ok: false, error: "invalid_product_id" }
   }
 
   const result = await withTenant(getDb(), { userId, userRole: "seller_owner" }, async (tx) => {
@@ -784,14 +823,13 @@ export async function getBodyImageUploadUrl(
       .limit(1)
     if (!product) return { ok: false as const, error: "not_found" }
 
-    const since = new Date(Date.now() - 60 * 60 * 1000)
     const countRows = await tx
       .select({ count: sql<number>`count(*)::int` })
       .from(schema.bodyImageUploadLog)
       .where(
         and(
           eq(schema.bodyImageUploadLog.userId, userId),
-          gte(schema.bodyImageUploadLog.createdAt, since),
+          sql`${schema.bodyImageUploadLog.createdAt} > now() - interval '1 hour'`,
         ),
       )
     const count = countRows[0]?.count ?? 0
@@ -805,9 +843,8 @@ export async function getBodyImageUploadUrl(
 
   const ext = BODY_MIME_TO_EXT[contentType]!
   const key = `body/${productId}/${randomUUID()}.${ext}`
-  const publicOrigin = process.env["S3_PUBLIC_URL"]?.replace(/\/$/, "") ?? ""
-  const publicUrl = `${publicOrigin}/${key}`
-  const { createBodyPresignedPutUrl } = await import("@/lib/s3")
+  const { createBodyPresignedPutUrl, buildPublicUrl } = await import("@/lib/s3")
+  const publicUrl = buildPublicUrl(key)
   const { url: uploadUrl, expiresAt } = await createBodyPresignedPutUrl(
     key,
     contentType,
