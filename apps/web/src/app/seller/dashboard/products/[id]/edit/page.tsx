@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation"
 import { auth } from "@/auth"
 import { getProductForEdit } from "../../actions"
 import { ImageManager } from "./image-manager"
+import { ProductBodyEditor } from "./product-body-editor"
 import { ProductEditForm } from "./product-edit-form"
 
 export default async function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
@@ -26,9 +27,22 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
         </a>
       </div>
 
-      <div className="space-y-6">
+      <div className="space-y-8">
         <ProductEditForm product={product} variants={variants} categories={categories} />
         <ImageManager productId={product.id} images={images} />
+
+        <section aria-labelledby="body-editor-heading">
+          <h2 id="body-editor-heading" className="mb-3 text-lg font-semibold text-gray-900">
+            Product Details
+          </h2>
+          <ProductBodyEditor
+            productId={product.id}
+            initialHtml={product.bodyHtml ?? null}
+            initialRevision={product.bodyRevision}
+            onDirtyChange={() => {}}
+            onUploadStateChange={() => {}}
+          />
+        </section>
       </div>
     </div>
   )
