@@ -36,12 +36,33 @@ ALTER TABLE products
 -- Rows older than 2 hours are cleaned up by the nightly cleanup job.
 CREATE TABLE body_image_upload_log (
   id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id    UUID        NOT NULL REFERENCES users(id),
+  user_id    UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX body_image_upload_log_user_window_idx
   ON body_image_upload_log (user_id, created_at);
+
+ALTER TABLE body_image_upload_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE body_image_upload_log FORCE ROW LEVEL SECURITY;
+
+-- Sellers may read and insert only their own rows.
+CREATE POLICY body_image_upload_log_self_select ON body_image_upload_log
+  FOR SELECT TO bomy_app
+  USING (user_id = current_setting('app.current_user_id')::uuid);
+
+CREATE POLICY body_image_upload_log_self_insert ON body_image_upload_log
+  FOR INSERT TO bomy_app
+  WITH CHECK (user_id = current_setting('app.current_user_id')::uuid);
+
+-- Nightly cleanup job runs via withAdmin (bypass_rls = 'true') and needs DELETE.
+CREATE POLICY body_image_upload_log_admin_delete ON body_image_upload_log
+  FOR DELETE TO bomy_app
+  USING (current_setting('app.bypass_rls', true) = 'true');
+
+GRANT SELECT, INSERT, DELETE ON body_image_upload_log TO bomy_app;
 ```
+
+Mirror these RLS policies and grants verbatim in `packages/db/src/rls/policies.sql`.
 
 ### R2 key convention
 
@@ -70,17 +91,26 @@ Location: `apps/web/src/app/seller/dashboard/products/actions.ts`
 
 **The client never provides the key.** An application HMAC claim is unnecessary — the R2 presigned URL is already a bearer credential scoped to one operation and object.
 
-**Rate limit — database-backed, race-safe:** Ownership validation, advisory lock, count, and insert all run inside one `withTenant` transaction. This serialises concurrent presign requests from the same user and prevents the race where all concurrent requests read a count below 20 before any insert commits:
+**Rate limit — database-backed, race-safe:** Enter `withTenant` with `{ userId, userRole }` only — no `sellerId` required to enter. Resolve the active store, verify product ownership, apply advisory lock, count, and insert all inside one transaction. This matches the existing product action pattern and prevents the concurrent-read race:
 
 ```ts
-const result = await withTenant(db, { userId, userRole: "seller_owner", sellerId }, async (tx) => {
-  // Advisory lock serialises concurrent requests from the same seller.
+const result = await withTenant(db, { userId, userRole: "seller_owner" }, async (tx) => {
+  // Resolve the seller's active store inside the transaction (matches existing actions pattern).
+  const [store] = await tx
+    .select({ id: schema.stores.id })
+    .from(schema.stores)
+    .where(eq(schema.stores.ownerId, userId))
+    .limit(1)
+  if (!store) return { ok: false as const, error: "not_found" }
+
+  // Advisory lock serialises concurrent presign requests from the same seller.
   await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('body-img-sign:' || ${userId}))`)
 
   const [product] = await tx
     .select({ id: schema.products.id })
     .from(schema.products)
-    .where(and(eq(schema.products.id, productId), eq(schema.products.storeId, sellerStoreId)))
+    .where(and(eq(schema.products.id, productId), eq(schema.products.storeId, store.id)))
+    .for("update", { of: schema.products })
     .limit(1)
   if (!product) return { ok: false as const, error: "not_found" }
 
@@ -230,15 +260,19 @@ Location: `apps/web/src/app/seller/dashboard/products/actions.ts`
 
 ```
 raw bodyHtml
-  → DOMPurify.sanitize(html, SANITIZE_CONFIG)                           // removes disallowed tags/attrs
-  → parse with node-html-parser                                         // structural parse (needed for steps below)
-  → normalise links                                                     // rel="noopener noreferrer nofollow ugc" (may add bytes)
-  → re-serialize to HTML string                                         // canonical output after link normalization
-  → Buffer.byteLength(serialized, "utf8") > 200 * 1024 → reject        // 200 KB limit AFTER normalization (not before)
-  → hasmeaningfulContent(root) === false → normalise to null            // structural emptiness check (see below)
-  → classify every img src                                              // see URL classification below
-  → count all img nodes → reject if > 10                               // server-side image count limit
+  → DOMPurify.sanitize(html, SANITIZE_CONFIG)                                // removes disallowed tags/attrs
+  → parse with node-html-parser                                              // structural parse (needed for steps below)
+  → normalise links (mutate tree)                                            // rel="noopener noreferrer nofollow ugc"
+  → re-serialize to string                                                   // may add bytes vs sanitized output
+  → Buffer.byteLength(reserialized, "utf8") > 200 * 1024 → reject           // 200 KB limit AFTER normalization
+  → hasMeaningfulContent(root) === false → canonicalHtml = null             // structural emptiness (see below)
+  → otherwise → canonicalHtml = reserialized                                // single canonical variable from here on
+  → classify every img src via classifyImageUrl                             // "managed" | "external" | "invalid"
+  → reject if any img is "invalid"                                           // cross-product R2, data:, http:, etc.
+  → count all img nodes ("managed" + "external") → reject if > 10           // server-side image count limit
 ```
+
+`canonicalHtml` is the single variable used for the DB update, the key diff, and the return value. `sanitized` and `reserialized` are intermediate steps only.
 
 **Meaningful content check (`hasmeaningfulContent`):** TipTap commonly produces `<p></p>` when the editor is cleared, which survives `trim()`. A document is empty if it contains no `<img>`, no `<figure>`, and no element with non-whitespace text content. Implemented structurally via the parsed tree, not string matching:
 
@@ -281,88 +315,70 @@ Parse with `new URL(src)` inside a try/catch; a parse error is treated as REJECT
 - `classifyImageUrl(url, productId, publicOrigin): "managed" | "external" | "invalid"` — strict discriminated classification used by the save action. Returns `"managed"` only when origin matches R2 AND key exactly matches `body/{productId}/{uuid}.{ext}`. Returns `"external"` for valid HTTPS non-R2 URLs. Returns `"invalid"` for same-origin R2 URLs with a malformed path, `data:` URIs, `http:` URLs, relative paths, and unparseable strings. A boolean cannot distinguish `"invalid"` same-origin from `"external"`.
 - `extractManagedBodyImageKeys(html, productId, publicOrigin): Set<string>` — tolerant extractor (parse errors skipped) used by the cleanup job and post-commit diff.
 
-**Pre-transaction setup:** Before entering `withTenant`, resolve `sellerStoreId` from the authenticated session:
+**DB write (inside `withTenant`):** Enter with `{ userId, userRole }` only — resolve the active store inside the transaction, matching the existing product action pattern. No `withPublicRead` bootstrap before entry.
 
 ```ts
-const session = await auth()
-const userId = session?.user?.id
-const userRole = session?.user?.role
-if (!userId || userRole !== "seller_owner") return { ok: false, error: "unauthorized" }
-
-// Fetch the seller's store ID — needed both for ownership check and withTenant context.
-const store = await withPublicRead(db, (tx) =>
-  tx
-    .select({ id: schema.stores.id })
+const txResult = await withTenant(db, { userId, userRole: "seller_owner" }, async (tx) => {
+  // Resolve active store inside the transaction (same pattern as existing product actions).
+  const [store] = await tx
+    .select({ id: schema.stores.id, slug: schema.stores.slug })
     .from(schema.stores)
     .where(eq(schema.stores.ownerId, userId))
-    .limit(1),
-)
-const sellerId = store[0]?.id
-if (!sellerId) return { ok: false, error: "not_found" }
-```
+    .limit(1)
+  if (!store) return { ok: false as const, error: "not_found" }
 
-**DB write (inside `withTenant`):**
+  // Lock product row, confirm ownership, fetch slugs for revalidation.
+  const [existing] = await tx
+    .select({
+      bodyHtml: schema.products.bodyHtml,
+      bodyRevision: schema.products.bodyRevision,
+      productSlug: schema.products.slug,
+    })
+    .from(schema.products)
+    .where(and(eq(schema.products.id, productId), eq(schema.products.storeId, store.id)))
+    .for("update", { of: schema.products })
+    .limit(1)
 
-```ts
-const txResult = await withTenant(
-  db,
-  { userId, userRole: "seller_owner", sellerId },
-  async (tx) => {
-    // Fetch existing row with ownership check, slugs for revalidation, and row lock.
-    const [existing] = await tx
-      .select({
-        bodyHtml: schema.products.bodyHtml,
-        bodyRevision: schema.products.bodyRevision,
-        storeSlug: schema.stores.slug,
-        productSlug: schema.products.slug,
-      })
-      .from(schema.products)
-      .innerJoin(schema.stores, eq(schema.stores.id, schema.products.storeId))
-      .where(and(eq(schema.products.id, productId), eq(schema.products.storeId, sellerId)))
-      .for("update")
-      .limit(1)
+  if (!existing) return { ok: false as const, error: "not_found" }
+  if (existing.bodyRevision !== revision) return { ok: false as const, error: "conflict" }
 
-    if (!existing) return { ok: false as const, error: "not_found" }
-    if (existing.bodyRevision !== revision) return { ok: false as const, error: "conflict" }
+  await tx
+    .update(schema.products)
+    .set({ bodyHtml: canonicalHtml, bodyRevision: revision + 1, updatedAt: new Date() })
+    .where(eq(schema.products.id, productId))
 
-    await tx
-      .update(schema.products)
-      .set({ bodyHtml: sanitized, bodyRevision: revision + 1, updatedAt: new Date() })
-      .where(eq(schema.products.id, productId))
-
-    // Return everything needed for post-commit work.
-    return {
-      ok: true as const,
-      oldHtml: existing.bodyHtml,
-      storeSlug: existing.storeSlug,
-      productSlug: existing.productSlug,
-    }
-  },
-)
+  // Return everything needed for post-commit work.
+  return {
+    ok: true as const,
+    oldHtml: existing.bodyHtml,
+    storeSlug: store.slug, // from the store resolved at transaction start
+    productSlug: existing.productSlug,
+  }
+})
 
 if (!txResult.ok) return txResult
 ```
 
 On conflict (`existing.bodyRevision !== revision`): return `{ ok: false, error: "conflict" }` — delete nothing.
 
-**Post-commit R2 cleanup (only on success, using slugs returned from transaction):**
+**Post-commit R2 cleanup (only on success):**
 
 ```ts
 const oldKeys = extractManagedBodyImageKeys(txResult.oldHtml ?? "", productId, S3_PUBLIC_URL)
-const newKeys = extractManagedBodyImageKeys(sanitized ?? "", productId, S3_PUBLIC_URL)
+const newKeys = extractManagedBodyImageKeys(canonicalHtml ?? "", productId, S3_PUBLIC_URL)
 const orphaned = [...oldKeys].filter((k) => !newKeys.has(k))
 await Promise.allSettled(orphaned.map((key) => deleteFromR2(key)))
 // Log failures; do not surface them in the response
 ```
 
-**Revalidation (using slugs from transaction return):**
+**Revalidation:**
 
 ```ts
 revalidatePath(`/seller/dashboard/products/${productId}/edit`)
 revalidatePath(`/products/${txResult.storeSlug}/${txResult.productSlug}`)
 ```
 
-**Return:** `{ ok: true, revision: revision + 1, html: sanitized }`
+**Return:** `{ ok: true, revision: revision + 1, html: canonicalHtml }`
 
 ---
 
@@ -541,9 +557,9 @@ Add `@aws-sdk/client-s3` to `apps/api` dependencies (no presigner needed for lis
 ```ts
 import { parse } from "node-html-parser"
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+// Capturing group 1 = productId UUID embedded in the key; group 2 = extension.
 const KEY_RE =
-  /^body\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|jpeg|png|webp|gif|avif)$/i
+  /^body\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|jpeg|png|webp|gif|avif)$/i
 
 /** Strict discriminated classification — used by save action. */
 export function classifyImageUrl(
@@ -556,7 +572,9 @@ export function classifyImageUrl(
     const r2Origin = new URL(publicOrigin).origin
     if (u.origin === r2Origin) {
       const path = decodeURIComponent(u.pathname).replace(/^\//, "")
-      return KEY_RE.test(path) && path.startsWith(`body/${productId}/`) ? "managed" : "invalid" // same-origin but wrong path — cross-product or malformed
+      const match = KEY_RE.exec(path)
+      // Compare captured productId UUID from the key against the expected productId.
+      return match && match[1].toLowerCase() === productId.toLowerCase() ? "managed" : "invalid"
     }
     return u.protocol === "https:" ? "external" : "invalid"
   } catch {
@@ -574,14 +592,14 @@ export function extractManagedBodyImageKeys(
   const root = parse(html)
   const keys = new Set<string>()
   const r2Origin = new URL(publicOrigin).origin
-  const expectedPrefix = `body/${productId}/`
   for (const img of root.querySelectorAll("img")) {
     const src = img.getAttribute("src") ?? ""
     try {
       const u = new URL(src)
       if (u.origin !== r2Origin) continue
       const path = decodeURIComponent(u.pathname).replace(/^\//, "")
-      if (path.startsWith(expectedPrefix) && KEY_RE.test(path)) {
+      const match = KEY_RE.exec(path)
+      if (match && match[1].toLowerCase() === productId.toLowerCase()) {
         keys.add(path)
       }
     } catch {
@@ -612,14 +630,15 @@ Tests live alongside the code they cover. Integration tests follow the `describe
 
 ### URL classification (`apps/web/tests/seller-products/body-image-keys.test.ts`)
 
-- `isManagedBodyImageUrl`: accepts exact `body/{productId}/{uuid}.{ext}` at R2 origin
-- `isManagedBodyImageUrl`: rejects cross-product R2 URL (different productId)
-- `isManagedBodyImageUrl`: rejects R2 URL with nested path (`body/pid/subdir/uuid.jpg`)
-- `isManagedBodyImageUrl`: rejects `data:` URI
-- `isManagedBodyImageUrl`: rejects `http:` external URL
-- `isManagedBodyImageUrl`: rejects relative URL
-- `isManagedBodyImageUrl`: rejects unparseable string (try/catch returns false)
-- `extractManagedBodyImageKeys`: returns only R2 keys for correct productId, skips external images and other products' R2 URLs
+- `classifyImageUrl`: returns `"managed"` for exact `body/{productId}/{uuid}.{ext}` at R2 origin
+- `classifyImageUrl`: returns `"invalid"` for cross-product R2 URL (different productId in capture group)
+- `classifyImageUrl`: returns `"invalid"` for R2 URL with nested path (`body/pid/subdir/uuid.jpg`)
+- `classifyImageUrl`: returns `"invalid"` for `data:` URI
+- `classifyImageUrl`: returns `"external"` for valid `https:` URL at a different origin
+- `classifyImageUrl`: returns `"invalid"` for `http:` URL
+- `classifyImageUrl`: returns `"invalid"` for relative URL
+- `classifyImageUrl`: returns `"invalid"` for unparseable string (catch block)
+- `extractManagedBodyImageKeys`: returns only R2 keys matching productId capture group; skips external images and other products' R2 URLs
 
 ### Ownership + revision (`apps/web/tests/seller-products/actions.test.ts`)
 
@@ -661,6 +680,18 @@ Tests live alongside the code they cover. Integration tests follow the `describe
 - Final-reference check fires before deletion; if product now references key, delete is skipped
 - Individual R2 delete failure: logged, job continues, marker not cleared (retry next run)
 - Phase 1 DB pagination failure: job aborts before entering deletion phase
+- **R2 listing second-page failure:** first page returns 5 candidates, second page throws — assert zero deletions (all-or-nothing listing guarantee)
+- **Redis GET failure on candidate lookup:** object is skipped (fail-safe), not deleted; next run retries
+- **Redis SET failure on first-seen write:** object is skipped (fail-safe), no marker written; next run treats it as unseen
+- **Redis DEL failure after successful R2 delete:** logged; marker left in Redis; next run re-enters final-check and finds object gone in R2 listing (no harm)
+- **`withAdmin` RLS path:** run Phase 1 query as `bomy_app` role without `withAdmin` context; assert zero rows returned for a product owned by a different seller; rerun with `withAdmin(SYSTEM_ACTOR)`; assert the product's body image keys are present in the reference set
+
+### Sanitizer / normalization additions
+
+- `<p></p>` alone → `hasMeaningfulContent` returns false → `canonicalHtml = null`
+- `<p>   </p>` (whitespace only) → `canonicalHtml = null`
+- `<p></p><p></p>` (multiple empty paragraphs) → `canonicalHtml = null`
+- Body containing only `<p></p>` plus one `<img>` → `hasMeaningfulContent` returns true → not null
 
 ---
 
