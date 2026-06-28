@@ -656,6 +656,81 @@ export async function getPresignedUploadUrl(
   return { url, key, claim }
 }
 
+// ─── Body HTML save ────────────────────────────────────────────────────────
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+export async function saveProductBody(
+  productId: string,
+  bodyHtml: string,
+  revision: number,
+): Promise<{ ok: true; revision: number; html: string | null } | { ok: false; error: string }> {
+  const session = await requireSeller()
+  const userId = session.user.id
+
+  if (!Number.isSafeInteger(revision) || revision < 0) {
+    return { ok: false, error: "invalid_revision" }
+  }
+  if (!UUID_RE.test(productId)) {
+    return { ok: false, error: "invalid_product_id" }
+  }
+
+  const S3_PUBLIC_URL = process.env["S3_PUBLIC_URL"] ?? ""
+  const { normalizeBodyHtml } = await import("./body-sanitizer")
+  const normalized = normalizeBodyHtml(bodyHtml, productId, S3_PUBLIC_URL)
+  if (!normalized.ok) return normalized
+  const { canonicalHtml } = normalized
+
+  const txResult = await withTenant(getDb(), { userId, userRole: "seller_owner" }, async (tx) => {
+    const [store] = await tx
+      .select({ id: schema.stores.id, slug: schema.stores.slug })
+      .from(schema.stores)
+      .where(and(eq(schema.stores.ownerId, userId), eq(schema.stores.status, "active")))
+      .limit(1)
+    if (!store) return { ok: false as const, error: "not_found" }
+
+    const [existing] = await tx
+      .select({
+        bodyHtml: schema.products.bodyHtml,
+        bodyRevision: schema.products.bodyRevision,
+        productSlug: schema.products.slug,
+      })
+      .from(schema.products)
+      .where(and(eq(schema.products.id, productId), eq(schema.products.storeId, store.id)))
+      .for("update", { of: schema.products })
+      .limit(1)
+
+    if (!existing) return { ok: false as const, error: "not_found" }
+    if (existing.bodyRevision !== revision) return { ok: false as const, error: "conflict" }
+
+    await tx
+      .update(schema.products)
+      .set({ bodyHtml: canonicalHtml, bodyRevision: revision + 1, updatedAt: new Date() })
+      .where(eq(schema.products.id, productId))
+
+    return {
+      ok: true as const,
+      oldHtml: existing.bodyHtml,
+      storeSlug: store.slug,
+      productSlug: existing.productSlug,
+    }
+  })
+
+  if (!txResult.ok) return txResult
+
+  const { extractManagedBodyImageKeys } = await import("@bomy/shared")
+  const { deleteObject } = await import("@/lib/s3")
+  const oldKeys = extractManagedBodyImageKeys(txResult.oldHtml ?? "", productId, S3_PUBLIC_URL)
+  const newKeys = extractManagedBodyImageKeys(canonicalHtml ?? "", productId, S3_PUBLIC_URL)
+  const orphaned = [...oldKeys].filter((k) => !newKeys.has(k))
+  await Promise.allSettled(orphaned.map((key) => deleteObject(key)))
+
+  revalidatePath(`/seller/dashboard/products/${productId}/edit`)
+  revalidatePath(`/products/${txResult.storeSlug}/${txResult.productSlug}`)
+
+  return { ok: true, revision: revision + 1, html: canonicalHtml }
+}
+
 // ─── Body image upload URL ─────────────────────────────────────────────────
 
 const BODY_IMAGE_ALLOWED_TYPES = [
