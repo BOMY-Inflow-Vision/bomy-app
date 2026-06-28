@@ -935,26 +935,48 @@ CREATE POLICY duplicate_charges_bypass_update ON duplicate_charges
   WITH CHECK (app.is_admin_bypass());
 
 -- ── body_image_upload_log (upload rate-limit log) ────────────────────────────
--- SELECT policy includes bypass_rls=true so PostgreSQL's per-column SELECT
+-- SELECT policy includes is_admin_bypass() so PostgreSQL's per-column SELECT
 -- evaluation (applied to DELETE WHERE clauses) allows the nightly cleanup job
 -- to see rows via withAdmin.
 
 ALTER TABLE body_image_upload_log ENABLE ROW LEVEL SECURITY;
 ALTER TABLE body_image_upload_log FORCE ROW LEVEL SECURITY;
 
-CREATE POLICY body_image_upload_log_self_select ON body_image_upload_log
-  FOR SELECT TO bomy_app
-  USING (
-    user_id = current_setting('app.current_user_id')::uuid
-    OR current_setting('app.bypass_rls', true) = 'true'
-  );
+-- default-deny (RESTRICTIVE)
+DO $$ BEGIN
+  CREATE POLICY body_image_upload_log_default_deny ON body_image_upload_log
+    AS RESTRICTIVE
+    USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-CREATE POLICY body_image_upload_log_self_insert ON body_image_upload_log
-  FOR INSERT TO bomy_app
-  WITH CHECK (user_id = current_setting('app.current_user_id')::uuid);
+-- self SELECT (also allows bypass_rls so withAdmin DELETE WHERE evaluation works)
+DO $$ BEGIN
+  CREATE POLICY body_image_upload_log_self_select ON body_image_upload_log
+    FOR SELECT TO bomy_app
+    USING (
+      user_id = app.current_user_id()
+      OR app.is_admin_bypass()
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-CREATE POLICY body_image_upload_log_admin_delete ON body_image_upload_log
-  FOR DELETE TO bomy_app
-  USING (current_setting('app.bypass_rls', true) = 'true');
+-- self INSERT
+DO $$ BEGIN
+  CREATE POLICY body_image_upload_log_self_insert ON body_image_upload_log
+    FOR INSERT TO bomy_app
+    WITH CHECK (user_id = app.current_user_id());
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-GRANT SELECT, INSERT, DELETE ON body_image_upload_log TO bomy_app;
+-- admin DELETE
+DO $$ BEGIN
+  CREATE POLICY body_image_upload_log_admin_delete ON body_image_upload_log
+    FOR DELETE TO bomy_app
+    USING (app.is_admin_bypass());
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'bomy_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, DELETE ON body_image_upload_log TO bomy_app';
+  END IF;
+END
+$$;
