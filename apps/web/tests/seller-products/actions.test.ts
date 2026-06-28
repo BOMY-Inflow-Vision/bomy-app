@@ -11,7 +11,7 @@
 import { createHmac, randomUUID } from "node:crypto"
 
 import { and, asc, eq } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it, vi, type Mock } from "vitest"
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi, type Mock } from "vitest"
 
 import { makeDb, schema, withAdmin } from "@bomy/db"
 
@@ -24,16 +24,25 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 vi.mock("@/auth", () => ({ auth: vi.fn() }))
 vi.mock("@/lib/s3", async (importOriginal) => {
   const actual = await importOriginal()
-  return { ...(actual as object), deleteObject: vi.fn().mockResolvedValue(undefined) }
+  return {
+    ...(actual as object),
+    deleteObject: vi.fn().mockResolvedValue(undefined),
+    createBodyPresignedPutUrl: vi.fn().mockResolvedValue({
+      url: "https://signed.r2.example.com/upload",
+      expiresAt: new Date(Date.now() + 300_000),
+    }),
+  }
 })
 
 import { auth } from "@/auth"
+import { createBodyPresignedPutUrl } from "@/lib/s3"
 import {
   addProductImage,
   addVariant,
   archiveProduct,
   createProduct,
   deactivateVariant,
+  getBodyImageUploadUrl,
   getPresignedUploadUrl,
   getProductForEdit,
   removeProductImage,
@@ -1118,6 +1127,144 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       const result = await getProductForEdit(productWithInactiveCatId)
       const inactiveCat = result!.categories.find((c) => c.id === inactiveCatId)
       expect(inactiveCat?.isActive).toBe(false)
+    })
+  })
+
+  // ── getBodyImageUploadUrl ────────────────────────────────────────────────
+  describe("getBodyImageUploadUrl", () => {
+    let db: ReturnType<typeof makeDb>
+    let sellerId: string
+    let storeId: string
+    let productId: string
+
+    beforeAll(async () => {
+      db = makeDb({ url: DATABASE_URL as string })
+      sellerId = randomUUID()
+      storeId = randomUUID()
+      productId = randomUUID()
+
+      await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "test seed" }, async (tx) => {
+        await tx
+          .insert(schema.users)
+          .values({ id: sellerId, email: `upload-${sellerId}@test.bomy`, role: "seller_owner" })
+        await tx.insert(schema.stores).values({
+          id: storeId,
+          ownerId: sellerId,
+          name: "Upload Test Store",
+          slug: `upload-test-${storeId.slice(0, 8)}`,
+          status: "active",
+        })
+        await tx
+          .insert(schema.products)
+          .values({
+            id: productId,
+            storeId,
+            name: "Upload Product",
+            slug: `upload-prod-${productId.slice(0, 8)}`,
+          })
+      })
+    })
+
+    afterAll(async () => {
+      await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
+        await tx.delete(schema.products).where(eq(schema.products.id, productId))
+        await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
+        await tx.delete(schema.users).where(eq(schema.users.id, sellerId))
+      })
+      await db.close()
+    })
+
+    beforeEach(() => {
+      mockAuth.mockResolvedValue({ user: { id: sellerId, role: "seller_owner" } })
+      vi.mocked(createBodyPresignedPutUrl).mockResolvedValue({
+        url: "https://signed.r2.example.com/upload",
+        expiresAt: new Date(Date.now() + 300_000),
+      })
+    })
+
+    it("rejects disallowed MIME type (image/svg+xml)", async () => {
+      const result = await getBodyImageUploadUrl(productId, "image/svg+xml", 1024)
+      expect(result).toMatchObject({ ok: false, error: "invalid_type" })
+    })
+
+    it("rejects disallowed MIME type (text/html)", async () => {
+      const result = await getBodyImageUploadUrl(productId, "text/html", 1024)
+      expect(result).toMatchObject({ ok: false, error: "invalid_type" })
+    })
+
+    it("rejects contentLength > 2 MB", async () => {
+      const result = await getBodyImageUploadUrl(productId, "image/jpeg", 2 * 1024 * 1024 + 1)
+      expect(result).toMatchObject({ ok: false, error: "invalid_size" })
+    })
+
+    it("rejects contentLength <= 0", async () => {
+      const result = await getBodyImageUploadUrl(productId, "image/jpeg", 0)
+      expect(result).toMatchObject({ ok: false, error: "invalid_size" })
+    })
+
+    it("returns not_found for a product belonging to a different store", async () => {
+      const result = await getBodyImageUploadUrl(randomUUID(), "image/jpeg", 1024)
+      expect(result).toMatchObject({ ok: false, error: "not_found" })
+    })
+
+    it("20th request in window succeeds, 21st returns rate_limited", async () => {
+      // Drain any prior log rows for this seller
+      await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
+        await tx
+          .delete(schema.bodyImageUploadLog)
+          .where(eq(schema.bodyImageUploadLog.userId, sellerId))
+      })
+
+      const calls = Array.from({ length: 21 }, () =>
+        getBodyImageUploadUrl(productId, "image/jpeg", 1024),
+      )
+      const results = await Promise.all(calls)
+      const successes = results.filter((r) => r.ok)
+      const limited = results.filter(
+        (r) => !r.ok && (r as { error: string }).error === "rate_limited",
+      )
+      expect(successes).toHaveLength(20)
+      expect(limited).toHaveLength(1)
+    })
+
+    it("rate limit is per-user: second seller is unaffected", async () => {
+      // First seller already has 21 requests from the previous test; the second seller
+      // has never made one.
+      const seller2Id = randomUUID()
+      const store2Id = randomUUID()
+      const product2Id = randomUUID()
+      await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "test seed seller2" }, async (tx) => {
+        await tx.insert(schema.users).values({
+          id: seller2Id,
+          email: `upload2-${seller2Id}@test.bomy`,
+          role: "seller_owner",
+        })
+        await tx.insert(schema.stores).values({
+          id: store2Id,
+          ownerId: seller2Id,
+          name: "Upload Test Store 2",
+          slug: `upload-test2-${store2Id.slice(0, 8)}`,
+          status: "active",
+        })
+        await tx.insert(schema.products).values({
+          id: product2Id,
+          storeId: store2Id,
+          name: "Upload Product 2",
+          slug: `upload-prod2-${product2Id.slice(0, 8)}`,
+        })
+      })
+      mockAuth.mockResolvedValue({ user: { id: seller2Id, role: "seller_owner" } })
+      const result = await getBodyImageUploadUrl(product2Id, "image/jpeg", 512)
+      expect(result).toMatchObject({ ok: true })
+      await withAdmin(
+        db.db,
+        { userId: SYSTEM_ACTOR, reason: "test cleanup seller2" },
+        async (tx) => {
+          await tx.delete(schema.products).where(eq(schema.products.id, product2Id))
+          await tx.delete(schema.stores).where(eq(schema.stores.id, store2Id))
+          await tx.delete(schema.users).where(eq(schema.users.id, seller2Id))
+        },
+      )
     })
   })
 })

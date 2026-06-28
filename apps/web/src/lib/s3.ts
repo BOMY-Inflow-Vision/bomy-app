@@ -85,3 +85,21 @@ export function verifyUploadClaim(userId: string, key: string, claim: string): b
     return false
   }
 }
+
+export async function createBodyPresignedPutUrl(
+  key: string,
+  contentType: string,
+  contentLength: number,
+): Promise<{ url: string; expiresAt: Date }> {
+  const bucket = process.env["S3_BUCKET"]
+  if (!bucket) throw new Error("S3_BUCKET is required")
+  const command = new PutObjectCommand({
+    Bucket: bucket,
+    Key: key,
+    ContentType: contentType,
+    ContentLength: contentLength,
+  })
+  const expiresIn = 300
+  const url = await getSignedUrl(getS3(), command, { expiresIn })
+  return { url, expiresAt: new Date(Date.now() + expiresIn * 1000) }
+}
