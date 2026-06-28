@@ -31,6 +31,7 @@ export function ProductBodyEditor({
   const [uploadStatus, setUploadStatus] = useState<"idle" | "uploading" | "error">("idle")
   const [uploadProgress, setUploadProgress] = useState(0)
   const bodyHtmlRef = useRef<HTMLInputElement>(null)
+  const savedHtmlRef = useRef(initialHtml ?? "")
 
   const editor = useEditor({
     extensions: [
@@ -61,7 +62,7 @@ export function ProductBodyEditor({
     onUpdate: ({ editor: e }) => {
       const html = e.getHTML()
       if (bodyHtmlRef.current) bodyHtmlRef.current.value = html
-      const newDirty = html !== (initialHtml ?? "")
+      const newDirty = html !== savedHtmlRef.current
       setDirty(newDirty)
       onDirtyChange(newDirty)
     },
@@ -88,6 +89,7 @@ export function ProductBodyEditor({
       setDirty(false)
       onDirtyChange(false)
       setSaveStatus("saved")
+      savedHtmlRef.current = result.html ?? ""
       editor.commands.setContent(result.html ?? "")
       setTimeout(() => setSaveStatus("idle"), 2000)
     } else if (result.error === "conflict") {
