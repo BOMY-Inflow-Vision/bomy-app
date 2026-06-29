@@ -60,7 +60,9 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
 const VIDEO_ID_RE = /^[a-zA-Z0-9_-]{1,11}$/
 
 function hasMeaningfulContent(html: string): boolean {
-  if (/<(img|figure)[\s>]/i.test(html)) return true
+  // Only count <img> tags that retained a src after sanitization (src-less imgs are noise)
+  if (/<img[^>]*\bsrc=/i.test(html)) return true
+  if (/<figure[\s>]/i.test(html)) return true
   return html.replace(/<[^>]*>/g, "").trim().length > 0
 }
 
@@ -90,12 +92,15 @@ export function normalizeBodyHtml(
   const root = parse(sanitized)
 
   const imgs = root.querySelectorAll("img")
+  let srcImgCount = 0
   for (const img of imgs) {
     const src = img.getAttribute("src") ?? ""
+    if (!src) continue // src stripped by sanitizer (e.g., data: URI) — not a real image
+    srcImgCount++
     const cls = classifyImageUrl(src, productId, publicOrigin)
     if (cls === "invalid") return { ok: false, error: "invalid_image_url" }
   }
-  if (imgs.length > 10) return { ok: false, error: "too_many_images" }
+  if (srcImgCount > 10) return { ok: false, error: "too_many_images" }
 
   for (const fig of root.querySelectorAll("figure")) {
     const provider = fig.getAttribute("data-video-provider")

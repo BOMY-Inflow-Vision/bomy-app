@@ -22,6 +22,18 @@ vi.mock("next/navigation", () => ({
 }))
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 vi.mock("@/auth", () => ({ auth: vi.fn() }))
+
+// Capture after() callbacks so tests can flush them deterministically
+const afterCallbacks: Array<() => void | Promise<void>> = []
+vi.mock("next/server", () => ({
+  after: vi.fn((fn: () => void | Promise<void>) => {
+    afterCallbacks.push(fn)
+  }),
+}))
+async function flushAfter() {
+  const fns = afterCallbacks.splice(0)
+  await Promise.all(fns.map((fn) => Promise.resolve(fn())))
+}
 vi.mock("@/lib/s3", async (importOriginal) => {
   const actual = await importOriginal()
   return {
@@ -1187,6 +1199,8 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
           .where(eq(schema.products.id, productId))
       })
       process.env["S3_PUBLIC_URL"] = "https://r2.test"
+      afterCallbacks.length = 0
+      vi.mocked(deleteObject).mockClear()
     })
 
     it("rejects non-integer revision (negative)", async () => {
@@ -1277,8 +1291,7 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       expect(row?.bodyHtml).toBeNull()
     })
 
-    it("does NOT call deleteObject for keys removed from body (deferred to nightly cleanup)", async () => {
-      vi.mocked(deleteObject).mockClear()
+    it("calls deleteObject for keys dropped from body on save", async () => {
       const fakeKey = `body/${productId}/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee.jpg`
       const fakeUrl = `https://r2.test/${fakeKey}`
       await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "test setup" }, async (tx) => {
@@ -1289,11 +1302,11 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       })
       const r = await saveProductBody(productId, "<p>new content no image</p>", 0)
       expect(r).toMatchObject({ ok: true })
-      // Immediate deletion was removed; orphan cleanup is handled by the nightly body-image-cleanup job
-      expect(vi.mocked(deleteObject)).not.toHaveBeenCalled()
+      await flushAfter()
+      expect(vi.mocked(deleteObject)).toHaveBeenCalledWith(fakeKey)
     })
 
-    it("save succeeds and DB revision advances (orphan deletion is deferred)", async () => {
+    it("save returns ok and advances bodyRevision when old body had an image", async () => {
       const fakeKey = `body/${productId}/bbbbbbbb-cccc-dddd-eeee-ffffffffffff.jpg`
       const fakeUrl = `https://r2.test/${fakeKey}`
       await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "test setup" }, async (tx) => {
@@ -1304,7 +1317,6 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       })
       const r = await saveProductBody(productId, "<p>new</p>", 0)
       expect(r).toMatchObject({ ok: true })
-      // Verify DB revision advanced
       const [row] = await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "verify" }, (tx) =>
         tx
           .select({ rev: schema.products.bodyRevision })
@@ -1314,8 +1326,7 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       expect(row?.rev).toBe(1)
     })
 
-    it("does not call deleteObject for a key that still appears in new body", async () => {
-      vi.mocked(deleteObject).mockClear()
+    it("does not call deleteObject for a key still present in new body", async () => {
       const fakeKey = `body/${productId}/cccccccc-dddd-eeee-ffff-000000000000.jpg`
       const fakeUrl = `https://r2.test/${fakeKey}`
       await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "test setup" }, async (tx) => {
@@ -1326,7 +1337,45 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       })
       const r = await saveProductBody(productId, `<img src="${fakeUrl}" alt="x" />`, 0)
       expect(r).toMatchObject({ ok: true })
+      await flushAfter()
       expect(vi.mocked(deleteObject)).not.toHaveBeenCalled()
+    })
+
+    it("skips deletion when the live body re-references the key after save", async () => {
+      const fakeKey = `body/${productId}/dddddddd-eeee-ffff-0000-111111111111.jpg`
+      const fakeUrl = `https://r2.test/${fakeKey}`
+      await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "test setup" }, async (tx) => {
+        await tx
+          .update(schema.products)
+          .set({ bodyHtml: `<img src="${fakeUrl}" alt="x" />`, bodyRevision: 0 })
+          .where(eq(schema.products.id, productId))
+      })
+      const r = await saveProductBody(productId, "<p>no image</p>", 0)
+      expect(r).toMatchObject({ ok: true })
+      // Simulate a concurrent save that re-added the key before after() runs
+      await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "simulate re-add" }, async (tx) => {
+        await tx
+          .update(schema.products)
+          .set({ bodyHtml: `<img src="${fakeUrl}" alt="x" />` })
+          .where(eq(schema.products.id, productId))
+      })
+      await flushAfter()
+      expect(vi.mocked(deleteObject)).not.toHaveBeenCalled()
+    })
+
+    it("save returns ok even when deleteObject throws", async () => {
+      vi.mocked(deleteObject).mockRejectedValueOnce(new Error("R2 unavailable"))
+      const fakeKey = `body/${productId}/eeeeeeee-ffff-0000-1111-222222222222.jpg`
+      const fakeUrl = `https://r2.test/${fakeKey}`
+      await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "test setup" }, async (tx) => {
+        await tx
+          .update(schema.products)
+          .set({ bodyHtml: `<img src="${fakeUrl}" alt="x" />`, bodyRevision: 0 })
+          .where(eq(schema.products.id, productId))
+      })
+      const r = await saveProductBody(productId, "<p>new</p>", 0)
+      expect(r).toMatchObject({ ok: true })
+      await expect(flushAfter()).resolves.not.toThrow()
     })
 
     it("returns not_found when seller's store is suspended", async () => {
