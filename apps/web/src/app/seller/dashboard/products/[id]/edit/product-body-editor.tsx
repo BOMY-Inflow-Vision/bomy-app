@@ -27,6 +27,7 @@ export function ProductBodyEditor({
   const [revision, setRevision] = useState(initialRevision)
   const [dirty, setDirty] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [conflictDetected, setConflictDetected] = useState(false)
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle")
   const [uploadStatus, setUploadStatus] = useState<"idle" | "uploading" | "error">("idle")
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -89,15 +90,18 @@ export function ProductBodyEditor({
       setDirty(false)
       onDirtyChange(false)
       setSaveStatus("saved")
+      setConflictDetected(false)
       savedHtmlRef.current = result.html ?? ""
       editor.commands.setContent(result.html ?? "")
       setTimeout(() => setSaveStatus("idle"), 2000)
     } else if (result.error === "conflict") {
+      setConflictDetected(true)
       setSaveError(
         "Another tab or device saved this product. Copy your changes, then reload to get the latest version.",
       )
       setSaveStatus("idle")
     } else {
+      setConflictDetected(false)
       setSaveError(`Save failed: ${result.error}`)
       setSaveStatus("idle")
     }
@@ -185,7 +189,7 @@ export function ProductBodyEditor({
           ⊞
         </ToolbarButton>
         <InsertImageUrlButton editor={editor} />
-        <UploadImageButton editor={editor} productId={productId} />
+        <UploadImageButton editor={editor} />
         <EmbedYouTubeButton editor={editor} />
       </div>
 
@@ -208,7 +212,7 @@ export function ProductBodyEditor({
       {saveError && (
         <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
           {saveError}
-          {saveError.includes("Another tab") && (
+          {conflictDetected && (
             <button
               type="button"
               className="ml-2 font-medium underline"
@@ -291,13 +295,7 @@ function InsertImageUrlButton({ editor }: { editor: Editor | null }) {
   )
 }
 
-function UploadImageButton({
-  editor,
-  productId: _productId,
-}: {
-  editor: Editor | null
-  productId: string
-}) {
+function UploadImageButton({ editor }: { editor: Editor | null }) {
   const inputRef = useRef<HTMLInputElement>(null)
   return (
     <>

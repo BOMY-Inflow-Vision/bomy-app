@@ -275,6 +275,8 @@ export async function runBodyImageCleanup(
         continue
       }
     }
+    // Non-conforming keys (no product UUID in path) are treated as plain orphans:
+    // we cannot derive a product ID to re-check, so no final DB check is performed.
 
     toDelete.push(key)
   }

@@ -1322,7 +1322,7 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
   })
 
   // ── getBodyImageUploadUrl ────────────────────────────────────────────────
-  describe("getBodyImageUploadUrl", () => {
+  describe.skipIf(!shouldRun)("getBodyImageUploadUrl", () => {
     let db: ReturnType<typeof makeDb>
     let sellerId: string
     let storeId: string
