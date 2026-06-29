@@ -53,7 +53,12 @@ export const ImageUploadExtension = Node.create<ImageUploadOptions>({
             return false
           }
 
-          const alt = prompt("Alt text (describe the image):") ?? ""
+          const altResult = prompt("Alt text (describe the image — or leave empty for decorative):")
+          if (altResult === null) {
+            // User cancelled — abort upload
+            return false
+          }
+          const alt = altResult
 
           const options = this.options
           options.onUploadStart()
@@ -75,12 +80,34 @@ export const ImageUploadExtension = Node.create<ImageUploadOptions>({
               }
               xhr.onload = () => {
                 if (xhr.status >= 200 && xhr.status < 300) {
-                  editor
-                    .chain()
-                    .focus()
-                    .insertContent({ type: "imageUpload", attrs: { src: publicUrl, alt } })
-                    .run()
-                  options.onUploadComplete()
+                  // Load image to capture dimensions for layout-shift prevention
+                  const img = new window.Image()
+                  img.onload = () => {
+                    editor
+                      .chain()
+                      .focus()
+                      .insertContent({
+                        type: "imageUpload",
+                        attrs: {
+                          src: publicUrl,
+                          alt,
+                          width: img.naturalWidth || null,
+                          height: img.naturalHeight || null,
+                        },
+                      })
+                      .run()
+                    options.onUploadComplete()
+                  }
+                  img.onerror = () => {
+                    // Dimensions unavailable — insert without them
+                    editor
+                      .chain()
+                      .focus()
+                      .insertContent({ type: "imageUpload", attrs: { src: publicUrl, alt } })
+                      .run()
+                    options.onUploadComplete()
+                  }
+                  img.src = publicUrl
                 } else {
                   options.onUploadError()
                 }

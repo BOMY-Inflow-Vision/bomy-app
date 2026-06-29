@@ -4,6 +4,28 @@ import { useEffect, useRef, useState } from "react"
 import { EditorContent, useEditor, type Editor } from "@tiptap/react"
 import { StarterKit } from "@tiptap/starter-kit"
 import { TableKit } from "@tiptap/extension-table"
+import { Link } from "@tiptap/extension-link"
+import { Underline } from "@tiptap/extension-underline"
+import {
+  Bold,
+  Code,
+  CodeXml,
+  Heading3,
+  Heading4,
+  ImageIcon,
+  Italic,
+  Link2,
+  List,
+  ListOrdered,
+  Minus,
+  Plus,
+  Quote,
+  Strikethrough,
+  Table,
+  Underline as UnderlineIcon,
+  Upload,
+  Youtube,
+} from "lucide-react"
 
 import { getBodyImageUploadUrl, saveProductBody } from "../../actions"
 import { YoutubeEmbedExtension } from "./youtube-embed-extension"
@@ -33,26 +55,36 @@ export function ProductBodyEditor({
   const [uploadProgress, setUploadProgress] = useState(0)
   const bodyHtmlRef = useRef<HTMLInputElement>(null)
   const savedHtmlRef = useRef(initialHtml ?? "")
+  const uploadCountRef = useRef(0)
 
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ heading: { levels: [3, 4] } }),
       TableKit,
+      Link.configure({ openOnClick: false, defaultProtocol: "https" }),
+      Underline,
       ImageUploadExtension.configure({
         productId,
         onUploadStart: () => {
+          uploadCountRef.current += 1
           setUploadStatus("uploading")
           setUploadProgress(0)
           onUploadStateChange(true)
         },
         onUploadProgress: (pct: number) => setUploadProgress(pct),
         onUploadComplete: () => {
-          setUploadStatus("idle")
-          onUploadStateChange(false)
+          uploadCountRef.current = Math.max(0, uploadCountRef.current - 1)
+          if (uploadCountRef.current === 0) {
+            setUploadStatus("idle")
+            onUploadStateChange(false)
+          }
         },
         onUploadError: () => {
+          uploadCountRef.current = Math.max(0, uploadCountRef.current - 1)
           setUploadStatus("error")
-          onUploadStateChange(false)
+          if (uploadCountRef.current === 0) {
+            onUploadStateChange(false)
+          }
         },
         getUploadUrl: getBodyImageUploadUrl,
       }),
@@ -84,7 +116,15 @@ export function ProductBodyEditor({
     setSaveStatus("saving")
     setSaveError(null)
     const html = editor.getHTML()
-    const result = await saveProductBody(productId, html, revision)
+    let result: Awaited<ReturnType<typeof saveProductBody>>
+    try {
+      result = await saveProductBody(productId, html, revision)
+    } catch {
+      setConflictDetected(false)
+      setSaveError("Save failed: network error. Please try again.")
+      setSaveStatus("idle")
+      return
+    }
     if (result.ok) {
       setRevision(result.revision)
       setDirty(false)
@@ -122,31 +162,19 @@ export function ProductBodyEditor({
         </div>
       )}
 
-      {/* Toolbar */}
-      <div className="flex flex-wrap gap-1 rounded border border-gray-200 bg-gray-50 p-1">
-        <ToolbarButton
-          action={() => editor?.chain().focus().toggleBold().run()}
-          active={editor?.isActive("bold") ?? false}
-          label="Bold"
-          title="Bold"
-        >
-          <strong>B</strong>
-        </ToolbarButton>
-        <ToolbarButton
-          action={() => editor?.chain().focus().toggleItalic().run()}
-          active={editor?.isActive("italic") ?? false}
-          label="Italic"
-          title="Italic"
-        >
-          <em>I</em>
-        </ToolbarButton>
+      {/* Main toolbar */}
+      <div
+        role="toolbar"
+        aria-label="Body editor toolbar"
+        className="flex flex-wrap gap-1 rounded border border-gray-200 bg-gray-50 p-1"
+      >
         <ToolbarButton
           action={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}
           active={editor?.isActive("heading", { level: 3 }) ?? false}
           label="Heading 3"
           title="Heading 3"
         >
-          H3
+          <Heading3 className="h-4 w-4" />
         </ToolbarButton>
         <ToolbarButton
           action={() => editor?.chain().focus().toggleHeading({ level: 4 }).run()}
@@ -154,15 +182,78 @@ export function ProductBodyEditor({
           label="Heading 4"
           title="Heading 4"
         >
-          H4
+          <Heading4 className="h-4 w-4" />
         </ToolbarButton>
+        <ToolbarButton
+          action={() => editor?.chain().focus().toggleBold().run()}
+          active={editor?.isActive("bold") ?? false}
+          label="Bold"
+          title="Bold"
+        >
+          <Bold className="h-4 w-4" />
+        </ToolbarButton>
+        <ToolbarButton
+          action={() => editor?.chain().focus().toggleItalic().run()}
+          active={editor?.isActive("italic") ?? false}
+          label="Italic"
+          title="Italic"
+        >
+          <Italic className="h-4 w-4" />
+        </ToolbarButton>
+        <ToolbarButton
+          action={() => editor?.chain().focus().toggleUnderline().run()}
+          active={editor?.isActive("underline") ?? false}
+          label="Underline"
+          title="Underline"
+        >
+          <UnderlineIcon className="h-4 w-4" />
+        </ToolbarButton>
+        <ToolbarButton
+          action={() => editor?.chain().focus().toggleStrike().run()}
+          active={editor?.isActive("strike") ?? false}
+          label="Strikethrough"
+          title="Strikethrough"
+        >
+          <Strikethrough className="h-4 w-4" />
+        </ToolbarButton>
+
+        <span
+          role="separator"
+          aria-orientation="vertical"
+          className="mx-1 h-5 w-px self-center bg-gray-300"
+        />
+
+        <LinkButton editor={editor} />
+        <ToolbarButton
+          action={() => editor?.chain().focus().toggleCode().run()}
+          active={editor?.isActive("code") ?? false}
+          label="Inline code"
+          title="Inline code"
+        >
+          <Code className="h-4 w-4" />
+        </ToolbarButton>
+        <ToolbarButton
+          action={() => editor?.chain().focus().toggleCodeBlock().run()}
+          active={editor?.isActive("codeBlock") ?? false}
+          label="Code block"
+          title="Code block"
+        >
+          <CodeXml className="h-4 w-4" />
+        </ToolbarButton>
+
+        <span
+          role="separator"
+          aria-orientation="vertical"
+          className="mx-1 h-5 w-px self-center bg-gray-300"
+        />
+
         <ToolbarButton
           action={() => editor?.chain().focus().toggleBulletList().run()}
           active={editor?.isActive("bulletList") ?? false}
           label="Bullet list"
           title="Bullet list"
         >
-          •—
+          <List className="h-4 w-4" />
         </ToolbarButton>
         <ToolbarButton
           action={() => editor?.chain().focus().toggleOrderedList().run()}
@@ -170,7 +261,7 @@ export function ProductBodyEditor({
           label="Numbered list"
           title="Numbered list"
         >
-          1.
+          <ListOrdered className="h-4 w-4" />
         </ToolbarButton>
         <ToolbarButton
           action={() => editor?.chain().focus().toggleBlockquote().run()}
@@ -178,20 +269,86 @@ export function ProductBodyEditor({
           label="Blockquote"
           title="Blockquote"
         >
-          &quot;
+          <Quote className="h-4 w-4" />
         </ToolbarButton>
         <ToolbarButton
-          action={() => editor?.chain().focus().insertTable({ rows: 2, cols: 2 }).run()}
+          action={() => editor?.chain().focus().setHorizontalRule().run()}
+          active={false}
+          label="Horizontal rule"
+          title="Horizontal rule"
+        >
+          <Minus className="h-4 w-4" />
+        </ToolbarButton>
+
+        <span
+          role="separator"
+          aria-orientation="vertical"
+          className="mx-1 h-5 w-px self-center bg-gray-300"
+        />
+
+        <ToolbarButton
+          action={() =>
+            editor?.chain().focus().insertTable({ rows: 2, cols: 2, withHeaderRow: true }).run()
+          }
           active={false}
           label="Insert table"
           title="Insert table"
         >
-          ⊞
+          <Table className="h-4 w-4" />
         </ToolbarButton>
+
+        <span
+          role="separator"
+          aria-orientation="vertical"
+          className="mx-1 h-5 w-px self-center bg-gray-300"
+        />
+
         <InsertImageUrlButton editor={editor} />
         <UploadImageButton editor={editor} />
         <EmbedYouTubeButton editor={editor} />
       </div>
+
+      {/* Table controls — only shown when cursor is in a table */}
+      {editor?.isActive("table") && (
+        <div
+          role="toolbar"
+          aria-label="Table controls"
+          className="flex flex-wrap gap-1 rounded border border-gray-200 bg-gray-50 p-1"
+        >
+          <ToolbarButton
+            action={() => editor.chain().focus().addRowAfter().run()}
+            active={false}
+            label="Add row below"
+            title="Add row below"
+          >
+            <Plus className="h-4 w-4" />
+          </ToolbarButton>
+          <ToolbarButton
+            action={() => editor.chain().focus().deleteRow().run()}
+            active={false}
+            label="Delete row"
+            title="Delete row"
+          >
+            <Minus className="h-4 w-4" />
+          </ToolbarButton>
+          <ToolbarButton
+            action={() => editor.chain().focus().addColumnAfter().run()}
+            active={false}
+            label="Add column right"
+            title="Add column right"
+          >
+            <Plus className="h-4 w-4" />
+          </ToolbarButton>
+          <ToolbarButton
+            action={() => editor.chain().focus().deleteColumn().run()}
+            active={false}
+            label="Delete column"
+            title="Delete column"
+          >
+            <Minus className="h-4 w-4" />
+          </ToolbarButton>
+        </div>
+      )}
 
       {/* Upload progress */}
       <div role="status" aria-live="polite" className="text-sm">
@@ -206,7 +363,8 @@ export function ProductBodyEditor({
 
       <EditorContent
         editor={editor}
-        className="min-h-[200px] rounded border border-gray-200 p-3 focus-within:ring-2 focus-within:ring-indigo-500"
+        aria-label="Product body editor"
+        className="[&_.ProseMirror]:prose [&_.ProseMirror]:max-w-none [&_.ProseMirror]:min-h-[200px] [&_.ProseMirror]:rounded [&_.ProseMirror]:border [&_.ProseMirror]:border-gray-200 [&_.ProseMirror]:p-3 [&_.ProseMirror]:focus:outline-none [&_.ProseMirror]:focus:ring-2 [&_.ProseMirror]:focus:ring-indigo-500"
       />
 
       {saveError && (
@@ -255,10 +413,7 @@ function ToolbarButton({
   return (
     <button
       type="button"
-      onMouseDown={(e) => {
-        e.preventDefault()
-        action()
-      }}
+      onClick={() => action()}
       aria-label={label}
       aria-pressed={active}
       title={title}
@@ -271,26 +426,53 @@ function ToolbarButton({
   )
 }
 
+function LinkButton({ editor }: { editor: Editor | null }) {
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        if (editor?.isActive("link")) {
+          editor.chain().focus().unsetLink().run()
+        } else {
+          const url = prompt("URL:")
+          if (!url) return
+          editor?.chain().focus().setLink({ href: url }).run()
+        }
+      }}
+      aria-label="Set or unset link"
+      aria-pressed={editor?.isActive("link") ?? false}
+      title="Link"
+      className={`min-h-[44px] min-w-[44px] rounded px-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 ${
+        (editor?.isActive("link") ?? false)
+          ? "bg-indigo-100 text-indigo-700"
+          : "bg-white text-gray-700 hover:bg-gray-100"
+      }`}
+    >
+      <Link2 className="h-4 w-4" />
+    </button>
+  )
+}
+
 function InsertImageUrlButton({ editor }: { editor: Editor | null }) {
   return (
     <button
       type="button"
-      onMouseDown={(e) => {
-        e.preventDefault()
+      onClick={() => {
         const url = prompt("Image URL (must be https://):")
         if (!url || !url.startsWith("https://")) return
-        const alt = prompt("Alt text (describe the image):") ?? ""
+        const altResult = prompt("Alt text (describe the image — or leave empty for decorative):")
+        if (altResult === null) return
         editor
           ?.chain()
           .focus()
-          .insertContent({ type: "imageUpload", attrs: { src: url, alt } })
+          .insertContent({ type: "imageUpload", attrs: { src: url, alt: altResult } })
           .run()
       }}
       aria-label="Insert image by URL"
       title="Insert image by URL"
       className="min-h-[44px] min-w-[44px] rounded bg-white px-2 text-sm text-gray-700 hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
     >
-      🔗🖼
+      <ImageIcon className="h-4 w-4" />
     </button>
   )
 }
@@ -301,15 +483,14 @@ function UploadImageButton({ editor }: { editor: Editor | null }) {
     <>
       <button
         type="button"
-        onMouseDown={(e) => {
-          e.preventDefault()
+        onClick={() => {
           inputRef.current?.click()
         }}
         aria-label="Upload image"
         title="Upload image"
         className="min-h-[44px] min-w-[44px] rounded bg-white px-2 text-sm text-gray-700 hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
       >
-        ⬆🖼
+        <Upload className="h-4 w-4" />
       </button>
       <input
         ref={inputRef}
@@ -333,8 +514,7 @@ function EmbedYouTubeButton({ editor }: { editor: Editor | null }) {
   return (
     <button
       type="button"
-      onMouseDown={(e) => {
-        e.preventDefault()
+      onClick={() => {
         const input = prompt("YouTube video URL or ID:")
         if (!input) return
         const idMatch =
@@ -352,7 +532,7 @@ function EmbedYouTubeButton({ editor }: { editor: Editor | null }) {
       title="Embed YouTube video"
       className="min-h-[44px] min-w-[44px] rounded bg-white px-2 text-sm text-gray-700 hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
     >
-      ▶
+      <Youtube className="h-4 w-4" />
     </button>
   )
 }

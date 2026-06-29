@@ -18,7 +18,12 @@ export function VideoEmbed({ videoId, title }: { videoId: string; title?: string
         onClick={() => setActive(true)}
         role="button"
         tabIndex={0}
-        onKeyDown={(e) => e.key === "Enter" && setActive(true)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault()
+            setActive(true)
+          }
+        }}
         aria-label={`Play: ${displayTitle}`}
         data-video-id={videoId}
       >
