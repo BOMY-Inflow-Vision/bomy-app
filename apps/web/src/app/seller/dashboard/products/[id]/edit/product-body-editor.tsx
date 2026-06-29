@@ -33,8 +33,8 @@ interface Props {
   productId: string
   initialHtml: string | null
   initialRevision: number
-  onDirtyChange: (dirty: boolean) => void
-  onUploadStateChange: (uploading: boolean) => void
+  onDirtyChange?: (dirty: boolean) => void
+  onUploadStateChange?: (uploading: boolean) => void
 }
 
 export function ProductBodyEditor({
@@ -71,13 +71,13 @@ export function ProductBodyEditor({
           setActiveUploadCount((c) => c + 1)
           setUploadError(false)
           setUploadProgress(0)
-          onUploadStateChange(true)
+          onUploadStateChange?.(true)
         },
         onUploadProgress: (pct: number) => setUploadProgress(pct),
         onUploadComplete: () => {
           setActiveUploadCount((c) => {
             const next = Math.max(0, c - 1)
-            if (next === 0) onUploadStateChange(false)
+            if (next === 0) onUploadStateChange?.(false)
             return next
           })
         },
@@ -85,7 +85,7 @@ export function ProductBodyEditor({
           setUploadError(true)
           setActiveUploadCount((c) => {
             const next = Math.max(0, c - 1)
-            if (next === 0) onUploadStateChange(false)
+            if (next === 0) onUploadStateChange?.(false)
             return next
           })
         },
@@ -107,7 +107,7 @@ export function ProductBodyEditor({
       if (bodyHtmlRef.current) bodyHtmlRef.current.value = html
       const newDirty = html !== savedHtmlRef.current
       setDirty(newDirty)
-      onDirtyChange(newDirty)
+      onDirtyChange?.(newDirty)
     },
   })
 
@@ -138,7 +138,7 @@ export function ProductBodyEditor({
     if (result.ok) {
       setRevision(result.revision)
       setDirty(false)
-      onDirtyChange(false)
+      onDirtyChange?.(false)
       setSaveStatus("saved")
       setConflictDetected(false)
       savedHtmlRef.current = result.html ?? ""

@@ -39,8 +39,6 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
             productId={product.id}
             initialHtml={product.bodyHtml ?? null}
             initialRevision={product.bodyRevision}
-            onDirtyChange={() => {}}
-            onUploadStateChange={() => {}}
           />
         </section>
       </div>
