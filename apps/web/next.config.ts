@@ -12,11 +12,6 @@ interface WebpackConfigLike {
 
 const config: NextConfig = {
   output: "standalone",
-  // jsdom (used by isomorphic-dompurify in body-sanitizer) reads its own
-  // browser/default-stylesheet.css at runtime via __dirname-relative require().
-  // Bundling it causes ENOENT in Vercel because the CSS file is stripped.
-  // Marking it external lets Node.js resolve the file from node_modules normally.
-  serverExternalPackages: ["jsdom"],
   // BOMY workspace packages export TS source with NodeNext-style `.js`
   // specifiers inside (e.g. `export * from "./client.js"` resolving to
   // `./client.ts`). Next.js needs both:

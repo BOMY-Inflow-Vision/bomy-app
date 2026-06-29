@@ -1,57 +1,34 @@
 import "server-only"
 
-import DOMPurify from "isomorphic-dompurify"
-import { parse, type HTMLElement } from "node-html-parser"
+import { NodeType, parse, type HTMLElement as NHPElement } from "node-html-parser"
 
 import { classifyImageUrl } from "@bomy/shared"
 
-const SANITIZE_CONFIG = {
-  ALLOWED_TAGS: [
-    "p",
-    "h3",
-    "h4",
-    "strong",
-    "em",
-    "u",
-    "s",
-    "ul",
-    "ol",
-    "li",
-    "a",
-    "blockquote",
-    "hr",
-    "code",
-    "pre",
-    "table",
-    "thead",
-    "tbody",
-    "tr",
-    "th",
-    "td",
-    "img",
-    "figure",
-  ],
-  ALLOWED_ATTR: [
-    "href",
-    "rel",
-    "target",
-    "src",
-    "alt",
-    "width",
-    "height",
-    "loading",
-    "decoding",
-    "referrerpolicy",
-    "data-video-provider",
-    "data-video-id",
-    "data-video-title",
-    "colspan",
-    "rowspan",
-    "scope",
-  ],
-}
-
-const VIDEO_ID_RE = /^[a-zA-Z0-9_-]{1,11}$/
+const ALLOWED_TAGS = new Set([
+  "p",
+  "h3",
+  "h4",
+  "strong",
+  "em",
+  "u",
+  "s",
+  "ul",
+  "ol",
+  "li",
+  "a",
+  "blockquote",
+  "hr",
+  "code",
+  "pre",
+  "table",
+  "thead",
+  "tbody",
+  "tr",
+  "th",
+  "td",
+  "img",
+  "figure",
+])
 
 const PER_ELEMENT_ALLOWED_ATTRS: Record<string, ReadonlySet<string>> = {
   a: new Set(["href", "rel", "target"]),
@@ -61,9 +38,44 @@ const PER_ELEMENT_ALLOWED_ATTRS: Record<string, ReadonlySet<string>> = {
   td: new Set(["colspan", "rowspan"]),
 }
 
-function hasMeaningfulContent(root: HTMLElement): boolean {
-  if (root.querySelectorAll("img, figure").length > 0) return true
-  return root.textContent.trim().length > 0
+const VIDEO_ID_RE = /^[a-zA-Z0-9_-]{1,11}$/
+
+// Recursively strip disallowed tags (with their subtree) and disallowed attributes.
+// Security note: removing the entire subtree for disallowed tags is intentional —
+// it prevents XSS via nested elements and matches DOMPurify's default behaviour.
+function sanitizeElement(el: NHPElement): void {
+  for (const child of [...el.childNodes]) {
+    if (child.nodeType === NodeType.TEXT_NODE) continue // text node — keep as-is
+
+    const elem = child as NHPElement
+    const tag = elem.tagName?.toLowerCase() ?? ""
+
+    if (!ALLOWED_TAGS.has(tag)) {
+      elem.remove()
+      continue
+    }
+
+    // Strip any attribute not in this element's allow-list
+    const allowed = PER_ELEMENT_ALLOWED_ATTRS[tag] ?? new Set<string>()
+    for (const attr of Object.keys(elem.rawAttributes ?? {})) {
+      if (!allowed.has(attr)) elem.removeAttribute(attr)
+    }
+
+    // href must be https:// or http:// — strip anything else (blocks javascript: etc.)
+    if (tag === "a") {
+      const href = elem.getAttribute("href") ?? ""
+      if (href && !href.startsWith("https://") && !href.startsWith("http://")) {
+        elem.removeAttribute("href")
+      }
+    }
+
+    sanitizeElement(elem)
+  }
+}
+
+function hasMeaningfulContent(el: NHPElement): boolean {
+  if (el.querySelectorAll("img, figure").length > 0) return true
+  return el.textContent.trim().length > 0
 }
 
 export function normalizeBodyHtml(
@@ -79,29 +91,16 @@ export function normalizeBodyHtml(
     return { ok: false, error: "too_large" }
   }
 
-  const sanitized = DOMPurify.sanitize(raw, SANITIZE_CONFIG)
-  const root = parse(sanitized)
+  const root = parse(raw)
 
-  // Strip img elements with data: URIs — DOMPurify keeps them in src but they
-  // are not valid content (data: is not a supported image source in this editor).
+  sanitizeElement(root)
+
+  // Strip img elements with data: URIs
   for (const img of root.querySelectorAll("img")) {
     const src = img.getAttribute("src") ?? ""
     if (src.startsWith("data:")) {
       img.remove()
     }
-  }
-
-  // Per-element attribute allow-list: strip any attribute not explicitly allowed on each tag.
-  for (const el of root.querySelectorAll("*")) {
-    const tag = el.tagName?.toLowerCase() ?? ""
-    const allowed = PER_ELEMENT_ALLOWED_ATTRS[tag] ?? new Set<string>()
-    for (const attr of Object.keys(el.rawAttributes ?? {})) {
-      if (!allowed.has(attr)) el.removeAttribute(attr)
-    }
-  }
-
-  for (const a of root.querySelectorAll("a")) {
-    a.setAttribute("rel", "noopener noreferrer nofollow ugc")
   }
 
   const reserialized = root.toString()
