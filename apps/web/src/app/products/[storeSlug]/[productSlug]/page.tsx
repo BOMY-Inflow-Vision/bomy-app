@@ -2,6 +2,7 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 
 import { getProductBySlug } from "../../queries"
+import { BodyRenderer } from "./body-renderer"
 import { ProductImageGallery } from "./product-image-gallery"
 import { VariantPicker } from "./variant-picker"
 
@@ -65,6 +66,17 @@ export default async function ProductDetailPage({ params }: Props) {
           />
         </div>
       </div>
+
+      {product.bodyHtml && (
+        <section aria-labelledby="product-details-heading" className="mt-10">
+          <h2 id="product-details-heading" className="mb-4 text-xl font-semibold text-gray-900">
+            Product Details
+          </h2>
+          <div className="prose max-w-3xl">
+            <BodyRenderer html={product.bodyHtml} />
+          </div>
+        </section>
+      )}
     </main>
   )
 }

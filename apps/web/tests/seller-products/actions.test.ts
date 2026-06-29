@@ -11,7 +11,7 @@
 import { createHmac, randomUUID } from "node:crypto"
 
 import { and, asc, eq } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it, vi, type Mock } from "vitest"
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi, type Mock } from "vitest"
 
 import { makeDb, schema, withAdmin } from "@bomy/db"
 
@@ -24,19 +24,29 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 vi.mock("@/auth", () => ({ auth: vi.fn() }))
 vi.mock("@/lib/s3", async (importOriginal) => {
   const actual = await importOriginal()
-  return { ...(actual as object), deleteObject: vi.fn().mockResolvedValue(undefined) }
+  return {
+    ...(actual as object),
+    deleteObject: vi.fn().mockResolvedValue(undefined),
+    createBodyPresignedPutUrl: vi.fn().mockResolvedValue({
+      url: "https://signed.r2.example.com/upload",
+      expiresAt: new Date(Date.now() + 300_000),
+    }),
+  }
 })
 
 import { auth } from "@/auth"
+import { createBodyPresignedPutUrl, deleteObject } from "@/lib/s3"
 import {
   addProductImage,
   addVariant,
   archiveProduct,
   createProduct,
   deactivateVariant,
+  getBodyImageUploadUrl,
   getPresignedUploadUrl,
   getProductForEdit,
   removeProductImage,
+  saveProductBody,
   updateProduct,
   updateVariant,
 } from "../../src/app/seller/dashboard/products/actions"
@@ -1118,6 +1128,382 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       const result = await getProductForEdit(productWithInactiveCatId)
       const inactiveCat = result!.categories.find((c) => c.id === inactiveCatId)
       expect(inactiveCat?.isActive).toBe(false)
+    })
+  })
+
+  // ── saveProductBody ──────────────────────────────────────────────────────────
+  describe.skipIf(!shouldRun)("saveProductBody", () => {
+    let db: ReturnType<typeof makeDb>
+    let sellerId: string
+    let storeId: string
+    let productId: string
+    let storeSlug: string
+    let productSlug: string
+
+    beforeAll(async () => {
+      db = makeDb({ url: DATABASE_URL as string })
+      sellerId = randomUUID()
+      storeId = randomUUID()
+      productId = randomUUID()
+      storeSlug = `save-body-store-${storeId.slice(0, 8)}`
+      productSlug = `save-body-prod-${productId.slice(0, 8)}`
+
+      await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "test seed" }, async (tx) => {
+        await tx
+          .insert(schema.users)
+          .values({ id: sellerId, email: `savebody-${sellerId}@test.bomy`, role: "seller_owner" })
+        await tx.insert(schema.stores).values({
+          id: storeId,
+          ownerId: sellerId,
+          name: "Save Body Store",
+          slug: storeSlug,
+          status: "active",
+        })
+        await tx.insert(schema.products).values({
+          id: productId,
+          storeId,
+          name: "Save Body Product",
+          slug: productSlug,
+        })
+      })
+    })
+
+    afterAll(async () => {
+      await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
+        await tx.delete(schema.products).where(eq(schema.products.id, productId))
+        await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
+        await tx.delete(schema.users).where(eq(schema.users.id, sellerId))
+      })
+      await db.close()
+    })
+
+    beforeEach(async () => {
+      mockAuth.mockResolvedValue({ user: { id: sellerId, role: "seller_owner" } })
+      // Reset revision to known state so tests don't depend on prior test order
+      await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "reset revision" }, async (tx) => {
+        await tx
+          .update(schema.products)
+          .set({ bodyHtml: null, bodyRevision: 0 })
+          .where(eq(schema.products.id, productId))
+      })
+      process.env["S3_PUBLIC_URL"] = "https://r2.test"
+    })
+
+    it("rejects non-integer revision (negative)", async () => {
+      const r = await saveProductBody(productId, "<p>hello</p>", -1)
+      expect(r).toMatchObject({ ok: false, error: "invalid_revision" })
+    })
+
+    it("rejects non-integer revision (decimal)", async () => {
+      const r = await saveProductBody(productId, "<p>hello</p>", 1.5)
+      expect(r).toMatchObject({ ok: false, error: "invalid_revision" })
+    })
+
+    it("returns not_found when caller owns a different active store (cross-store isolation)", async () => {
+      // Seed seller B with their own active store — but NOT owning productId
+      const sellerBId = randomUUID()
+      const storeBId = randomUUID()
+      await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "test seed seller B" }, async (tx) => {
+        await tx
+          .insert(schema.users)
+          .values({ id: sellerBId, email: `sellerb-${sellerBId}@test.bomy`, role: "seller_owner" })
+        await tx.insert(schema.stores).values({
+          id: storeBId,
+          ownerId: sellerBId,
+          name: "Seller B Store",
+          slug: `seller-b-${storeBId.slice(0, 8)}`,
+          status: "active",
+        })
+      })
+      try {
+        // Seller B has an active store but productId belongs to seller A's store
+        mockAuth.mockResolvedValue({ user: { id: sellerBId, role: "seller_owner" } })
+        const r = await saveProductBody(productId, "<p>hello</p>", 0)
+        // Cross-store isolation: product not visible to seller B → not_found
+        expect(r).toMatchObject({ ok: false, error: "not_found" })
+      } finally {
+        await withAdmin(
+          db.db,
+          { userId: SYSTEM_ACTOR, reason: "test cleanup seller B" },
+          async (tx) => {
+            await tx.delete(schema.stores).where(eq(schema.stores.id, storeBId))
+            await tx.delete(schema.users).where(eq(schema.users.id, sellerBId))
+          },
+        )
+      }
+    })
+
+    it("returns conflict when revision mismatches DB value", async () => {
+      const r = await saveProductBody(productId, "<p>hello</p>", 999)
+      expect(r).toMatchObject({ ok: false, error: "conflict" })
+    })
+
+    it("increments bodyRevision on success and returns new revision", async () => {
+      const r = await saveProductBody(productId, "<p>real content</p>", 0)
+      expect(r).toMatchObject({ ok: true, revision: 1 })
+      const [row] = await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "test assert" }, (tx) =>
+        tx
+          .select({ bodyRevision: schema.products.bodyRevision })
+          .from(schema.products)
+          .where(eq(schema.products.id, productId)),
+      )
+      expect(row?.bodyRevision).toBe(1)
+    })
+
+    it("second save with stale revision returns conflict; DB row unchanged", async () => {
+      // First advance to revision=1, then try stale revision=0 → conflict
+      await saveProductBody(productId, "<p>first</p>", 0)
+      const r = await saveProductBody(productId, "<p>new</p>", 0)
+      expect(r).toMatchObject({ ok: false, error: "conflict" })
+      const [row] = await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "test assert" }, (tx) =>
+        tx
+          .select({ bodyRevision: schema.products.bodyRevision })
+          .from(schema.products)
+          .where(eq(schema.products.id, productId)),
+      )
+      expect(row?.bodyRevision).toBe(1) // unchanged
+    })
+
+    it("saves null canonicalHtml when body is empty (<p></p>)", async () => {
+      // Starts at revision=0 (reset by beforeEach)
+      const r = await saveProductBody(productId, "<p></p>", 0)
+      expect(r).toMatchObject({ ok: true, revision: 1, html: null })
+      const [row] = await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "test assert" }, (tx) =>
+        tx
+          .select({ bodyHtml: schema.products.bodyHtml })
+          .from(schema.products)
+          .where(eq(schema.products.id, productId)),
+      )
+      expect(row?.bodyHtml).toBeNull()
+    })
+
+    it("does NOT call deleteObject for keys removed from body (deferred to nightly cleanup)", async () => {
+      vi.mocked(deleteObject).mockClear()
+      const fakeKey = `body/${productId}/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee.jpg`
+      const fakeUrl = `https://r2.test/${fakeKey}`
+      await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "test setup" }, async (tx) => {
+        await tx
+          .update(schema.products)
+          .set({ bodyHtml: `<p>old</p><img src="${fakeUrl}" alt="x" />`, bodyRevision: 0 })
+          .where(eq(schema.products.id, productId))
+      })
+      const r = await saveProductBody(productId, "<p>new content no image</p>", 0)
+      expect(r).toMatchObject({ ok: true })
+      // Immediate deletion was removed; orphan cleanup is handled by the nightly body-image-cleanup job
+      expect(vi.mocked(deleteObject)).not.toHaveBeenCalled()
+    })
+
+    it("save succeeds and DB revision advances (orphan deletion is deferred)", async () => {
+      const fakeKey = `body/${productId}/bbbbbbbb-cccc-dddd-eeee-ffffffffffff.jpg`
+      const fakeUrl = `https://r2.test/${fakeKey}`
+      await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "test setup" }, async (tx) => {
+        await tx
+          .update(schema.products)
+          .set({ bodyHtml: `<p>old</p><img src="${fakeUrl}" alt="x" />`, bodyRevision: 0 })
+          .where(eq(schema.products.id, productId))
+      })
+      const r = await saveProductBody(productId, "<p>new</p>", 0)
+      expect(r).toMatchObject({ ok: true })
+      // Verify DB revision advanced
+      const [row] = await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "verify" }, (tx) =>
+        tx
+          .select({ rev: schema.products.bodyRevision })
+          .from(schema.products)
+          .where(eq(schema.products.id, productId)),
+      )
+      expect(row?.rev).toBe(1)
+    })
+
+    it("does not call deleteObject for a key that still appears in new body", async () => {
+      vi.mocked(deleteObject).mockClear()
+      const fakeKey = `body/${productId}/cccccccc-dddd-eeee-ffff-000000000000.jpg`
+      const fakeUrl = `https://r2.test/${fakeKey}`
+      await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "test setup" }, async (tx) => {
+        await tx
+          .update(schema.products)
+          .set({ bodyHtml: `<img src="${fakeUrl}" alt="x" />`, bodyRevision: 0 })
+          .where(eq(schema.products.id, productId))
+      })
+      const r = await saveProductBody(productId, `<img src="${fakeUrl}" alt="x" />`, 0)
+      expect(r).toMatchObject({ ok: true })
+      expect(vi.mocked(deleteObject)).not.toHaveBeenCalled()
+    })
+
+    it("returns not_found when seller's store is suspended", async () => {
+      await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "suspend store" }, async (tx) => {
+        await tx
+          .update(schema.stores)
+          .set({ status: "suspended" })
+          .where(eq(schema.stores.id, storeId))
+      })
+      const r = await saveProductBody(productId, "<p>hello</p>", 0)
+      expect(r).toMatchObject({ ok: false, error: "not_found" })
+      // Restore active status
+      await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "restore store" }, async (tx) => {
+        await tx
+          .update(schema.stores)
+          .set({ status: "active" })
+          .where(eq(schema.stores.id, storeId))
+      })
+    })
+  })
+
+  // ── getBodyImageUploadUrl ────────────────────────────────────────────────
+  describe.skipIf(!shouldRun)("getBodyImageUploadUrl", () => {
+    let db: ReturnType<typeof makeDb>
+    let sellerId: string
+    let storeId: string
+    let productId: string
+    let seller2Id: string
+    let store2Id: string
+    let product2Id: string
+
+    beforeAll(async () => {
+      db = makeDb({ url: DATABASE_URL as string })
+      sellerId = randomUUID()
+      storeId = randomUUID()
+      productId = randomUUID()
+      seller2Id = randomUUID()
+      store2Id = randomUUID()
+      product2Id = randomUUID()
+
+      await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "test seed" }, async (tx) => {
+        await tx.insert(schema.users).values([
+          { id: sellerId, email: `upload-${sellerId}@test.bomy`, role: "seller_owner" },
+          { id: seller2Id, email: `upload2-${seller2Id}@test.bomy`, role: "seller_owner" },
+        ])
+        await tx.insert(schema.stores).values([
+          {
+            id: storeId,
+            ownerId: sellerId,
+            name: "Upload Test Store",
+            slug: `upload-test-${storeId.slice(0, 8)}`,
+            status: "active",
+          },
+          {
+            id: store2Id,
+            ownerId: seller2Id,
+            name: "Upload Test Store 2",
+            slug: `upload-test2-${store2Id.slice(0, 8)}`,
+            status: "active",
+          },
+        ])
+        await tx.insert(schema.products).values([
+          {
+            id: productId,
+            storeId,
+            name: "Upload Product",
+            slug: `upload-prod-${productId.slice(0, 8)}`,
+          },
+          {
+            id: product2Id,
+            storeId: store2Id,
+            name: "Upload Product 2",
+            slug: `upload-prod2-${product2Id.slice(0, 8)}`,
+          },
+        ])
+      })
+    })
+
+    afterAll(async () => {
+      await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
+        await tx.delete(schema.products).where(eq(schema.products.id, productId))
+        await tx.delete(schema.products).where(eq(schema.products.id, product2Id))
+        await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
+        await tx.delete(schema.stores).where(eq(schema.stores.id, store2Id))
+        await tx.delete(schema.users).where(eq(schema.users.id, sellerId))
+        await tx.delete(schema.users).where(eq(schema.users.id, seller2Id))
+      })
+      await db.close()
+    })
+
+    beforeEach(() => {
+      mockAuth.mockResolvedValue({ user: { id: sellerId, role: "seller_owner" } })
+      vi.mocked(createBodyPresignedPutUrl).mockResolvedValue({
+        url: "https://signed.r2.example.com/upload",
+        expiresAt: new Date(Date.now() + 300_000),
+      })
+    })
+
+    it("rejects disallowed MIME type (image/svg+xml)", async () => {
+      const result = await getBodyImageUploadUrl(productId, "image/svg+xml", 1024)
+      expect(result).toMatchObject({ ok: false, error: "invalid_type" })
+    })
+
+    it("rejects disallowed MIME type (text/html)", async () => {
+      const result = await getBodyImageUploadUrl(productId, "text/html", 1024)
+      expect(result).toMatchObject({ ok: false, error: "invalid_type" })
+    })
+
+    it("rejects contentLength > 2 MB", async () => {
+      const result = await getBodyImageUploadUrl(productId, "image/jpeg", 2 * 1024 * 1024 + 1)
+      expect(result).toMatchObject({ ok: false, error: "invalid_size" })
+    })
+
+    it("rejects contentLength <= 0", async () => {
+      const result = await getBodyImageUploadUrl(productId, "image/jpeg", 0)
+      expect(result).toMatchObject({ ok: false, error: "invalid_size" })
+    })
+
+    it("returns not_found when caller does not own the product (cross-store)", async () => {
+      // seller1 attempts to upload to product2 (owned by store2/seller2)
+      const result = await getBodyImageUploadUrl(product2Id, "image/jpeg", 1024)
+      expect(result).toMatchObject({ ok: false, error: "not_found" })
+    })
+
+    it("20th request in window succeeds, 21st returns rate_limited", async () => {
+      // Drain any prior log rows for this seller
+      await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
+        await tx
+          .delete(schema.bodyImageUploadLog)
+          .where(eq(schema.bodyImageUploadLog.userId, sellerId))
+      })
+
+      const calls = Array.from({ length: 21 }, () =>
+        getBodyImageUploadUrl(productId, "image/jpeg", 1024),
+      )
+      const results = await Promise.all(calls)
+      const successes = results.filter((r) => r.ok)
+      const limited = results.filter(
+        (r) => !r.ok && (r as { error: string }).error === "rate_limited",
+      )
+      expect(successes).toHaveLength(20)
+      expect(limited).toHaveLength(1)
+    })
+
+    it("rate limit is per-user: second seller is unaffected", async () => {
+      // First seller already has 21 requests from the previous test; the second seller
+      // (seeded in beforeAll as seller2Id) has never made one.
+      await withAdmin(
+        db.db,
+        { userId: SYSTEM_ACTOR, reason: "clear rate log seller2" },
+        async (tx) => {
+          await tx
+            .delete(schema.bodyImageUploadLog)
+            .where(eq(schema.bodyImageUploadLog.userId, seller2Id))
+        },
+      )
+      mockAuth.mockResolvedValue({ user: { id: seller2Id, role: "seller_owner" } })
+      const result = await getBodyImageUploadUrl(product2Id, "image/jpeg", 512)
+      expect(result).toMatchObject({ ok: true })
+    })
+
+    it("returns not_found when seller's store is suspended", async () => {
+      await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "suspend store" }, async (tx) => {
+        await tx
+          .update(schema.stores)
+          .set({ status: "suspended" })
+          .where(eq(schema.stores.id, storeId))
+      })
+      const result = await getBodyImageUploadUrl(productId, "image/jpeg", 1024)
+      expect(result).toMatchObject({ ok: false, error: "not_found" })
+      // Restore active status
+      await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "restore store" }, async (tx) => {
+        await tx
+          .update(schema.stores)
+          .set({ status: "active" })
+          .where(eq(schema.stores.id, storeId))
+      })
     })
   })
 })

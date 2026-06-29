@@ -1,4 +1,13 @@
-import { customType, index, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core"
+import {
+  customType,
+  index,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core"
 
 import { productStatusEnum } from "./enums.js"
 import { categories } from "./categories.js"
@@ -29,6 +38,8 @@ export const products = pgTable(
     searchVector: tsvector("search_vector"),
     status: productStatusEnum("status").notNull().default("draft"),
     coverImageUrl: text("cover_image_url"),
+    bodyHtml: text("body_html"),
+    bodyRevision: integer("body_revision").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

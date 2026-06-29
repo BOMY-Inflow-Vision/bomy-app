@@ -1,6 +1,7 @@
 "use server"
 
-import { and, asc, eq, isNull, max, or } from "drizzle-orm"
+import { and, asc, eq, isNull, max, or, sql } from "drizzle-orm"
+import { randomUUID } from "node:crypto"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 
@@ -653,4 +654,166 @@ export async function getPresignedUploadUrl(
   const { url, key } = await createPresignedPutUrl(contentType, contentLength)
   const claim = signUploadClaim(session.user.id, key)
   return { url, key, claim }
+}
+
+// ─── Body HTML save ────────────────────────────────────────────────────────
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+export async function saveProductBody(
+  productId: string,
+  bodyHtml: string,
+  revision: number,
+): Promise<{ ok: true; revision: number; html: string | null } | { ok: false; error: string }> {
+  const session = await requireSeller()
+  const userId = session.user.id
+
+  if (!Number.isSafeInteger(revision) || revision < 0) {
+    return { ok: false, error: "invalid_revision" }
+  }
+  if (!UUID_RE.test(productId)) {
+    return { ok: false, error: "invalid_product_id" }
+  }
+
+  const S3_PUBLIC_URL = process.env["S3_PUBLIC_URL"] ?? ""
+  try {
+    const u = new URL(S3_PUBLIC_URL)
+    if (u.protocol !== "https:") throw new Error()
+  } catch {
+    return { ok: false, error: "misconfigured" }
+  }
+  const { normalizeBodyHtml } = await import("./body-sanitizer")
+  const normalized = normalizeBodyHtml(bodyHtml, productId, S3_PUBLIC_URL)
+  if (!normalized.ok) return normalized
+  const { canonicalHtml } = normalized
+
+  const txResult = await withTenant(getDb(), { userId, userRole: "seller_owner" }, async (tx) => {
+    const [store] = await tx
+      .select({ id: schema.stores.id, slug: schema.stores.slug })
+      .from(schema.stores)
+      .where(and(eq(schema.stores.ownerId, userId), eq(schema.stores.status, "active")))
+      .limit(1)
+    if (!store) return { ok: false as const, error: "not_found" }
+
+    const [existing] = await tx
+      .select({
+        bodyRevision: schema.products.bodyRevision,
+        productSlug: schema.products.slug,
+      })
+      .from(schema.products)
+      .where(and(eq(schema.products.id, productId), eq(schema.products.storeId, store.id)))
+      .for("update", { of: schema.products })
+      .limit(1)
+
+    if (!existing) return { ok: false as const, error: "not_found" }
+    if (existing.bodyRevision !== revision) return { ok: false as const, error: "conflict" }
+
+    await tx
+      .update(schema.products)
+      .set({ bodyHtml: canonicalHtml, bodyRevision: revision + 1, updatedAt: new Date() })
+      .where(eq(schema.products.id, productId))
+
+    return {
+      ok: true as const,
+      storeSlug: store.slug,
+      productSlug: existing.productSlug,
+    }
+  })
+
+  if (!txResult.ok) return txResult
+
+  revalidatePath(`/seller/dashboard/products/${productId}/edit`)
+  revalidatePath(`/products/${txResult.storeSlug}/${txResult.productSlug}`)
+
+  return { ok: true, revision: revision + 1, html: canonicalHtml }
+}
+
+// ─── Body image upload URL ─────────────────────────────────────────────────
+
+const BODY_IMAGE_ALLOWED_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/avif",
+]
+const BODY_MIME_TO_EXT: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+  "image/avif": "avif",
+}
+
+export async function getBodyImageUploadUrl(
+  productId: string,
+  contentType: string,
+  contentLength: number,
+): Promise<
+  | { ok: true; uploadUrl: string; key: string; publicUrl: string; expiresAt: Date }
+  | { ok: false; error: string }
+> {
+  const session = await requireSeller()
+  const userId = session.user.id
+
+  if (!BODY_IMAGE_ALLOWED_TYPES.includes(contentType)) {
+    return { ok: false, error: "invalid_type" }
+  }
+  if (
+    !Number.isSafeInteger(contentLength) ||
+    contentLength <= 0 ||
+    contentLength > 2 * 1024 * 1024
+  ) {
+    return { ok: false, error: "invalid_size" }
+  }
+  if (!UUID_RE.test(productId)) {
+    return { ok: false, error: "invalid_product_id" }
+  }
+
+  const result = await withTenant(getDb(), { userId, userRole: "seller_owner" }, async (tx) => {
+    const [store] = await tx
+      .select({ id: schema.stores.id })
+      .from(schema.stores)
+      .where(and(eq(schema.stores.ownerId, userId), eq(schema.stores.status, "active")))
+      .limit(1)
+    if (!store) return { ok: false as const, error: "not_found" }
+
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('body-img-sign:' || ${userId}))`)
+
+    const [product] = await tx
+      .select({ id: schema.products.id })
+      .from(schema.products)
+      .where(and(eq(schema.products.id, productId), eq(schema.products.storeId, store.id)))
+      .for("update", { of: schema.products })
+      .limit(1)
+    if (!product) return { ok: false as const, error: "not_found" }
+
+    const countRows = await tx
+      .select({ count: sql<number>`count(*)::int` })
+      .from(schema.bodyImageUploadLog)
+      .where(
+        and(
+          eq(schema.bodyImageUploadLog.userId, userId),
+          sql`${schema.bodyImageUploadLog.createdAt} > now() - interval '1 hour'`,
+        ),
+      )
+    const count = countRows[0]?.count ?? 0
+    if (count >= 20) return { ok: false as const, error: "rate_limited" }
+
+    await tx.insert(schema.bodyImageUploadLog).values({ userId })
+    return { ok: true as const }
+  })
+
+  if (!result.ok) return result
+
+  const ext = BODY_MIME_TO_EXT[contentType]!
+  const key = `body/${productId}/${randomUUID()}.${ext}`
+  const { createBodyPresignedPutUrl, buildPublicUrl } = await import("@/lib/s3")
+  const publicUrl = buildPublicUrl(key)
+  const { url: uploadUrl, expiresAt } = await createBodyPresignedPutUrl(
+    key,
+    contentType,
+    contentLength,
+  )
+  return { ok: true, uploadUrl, key, publicUrl, expiresAt }
 }
