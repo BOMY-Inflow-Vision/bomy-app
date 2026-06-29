@@ -18,6 +18,7 @@ COPY packages/db/package.json      packages/db/
 COPY packages/hitpay/package.json  packages/hitpay/
 COPY packages/mailer/package.json  packages/mailer/
 COPY packages/config/package.json  packages/config/
+COPY packages/shared/package.json  packages/shared/
 
 RUN pnpm install --frozen-lockfile
 
