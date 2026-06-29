@@ -114,6 +114,9 @@ importers:
       '@auth/core':
         specifier: 0.41.2
         version: 0.41.2
+      '@aws-sdk/client-s3':
+        specifier: ^3.1046.0
+        version: 3.1046.0
       '@bomy/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -123,6 +126,9 @@ importers:
       '@bomy/mailer':
         specifier: workspace:*
         version: link:../../packages/mailer
+      '@bomy/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@fastify/cookie':
         specifier: ^11.0.2
         version: 11.0.2

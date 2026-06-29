@@ -6,6 +6,7 @@ import type { Database } from "@bomy/db"
 import type { Mailer } from "./lib/mailer.js"
 
 import { expireSubscriptions } from "./jobs/brand-subscription-expiry.js"
+import { runBodyImageCleanup } from "./jobs/body-image-cleanup.js"
 import { runInventoryReservationExpiryJob } from "./jobs/inventory-reservation-expiry.js"
 import { notifyRenewalsDue } from "./jobs/membership-renewal-notification.js"
 import { ORDER_AUTO_COMPLETE_CRON, runOrderAutoCompleteJob } from "./jobs/order-auto-complete.js"
@@ -18,6 +19,7 @@ const VOUCHER_ISSUANCE_CRON = "0 8 1 * *" // 08:00 MYT on 1st of month
 const RENEWAL_NOTIFICATION_CRON = "0 9 * * *" // 09:00 MYT daily
 const BRAND_EXPIRY_CRON = "5 0 * * *" // 00:05 MYT daily
 const INV_EXPIRY_CRON = "*/10 * * * *" // every 10 minutes MYT
+const BODY_IMAGE_CLEANUP_CRON = "0 2 * * *" // 02:00 MYT daily
 
 const TZ = "Asia/Kuala_Lumpur"
 
@@ -52,6 +54,7 @@ export async function createScheduler(
   const expiryQueue = new Queue("brand-subscription-expiry", { connection })
   const invExpiryQueue = new Queue("inventory-reservation-expiry", { connection })
   const orderAutoCompleteQueue = new Queue("order-auto-complete", { connection })
+  const bodyImageCleanupQueue = new Queue("body-image-cleanup", { connection })
 
   // --- Register repeatable cron jobs ---
   await voucherQueue.upsertJobScheduler(
@@ -78,6 +81,11 @@ export async function createScheduler(
     "daily-order-auto-complete",
     { pattern: ORDER_AUTO_COMPLETE_CRON, tz: TZ },
     { name: "order-auto-complete" },
+  )
+  await bodyImageCleanupQueue.upsertJobScheduler(
+    "nightly-body-image-cleanup",
+    { pattern: BODY_IMAGE_CLEANUP_CRON, tz: TZ },
+    { name: "body-image-cleanup" },
   )
 
   // --- Workers ---
@@ -132,12 +140,21 @@ export async function createScheduler(
     { connection },
   )
 
+  const bodyImageCleanupWorker = new Worker(
+    "body-image-cleanup",
+    async () => {
+      await runBodyImageCleanup(db, connection, deps.logger)
+    },
+    { connection },
+  )
+
   for (const worker of [
     voucherWorker,
     renewalWorker,
     expiryWorker,
     invExpiryWorker,
     orderAutoCompleteWorker,
+    bodyImageCleanupWorker,
   ]) {
     worker.on("failed", (job, err) => {
       deps.logger.error({ err, jobId: job?.id }, `jobs: worker failed — ${job?.name ?? "unknown"}`)
@@ -156,11 +173,13 @@ export async function createScheduler(
         expiryWorker.close(),
         invExpiryWorker.close(),
         orderAutoCompleteWorker.close(),
+        bodyImageCleanupWorker.close(),
         voucherQueue.close(),
         renewalQueue.close(),
         expiryQueue.close(),
         invExpiryQueue.close(),
         orderAutoCompleteQueue.close(),
+        bodyImageCleanupQueue.close(),
       ])
       // BullMQ does not close a shared connection it was handed — quit it here
       // so Railway redeploys/shutdowns don't leak the Redis handle.
