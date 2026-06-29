@@ -4,8 +4,6 @@ import { useEffect, useRef, useState } from "react"
 import { EditorContent, useEditor, type Editor } from "@tiptap/react"
 import { StarterKit } from "@tiptap/starter-kit"
 import { TableKit } from "@tiptap/extension-table"
-import { Link } from "@tiptap/extension-link"
-import { Underline } from "@tiptap/extension-underline"
 import {
   Bold,
   Code,
@@ -51,40 +49,45 @@ export function ProductBodyEditor({
   const [saveError, setSaveError] = useState<string | null>(null)
   const [conflictDetected, setConflictDetected] = useState(false)
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle")
-  const [uploadStatus, setUploadStatus] = useState<"idle" | "uploading" | "error">("idle")
+  const [activeUploadCount, setActiveUploadCount] = useState(0)
+  const [uploadError, setUploadError] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const bodyHtmlRef = useRef<HTMLInputElement>(null)
   const savedHtmlRef = useRef(initialHtml ?? "")
-  const uploadCountRef = useRef(0)
+
+  const isUploading = activeUploadCount > 0
+  const uploadStatus = isUploading ? "uploading" : uploadError ? "error" : "idle"
 
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ heading: { levels: [3, 4] } }),
+      StarterKit.configure({
+        heading: { levels: [3, 4] },
+        link: { openOnClick: false, defaultProtocol: "https" },
+      }),
       TableKit,
-      Link.configure({ openOnClick: false, defaultProtocol: "https" }),
-      Underline,
       ImageUploadExtension.configure({
         productId,
         onUploadStart: () => {
-          uploadCountRef.current += 1
-          setUploadStatus("uploading")
+          setActiveUploadCount((c) => c + 1)
+          setUploadError(false)
           setUploadProgress(0)
           onUploadStateChange(true)
         },
         onUploadProgress: (pct: number) => setUploadProgress(pct),
         onUploadComplete: () => {
-          uploadCountRef.current = Math.max(0, uploadCountRef.current - 1)
-          if (uploadCountRef.current === 0) {
-            setUploadStatus("idle")
-            onUploadStateChange(false)
-          }
+          setActiveUploadCount((c) => {
+            const next = Math.max(0, c - 1)
+            if (next === 0) onUploadStateChange(false)
+            return next
+          })
         },
         onUploadError: () => {
-          uploadCountRef.current = Math.max(0, uploadCountRef.current - 1)
-          setUploadStatus("error")
-          if (uploadCountRef.current === 0) {
-            onUploadStateChange(false)
-          }
+          setUploadError(true)
+          setActiveUploadCount((c) => {
+            const next = Math.max(0, c - 1)
+            if (next === 0) onUploadStateChange(false)
+            return next
+          })
         },
         getUploadUrl: getBodyImageUploadUrl,
       }),
@@ -92,6 +95,13 @@ export function ProductBodyEditor({
     ],
     content: initialHtml ?? "",
     immediatelyRender: false,
+    editorProps: {
+      attributes: {
+        "aria-label": "Product body editor",
+        "aria-multiline": "true",
+        role: "textbox",
+      },
+    },
     onUpdate: ({ editor: e }) => {
       const html = e.getHTML()
       if (bodyHtmlRef.current) bodyHtmlRef.current.value = html
@@ -363,7 +373,6 @@ export function ProductBodyEditor({
 
       <EditorContent
         editor={editor}
-        aria-label="Product body editor"
         className="[&_.ProseMirror]:prose [&_.ProseMirror]:max-w-none [&_.ProseMirror]:min-h-[200px] [&_.ProseMirror]:rounded [&_.ProseMirror]:border [&_.ProseMirror]:border-gray-200 [&_.ProseMirror]:p-3 [&_.ProseMirror]:focus:outline-none [&_.ProseMirror]:focus:ring-2 [&_.ProseMirror]:focus:ring-indigo-500"
       />
 
@@ -387,7 +396,7 @@ export function ProductBodyEditor({
         <input type="hidden" name="bodyRevision" value={revision} readOnly />
         <button
           type="submit"
-          disabled={saveStatus === "saving" || uploadStatus === "uploading" || !dirty}
+          disabled={saveStatus === "saving" || isUploading || !dirty}
           className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
         >
           {saveStatus === "saving" ? "Saving…" : "Save Product Details"}
@@ -462,11 +471,31 @@ function InsertImageUrlButton({ editor }: { editor: Editor | null }) {
         if (!url || !url.startsWith("https://")) return
         const altResult = prompt("Alt text (describe the image — or leave empty for decorative):")
         if (altResult === null) return
-        editor
-          ?.chain()
-          .focus()
-          .insertContent({ type: "imageUpload", attrs: { src: url, alt: altResult } })
-          .run()
+        const alt = altResult
+        const img = new window.Image()
+        img.onload = () => {
+          editor
+            ?.chain()
+            .focus()
+            .insertContent({
+              type: "imageUpload",
+              attrs: {
+                src: url,
+                alt,
+                width: img.naturalWidth || null,
+                height: img.naturalHeight || null,
+              },
+            })
+            .run()
+        }
+        img.onerror = () => {
+          editor
+            ?.chain()
+            .focus()
+            .insertContent({ type: "imageUpload", attrs: { src: url, alt } })
+            .run()
+        }
+        img.src = url
       }}
       aria-label="Insert image by URL"
       title="Insert image by URL"

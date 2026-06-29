@@ -13,11 +13,10 @@ export function VideoEmbed({ videoId, title }: { videoId: string; title?: string
 
   if (!active) {
     return (
-      <div
-        className="relative flex aspect-video w-full cursor-pointer items-center justify-center rounded bg-gray-900 text-white"
+      <button
+        type="button"
+        className="relative flex aspect-video w-full cursor-pointer items-center justify-center rounded bg-gray-900 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
         onClick={() => setActive(true)}
-        role="button"
-        tabIndex={0}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault()
@@ -38,7 +37,7 @@ export function VideoEmbed({ videoId, title }: { videoId: string; title?: string
           </svg>
           <p className="mt-2 text-sm font-medium">{displayTitle}</p>
         </div>
-      </div>
+      </button>
     )
   }
 
