@@ -98,6 +98,11 @@ afterEach(() => {
   _setS3ForTesting(null)
 })
 
+// Note: runBodyImageCleanup's withAdmin calls are tested here with a DB stub.
+// The withAdmin wrapper itself is integration-tested in packages/db and apps/web.
+// A full RLS integration test for the cleanup job would require a live Postgres
+// instance with the bomy_app role — deferred to a dedicated ops/integration test suite.
+
 describe("runBodyImageCleanup (unit — mocked S3 + Redis)", () => {
   it("skips objects younger than 48h — no Redis marker written", async () => {
     const s3 = makeS3Mock([[{ Key: MANAGED_KEY, LastModified: RECENT_DATE }]])
@@ -415,9 +420,9 @@ describe("runBodyImageCleanup (unit — mocked S3 + Redis)", () => {
     expect(deleteMock).toHaveBeenCalled()
   })
 
-  // ── 4e: NaN timestamp treated as too-young ────────────────────────────────
+  // ── 4e: NaN timestamp — marker is RESET with fresh timestamp ────────────────
 
-  it("treats NaN Redis marker timestamp as too-young (safe)", async () => {
+  it("resets NaN Redis marker with fresh timestamp and skips deletion (safe)", async () => {
     const s3 = makeS3Mock([[{ Key: MANAGED_KEY, LastModified: OLD_DATE }]])
     _setS3ForTesting(s3 as unknown as S3Client)
 
@@ -428,7 +433,7 @@ describe("runBodyImageCleanup (unit — mocked S3 + Redis)", () => {
 
     await runBodyImageCleanup(db, redis as unknown as Redis, logger)
 
-    // Key must NOT be deleted — treated as too-young / safe
+    // Key must NOT be deleted — marker is reset and the key re-enters quarantine
     const deleteCalls = s3.send.mock.calls.filter(
       (c) => (c[0] as { constructor: { name: string } }).constructor.name === "DeleteObjectCommand",
     )
@@ -436,8 +441,14 @@ describe("runBodyImageCleanup (unit — mocked S3 + Redis)", () => {
     // Should log an error about the invalid marker
     expect(logMocks.error).toHaveBeenCalledWith(
       expect.objectContaining({ key: MANAGED_KEY }),
-      expect.stringContaining("invalid Redis marker value"),
+      expect.stringContaining("invalid Redis marker"),
     )
-    void redisMocks // referenced to avoid unused-var lint
+    // Marker must be RESET via redis.set with the 72h TTL
+    expect(redisMocks.set).toHaveBeenCalledWith(
+      `body-img-candidate:${MANAGED_KEY}`,
+      expect.any(String),
+      "EX",
+      72 * 60 * 60,
+    )
   })
 })

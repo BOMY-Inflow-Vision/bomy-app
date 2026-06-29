@@ -47,7 +47,7 @@ function renderNode(node: Node, key: string): ReactNode {
   switch (tag) {
     case "a": {
       const href = el.getAttribute("href") ?? ""
-      if (!HTTPS_RE.test(href)) return <>{children}</>
+      if (!HTTPS_RE.test(href)) return <React.Fragment key={key}>{children}</React.Fragment>
       return (
         <a key={key} href={href} rel="noopener noreferrer nofollow ugc" target="_blank">
           {children}

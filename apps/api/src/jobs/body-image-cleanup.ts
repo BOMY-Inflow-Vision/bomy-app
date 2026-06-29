@@ -9,8 +9,8 @@ const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001" as const
 const PAGE_SIZE = 100
 const FORTY_EIGHT_HOURS = 48 * 60 * 60 * 1000
 const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000
-const QUARANTINE_TTL_SECONDS = 259200 // 72h
-const MAX_CONCURRENT_DELETES = 5
+const SEVENTY_TWO_HOURS_S = 72 * 60 * 60 // seconds — used as Redis TTL for quarantine markers
+const QUARANTINE_TTL_SECONDS = SEVENTY_TWO_HOURS_S
 const KEY_RE = /^body\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\//i
 
 interface Logger {
@@ -122,32 +122,6 @@ async function listAllR2Objects(
   return objects
 }
 
-async function deleteInBatches(
-  keys: string[],
-  bucket: string,
-  logger: Logger,
-): Promise<Set<string>> {
-  const succeeded = new Set<string>()
-  for (let i = 0; i < keys.length; i += MAX_CONCURRENT_DELETES) {
-    const batch = keys.slice(i, i + MAX_CONCURRENT_DELETES)
-    const results = await Promise.allSettled(
-      batch.map((key) => getS3().send(new DeleteObjectCommand({ Bucket: bucket, Key: key }))),
-    )
-    for (let j = 0; j < results.length; j++) {
-      if (results[j]!.status === "fulfilled") {
-        succeeded.add(batch[j]!)
-      } else {
-        const rejection = results[j] as PromiseRejectedResult
-        logger.error(
-          { key: batch[j], reason: rejection.reason as unknown },
-          "body-image-cleanup: R2 delete failed",
-        )
-      }
-    }
-  }
-  return succeeded
-}
-
 export async function runBodyImageCleanup(
   db: Database,
   redis: Redis,
@@ -192,7 +166,6 @@ export async function runBodyImageCleanup(
   if (!objects) throw new Error("body-image-cleanup: R2 listing failed — aborting before deletion")
 
   stats.scanned = objects.length
-  const toDelete: string[] = []
 
   for (const { key, lastModified } of objects) {
     if (referenced.has(key)) {
@@ -238,9 +211,18 @@ export async function runBodyImageCleanup(
     if (isNaN(markerTimestamp)) {
       logger.error(
         { key },
-        "body-image-cleanup: invalid Redis marker value — treating as brand-new",
+        "body-image-cleanup: invalid Redis marker — resetting with current timestamp",
       )
-      stats.quarantinedPending++
+      try {
+        await redis.set(markerKey, Date.now().toString(), "EX", SEVENTY_TWO_HOURS_S)
+        stats.quarantinedNew++
+      } catch (setErr) {
+        logger.error(
+          { key, err: setErr },
+          "body-image-cleanup: failed to reset invalid Redis marker — skipping",
+        )
+        stats.quarantinedPending++
+      }
       continue
     }
     const markerAge = now - markerTimestamp
@@ -249,7 +231,7 @@ export async function runBodyImageCleanup(
       continue
     }
 
-    // Quarantine has elapsed — do a final DB re-check before adding to toDelete
+    // Quarantine has elapsed — do a final DB re-check before deleting
     const productIdMatch = KEY_RE.exec(key)
     if (productIdMatch) {
       const pid = productIdMatch[1]!
@@ -286,25 +268,23 @@ export async function runBodyImageCleanup(
     // Non-conforming keys (no product UUID in path) are treated as plain orphans:
     // we cannot derive a product ID to re-check, so no final DB check is performed.
 
-    toDelete.push(key)
-  }
-
-  // Phase 3: Delete all collected keys in batches
-  if (toDelete.length > 0) {
-    const succeeded = await deleteInBatches(toDelete, bucket, logger)
-    stats.deleted = succeeded.size
-    stats.failed = toDelete.length - succeeded.size
-
-    // Clear Redis markers only for keys that were successfully deleted
-    for (const key of succeeded) {
+    // Serialize final check + delete: eliminate the window between collection and deletion.
+    // Delete immediately after confirming not referenced.
+    try {
+      await getS3().send(new DeleteObjectCommand({ Bucket: bucket, Key: key }))
+      stats.deleted++
+      // Clear Redis marker only on successful delete
       try {
-        await redis.del(`body-img-candidate:${key}`)
-      } catch {
+        await redis.del(markerKey)
+      } catch (delErr) {
         logger.error(
-          { key },
+          { key, err: delErr },
           "body-image-cleanup: Redis DEL post-delete failed — marker left (will retry next run)",
         )
       }
+    } catch (deleteErr) {
+      logger.error({ key, err: deleteErr }, "body-image-cleanup: R2 delete failed")
+      stats.failed++
     }
   }
 
