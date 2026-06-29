@@ -29,7 +29,8 @@ describe("normalizeBodyHtml", () => {
 
   it("strips data: URIs from img src", () => {
     const r = normalizeBodyHtml('<img src="data:image/png;base64,abc" />', PID, R2)
-    // data: is stripped by DOMPurify (not in allowed attrs) — canonicalHtml is null (no meaningful content)
+    // sanitize-html strips data: src (not in allowedSchemes) → <img> with no src
+    // hasMeaningfulContent only counts imgs with src, so canonicalHtml is null
     expect(r.ok).toBe(true)
     const html = (r as { ok: true; canonicalHtml: string | null }).canonicalHtml
     expect(html).toBeNull()

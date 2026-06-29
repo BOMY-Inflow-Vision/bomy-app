@@ -4,11 +4,14 @@ import { and, asc, eq, isNull, max, or, sql } from "drizzle-orm"
 import { randomUUID } from "node:crypto"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
+import { after } from "next/server"
 
 import { makeDb, schema, withAdmin, withTenant } from "@bomy/db"
 import type { Database } from "@bomy/db"
 
 import { auth } from "@/auth"
+
+const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001" as const
 
 let _client: ReturnType<typeof makeDb> | null = null
 function getDb() {
@@ -727,18 +730,36 @@ export async function saveProductBody(
   revalidatePath(`/seller/dashboard/products/${productId}/edit`)
   revalidatePath(`/products/${txResult.storeSlug}/${txResult.productSlug}`)
 
-  // Fire-and-forget: delete body images removed in this save.
-  // The nightly cleanup job is the safety net if this fails.
+  // Delete orphaned body images after the response returns.
+  // after() extends the Vercel invocation via waitUntil so the deletion isn't cut off.
+  // The nightly cleanup job remains the safety net for any deletes that fail.
   if (txResult.oldBodyHtml) {
     const oldHtml = txResult.oldBodyHtml
-    void (async () => {
+    after(async () => {
       try {
         const { extractManagedBodyImageKeys } = await import("@bomy/shared")
         const { deleteObject } = await import("@/lib/s3")
         const oldKeys = extractManagedBodyImageKeys(oldHtml, productId, S3_PUBLIC_URL)
         const newKeys = extractManagedBodyImageKeys(canonicalHtml ?? "", productId, S3_PUBLIC_URL)
+        // Re-read the live body to guard against a concurrent save re-referencing a key
+        // between our commit and this task running.
+        const [current] = await withAdmin(
+          getDb(),
+          { userId: SYSTEM_ACTOR, reason: "body-image-orphan-cleanup" },
+          (tx) =>
+            tx
+              .select({ bodyHtml: schema.products.bodyHtml })
+              .from(schema.products)
+              .where(eq(schema.products.id, productId))
+              .limit(1),
+        )
+        const currentKeys = extractManagedBodyImageKeys(
+          current?.bodyHtml ?? "",
+          productId,
+          S3_PUBLIC_URL,
+        )
         for (const key of oldKeys) {
-          if (!newKeys.has(key)) {
+          if (!newKeys.has(key) && !currentKeys.has(key)) {
             try {
               await deleteObject(key)
             } catch (err) {
@@ -749,7 +770,7 @@ export async function saveProductBody(
       } catch (err) {
         console.error("[saveProductBody] Orphan image cleanup failed:", err)
       }
-    })()
+    })
   }
 
   return { ok: true, revision: revision + 1, html: canonicalHtml }
