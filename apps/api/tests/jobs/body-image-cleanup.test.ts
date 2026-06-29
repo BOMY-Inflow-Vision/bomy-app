@@ -199,6 +199,33 @@ describe("runBodyImageCleanup (unit — mocked S3 + Redis)", () => {
     void redisMocks // referenced to avoid unused-var lint
   })
 
+  it("S3 delete failure → Redis marker NOT cleared for that key", async () => {
+    const firstSeenAt = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString()
+    // DeleteObjectCommand rejects for this key
+    const send = vi
+      .fn()
+      .mockResolvedValueOnce({
+        Contents: [{ Key: MANAGED_KEY, LastModified: OLD_DATE }],
+        IsTruncated: false,
+      })
+      .mockRejectedValueOnce(new Error("S3 delete failed"))
+    const s3 = { send }
+    _setS3ForTesting(s3 as unknown as S3Client)
+    const { _mocks: redisMocks, ...redis } = makeRedisMock({ getResult: firstSeenAt })
+    const { _mocks: logMocks, ...logger } = makeLogger()
+    const db = makeDb()
+
+    await runBodyImageCleanup(db, redis as unknown as Redis, logger)
+
+    const deleteCalls = send.mock.calls.filter(
+      (c) => (c[0] as { constructor: { name: string } }).constructor.name === "DeleteObjectCommand",
+    )
+    expect(deleteCalls).toHaveLength(1)
+    // Redis marker must NOT be cleared — the object wasn't actually deleted
+    expect(redisMocks.del).not.toHaveBeenCalledWith(`body-img-candidate:${MANAGED_KEY}`)
+    expect(logMocks.error).toHaveBeenCalled()
+  })
+
   it("Redis SET failure on first-seen write → object skipped (no marker, no delete)", async () => {
     const s3 = makeS3Mock([[{ Key: MANAGED_KEY, LastModified: OLD_DATE }]])
     _setS3ForTesting(s3 as unknown as S3Client)

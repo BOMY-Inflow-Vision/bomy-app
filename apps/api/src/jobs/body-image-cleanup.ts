@@ -11,6 +11,7 @@ const FORTY_EIGHT_HOURS = 48 * 60 * 60 * 1000
 const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000
 const QUARANTINE_TTL_SECONDS = 259200 // 72h
 const MAX_CONCURRENT_DELETES = 5
+const KEY_RE = /^body\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\//i
 
 interface Logger {
   info: (msg: string) => void
@@ -24,7 +25,7 @@ export function _setS3ForTesting(client: S3Client | null): void {
   _s3 = client
 }
 
-export function getS3(): S3Client {
+function getS3(): S3Client {
   if (!_s3) {
     const endpoint = process.env["S3_ENDPOINT"]
     const accessKeyId = process.env["S3_ACCESS_KEY"]
@@ -125,9 +126,8 @@ async function deleteInBatches(
   keys: string[],
   bucket: string,
   logger: Logger,
-): Promise<{ deleted: number; failed: number }> {
-  let deleted = 0
-  let failed = 0
+): Promise<Set<string>> {
+  const succeeded = new Set<string>()
   for (let i = 0; i < keys.length; i += MAX_CONCURRENT_DELETES) {
     const batch = keys.slice(i, i + MAX_CONCURRENT_DELETES)
     const results = await Promise.allSettled(
@@ -135,9 +135,8 @@ async function deleteInBatches(
     )
     for (let j = 0; j < results.length; j++) {
       if (results[j]!.status === "fulfilled") {
-        deleted++
+        succeeded.add(batch[j]!)
       } else {
-        failed++
         const rejection = results[j] as PromiseRejectedResult
         logger.error(
           { key: batch[j], reason: rejection.reason as unknown },
@@ -146,7 +145,7 @@ async function deleteInBatches(
       }
     }
   }
-  return { deleted, failed }
+  return succeeded
 }
 
 export async function runBodyImageCleanup(
@@ -243,7 +242,6 @@ export async function runBodyImageCleanup(
     }
 
     // Quarantine has elapsed — do a final DB re-check before adding to toDelete
-    const KEY_RE = /^body\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\//i
     const productIdMatch = KEY_RE.exec(key)
     if (productIdMatch) {
       const pid = productIdMatch[1]!
@@ -283,12 +281,12 @@ export async function runBodyImageCleanup(
 
   // Phase 3: Delete all collected keys in batches
   if (toDelete.length > 0) {
-    const { deleted, failed } = await deleteInBatches(toDelete, bucket, logger)
-    stats.deleted = deleted
-    stats.failed = failed
+    const succeeded = await deleteInBatches(toDelete, bucket, logger)
+    stats.deleted = succeeded.size
+    stats.failed = toDelete.length - succeeded.size
 
-    // Clear Redis markers for deleted objects
-    for (const key of toDelete) {
+    // Clear Redis markers only for keys that were successfully deleted
+    for (const key of succeeded) {
       try {
         await redis.del(`body-img-candidate:${key}`)
       } catch {
