@@ -697,7 +697,6 @@ export async function saveProductBody(
 
     const [existing] = await tx
       .select({
-        bodyHtml: schema.products.bodyHtml,
         bodyRevision: schema.products.bodyRevision,
         productSlug: schema.products.slug,
       })
@@ -716,46 +715,12 @@ export async function saveProductBody(
 
     return {
       ok: true as const,
-      oldHtml: existing.bodyHtml,
       storeSlug: store.slug,
       productSlug: existing.productSlug,
     }
   })
 
   if (!txResult.ok) return txResult
-
-  const { extractManagedBodyImageKeys } = await import("@bomy/shared")
-  const oldKeys = extractManagedBodyImageKeys(txResult.oldHtml ?? "", productId, S3_PUBLIC_URL)
-  const newKeys = extractManagedBodyImageKeys(canonicalHtml ?? "", productId, S3_PUBLIC_URL)
-  const orphaned = [...oldKeys].filter((k) => !newKeys.has(k))
-
-  if (orphaned.length > 0) {
-    const { deleteObject } = await import("@/lib/s3")
-
-    // Re-read current body to avoid deleting keys re-referenced by a concurrent save
-    const currentRows = await withTenant(getDb(), { userId, userRole: "seller_owner" }, (tx) =>
-      tx
-        .select({ bodyHtml: schema.products.bodyHtml })
-        .from(schema.products)
-        .where(eq(schema.products.id, productId))
-        .limit(1),
-    )
-    const currentBody = currentRows[0]?.bodyHtml ?? null
-    const currentKeys = extractManagedBodyImageKeys(currentBody ?? "", productId, S3_PUBLIC_URL)
-    const safeOrphaned = orphaned.filter((k) => !currentKeys.has(k))
-
-    const deleteResults = await Promise.allSettled(safeOrphaned.map((key) => deleteObject(key)))
-    for (let i = 0; i < deleteResults.length; i++) {
-      const result = deleteResults[i]!
-      if (result.status === "rejected") {
-        const reason: unknown = result.reason
-        console.error("[saveProductBody] orphaned key delete failed", {
-          key: safeOrphaned[i],
-          reason,
-        })
-      }
-    }
-  }
 
   revalidatePath(`/seller/dashboard/products/${productId}/edit`)
   revalidatePath(`/products/${txResult.storeSlug}/${txResult.productSlug}`)

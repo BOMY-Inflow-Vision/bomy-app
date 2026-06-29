@@ -30,7 +30,7 @@ const ALL_ALLOWED = new Set([...BLOCK_TAGS, ...INLINE_TAGS])
 
 function renderNode(node: Node, key: string): ReactNode {
   if (node.nodeType === NodeType.TEXT_NODE) {
-    const text = (node as { rawText?: string }).rawText ?? ""
+    const text = (node as { text?: string }).text ?? ""
     return text || null
   }
   if (node.nodeType !== NodeType.ELEMENT_NODE) return null
@@ -41,7 +41,7 @@ function renderNode(node: Node, key: string): ReactNode {
 
   if (!ALL_ALLOWED.has(tag)) {
     // Unknown tag: discard element, preserve children
-    return children.length > 0 ? <>{children}</> : null
+    return children.length > 0 ? <React.Fragment key={key}>{children}</React.Fragment> : null
   }
 
   switch (tag) {

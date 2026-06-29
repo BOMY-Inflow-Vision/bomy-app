@@ -85,7 +85,10 @@ export async function createScheduler(
   await bodyImageCleanupQueue.upsertJobScheduler(
     "nightly-body-image-cleanup",
     { pattern: BODY_IMAGE_CLEANUP_CRON, tz: TZ },
-    { name: "body-image-cleanup" },
+    {
+      name: "body-image-cleanup",
+      opts: { attempts: 3, backoff: { type: "exponential", delay: 30_000 } },
+    },
   )
 
   // --- Workers ---

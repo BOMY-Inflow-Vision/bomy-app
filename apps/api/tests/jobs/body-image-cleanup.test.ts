@@ -151,7 +151,7 @@ describe("runBodyImageCleanup (unit — mocked S3 + Redis)", () => {
     expect(redisMocks.del).toHaveBeenCalledWith(`body-img-candidate:${MANAGED_KEY}`)
   })
 
-  it("R2 listing second-page failure → zero deletions (all-or-nothing guarantee)", async () => {
+  it("R2 listing second-page failure → throws (BullMQ retry eligible), zero deletions", async () => {
     const page1Objects = [
       { Key: MANAGED_KEY, LastModified: OLD_DATE },
       { Key: `body/${PID}/${UUID_KEY}.png`, LastModified: OLD_DATE },
@@ -171,7 +171,10 @@ describe("runBodyImageCleanup (unit — mocked S3 + Redis)", () => {
     const { _mocks: logMocks, ...logger } = makeLogger()
     const db = makeDb()
 
-    await runBodyImageCleanup(db, redis as unknown as Redis, logger)
+    // Phase 2 listing failure now throws so BullMQ can retry the job
+    await expect(runBodyImageCleanup(db, redis as unknown as Redis, logger)).rejects.toThrow(
+      "R2 listing failed",
+    )
 
     const deleteCalls = send.mock.calls.filter(
       (c) => (c[0] as { constructor: { name: string } }).constructor.name === "DeleteObjectCommand",
@@ -240,6 +243,201 @@ describe("runBodyImageCleanup (unit — mocked S3 + Redis)", () => {
     )
     expect(deleteCalls).toHaveLength(0)
     expect(logMocks.error).toHaveBeenCalled()
+    void redisMocks // referenced to avoid unused-var lint
+  })
+
+  // ── 4a: Phase 1b — referenced-marker clearing ────────────────────────────
+
+  it("clears Redis marker for referenced keys in Phase 1b", async () => {
+    // DB returns a product whose body_html references MANAGED_KEY
+    // Override: limitMock returns a row with bodyHtml that includes the managed key
+    const S3_PUBLIC_URL = "https://r2.test"
+    process.env["S3_PUBLIC_URL"] = S3_PUBLIC_URL
+    const bodyHtml = `<img src="${S3_PUBLIC_URL}/${MANAGED_KEY}" alt="x" />`
+    const rowWithRef = [{ id: PID, bodyHtml }]
+
+    // The select chain for phase 1 pagination returns one page with a product referencing MANAGED_KEY,
+    // then an empty page to end the loop. Re-wire limit to return rows then empty.
+    const limitMock = vi.fn().mockResolvedValueOnce(rowWithRef).mockResolvedValue([])
+    const stub = {
+      select: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            orderBy: vi.fn().mockReturnValue({ limit: limitMock }),
+            limit: limitMock,
+          }),
+        }),
+      }),
+      transaction: vi.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+        return fn(stub)
+      }),
+      execute: vi.fn().mockResolvedValue(undefined),
+      insert: vi.fn().mockReturnValue({ values: vi.fn().mockResolvedValue(undefined) }),
+      delete: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([]) }),
+      }),
+    }
+    const refDb = stub as unknown as Parameters<typeof runBodyImageCleanup>[0]
+
+    // S3 returns MANAGED_KEY as old enough
+    const s3 = makeS3Mock([[{ Key: MANAGED_KEY, LastModified: OLD_DATE }]])
+    _setS3ForTesting(s3 as unknown as S3Client)
+
+    // Redis already has a marker for MANAGED_KEY
+    const { _mocks: redisMocks, ...redis } = makeRedisMock({
+      getResult: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString(),
+    })
+    const logger = makeLogger()
+
+    await runBodyImageCleanup(refDb, redis as unknown as Redis, logger)
+
+    // Phase 1b: should DEL the marker for the referenced key
+    expect(redisMocks.del).toHaveBeenCalledWith(`body-img-candidate:${MANAGED_KEY}`)
+    // Key is referenced → should NOT be deleted
+    const deleteCalls = s3.send.mock.calls.filter(
+      (c) => (c[0] as { constructor: { name: string } }).constructor.name === "DeleteObjectCommand",
+    )
+    expect(deleteCalls).toHaveLength(0)
+
+    delete process.env["S3_PUBLIC_URL"]
+  })
+
+  // ── 4b: Final-reference rescue (finalCheckSaved path) ────────────────────
+
+  it("rescues key from deletion when final DB check shows still referenced", async () => {
+    const firstSeenAt = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString()
+    const S3_PUBLIC_URL = "https://r2.test"
+    process.env["S3_PUBLIC_URL"] = S3_PUBLIC_URL
+    const bodyHtml = `<img src="${S3_PUBLIC_URL}/${MANAGED_KEY}" alt="x" />`
+
+    // Phase 1 pagination returns empty (key not in referenced set initially)
+    // Final-check DB query returns bodyHtml that references the key
+    const limitMock = vi
+      .fn()
+      .mockResolvedValueOnce([]) // phase 1 pagination: empty page → reference set is empty
+      .mockResolvedValueOnce([{ bodyHtml }]) // final-check query for the product
+    const stub = {
+      select: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            orderBy: vi.fn().mockReturnValue({ limit: limitMock }),
+            limit: limitMock,
+          }),
+        }),
+      }),
+      transaction: vi.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+        return fn(stub)
+      }),
+      execute: vi.fn().mockResolvedValue(undefined),
+      insert: vi.fn().mockReturnValue({ values: vi.fn().mockResolvedValue(undefined) }),
+      delete: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([]) }),
+      }),
+    }
+    const refDb = stub as unknown as Parameters<typeof runBodyImageCleanup>[0]
+
+    const s3 = makeS3Mock([[{ Key: MANAGED_KEY, LastModified: OLD_DATE }]])
+    _setS3ForTesting(s3 as unknown as S3Client)
+
+    const { _mocks: redisMocks, ...redis } = makeRedisMock({ getResult: firstSeenAt })
+    const { _mocks: logMocks, ...logger } = makeLogger()
+
+    await runBodyImageCleanup(refDb, redis as unknown as Redis, logger)
+
+    // Key should NOT be deleted — final check rescued it
+    const deleteCalls = s3.send.mock.calls.filter(
+      (c) => (c[0] as { constructor: { name: string } }).constructor.name === "DeleteObjectCommand",
+    )
+    expect(deleteCalls).toHaveLength(0)
+    // No errors expected
+    expect(logMocks.error).not.toHaveBeenCalled()
+    void redisMocks // referenced to avoid unused-var lint
+
+    delete process.env["S3_PUBLIC_URL"]
+  })
+
+  // ── 4c: Redis DEL failure after deletion ──────────────────────────────────
+
+  it("logs error but continues when Redis DEL fails after successful delete", async () => {
+    const firstSeenAt = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString()
+    const s3 = makeS3Mock([[{ Key: MANAGED_KEY, LastModified: OLD_DATE }]])
+    _setS3ForTesting(s3 as unknown as S3Client)
+
+    // Redis: get returns old marker, del throws on post-delete cleanup
+    const get = vi.fn().mockResolvedValue(firstSeenAt)
+    const set = vi.fn().mockResolvedValue("OK")
+    const del = vi.fn().mockRejectedValue(new Error("Redis DEL fail"))
+    const redis = { get, set, del }
+
+    const { _mocks: logMocks, ...logger } = makeLogger()
+    const db = makeDb()
+
+    // Should NOT throw even though redis.del fails
+    await expect(
+      runBodyImageCleanup(db, redis as unknown as Redis, logger),
+    ).resolves.toBeUndefined()
+    expect(logMocks.error).toHaveBeenCalled()
+  })
+
+  // ── 4d: Upload-log housekeeping ───────────────────────────────────────────
+
+  it("prunes upload log rows older than 2 hours", async () => {
+    // S3 returns no objects so the loop is a no-op; we only care about the housekeeping delete
+    const s3 = makeS3Mock([[]])
+    _setS3ForTesting(s3 as unknown as S3Client)
+
+    const { ...redis } = makeRedisMock()
+    const logger = makeLogger()
+
+    const deleteMock = vi.fn().mockReturnValue({
+      where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([]) }),
+    })
+    const stub = {
+      select: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            orderBy: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([]) }),
+            limit: vi.fn().mockResolvedValue([]),
+          }),
+        }),
+      }),
+      transaction: vi.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+        return fn(stub)
+      }),
+      execute: vi.fn().mockResolvedValue(undefined),
+      insert: vi.fn().mockReturnValue({ values: vi.fn().mockResolvedValue(undefined) }),
+      delete: deleteMock,
+    }
+    const db = stub as unknown as Parameters<typeof runBodyImageCleanup>[0]
+
+    await runBodyImageCleanup(db, redis as unknown as Redis, logger)
+
+    expect(deleteMock).toHaveBeenCalled()
+  })
+
+  // ── 4e: NaN timestamp treated as too-young ────────────────────────────────
+
+  it("treats NaN Redis marker timestamp as too-young (safe)", async () => {
+    const s3 = makeS3Mock([[{ Key: MANAGED_KEY, LastModified: OLD_DATE }]])
+    _setS3ForTesting(s3 as unknown as S3Client)
+
+    // Redis returns a corrupted (non-ISO) marker value
+    const { _mocks: redisMocks, ...redis } = makeRedisMock({ getResult: "not-a-number" })
+    const { _mocks: logMocks, ...logger } = makeLogger()
+    const db = makeDb()
+
+    await runBodyImageCleanup(db, redis as unknown as Redis, logger)
+
+    // Key must NOT be deleted — treated as too-young / safe
+    const deleteCalls = s3.send.mock.calls.filter(
+      (c) => (c[0] as { constructor: { name: string } }).constructor.name === "DeleteObjectCommand",
+    )
+    expect(deleteCalls).toHaveLength(0)
+    // Should log an error about the invalid marker
+    expect(logMocks.error).toHaveBeenCalledWith(
+      expect.objectContaining({ key: MANAGED_KEY }),
+      expect.stringContaining("invalid Redis marker value"),
+    )
     void redisMocks // referenced to avoid unused-var lint
   })
 })

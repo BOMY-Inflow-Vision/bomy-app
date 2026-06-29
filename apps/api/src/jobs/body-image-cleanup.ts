@@ -175,8 +175,7 @@ export async function runBodyImageCleanup(
   // Phase 1: Build reference set — keyset-paginate all products with body_html
   const referenced = await buildReferenceSet(db)
   if (!referenced) {
-    logger.error({}, "body-image-cleanup: Phase 1 failed — aborting")
-    return
+    throw new Error("body-image-cleanup: Phase 1 failed — aborting")
   }
 
   // Phase 1b: DEL Redis candidate markers for any key now in the reference set
@@ -190,7 +189,7 @@ export async function runBodyImageCleanup(
 
   // Phase 2: Collect ALL R2 objects before any deletion (abort if any page fails)
   const objects = await listAllR2Objects(bucket, logger)
-  if (!objects) return
+  if (!objects) throw new Error("body-image-cleanup: R2 listing failed — aborting before deletion")
 
   stats.scanned = objects.length
   const toDelete: string[] = []
@@ -235,8 +234,17 @@ export async function runBodyImageCleanup(
     }
 
     // Marker exists — check quarantine age
-    const elapsed = now - new Date(firstSeenAt).getTime()
-    if (elapsed < TWENTY_FOUR_HOURS) {
+    const markerTimestamp = Date.parse(firstSeenAt)
+    if (isNaN(markerTimestamp)) {
+      logger.error(
+        { key },
+        "body-image-cleanup: invalid Redis marker value — treating as brand-new",
+      )
+      stats.quarantinedPending++
+      continue
+    }
+    const markerAge = now - markerTimestamp
+    if (markerAge < TWENTY_FOUR_HOURS) {
       stats.quarantinedPending++
       continue
     }

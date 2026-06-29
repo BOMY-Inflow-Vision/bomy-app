@@ -1199,11 +1199,38 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       expect(r).toMatchObject({ ok: false, error: "invalid_revision" })
     })
 
-    it("returns not_found when caller does not own the product", async () => {
-      const otherSellerId = randomUUID()
-      mockAuth.mockResolvedValue({ user: { id: otherSellerId, role: "seller_owner" } })
-      const r = await saveProductBody(productId, "<p>hello</p>", 0)
-      expect(r).toMatchObject({ ok: false, error: "not_found" })
+    it("returns not_found when caller owns a different active store (cross-store isolation)", async () => {
+      // Seed seller B with their own active store — but NOT owning productId
+      const sellerBId = randomUUID()
+      const storeBId = randomUUID()
+      await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "test seed seller B" }, async (tx) => {
+        await tx
+          .insert(schema.users)
+          .values({ id: sellerBId, email: `sellerb-${sellerBId}@test.bomy`, role: "seller_owner" })
+        await tx.insert(schema.stores).values({
+          id: storeBId,
+          ownerId: sellerBId,
+          name: "Seller B Store",
+          slug: `seller-b-${storeBId.slice(0, 8)}`,
+          status: "active",
+        })
+      })
+      try {
+        // Seller B has an active store but productId belongs to seller A's store
+        mockAuth.mockResolvedValue({ user: { id: sellerBId, role: "seller_owner" } })
+        const r = await saveProductBody(productId, "<p>hello</p>", 0)
+        // Cross-store isolation: product not visible to seller B → not_found
+        expect(r).toMatchObject({ ok: false, error: "not_found" })
+      } finally {
+        await withAdmin(
+          db.db,
+          { userId: SYSTEM_ACTOR, reason: "test cleanup seller B" },
+          async (tx) => {
+            await tx.delete(schema.stores).where(eq(schema.stores.id, storeBId))
+            await tx.delete(schema.users).where(eq(schema.users.id, sellerBId))
+          },
+        )
+      }
     })
 
     it("returns conflict when revision mismatches DB value", async () => {
@@ -1250,7 +1277,7 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       expect(row?.bodyHtml).toBeNull()
     })
 
-    it("deleteObject is called for keys removed from body", async () => {
+    it("does NOT call deleteObject for keys removed from body (deferred to nightly cleanup)", async () => {
       vi.mocked(deleteObject).mockClear()
       const fakeKey = `body/${productId}/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee.jpg`
       const fakeUrl = `https://r2.test/${fakeKey}`
@@ -1262,11 +1289,11 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       })
       const r = await saveProductBody(productId, "<p>new content no image</p>", 0)
       expect(r).toMatchObject({ ok: true })
-      expect(vi.mocked(deleteObject)).toHaveBeenCalledWith(fakeKey)
+      // Immediate deletion was removed; orphan cleanup is handled by the nightly body-image-cleanup job
+      expect(vi.mocked(deleteObject)).not.toHaveBeenCalled()
     })
 
-    it("save succeeds even when deleteObject rejects", async () => {
-      vi.mocked(deleteObject).mockRejectedValueOnce(new Error("S3 offline"))
+    it("save succeeds and DB revision advances (orphan deletion is deferred)", async () => {
       const fakeKey = `body/${productId}/bbbbbbbb-cccc-dddd-eeee-ffffffffffff.jpg`
       const fakeUrl = `https://r2.test/${fakeKey}`
       await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "test setup" }, async (tx) => {
@@ -1277,7 +1304,7 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       })
       const r = await saveProductBody(productId, "<p>new</p>", 0)
       expect(r).toMatchObject({ ok: true })
-      // Verify DB revision advanced despite deletion failure
+      // Verify DB revision advanced
       const [row] = await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "verify" }, (tx) =>
         tx
           .select({ rev: schema.products.bodyRevision })

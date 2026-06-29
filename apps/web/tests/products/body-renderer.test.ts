@@ -71,4 +71,11 @@ describe("renderBodyHtml", () => {
     expect(output).not.toContain("style=")
     expect(output).toContain("text")
   })
+
+  it("decodes HTML entities in text nodes", () => {
+    const html = "<p>A &amp; B &lt;em&gt;</p>"
+    const output = renderToStaticMarkup(renderBodyHtml(html) as React.ReactElement)
+    expect(output).toContain("A &amp; B &lt;em&gt;")
+    expect(output).not.toContain("&amp;amp;")
+  })
 })
