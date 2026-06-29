@@ -698,6 +698,7 @@ export async function saveProductBody(
     const [existing] = await tx
       .select({
         bodyRevision: schema.products.bodyRevision,
+        bodyHtml: schema.products.bodyHtml,
         productSlug: schema.products.slug,
       })
       .from(schema.products)
@@ -717,6 +718,7 @@ export async function saveProductBody(
       ok: true as const,
       storeSlug: store.slug,
       productSlug: existing.productSlug,
+      oldBodyHtml: existing.bodyHtml,
     }
   })
 
@@ -724,6 +726,31 @@ export async function saveProductBody(
 
   revalidatePath(`/seller/dashboard/products/${productId}/edit`)
   revalidatePath(`/products/${txResult.storeSlug}/${txResult.productSlug}`)
+
+  // Fire-and-forget: delete body images removed in this save.
+  // The nightly cleanup job is the safety net if this fails.
+  if (txResult.oldBodyHtml) {
+    const oldHtml = txResult.oldBodyHtml
+    void (async () => {
+      try {
+        const { extractManagedBodyImageKeys } = await import("@bomy/shared")
+        const { deleteObject } = await import("@/lib/s3")
+        const oldKeys = extractManagedBodyImageKeys(oldHtml, productId, S3_PUBLIC_URL)
+        const newKeys = extractManagedBodyImageKeys(canonicalHtml ?? "", productId, S3_PUBLIC_URL)
+        for (const key of oldKeys) {
+          if (!newKeys.has(key)) {
+            try {
+              await deleteObject(key)
+            } catch (err) {
+              console.error(`[saveProductBody] R2 delete failed for key ${key}:`, err)
+            }
+          }
+        }
+      } catch (err) {
+        console.error("[saveProductBody] Orphan image cleanup failed:", err)
+      }
+    })()
+  }
 
   return { ok: true, revision: revision + 1, html: canonicalHtml }
 }
