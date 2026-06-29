@@ -214,7 +214,7 @@ export async function runBodyImageCleanup(
         "body-image-cleanup: invalid Redis marker — resetting with current timestamp",
       )
       try {
-        await redis.set(markerKey, Date.now().toString(), "EX", SEVENTY_TWO_HOURS_S)
+        await redis.set(markerKey, new Date().toISOString(), "EX", SEVENTY_TWO_HOURS_S)
         stats.quarantinedNew++
       } catch (setErr) {
         logger.error(
@@ -271,6 +271,13 @@ export async function runBodyImageCleanup(
     // Serialize final check + delete: eliminate the window between collection and deletion.
     // Delete immediately after confirming not referenced.
     try {
+      // TOCTOU acceptance: the withAdmin SELECT transaction ends before the S3 DeleteObjectCommand
+      // HTTP call begins. A concurrent seller save could theoretically re-reference this key in
+      // that ~100ms window, producing a broken image URL until the seller re-uploads.
+      // Risk accepted because: (1) the two-run 72h quarantine makes simultaneous re-reference
+      // extremely unlikely in practice, (2) the consequence is recoverable (re-upload), and
+      // (3) a cross-system lock/registry would require Redis access in apps/web, adding
+      // significant complexity for a near-zero-probability event.
       await getS3().send(new DeleteObjectCommand({ Bucket: bucket, Key: key }))
       stats.deleted++
       // Clear Redis marker only on successful delete

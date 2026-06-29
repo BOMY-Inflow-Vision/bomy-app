@@ -450,5 +450,12 @@ describe("runBodyImageCleanup (unit — mocked S3 + Redis)", () => {
       "EX",
       72 * 60 * 60,
     )
+    // Verify the reset marker is in ISO format (parseable by Date.parse)
+    const setCall = redisMocks.set.mock.calls.find(
+      ([k]) => k === `body-img-candidate:${MANAGED_KEY}`,
+    )
+    expect(setCall).toBeDefined()
+    const storedValue = setCall![1] as string
+    expect(Date.parse(storedValue)).not.toBeNaN()
   })
 })
