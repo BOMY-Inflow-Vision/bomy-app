@@ -72,12 +72,22 @@ function renderNode(node: Node, key: string): ReactNode {
       )
     }
 
-    case "table":
+    case "table": {
+      const bordered = el.getAttribute("data-bordered") === "true"
       return (
         <div key={key} className="overflow-x-auto">
-          <table>{children}</table>
+          <table
+            className={
+              bordered
+                ? "w-full border-collapse [&_td]:border [&_td]:border-gray-300 [&_td]:px-3 [&_td]:py-2 [&_th]:border [&_th]:border-gray-300 [&_th]:bg-gray-50 [&_th]:px-3 [&_th]:py-2 [&_th]:font-semibold"
+                : undefined
+            }
+          >
+            {children}
+          </table>
         </div>
       )
+    }
 
     case "figure": {
       const provider = el.getAttribute("data-video-provider")

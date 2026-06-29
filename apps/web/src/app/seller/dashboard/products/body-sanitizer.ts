@@ -37,6 +37,7 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
     a: ["href", "rel", "target"],
     img: ["src", "alt", "width", "height", "loading", "decoding", "referrerpolicy"],
     figure: ["data-video-provider", "data-video-id", "data-video-title"],
+    table: ["data-bordered"],
     th: ["colspan", "rowspan", "scope"],
     td: ["colspan", "rowspan"],
   },

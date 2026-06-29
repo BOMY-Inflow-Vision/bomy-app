@@ -4,6 +4,24 @@ import { useEffect, useRef, useState } from "react"
 import { EditorContent, useEditor, type Editor } from "@tiptap/react"
 import { StarterKit } from "@tiptap/starter-kit"
 import { TableKit } from "@tiptap/extension-table"
+import { Table as TiptapTable } from "@tiptap/extension-table/table"
+
+// Extend the built-in Table node to support a `data-bordered` attribute so
+// sellers can toggle visible borders. The attribute is serialised to HTML and
+// read back by the body-renderer on the public product page.
+const BorderedTable = TiptapTable.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      "data-bordered": {
+        default: null,
+        parseHTML: (el) => el.getAttribute("data-bordered") ?? null,
+        renderHTML: (attrs) =>
+          attrs["data-bordered"] ? { "data-bordered": String(attrs["data-bordered"]) } : {},
+      },
+    }
+  },
+})
 import {
   Bold,
   Code,
@@ -64,7 +82,9 @@ export function ProductBodyEditor({
         link: { openOnClick: false, defaultProtocol: "https" },
         codeBlock: false,
       }),
-      TableKit,
+      // Disable the built-in Table node so our BorderedTable extension takes its place
+      TableKit.configure({ table: false }),
+      BorderedTable,
       ImageUploadExtension.configure({
         productId,
         onUploadStart: () => {
@@ -345,6 +365,30 @@ export function ProductBodyEditor({
             icon={<Minus className="h-3 w-3" />}
             danger
           />
+          <span
+            role="separator"
+            aria-orientation="vertical"
+            className="mx-1 h-4 w-px bg-blue-200"
+          />
+          <TableControlButton
+            action={() => {
+              const current = editor.getAttributes("table")["data-bordered"] as string | null
+              editor
+                .chain()
+                .focus()
+                .updateAttributes("table", {
+                  "data-bordered": current === "true" ? null : "true",
+                })
+                .run()
+            }}
+            label={
+              editor.getAttributes("table")["data-bordered"] === "true"
+                ? "Remove borders"
+                : "Add borders"
+            }
+            icon={<Table className="h-3 w-3" />}
+            active={editor.getAttributes("table")["data-bordered"] === "true"}
+          />
         </div>
       )}
 
@@ -431,9 +475,12 @@ function LinkButton({ editor }: { editor: Editor | null }) {
         if (editor?.isActive("link")) {
           editor.chain().focus().unsetLink().run()
         } else {
-          const url = prompt("URL:")
+          const url = prompt("URL (e.g. https://example.com):")
           if (!url) return
-          editor?.chain().focus().setLink({ href: url }).run()
+          // Prepend https:// if no scheme given so the link isn't stripped by the sanitizer
+          const href =
+            url.startsWith("https://") || url.startsWith("http://") ? url : `https://${url}`
+          editor?.chain().focus().setLink({ href }).run()
         }
       }}
       aria-label="Set or unset link"
@@ -528,22 +575,73 @@ function UploadImageButton({ editor }: { editor: Editor | null }) {
 }
 
 function InsertTableButton({ editor }: { editor: Editor | null }) {
+  const [open, setOpen] = useState(false)
+  const [rows, setRows] = useState(2)
+  const [cols, setCols] = useState(3)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [open])
+
   return (
-    <button
-      type="button"
-      onClick={() => {
-        const colsStr = prompt("Number of columns (1–10):", "3")
-        if (colsStr === null) return
-        const cols = Math.min(10, Math.max(1, parseInt(colsStr, 10)))
-        if (isNaN(cols)) return
-        editor?.chain().focus().insertTable({ rows: 2, cols, withHeaderRow: true }).run()
-      }}
-      aria-label="Insert table"
-      title="Insert table"
-      className="min-h-[44px] min-w-[44px] rounded bg-white px-2 text-sm text-gray-700 hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
-    >
-      <Table className="h-4 w-4" />
-    </button>
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-label="Insert table"
+        aria-expanded={open}
+        title="Insert table"
+        className={`min-h-[44px] min-w-[44px] rounded px-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 ${open ? "bg-indigo-100 text-indigo-700" : "bg-white text-gray-700 hover:bg-gray-100"}`}
+      >
+        <Table className="h-4 w-4" />
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-full z-20 mt-1 w-52 rounded-lg border border-gray-200 bg-white p-3 shadow-lg">
+          <p className="mb-2 text-xs font-semibold text-gray-700">Insert table</p>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="mb-0.5 block text-xs text-gray-500">Rows</label>
+              <input
+                type="number"
+                min={1}
+                max={20}
+                value={rows}
+                onChange={(e) => setRows(Math.min(20, Math.max(1, Number(e.target.value))))}
+                className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="mb-0.5 block text-xs text-gray-500">Columns</label>
+              <input
+                type="number"
+                min={1}
+                max={10}
+                value={cols}
+                onChange={(e) => setCols(Math.min(10, Math.max(1, Number(e.target.value))))}
+                className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none"
+              />
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              editor?.chain().focus().insertTable({ rows, cols, withHeaderRow: true }).run()
+              setOpen(false)
+            }}
+            className="mt-2 w-full rounded bg-indigo-600 py-1.5 text-xs font-medium text-white hover:bg-indigo-700"
+          >
+            Insert {rows} × {cols} table
+          </button>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -552,20 +650,27 @@ function TableControlButton({
   label,
   icon,
   danger = false,
+  active = false,
 }: {
   action: () => void
   label: string
   icon: React.ReactNode
   danger?: boolean
+  active?: boolean
 }) {
   return (
     <button
       type="button"
       onClick={() => action()}
       aria-label={label}
+      aria-pressed={active}
       title={label}
       className={`flex items-center gap-1 rounded px-2 py-1 text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 ${
-        danger ? "text-red-600 hover:bg-red-100" : "text-blue-700 hover:bg-blue-100"
+        danger
+          ? "text-red-600 hover:bg-red-100"
+          : active
+            ? "bg-blue-200 text-blue-800"
+            : "text-blue-700 hover:bg-blue-100"
       }`}
     >
       {icon}
