@@ -7,7 +7,6 @@ import { TableKit } from "@tiptap/extension-table"
 import {
   Bold,
   Code,
-  CodeXml,
   Heading3,
   Heading4,
   ImageIcon,
@@ -63,6 +62,7 @@ export function ProductBodyEditor({
       StarterKit.configure({
         heading: { levels: [3, 4] },
         link: { openOnClick: false, defaultProtocol: "https" },
+        codeBlock: false,
       }),
       TableKit,
       ImageUploadExtension.configure({
@@ -242,14 +242,6 @@ export function ProductBodyEditor({
         >
           <Code className="h-4 w-4" />
         </ToolbarButton>
-        <ToolbarButton
-          action={() => editor?.chain().focus().toggleCodeBlock().run()}
-          active={editor?.isActive("codeBlock") ?? false}
-          label="Code block"
-          title="Code block"
-        >
-          <CodeXml className="h-4 w-4" />
-        </ToolbarButton>
 
         <span
           role="separator"
@@ -296,16 +288,7 @@ export function ProductBodyEditor({
           className="mx-1 h-5 w-px self-center bg-gray-300"
         />
 
-        <ToolbarButton
-          action={() =>
-            editor?.chain().focus().insertTable({ rows: 2, cols: 2, withHeaderRow: true }).run()
-          }
-          active={false}
-          label="Insert table"
-          title="Insert table"
-        >
-          <Table className="h-4 w-4" />
-        </ToolbarButton>
+        <InsertTableButton editor={editor} />
 
         <span
           role="separator"
@@ -323,40 +306,45 @@ export function ProductBodyEditor({
         <div
           role="toolbar"
           aria-label="Table controls"
-          className="flex flex-wrap gap-1 rounded border border-gray-200 bg-gray-50 p-1"
+          className="flex flex-wrap items-center gap-1 rounded border border-blue-100 bg-blue-50 p-1"
         >
-          <ToolbarButton
+          <span className="px-1 text-xs font-medium text-blue-600">Table:</span>
+          <TableControlButton
             action={() => editor.chain().focus().addRowAfter().run()}
-            active={false}
-            label="Add row below"
-            title="Add row below"
-          >
-            <Plus className="h-4 w-4" />
-          </ToolbarButton>
-          <ToolbarButton
+            label="Add row"
+            icon={<Plus className="h-3 w-3" />}
+          />
+          <TableControlButton
             action={() => editor.chain().focus().deleteRow().run()}
-            active={false}
             label="Delete row"
-            title="Delete row"
-          >
-            <Minus className="h-4 w-4" />
-          </ToolbarButton>
-          <ToolbarButton
+            icon={<Minus className="h-3 w-3" />}
+          />
+          <span
+            role="separator"
+            aria-orientation="vertical"
+            className="mx-1 h-4 w-px bg-blue-200"
+          />
+          <TableControlButton
             action={() => editor.chain().focus().addColumnAfter().run()}
-            active={false}
-            label="Add column right"
-            title="Add column right"
-          >
-            <Plus className="h-4 w-4" />
-          </ToolbarButton>
-          <ToolbarButton
+            label="Add column"
+            icon={<Plus className="h-3 w-3" />}
+          />
+          <TableControlButton
             action={() => editor.chain().focus().deleteColumn().run()}
-            active={false}
             label="Delete column"
-            title="Delete column"
-          >
-            <Minus className="h-4 w-4" />
-          </ToolbarButton>
+            icon={<Minus className="h-3 w-3" />}
+          />
+          <span
+            role="separator"
+            aria-orientation="vertical"
+            className="mx-1 h-4 w-px bg-blue-200"
+          />
+          <TableControlButton
+            action={() => editor.chain().focus().deleteTable().run()}
+            label="Delete table"
+            icon={<Minus className="h-3 w-3" />}
+            danger
+          />
         </div>
       )}
 
@@ -539,6 +527,53 @@ function UploadImageButton({ editor }: { editor: Editor | null }) {
   )
 }
 
+function InsertTableButton({ editor }: { editor: Editor | null }) {
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        const colsStr = prompt("Number of columns (1–10):", "3")
+        if (colsStr === null) return
+        const cols = Math.min(10, Math.max(1, parseInt(colsStr, 10)))
+        if (isNaN(cols)) return
+        editor?.chain().focus().insertTable({ rows: 2, cols, withHeaderRow: true }).run()
+      }}
+      aria-label="Insert table"
+      title="Insert table"
+      className="min-h-[44px] min-w-[44px] rounded bg-white px-2 text-sm text-gray-700 hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+    >
+      <Table className="h-4 w-4" />
+    </button>
+  )
+}
+
+function TableControlButton({
+  action,
+  label,
+  icon,
+  danger = false,
+}: {
+  action: () => void
+  label: string
+  icon: React.ReactNode
+  danger?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => action()}
+      aria-label={label}
+      title={label}
+      className={`flex items-center gap-1 rounded px-2 py-1 text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 ${
+        danger ? "text-red-600 hover:bg-red-100" : "text-blue-700 hover:bg-blue-100"
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
+  )
+}
+
 function EmbedYouTubeButton({ editor }: { editor: Editor | null }) {
   return (
     <button
@@ -546,9 +581,10 @@ function EmbedYouTubeButton({ editor }: { editor: Editor | null }) {
       onClick={() => {
         const input = prompt("YouTube video URL or ID:")
         if (!input) return
+        // Handles: ?v=ID, youtu.be/ID, /embed/ID, /shorts/ID, /live/ID, bare ID
         const idMatch =
-          input.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{1,11})/) ??
-          input.match(/^([a-zA-Z0-9_-]{1,11})$/)
+          input.match(/(?:v=|youtu\.be\/|\/embed\/|\/shorts\/|\/live\/)([a-zA-Z0-9_-]{11})/) ??
+          input.match(/^([a-zA-Z0-9_-]{11})$/)
         const videoId = idMatch?.[1]
         if (!videoId) {
           alert("Could not extract a valid YouTube video ID.")

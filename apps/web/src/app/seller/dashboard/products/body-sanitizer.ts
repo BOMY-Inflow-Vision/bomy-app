@@ -24,7 +24,6 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
     "blockquote",
     "hr",
     "code",
-    "pre",
     "table",
     "thead",
     "tbody",
