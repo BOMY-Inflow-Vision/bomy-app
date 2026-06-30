@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation"
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 
 import { schema, withTenant } from "@bomy/db"
 
@@ -21,7 +21,7 @@ export default async function SellerSettingsPage() {
       const rows = await tx
         .select({ excerpt: schema.stores.excerpt })
         .from(schema.stores)
-        .where(eq(schema.stores.ownerId, session.user.id))
+        .where(and(eq(schema.stores.ownerId, session.user.id), eq(schema.stores.status, "active")))
         .limit(1)
       return rows[0] ?? null
     },

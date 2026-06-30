@@ -50,7 +50,13 @@ export async function updateStoreSettings(
         const updated = await tx
           .update(schema.stores)
           .set({ excerpt: excerpt || null, updatedAt: new Date() })
-          .where(eq(schema.stores.id, store.id))
+          .where(
+            and(
+              eq(schema.stores.id, store.id),
+              eq(schema.stores.ownerId, session.user.id),
+              eq(schema.stores.status, "active"),
+            ),
+          )
           .returning({ id: schema.stores.id })
 
         if (updated.length === 0) {
