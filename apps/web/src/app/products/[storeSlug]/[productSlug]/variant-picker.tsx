@@ -91,21 +91,27 @@ export function VariantPicker({ product, variants }: VariantPickerProps) {
         <div>
           <p className="mb-2 text-sm font-medium text-gray-700">Choose variant</p>
           <div className="flex flex-wrap gap-2">
-            {variants.map((v) => (
-              <button
-                key={v.id}
-                type="button"
-                onClick={() => setSelectedId(v.id)}
-                className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${
-                  v.id === selectedId
-                    ? "border-indigo-600 bg-indigo-50 font-medium text-indigo-700"
-                    : "border-gray-300 text-gray-700 hover:border-indigo-400"
-                } ${v.stockCount === 0 ? "opacity-50 line-through" : ""}`}
-                disabled={v.stockCount === 0}
-              >
-                {v.name}
-              </button>
-            ))}
+            {variants.map((v) => {
+              const vSpecial = v.fulfillmentMode === "backorder" || v.fulfillmentMode === "preorder"
+              // Special-order variants stay selectable so buyers can see the badge;
+              // only normal out-of-stock variants are visually disabled.
+              const unavailable = v.stockCount === 0 && !vSpecial
+              return (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => setSelectedId(v.id)}
+                  className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+                    v.id === selectedId
+                      ? "border-indigo-600 bg-indigo-50 font-medium text-indigo-700"
+                      : "border-gray-300 text-gray-700 hover:border-indigo-400"
+                  } ${unavailable ? "opacity-50 line-through" : ""}`}
+                  disabled={unavailable}
+                >
+                  {v.name}
+                </button>
+              )
+            })}
           </div>
         </div>
       )}
