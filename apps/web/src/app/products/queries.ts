@@ -150,6 +150,8 @@ export async function getProductBySlug(storeSlug: string, productSlug: string) {
           sku: schema.productVariants.sku,
           attributes: schema.productVariants.attributes,
           sortOrder: schema.productVariants.sortOrder,
+          fulfillmentMode: schema.productVariants.fulfillmentMode,
+          preorderLeadDays: schema.productVariants.preorderLeadDays,
         })
         .from(schema.productVariants)
         .where(

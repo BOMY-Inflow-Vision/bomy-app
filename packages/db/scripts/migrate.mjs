@@ -124,6 +124,14 @@ const MIGRATIONS = [
     name: "0021_product_body_html",
     file: join(__dirname, "../drizzle/0021_product_body_html.sql"),
   },
+  {
+    name: "0022_variant_fulfillment_mode",
+    file: join(__dirname, "../drizzle/0022_variant_fulfillment_mode.sql"),
+  },
+  {
+    name: "0023_variant_preorder_constraint",
+    file: join(__dirname, "../drizzle/0023_variant_preorder_constraint.sql"),
+  },
 ]
 
 try {

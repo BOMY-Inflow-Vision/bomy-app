@@ -57,6 +57,7 @@ import {
   getBodyImageUploadUrl,
   getPresignedUploadUrl,
   getProductForEdit,
+  reactivateVariant,
   removeProductImage,
   saveProductBody,
   updateProduct,
@@ -528,6 +529,164 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
             .where(eq(schema.productVariants.id, variantId)),
       )
       expect(row!.isActive).toBe(false)
+    })
+
+    it("reactivates a deactivated variant", async () => {
+      // Self-contained: set inactive directly, then verify reactivation works.
+      await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test setup" }, async (tx) => {
+        await tx
+          .update(schema.productVariants)
+          .set({ isActive: false })
+          .where(eq(schema.productVariants.id, variantId))
+      })
+
+      mockAuth.mockResolvedValue({
+        user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
+      })
+
+      await reactivateVariant(variantId)
+
+      const [row] = await withAdmin(
+        testDb.db,
+        { userId: SYSTEM_ACTOR, reason: "test assert" },
+        async (tx) =>
+          tx
+            .select({ isActive: schema.productVariants.isActive })
+            .from(schema.productVariants)
+            .where(eq(schema.productVariants.id, variantId)),
+      )
+      expect(row!.isActive).toBe(true)
+    })
+
+    it("rejects reactivateVariant for another seller's variant", async () => {
+      mockAuth.mockResolvedValue({
+        user: { id: otherSellerId, role: "seller_owner", email: "other@test.bomy" },
+      })
+
+      await expect(reactivateVariant(variantId)).rejects.toThrow("not found or not authorized")
+    })
+
+    it("addVariant saves preorder fulfillment mode with lead days", async () => {
+      mockAuth.mockResolvedValue({
+        user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
+      })
+
+      await addVariant(
+        productId,
+        fd({
+          name: "Preorder Edition",
+          price: "49.00",
+          stock: "0",
+          sku: "",
+          attrs: "",
+          fulfillment_mode: "preorder",
+          preorder_lead_days: "7",
+        }),
+      )
+
+      const [row] = await withAdmin(
+        testDb.db,
+        { userId: SYSTEM_ACTOR, reason: "test assert" },
+        async (tx) =>
+          tx
+            .select({
+              fulfillmentMode: schema.productVariants.fulfillmentMode,
+              preorderLeadDays: schema.productVariants.preorderLeadDays,
+            })
+            .from(schema.productVariants)
+            .where(
+              and(
+                eq(schema.productVariants.productId, productId),
+                eq(schema.productVariants.name, "Preorder Edition"),
+              ),
+            ),
+      )
+      expect(row!.fulfillmentMode).toBe("preorder")
+      expect(row!.preorderLeadDays).toBe(7)
+    })
+
+    it("DB CHECK rejects preorder variant with null lead days", async () => {
+      // Bypass the action layer to directly test the constraint.
+      await expect(
+        withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test constraint" }, async (tx) => {
+          await tx.insert(schema.productVariants).values({
+            productId,
+            name: "Bad Preorder",
+            priceMyrSen: 1000n,
+            stockCount: 0,
+            fulfillmentMode: "preorder",
+            preorderLeadDays: null,
+          })
+        }),
+      ).rejects.toThrow()
+    })
+
+    it("normalizes preorder without lead days to backorder on updateVariant", async () => {
+      mockAuth.mockResolvedValue({
+        user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
+      })
+
+      await updateVariant(
+        variantId,
+        fd({
+          name: "Original v2",
+          price: "32.00",
+          stock: "25",
+          sku: "",
+          attrs: "",
+          fulfillment_mode: "preorder",
+          preorder_lead_days: "",
+        }),
+      )
+
+      const [row] = await withAdmin(
+        testDb.db,
+        { userId: SYSTEM_ACTOR, reason: "test assert" },
+        async (tx) =>
+          tx
+            .select({
+              fulfillmentMode: schema.productVariants.fulfillmentMode,
+              preorderLeadDays: schema.productVariants.preorderLeadDays,
+            })
+            .from(schema.productVariants)
+            .where(eq(schema.productVariants.id, variantId)),
+      )
+      expect(row!.fulfillmentMode).toBe("backorder")
+      expect(row!.preorderLeadDays).toBeNull()
+    })
+
+    it("saves preorder with valid lead days", async () => {
+      mockAuth.mockResolvedValue({
+        user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
+      })
+
+      await updateVariant(
+        variantId,
+        fd({
+          name: "Original v2",
+          price: "32.00",
+          stock: "0",
+          sku: "",
+          attrs: "",
+          fulfillment_mode: "preorder",
+          preorder_lead_days: "14",
+        }),
+      )
+
+      const [row] = await withAdmin(
+        testDb.db,
+        { userId: SYSTEM_ACTOR, reason: "test assert" },
+        async (tx) =>
+          tx
+            .select({
+              fulfillmentMode: schema.productVariants.fulfillmentMode,
+              preorderLeadDays: schema.productVariants.preorderLeadDays,
+            })
+            .from(schema.productVariants)
+            .where(eq(schema.productVariants.id, variantId)),
+      )
+      expect(row!.fulfillmentMode).toBe("preorder")
+      expect(row!.preorderLeadDays).toBe(14)
     })
   })
 
