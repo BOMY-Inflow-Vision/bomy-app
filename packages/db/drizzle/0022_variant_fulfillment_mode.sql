@@ -4,6 +4,8 @@ ALTER TABLE product_variants
 
 --> statement-breakpoint
 
-ALTER TABLE product_variants
-  ADD CONSTRAINT product_variants_fulfillment_mode_chk
-  CHECK (fulfillment_mode IN ('normal', 'backorder', 'preorder'));
+DO $$ BEGIN
+  ALTER TABLE product_variants
+    ADD CONSTRAINT product_variants_fulfillment_mode_chk
+    CHECK (fulfillment_mode IN ('normal', 'backorder', 'preorder'));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;

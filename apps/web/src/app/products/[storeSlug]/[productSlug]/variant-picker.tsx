@@ -57,7 +57,9 @@ export function VariantPicker({ product, variants }: VariantPickerProps) {
 
   const isSpecialOrder =
     selected?.fulfillmentMode === "backorder" || selected?.fulfillmentMode === "preorder"
-  const canAddToCart = selected && (selected.stockCount > 0 || isSpecialOrder)
+  // Zero-stock special orders show the badge but are not yet purchasable — checkout does not
+  // support fulfillment_mode-aware reservations yet. Keep disabled until that ships.
+  const canAddToCart = selected && selected.stockCount > 0
 
   function handleAddToCart() {
     if (!selected) return
@@ -89,25 +91,21 @@ export function VariantPicker({ product, variants }: VariantPickerProps) {
         <div>
           <p className="mb-2 text-sm font-medium text-gray-700">Choose variant</p>
           <div className="flex flex-wrap gap-2">
-            {variants.map((v) => {
-              const vSpecial = v.fulfillmentMode === "backorder" || v.fulfillmentMode === "preorder"
-              const outOfStock = v.stockCount === 0 && !vSpecial
-              return (
-                <button
-                  key={v.id}
-                  type="button"
-                  onClick={() => setSelectedId(v.id)}
-                  className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${
-                    v.id === selectedId
-                      ? "border-indigo-600 bg-indigo-50 font-medium text-indigo-700"
-                      : "border-gray-300 text-gray-700 hover:border-indigo-400"
-                  } ${outOfStock ? "opacity-50 line-through" : ""}`}
-                  disabled={outOfStock}
-                >
-                  {v.name}
-                </button>
-              )
-            })}
+            {variants.map((v) => (
+              <button
+                key={v.id}
+                type="button"
+                onClick={() => setSelectedId(v.id)}
+                className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+                  v.id === selectedId
+                    ? "border-indigo-600 bg-indigo-50 font-medium text-indigo-700"
+                    : "border-gray-300 text-gray-700 hover:border-indigo-400"
+                } ${v.stockCount === 0 ? "opacity-50 line-through" : ""}`}
+                disabled={v.stockCount === 0}
+              >
+                {v.name}
+              </button>
+            ))}
           </div>
         </div>
       )}
@@ -133,13 +131,7 @@ export function VariantPicker({ product, variants }: VariantPickerProps) {
         disabled={!canAddToCart}
         className="w-full rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {added
-          ? "Added to cart ✓"
-          : isSpecialOrder
-            ? selected?.fulfillmentMode === "preorder"
-              ? "Pre-order"
-              : "Back-order"
-            : "Add to cart"}
+        {added ? "Added to cart ✓" : "Add to cart"}
       </button>
     </div>
   )

@@ -60,6 +60,26 @@ async function requireSeller() {
   return session
 }
 
+// Normalizes raw form values into a valid fulfillment pair.
+// "preorder" without positive lead days is downgraded to "backorder".
+function normalizeFulfillment(
+  modeRaw: string,
+  leadDaysRaw: number,
+): {
+  fulfillmentMode: "normal" | "backorder" | "preorder"
+  preorderLeadDays: number | null
+} {
+  const mode: "normal" | "backorder" | "preorder" =
+    modeRaw === "backorder" || modeRaw === "preorder" ? modeRaw : "normal"
+  if (mode === "preorder" && leadDaysRaw > 0) {
+    return { fulfillmentMode: "preorder", preorderLeadDays: leadDaysRaw }
+  }
+  if (mode === "preorder") {
+    return { fulfillmentMode: "backorder", preorderLeadDays: null }
+  }
+  return { fulfillmentMode: mode, preorderLeadDays: null }
+}
+
 async function resolveStore(tx: Database, userId: string): Promise<string> {
   const rows = await tx
     .select({ id: schema.stores.id })
@@ -225,10 +245,11 @@ export async function createProduct(formData: FormData): Promise<void> {
       }
     }
     const vModeRaw = str(formData, `variant_fulfillment_mode_${i}`)
-    const vMode: "normal" | "backorder" | "preorder" =
-      vModeRaw === "backorder" || vModeRaw === "preorder" ? vModeRaw : "normal"
     const vLeadDaysRaw = parseInt(str(formData, `variant_preorder_lead_days_${i}`) || "0", 10)
-    const vLeadDays = vMode === "preorder" && vLeadDaysRaw > 0 ? vLeadDaysRaw : null
+    const { fulfillmentMode: vMode, preorderLeadDays: vLeadDays } = normalizeFulfillment(
+      vModeRaw,
+      vLeadDaysRaw,
+    )
     variants.push({
       name: vName,
       priceMyrSen: vPrice,
@@ -371,6 +392,10 @@ export async function addVariant(productId: string, formData: FormData): Promise
       /* ignore */
     }
   }
+  const { fulfillmentMode, preorderLeadDays } = normalizeFulfillment(
+    str(formData, "fulfillment_mode"),
+    parseInt(str(formData, "preorder_lead_days") || "0", 10),
+  )
 
   await withTenant(
     getDb(),
@@ -397,6 +422,8 @@ export async function addVariant(productId: string, formData: FormData): Promise
         priceMyrSen,
         stockCount,
         attributes,
+        fulfillmentMode,
+        preorderLeadDays,
       })
     },
   ).catch((err) => {
@@ -425,11 +452,10 @@ export async function updateVariant(variantId: string, formData: FormData): Prom
       /* ignore */
     }
   }
-  const modeRaw = str(formData, "fulfillment_mode")
-  const fulfillmentMode: "normal" | "backorder" | "preorder" =
-    modeRaw === "backorder" || modeRaw === "preorder" ? modeRaw : "normal"
-  const leadDaysRaw = parseInt(str(formData, "preorder_lead_days") || "0", 10)
-  const preorderLeadDays = fulfillmentMode === "preorder" && leadDaysRaw > 0 ? leadDaysRaw : null
+  const { fulfillmentMode, preorderLeadDays } = normalizeFulfillment(
+    str(formData, "fulfillment_mode"),
+    parseInt(str(formData, "preorder_lead_days") || "0", 10),
+  )
 
   const updated = await withTenant(
     getDb(),

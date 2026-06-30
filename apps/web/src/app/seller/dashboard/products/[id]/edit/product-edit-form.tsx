@@ -74,11 +74,15 @@ export function ProductEditForm({
   const [editingVariantId, setEditingVariantId] = useState<string | null>(null)
   const [showAddVariant, setShowAddVariant] = useState(false)
 
-  // Per-variant edit state for the fulfillment toggle
+  // Fulfillment toggle state for the edit-inline form
   const [editState, setEditState] = useState<EditState>({
     fulfillmentChecked: false,
     leadDays: "",
   })
+
+  // Fulfillment toggle state for the "Add Variant" inline form
+  const [addFulfillmentChecked, setAddFulfillmentChecked] = useState(false)
+  const [addLeadDays, setAddLeadDays] = useState("")
 
   function openEdit(v: Variant) {
     const isSpecial = v.fulfillmentMode === "backorder" || v.fulfillmentMode === "preorder"
@@ -352,57 +356,110 @@ export function ProductEditForm({
         {showAddVariant && (
           <form
             action={addVariant.bind(null, product.id)}
-            onSubmit={() => setShowAddVariant(false)}
-            className="mt-3 flex items-end gap-2 rounded-lg bg-green-50 p-3"
+            onSubmit={() => {
+              setShowAddVariant(false)
+              setAddFulfillmentChecked(false)
+              setAddLeadDays("")
+            }}
+            className="mt-3 space-y-2 rounded-lg bg-green-50 p-3"
           >
-            <div className="flex-1">
-              <label className="mb-1 block text-xs text-gray-500">Name *</label>
-              <input
-                name="name"
-                required
-                autoFocus
-                className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none"
-                placeholder="e.g. XL / Blue"
-              />
+            {/* Hidden fulfillment fields */}
+            <input
+              type="hidden"
+              name="fulfillment_mode"
+              value={
+                addFulfillmentChecked ? (addLeadDays.trim() ? "preorder" : "backorder") : "normal"
+              }
+            />
+            <input
+              type="hidden"
+              name="preorder_lead_days"
+              value={addFulfillmentChecked ? addLeadDays.trim() || "0" : "0"}
+            />
+
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <label className="mb-1 block text-xs text-gray-500">Name *</label>
+                <input
+                  name="name"
+                  required
+                  autoFocus
+                  className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none"
+                  placeholder="e.g. XL / Blue"
+                />
+              </div>
+              <div className="w-24">
+                <label className="mb-1 block text-xs text-gray-500">Price (RM) *</label>
+                <input
+                  name="price"
+                  required
+                  className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none"
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="w-16">
+                <label className="mb-1 block text-xs text-gray-500">Stock</label>
+                <input
+                  name="stock"
+                  type="number"
+                  min="0"
+                  defaultValue="0"
+                  className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none"
+                />
+              </div>
+              <div className="w-24">
+                <label className="mb-1 block text-xs text-gray-500">SKU</label>
+                <input
+                  name="sku"
+                  className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none"
+                  placeholder="optional"
+                />
+              </div>
             </div>
-            <div className="w-24">
-              <label className="mb-1 block text-xs text-gray-500">Price (RM) *</label>
-              <input
-                name="price"
-                required
-                className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none"
-                placeholder="0.00"
-              />
+
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-1.5 text-xs text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={addFulfillmentChecked}
+                  onChange={(e) => setAddFulfillmentChecked(e.target.checked)}
+                  className="rounded"
+                />
+                Back-order / Pre-order
+              </label>
+              {addFulfillmentChecked && (
+                <div className="flex items-center gap-1.5">
+                  <label className="text-xs text-gray-500">Lead days (optional):</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={addLeadDays}
+                    onChange={(e) => setAddLeadDays(e.target.value)}
+                    placeholder="e.g. 14"
+                    className="w-20 rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none"
+                  />
+                  <span className="text-xs text-gray-400">days</span>
+                </div>
+              )}
             </div>
-            <div className="w-16">
-              <label className="mb-1 block text-xs text-gray-500">Stock</label>
-              <input
-                name="stock"
-                type="number"
-                min="0"
-                defaultValue="0"
-                className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none"
-              />
-            </div>
-            <div className="w-24">
-              <label className="mb-1 block text-xs text-gray-500">SKU</label>
-              <input
-                name="sku"
-                className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none"
-                placeholder="optional"
-              />
-            </div>
+
             <input type="hidden" name="attrs" value="" />
-            <SubmitButton className="rounded bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700">
-              Add
-            </SubmitButton>
-            <button
-              type="button"
-              onClick={() => setShowAddVariant(false)}
-              className="rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100"
-            >
-              Cancel
-            </button>
+            <div className="flex gap-2">
+              <SubmitButton className="rounded bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700">
+                Add
+              </SubmitButton>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddVariant(false)
+                  setAddFulfillmentChecked(false)
+                  setAddLeadDays("")
+                }}
+                className="rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+            </div>
           </form>
         )}
       </div>

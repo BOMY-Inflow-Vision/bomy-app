@@ -49,5 +49,10 @@ export const productVariants = pgTable(
       "product_variants_fulfillment_mode_chk",
       sql`${t.fulfillmentMode} IN ('normal', 'backorder', 'preorder')`,
     ),
+    preorderDaysChk: check(
+      "product_variants_preorder_days_chk",
+      sql`(${t.fulfillmentMode} = 'preorder' AND ${t.preorderLeadDays} IS NOT NULL AND ${t.preorderLeadDays} > 0)
+        OR (${t.fulfillmentMode} IN ('normal', 'backorder') AND ${t.preorderLeadDays} IS NULL)`,
+    ),
   }),
 )
