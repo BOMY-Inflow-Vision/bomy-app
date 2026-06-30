@@ -7,6 +7,7 @@ import { makeDb, schema, withAdmin, withPublicRead } from "@bomy/db"
 
 import { getCategories, getProductBySlug, getProducts } from "@/app/products/queries"
 import { getStorePage } from "@/app/brands/[slug]/queries"
+import { getBrands } from "@/app/brands/queries"
 
 const DATABASE_URL = process.env["DATABASE_APP_URL"] ?? process.env["DATABASE_URL"]
 const RLS_READY = process.env["BOMY_RLS_READY"] === "1"
@@ -204,5 +205,150 @@ describe.skipIf(!shouldRun)("storefront queries", () => {
         })
       }),
     ).rejects.toThrow()
+  })
+})
+
+describe.skipIf(!shouldRun)("getBrands queries", () => {
+  let testDb: ReturnType<typeof makeDb>
+  let userId: string
+  let activeStoreId: string
+  let activeStoreSlug: string
+  let suspendedStoreId: string
+  let productId: string
+  let categoryId: string
+
+  beforeAll(async () => {
+    process.env["DATABASE_URL"] = DATABASE_URL as string
+    testDb = makeDb({ url: DATABASE_URL as string })
+
+    userId = randomUUID()
+    activeStoreSlug = `brands-test-${randomUUID().slice(0, 8)}`
+
+    await withAdmin(
+      testDb.db,
+      { userId: SYSTEM_ACTOR, reason: "getBrands test setup" },
+      async (tx) => {
+        const [user] = await tx
+          .insert(schema.users)
+          .values({
+            id: userId,
+            email: `${userId}@test.com`,
+            role: "seller_owner",
+            name: "Brands Test Seller",
+          })
+          .returning({ id: schema.users.id })
+
+        const [active] = await tx
+          .insert(schema.stores)
+          .values({
+            ownerId: user!.id,
+            name: "Brands Active Store",
+            slug: activeStoreSlug,
+            description: "findme-by-desc",
+            status: "active",
+          })
+          .returning({ id: schema.stores.id })
+        activeStoreId = active!.id
+
+        const [suspended] = await tx
+          .insert(schema.stores)
+          .values({
+            ownerId: user!.id,
+            name: "Brands Suspended Store",
+            slug: `brands-suspended-${randomUUID().slice(0, 8)}`,
+            status: "suspended",
+          })
+          .returning({ id: schema.stores.id })
+        suspendedStoreId = suspended!.id
+
+        const [cat] = await tx
+          .insert(schema.categories)
+          .values({ name: "Brands Cat", slug: `bcat-${randomUUID().slice(0, 8)}`, isActive: true })
+          .returning({ id: schema.categories.id })
+        categoryId = cat!.id
+
+        const [product] = await tx
+          .insert(schema.products)
+          .values({
+            storeId: activeStoreId,
+            name: "Brands Product",
+            slug: `brands-prod-${randomUUID().slice(0, 8)}`,
+            status: "active",
+            categoryId,
+          })
+          .returning({ id: schema.products.id })
+        productId = product!.id
+
+        await tx
+          .insert(schema.productVariants)
+          .values({ productId, name: "Default", priceMyrSen: 1999n, stockCount: 5 })
+      },
+    )
+  })
+
+  afterAll(async () => {
+    await withAdmin(
+      testDb.db,
+      { userId: SYSTEM_ACTOR, reason: "getBrands test cleanup" },
+      async (tx) => {
+        await tx
+          .delete(schema.productVariants)
+          .where(eq(schema.productVariants.productId, productId))
+        await tx.delete(schema.products).where(eq(schema.products.id, productId))
+        await tx.delete(schema.categories).where(eq(schema.categories.id, categoryId))
+        await tx.delete(schema.stores).where(eq(schema.stores.id, activeStoreId))
+        await tx.delete(schema.stores).where(eq(schema.stores.id, suspendedStoreId))
+        await tx.delete(schema.users).where(eq(schema.users.id, userId))
+      },
+    )
+    await testDb.close()
+  })
+
+  it("returns active stores and excludes suspended stores", async () => {
+    const { brands } = await getBrands({})
+    const active = brands.find((b) => b.id === activeStoreId)
+    const suspended = brands.find((b) => b.id === suspendedStoreId)
+    expect(active).toBeDefined()
+    expect(suspended).toBeUndefined()
+  })
+
+  it("counts only active products for a store", async () => {
+    const { brands } = await getBrands({})
+    const store = brands.find((b) => b.id === activeStoreId)
+    expect(store?.productCount).toBe(1)
+  })
+
+  it("excludes draft products from the active-product count", async () => {
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test" }, (tx) =>
+      tx.update(schema.products).set({ status: "draft" }).where(eq(schema.products.id, productId)),
+    )
+    const { brands } = await getBrands({})
+    const store = brands.find((b) => b.id === activeStoreId)
+    expect(store?.productCount).toBe(0)
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test" }, (tx) =>
+      tx.update(schema.products).set({ status: "active" }).where(eq(schema.products.id, productId)),
+    )
+  })
+
+  it("filters by name (case-insensitive)", async () => {
+    const { brands } = await getBrands({ query: "brands active" })
+    const found = brands.find((b) => b.id === activeStoreId)
+    expect(found).toBeDefined()
+  })
+
+  it("filters by description keyword", async () => {
+    const { brands } = await getBrands({ query: "findme-by-desc" })
+    const found = brands.find((b) => b.id === activeStoreId)
+    expect(found).toBeDefined()
+  })
+
+  it("returns no results for a non-matching query", async () => {
+    const { brands } = await getBrands({ query: randomUUID() })
+    expect(brands).toHaveLength(0)
+  })
+
+  it("reports totalPages >= 1 even when results are empty", async () => {
+    const { totalPages } = await getBrands({ query: randomUUID() })
+    expect(totalPages).toBe(1)
   })
 })
