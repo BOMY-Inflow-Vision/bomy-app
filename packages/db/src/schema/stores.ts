@@ -13,6 +13,7 @@ export const stores = pgTable(
     name: text("name").notNull(),
     slug: text("slug").notNull(),
     description: text("description"),
+    excerpt: text("excerpt"),
     status: storeStatusEnum("status").notNull().default("pending"),
     // Seller-set flat shipping fee per order, snapshotted into
     // checkout_session_stores.shipping_fee_sen at checkout initiation

@@ -31,7 +31,7 @@ export async function getBrands({ query, page = 1 }: { query?: string; page?: nu
           id: schema.stores.id,
           name: schema.stores.name,
           slug: schema.stores.slug,
-          description: schema.stores.description,
+          excerpt: schema.stores.excerpt,
           productCount: count(schema.products.id),
         })
         .from(schema.stores)

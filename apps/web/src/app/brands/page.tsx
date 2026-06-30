@@ -87,10 +87,8 @@ export default async function BrandsPage({ searchParams }: Props) {
 
                 <p className="font-semibold text-gray-900 group-hover:text-indigo-600">{b.name}</p>
 
-                {b.description && (
-                  <p className="mt-1 line-clamp-2 flex-1 text-sm leading-relaxed text-gray-500">
-                    {b.description}
-                  </p>
+                {b.excerpt && (
+                  <p className="mt-1 flex-1 text-sm leading-relaxed text-gray-500">{b.excerpt}</p>
                 )}
 
                 <p className="mt-3 text-xs text-gray-400">
