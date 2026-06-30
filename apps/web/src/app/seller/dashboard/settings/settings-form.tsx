@@ -19,10 +19,20 @@ export function SettingsForm({ currentExcerpt }: { currentExcerpt: string }) {
     <div className="max-w-xl rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
       <form action={action} className="space-y-5">
         {state && !state.ok && (
-          <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{state.error}</div>
+          <div
+            role="alert"
+            aria-live="assertive"
+            className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700"
+          >
+            {state.error}
+          </div>
         )}
         {state?.ok && (
-          <div className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
+          <div
+            role="status"
+            aria-live="polite"
+            className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700"
+          >
             Settings saved.
           </div>
         )}

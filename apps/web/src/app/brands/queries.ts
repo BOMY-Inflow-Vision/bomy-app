@@ -19,7 +19,7 @@ export async function getBrands({ query, page = 1 }: { query?: string; page?: nu
       query?.trim()
         ? or(
             ilike(schema.stores.name, `%${query.trim()}%`),
-            ilike(schema.stores.description, `%${query.trim()}%`),
+            ilike(schema.stores.excerpt, `%${query.trim()}%`),
           )
         : undefined,
     )

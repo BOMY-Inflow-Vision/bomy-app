@@ -336,10 +336,42 @@ describe.skipIf(!shouldRun)("getBrands queries", () => {
     expect(found).toBeDefined()
   })
 
-  it("filters by description keyword", async () => {
+  it("does not match on description alone (search is name + excerpt only)", async () => {
     const { brands } = await getBrands({ query: "findme-by-desc" })
     const found = brands.find((b) => b.id === activeStoreId)
+    expect(found).toBeUndefined()
+  })
+
+  it("filters by excerpt keyword", async () => {
+    const testExcerpt = `excerpt-search-${randomUUID().slice(0, 8)}`
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test" }, (tx) =>
+      tx
+        .update(schema.stores)
+        .set({ excerpt: testExcerpt })
+        .where(eq(schema.stores.id, activeStoreId)),
+    )
+    const { brands } = await getBrands({ query: testExcerpt })
+    const found = brands.find((b) => b.id === activeStoreId)
     expect(found).toBeDefined()
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "restore" }, (tx) =>
+      tx.update(schema.stores).set({ excerpt: null }).where(eq(schema.stores.id, activeStoreId)),
+    )
+  })
+
+  it("returns excerpt for store in listing", async () => {
+    const testExcerpt = "storefront-excerpt-value"
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test" }, (tx) =>
+      tx
+        .update(schema.stores)
+        .set({ excerpt: testExcerpt })
+        .where(eq(schema.stores.id, activeStoreId)),
+    )
+    const { brands } = await getBrands({})
+    const store = brands.find((b) => b.id === activeStoreId)
+    expect(store?.excerpt).toBe(testExcerpt)
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "restore" }, (tx) =>
+      tx.update(schema.stores).set({ excerpt: null }).where(eq(schema.stores.id, activeStoreId)),
+    )
   })
 
   it("returns no results for a non-matching query", async () => {
