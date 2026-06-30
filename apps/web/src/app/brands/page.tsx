@@ -8,6 +8,16 @@ interface Props {
 
 export const metadata = { title: "Brands — BOMY" }
 
+function pageRange(current: number, total: number): (number | "...")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const pages: (number | "...")[] = [1]
+  if (current > 3) pages.push("...")
+  for (let p = Math.max(2, current - 1); p <= Math.min(total - 1, current + 1); p++) pages.push(p)
+  if (current < total - 2) pages.push("...")
+  pages.push(total)
+  return pages
+}
+
 export default async function BrandsPage({ searchParams }: Props) {
   const { q, page: pageParam } = await searchParams
   const parsed = parseInt(pageParam ?? "1", 10)
@@ -27,11 +37,15 @@ export default async function BrandsPage({ searchParams }: Props) {
 
       {/* Search */}
       <form method="get" className="mb-6 flex gap-2">
+        <label htmlFor="brands-search" className="sr-only">
+          Search brands
+        </label>
         <input
+          id="brands-search"
           name="q"
           defaultValue={q}
           placeholder="Search brands…"
-          className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+          className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
         />
         <button
           type="submit"
@@ -90,8 +104,19 @@ export default async function BrandsPage({ searchParams }: Props) {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="mt-8 flex justify-center gap-2">
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
+        <nav aria-label="Brands pagination" className="mt-8 flex justify-center gap-1">
+          {pageRange(page, totalPages).map((p, i) => {
+            if (p === "...") {
+              return (
+                <span
+                  key={`ellipsis-${i}`}
+                  className="flex h-11 w-11 items-center justify-center text-sm text-gray-400"
+                  aria-hidden="true"
+                >
+                  …
+                </span>
+              )
+            }
             const params = new URLSearchParams()
             if (q) params.set("q", q)
             if (p > 1) params.set("page", String(p))
@@ -100,13 +125,15 @@ export default async function BrandsPage({ searchParams }: Props) {
               <Link
                 key={p}
                 href={href}
-                className={`flex h-8 w-8 items-center justify-center rounded-md text-sm ${p === page ? "bg-indigo-600 text-white" : "border border-gray-300 text-gray-600 hover:bg-gray-50"}`}
+                aria-label={`Page ${p}`}
+                aria-current={p === page ? "page" : undefined}
+                className={`flex h-11 w-11 items-center justify-center rounded-md text-sm ${p === page ? "bg-indigo-600 text-white" : "border border-gray-300 text-gray-600 hover:bg-gray-50"}`}
               >
                 {p}
               </Link>
             )
           })}
-        </div>
+        </nav>
       )}
     </main>
   )

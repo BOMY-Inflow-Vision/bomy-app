@@ -41,7 +41,7 @@ export async function getBrands({ query, page = 1 }: { query?: string; page?: nu
         )
         .where(where)
         .groupBy(schema.stores.id)
-        .orderBy(schema.stores.name)
+        .orderBy(schema.stores.name, schema.stores.id)
         .limit(PAGE_SIZE)
         .offset(offset),
     ])
