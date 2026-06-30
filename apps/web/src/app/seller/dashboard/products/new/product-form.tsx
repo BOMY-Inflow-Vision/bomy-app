@@ -14,11 +14,22 @@ type VariantRow = {
   stock: string
   sku: string
   attrs: string
+  fulfillmentChecked: boolean
+  leadDays: string
 }
 
 export function ProductForm({ categories }: { categories: Category[] }) {
   const [variants, setVariants] = useState<VariantRow[]>([
-    { id: 0, name: "", price: "", stock: "0", sku: "", attrs: "" },
+    {
+      id: 0,
+      name: "",
+      price: "",
+      stock: "0",
+      sku: "",
+      attrs: "",
+      fulfillmentChecked: false,
+      leadDays: "",
+    },
   ])
   const [nameVal, setNameVal] = useState("")
 
@@ -35,7 +46,16 @@ export function ProductForm({ categories }: { categories: Category[] }) {
   function addVariant() {
     setVariants((prev) => [
       ...prev,
-      { id: Date.now(), name: "", price: "", stock: "0", sku: "", attrs: "" },
+      {
+        id: Date.now(),
+        name: "",
+        price: "",
+        stock: "0",
+        sku: "",
+        attrs: "",
+        fulfillmentChecked: false,
+        leadDays: "",
+      },
     ])
   }
 
@@ -43,7 +63,7 @@ export function ProductForm({ categories }: { categories: Category[] }) {
     setVariants((prev) => prev.filter((v) => v.id !== id))
   }
 
-  function updateVariantField(id: number, field: keyof VariantRow, value: string) {
+  function updateVariantField(id: number, field: keyof VariantRow, value: string | boolean) {
     setVariants((prev) => prev.map((v) => (v.id === id ? { ...v, [field]: value } : v)))
   }
 
@@ -127,66 +147,113 @@ export function ProductForm({ categories }: { categories: Category[] }) {
           </button>
         </div>
 
-        <div className="space-y-3">
-          {variants.map((v, idx) => (
-            <div key={v.id} className="flex items-end gap-2">
-              {/* Hidden indexed fields */}
-              <input type="hidden" name={`variant_attrs_${idx}`} value={v.attrs} />
+        <div className="space-y-4">
+          {variants.map((v, idx) => {
+            const fulfillmentMode = v.fulfillmentChecked
+              ? v.leadDays.trim()
+                ? "preorder"
+                : "backorder"
+              : "normal"
+            const leadDays = v.fulfillmentChecked ? v.leadDays.trim() || "0" : "0"
 
-              <div className="flex-1">
-                <label className="mb-1 block text-xs text-gray-500">Name *</label>
+            return (
+              <div key={v.id} className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+                {/* Hidden indexed fields */}
+                <input type="hidden" name={`variant_attrs_${idx}`} value={v.attrs} />
                 <input
-                  name={`variant_name_${idx}`}
-                  value={v.name}
-                  onChange={(e) => updateVariantField(v.id, "name", e.target.value)}
-                  required
-                  className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none"
-                  placeholder="e.g. Small / Red"
+                  type="hidden"
+                  name={`variant_fulfillment_mode_${idx}`}
+                  value={fulfillmentMode}
                 />
+                <input type="hidden" name={`variant_preorder_lead_days_${idx}`} value={leadDays} />
+
+                {/* Main fields */}
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <label className="mb-1 block text-xs text-gray-500">Name *</label>
+                    <input
+                      name={`variant_name_${idx}`}
+                      value={v.name}
+                      onChange={(e) => updateVariantField(v.id, "name", e.target.value)}
+                      required
+                      className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none"
+                      placeholder="e.g. Small / Red"
+                    />
+                  </div>
+                  <div className="w-28">
+                    <label className="mb-1 block text-xs text-gray-500">Price (RM) *</label>
+                    <input
+                      name={`variant_price_${idx}`}
+                      value={v.price}
+                      onChange={(e) => updateVariantField(v.id, "price", e.target.value)}
+                      required
+                      className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div className="w-20">
+                    <label className="mb-1 block text-xs text-gray-500">Stock</label>
+                    <input
+                      name={`variant_stock_${idx}`}
+                      type="number"
+                      min="0"
+                      value={v.stock}
+                      onChange={(e) => updateVariantField(v.id, "stock", e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+                  <div className="w-28">
+                    <label className="mb-1 block text-xs text-gray-500">SKU</label>
+                    <input
+                      name={`variant_sku_${idx}`}
+                      value={v.sku}
+                      onChange={(e) => updateVariantField(v.id, "sku", e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none"
+                      placeholder="optional"
+                    />
+                  </div>
+                  {variants.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeVariant(v.id)}
+                      className="mb-0.5 rounded px-2 py-1.5 text-xs text-red-500 hover:bg-red-50"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                {/* Fulfillment row */}
+                <div className="mt-2 flex items-center gap-3">
+                  <label className="flex items-center gap-1.5 text-xs text-gray-600">
+                    <input
+                      type="checkbox"
+                      checked={v.fulfillmentChecked}
+                      onChange={(e) =>
+                        updateVariantField(v.id, "fulfillmentChecked", e.target.checked)
+                      }
+                      className="rounded"
+                    />
+                    Back-order / Pre-order
+                  </label>
+                  {v.fulfillmentChecked && (
+                    <div className="flex items-center gap-1.5">
+                      <label className="text-xs text-gray-500">Lead days (optional):</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={v.leadDays}
+                        onChange={(e) => updateVariantField(v.id, "leadDays", e.target.value)}
+                        placeholder="e.g. 14"
+                        className="w-20 rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none"
+                      />
+                      <span className="text-xs text-gray-400">days</span>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="w-28">
-                <label className="mb-1 block text-xs text-gray-500">Price (RM) *</label>
-                <input
-                  name={`variant_price_${idx}`}
-                  value={v.price}
-                  onChange={(e) => updateVariantField(v.id, "price", e.target.value)}
-                  required
-                  className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none"
-                  placeholder="0.00"
-                />
-              </div>
-              <div className="w-20">
-                <label className="mb-1 block text-xs text-gray-500">Stock</label>
-                <input
-                  name={`variant_stock_${idx}`}
-                  type="number"
-                  min="0"
-                  value={v.stock}
-                  onChange={(e) => updateVariantField(v.id, "stock", e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none"
-                />
-              </div>
-              <div className="w-28">
-                <label className="mb-1 block text-xs text-gray-500">SKU</label>
-                <input
-                  name={`variant_sku_${idx}`}
-                  value={v.sku}
-                  onChange={(e) => updateVariantField(v.id, "sku", e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none"
-                  placeholder="optional"
-                />
-              </div>
-              {variants.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => removeVariant(v.id)}
-                  className="mb-0.5 rounded px-2 py-1.5 text-xs text-red-500 hover:bg-red-50"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
 

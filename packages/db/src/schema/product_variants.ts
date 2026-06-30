@@ -13,6 +13,8 @@ import {
   uuid,
 } from "drizzle-orm/pg-core"
 
+export type FulfillmentMode = "normal" | "backorder" | "preorder"
+
 import { products } from "./products.js"
 
 export const productVariants = pgTable(
@@ -31,6 +33,8 @@ export const productVariants = pgTable(
       .default(sql`'{}'::jsonb`),
     sortOrder: integer("sort_order").notNull().default(0),
     isActive: boolean("is_active").notNull().default(true),
+    fulfillmentMode: text("fulfillment_mode").notNull().default("normal"),
+    preorderLeadDays: integer("preorder_lead_days"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -41,5 +45,9 @@ export const productVariants = pgTable(
       .where(sql`sku IS NOT NULL`),
     priceChk: check("product_variants_price_chk", sql`${t.priceMyrSen} > 0`),
     stockChk: check("product_variants_stock_chk", sql`${t.stockCount} >= 0`),
+    fulfillmentModeChk: check(
+      "product_variants_fulfillment_mode_chk",
+      sql`${t.fulfillmentMode} IN ('normal', 'backorder', 'preorder')`,
+    ),
   }),
 )

@@ -204,6 +204,8 @@ export async function createProduct(formData: FormData): Promise<void> {
     stockCount: number
     sku: string | null
     attributes: Record<string, unknown>
+    fulfillmentMode: "normal" | "backorder" | "preorder"
+    preorderLeadDays: number | null
   }> = []
 
   for (let i = 0; i < variantCount; i++) {
@@ -222,12 +224,19 @@ export async function createProduct(formData: FormData): Promise<void> {
         // non-JSON attrs silently ignored
       }
     }
+    const vModeRaw = str(formData, `variant_fulfillment_mode_${i}`)
+    const vMode: "normal" | "backorder" | "preorder" =
+      vModeRaw === "backorder" || vModeRaw === "preorder" ? vModeRaw : "normal"
+    const vLeadDaysRaw = parseInt(str(formData, `variant_preorder_lead_days_${i}`) || "0", 10)
+    const vLeadDays = vMode === "preorder" && vLeadDaysRaw > 0 ? vLeadDaysRaw : null
     variants.push({
       name: vName,
       priceMyrSen: vPrice,
       stockCount: vStock,
       sku: vSku,
       attributes: vAttrs,
+      fulfillmentMode: vMode,
+      preorderLeadDays: vLeadDays,
     })
   }
 
@@ -250,6 +259,8 @@ export async function createProduct(formData: FormData): Promise<void> {
           priceMyrSen: v.priceMyrSen,
           stockCount: v.stockCount,
           attributes: v.attributes,
+          fulfillmentMode: v.fulfillmentMode,
+          preorderLeadDays: v.preorderLeadDays,
           sortOrder: i,
         })),
       )
@@ -414,6 +425,11 @@ export async function updateVariant(variantId: string, formData: FormData): Prom
       /* ignore */
     }
   }
+  const modeRaw = str(formData, "fulfillment_mode")
+  const fulfillmentMode: "normal" | "backorder" | "preorder" =
+    modeRaw === "backorder" || modeRaw === "preorder" ? modeRaw : "normal"
+  const leadDaysRaw = parseInt(str(formData, "preorder_lead_days") || "0", 10)
+  const preorderLeadDays = fulfillmentMode === "preorder" && leadDaysRaw > 0 ? leadDaysRaw : null
 
   const updated = await withTenant(
     getDb(),
@@ -436,7 +452,51 @@ export async function updateVariant(variantId: string, formData: FormData): Prom
 
       return tx
         .update(schema.productVariants)
-        .set({ name, sku, priceMyrSen, stockCount, attributes, updatedAt: new Date() })
+        .set({
+          name,
+          sku,
+          priceMyrSen,
+          stockCount,
+          attributes,
+          fulfillmentMode,
+          preorderLeadDays,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.productVariants.id, variantId))
+        .returning({ id: schema.productVariants.id, productId: schema.productVariants.productId })
+    },
+  )
+
+  if (updated.length === 0) throw new Error("Variant not found or not authorized")
+
+  revalidatePath(`/seller/dashboard/products/${updated[0]!.productId}/edit`)
+}
+
+export async function reactivateVariant(variantId: string): Promise<void> {
+  const session = await requireSeller()
+
+  const updated = await withTenant(
+    getDb(),
+    { userId: session.user.id, userRole: session.user.role },
+    async (tx) => {
+      const storeCheck = await tx
+        .select({ id: schema.stores.id })
+        .from(schema.productVariants)
+        .innerJoin(schema.products, eq(schema.products.id, schema.productVariants.productId))
+        .innerJoin(schema.stores, eq(schema.stores.id, schema.products.storeId))
+        .where(
+          and(
+            eq(schema.productVariants.id, variantId),
+            eq(schema.stores.ownerId, session.user.id),
+            eq(schema.stores.status, "active"),
+          ),
+        )
+        .limit(1)
+      if (!storeCheck[0]) throw new Error("Variant not found or not authorized")
+
+      return tx
+        .update(schema.productVariants)
+        .set({ isActive: true, updatedAt: new Date() })
         .where(eq(schema.productVariants.id, variantId))
         .returning({ id: schema.productVariants.id, productId: schema.productVariants.productId })
     },
