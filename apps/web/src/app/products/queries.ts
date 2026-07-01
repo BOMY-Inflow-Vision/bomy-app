@@ -68,6 +68,7 @@ export async function getProducts({
         storeSlug: schema.stores.slug,
         storeId: schema.products.storeId,
         coverImageUrl: schema.products.coverImageUrl,
+        categoryName: schema.categories.name,
         minPriceSen: sql<string>`min(${schema.productVariants.priceMyrSen})`,
       })
       .from(schema.products)
@@ -75,6 +76,7 @@ export async function getProducts({
         schema.stores,
         and(eq(schema.stores.id, schema.products.storeId), eq(schema.stores.status, "active")),
       )
+      .leftJoin(schema.categories, eq(schema.categories.id, schema.products.categoryId))
       .leftJoin(
         schema.productVariants,
         and(
@@ -92,6 +94,7 @@ export async function getProducts({
         schema.stores.name,
         schema.stores.slug,
         schema.products.coverImageUrl,
+        schema.categories.name,
       )
       .orderBy(orderBy)
       .limit(PAGE_SIZE)

@@ -87,6 +87,19 @@ export default async function BrandsPage({ searchParams }: Props) {
 
                 <p className="font-semibold text-gray-900 group-hover:text-indigo-600">{b.name}</p>
 
+                {b.categories.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {b.categories.map((cat) => (
+                      <span
+                        key={cat}
+                        className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600"
+                      >
+                        {cat}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
                 {b.excerpt && (
                   <p className="mt-1 flex-1 text-sm leading-relaxed text-gray-500">{b.excerpt}</p>
                 )}

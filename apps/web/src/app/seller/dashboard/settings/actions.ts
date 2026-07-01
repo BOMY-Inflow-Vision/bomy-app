@@ -71,3 +71,54 @@ export async function updateStoreSettings(
   if (updateError) return { ok: false, error: updateError }
   return { ok: true }
 }
+
+export async function updateStoreCategories(
+  categoryIds: string[],
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const session = await auth()
+  if (!session || session.user.role !== "seller_owner") {
+    return { ok: false, error: "Unauthorized" }
+  }
+
+  let updateError: string | null = null
+
+  try {
+    await withTenant(
+      getDb(),
+      { userId: session.user.id, userRole: session.user.role },
+      async (tx) => {
+        const [store] = await tx
+          .select({ id: schema.stores.id })
+          .from(schema.stores)
+          .where(
+            and(eq(schema.stores.ownerId, session.user.id), eq(schema.stores.status, "active")),
+          )
+          .limit(1)
+
+        if (!store) {
+          updateError = "No active store found."
+          return
+        }
+
+        // Replace all assignments atomically
+        await tx
+          .delete(schema.storeCategoryAssignments)
+          .where(eq(schema.storeCategoryAssignments.storeId, store.id))
+
+        if (categoryIds.length > 0) {
+          await tx.insert(schema.storeCategoryAssignments).values(
+            categoryIds.map((storeCategoryId) => ({
+              storeId: store.id,
+              storeCategoryId,
+            })),
+          )
+        }
+      },
+    )
+  } catch {
+    return { ok: false, error: "Something went wrong. Please try again." }
+  }
+
+  if (updateError) return { ok: false, error: updateError }
+  return { ok: true }
+}

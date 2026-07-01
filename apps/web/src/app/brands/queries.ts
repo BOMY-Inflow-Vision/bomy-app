@@ -1,4 +1,4 @@
-import { and, count, eq, ilike, or } from "drizzle-orm"
+import { and, count, eq, ilike, inArray, or } from "drizzle-orm"
 
 import { makeDb, schema, withPublicRead } from "@bomy/db"
 
@@ -46,9 +46,39 @@ export async function getBrands({ query, page = 1 }: { query?: string; page?: nu
         .offset(offset),
     ])
 
+    const storeIds = rows.map((r) => r.id)
+    const categoryMap = new Map<string, string[]>()
+
+    if (storeIds.length > 0) {
+      const assignments = await db
+        .select({
+          storeId: schema.storeCategoryAssignments.storeId,
+          categoryName: schema.storeCategories.name,
+        })
+        .from(schema.storeCategoryAssignments)
+        .innerJoin(
+          schema.storeCategories,
+          and(
+            eq(schema.storeCategories.id, schema.storeCategoryAssignments.storeCategoryId),
+            eq(schema.storeCategories.isActive, true),
+          ),
+        )
+        .where(inArray(schema.storeCategoryAssignments.storeId, storeIds))
+        .orderBy(schema.storeCategories.sortOrder, schema.storeCategories.name)
+
+      for (const row of assignments) {
+        const list = categoryMap.get(row.storeId) ?? []
+        list.push(row.categoryName)
+        categoryMap.set(row.storeId, list)
+      }
+    }
+
     const total = countRow[0]?.total ?? 0
     return {
-      brands: rows,
+      brands: rows.map((r) => ({
+        ...r,
+        categories: categoryMap.get(r.id) ?? [],
+      })),
       total,
       totalPages: Math.max(1, Math.ceil(total / PAGE_SIZE)),
     }
