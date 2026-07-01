@@ -980,3 +980,94 @@ BEGIN
   END IF;
 END
 $$;
+
+-- ── store_categories + store_category_assignments (Stage 6 PR #84) ───────────
+-- store_categories: admin-managed taxonomy; any authenticated session (including
+-- the nil UUID from withPublicRead) can read active rows for /brands and seller
+-- settings. No seller-level writes — only admin manages the taxonomy.
+--
+-- store_category_assignments: sellers manage their own store's assignments;
+-- public readers can see assignments for active stores (for /brands cards).
+-- ON DELETE RESTRICT on store_category_id: DB enforces the admin in-use guard.
+
+ALTER TABLE store_categories            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE store_categories            FORCE  ROW LEVEL SECURITY;
+ALTER TABLE store_category_assignments  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE store_category_assignments  FORCE  ROW LEVEL SECURITY;
+
+CREATE POLICY store_categories_default_deny ON store_categories
+  AS RESTRICTIVE
+  USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
+
+CREATE POLICY store_categories_active_read ON store_categories
+  FOR SELECT
+  USING (is_active = true OR app.is_bomy_staff() OR app.is_admin_bypass());
+
+CREATE POLICY store_categories_admin_insert ON store_categories
+  FOR INSERT
+  WITH CHECK (app.is_bomy_staff() OR app.is_admin_bypass());
+
+CREATE POLICY store_categories_admin_update ON store_categories
+  FOR UPDATE
+  USING  (app.is_bomy_staff() OR app.is_admin_bypass())
+  WITH CHECK (app.is_bomy_staff() OR app.is_admin_bypass());
+
+CREATE POLICY store_categories_admin_delete ON store_categories
+  FOR DELETE
+  USING (app.is_bomy_staff() OR app.is_admin_bypass());
+
+CREATE POLICY store_category_assignments_default_deny ON store_category_assignments
+  AS RESTRICTIVE
+  USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
+
+CREATE POLICY store_category_assignments_read ON store_category_assignments
+  FOR SELECT
+  USING (
+    (
+      EXISTS (
+        SELECT 1 FROM stores
+        WHERE stores.id = store_id AND stores.status = 'active'
+      )
+      AND EXISTS (
+        SELECT 1 FROM store_categories
+        WHERE store_categories.id = store_category_id AND store_categories.is_active = true
+      )
+    )
+    OR EXISTS (
+      SELECT 1 FROM stores
+      WHERE stores.id = store_id AND stores.owner_id = app.current_user_id()
+    )
+    OR app.is_bomy_staff()
+    OR app.is_admin_bypass()
+  );
+
+CREATE POLICY store_category_assignments_seller_insert ON store_category_assignments
+  FOR INSERT
+  WITH CHECK (
+    (
+      EXISTS (
+        SELECT 1 FROM stores
+        WHERE stores.id = store_id
+          AND stores.owner_id = app.current_user_id()
+          AND stores.status = 'active'
+      )
+      AND EXISTS (
+        SELECT 1 FROM store_categories
+        WHERE store_categories.id = store_category_id
+          AND store_categories.is_active = true
+      )
+    )
+    OR app.is_admin_bypass()
+  );
+
+CREATE POLICY store_category_assignments_seller_delete ON store_category_assignments
+  FOR DELETE
+  USING (
+    EXISTS (
+      SELECT 1 FROM stores
+      WHERE stores.id = store_id
+        AND stores.owner_id = app.current_user_id()
+        AND stores.status = 'active'
+    )
+    OR app.is_admin_bypass()
+  );

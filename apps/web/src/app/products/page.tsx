@@ -115,6 +115,11 @@ export default async function ProductsPage({ searchParams }: Props) {
                       )}
                     </div>
                     <div className="p-3">
+                      {p.categoryName && (
+                        <span className="mb-1 inline-block rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600">
+                          {p.categoryName}
+                        </span>
+                      )}
                       <p className="truncate text-sm font-medium text-gray-900 group-hover:text-indigo-600">
                         {p.name}
                       </p>
