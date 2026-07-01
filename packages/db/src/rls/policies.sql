@@ -1023,9 +1023,15 @@ CREATE POLICY store_category_assignments_default_deny ON store_category_assignme
 CREATE POLICY store_category_assignments_read ON store_category_assignments
   FOR SELECT
   USING (
-    EXISTS (
-      SELECT 1 FROM stores
-      WHERE stores.id = store_id AND stores.status = 'active'
+    (
+      EXISTS (
+        SELECT 1 FROM stores
+        WHERE stores.id = store_id AND stores.status = 'active'
+      )
+      AND EXISTS (
+        SELECT 1 FROM store_categories
+        WHERE store_categories.id = store_category_id AND store_categories.is_active = true
+      )
     )
     OR EXISTS (
       SELECT 1 FROM stores
@@ -1038,11 +1044,18 @@ CREATE POLICY store_category_assignments_read ON store_category_assignments
 CREATE POLICY store_category_assignments_seller_insert ON store_category_assignments
   FOR INSERT
   WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM stores
-      WHERE stores.id = store_id
-        AND stores.owner_id = app.current_user_id()
-        AND stores.status = 'active'
+    (
+      EXISTS (
+        SELECT 1 FROM stores
+        WHERE stores.id = store_id
+          AND stores.owner_id = app.current_user_id()
+          AND stores.status = 'active'
+      )
+      AND EXISTS (
+        SELECT 1 FROM store_categories
+        WHERE store_categories.id = store_category_id
+          AND store_categories.is_active = true
+      )
     )
     OR app.is_admin_bypass()
   );

@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto"
 
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi, type Mock } from "vitest"
 
-import { makeDb, schema, withAdmin, withPublicRead } from "@bomy/db"
+import { makeDb, schema, withAdmin, withPublicRead, withTenant } from "@bomy/db"
 
 vi.mock("next/navigation", () => ({
   redirect: vi.fn((url: string) => {
@@ -121,6 +121,13 @@ describe.skipIf(!shouldRun)("storefront queries", () => {
     expect(found).toBeDefined()
     expect(found?.storeName).toBe("Test Store")
     expect(found?.minPriceSen).toBe(2999)
+  })
+
+  it("getProducts includes product category badge (categoryName)", async () => {
+    const result = await getProducts({})
+    const found = result.products.find((p) => p.id === productId)
+    expect(found).toBeDefined()
+    expect(found?.categoryName).toBe("Test Category")
   })
 
   it("getProducts filters by category", async () => {
@@ -686,5 +693,128 @@ describe.skipIf(!shouldRun)("updateStoreCategories action", () => {
         .where(eq(schema.storeCategoryAssignments.storeId, storeId)),
     )
     expect(rows).toHaveLength(0)
+  })
+})
+
+describe.skipIf(!shouldRun)("store_category_assignments RLS isolation", () => {
+  let testDb: ReturnType<typeof makeDb>
+  let sellerId: string
+  let storeId: string
+  let activeCatId: string
+  let inactiveCatId: string
+
+  beforeAll(async () => {
+    process.env["DATABASE_URL"] = DATABASE_URL as string
+    testDb = makeDb({ url: DATABASE_URL as string })
+    sellerId = randomUUID()
+
+    await withAdmin(
+      testDb.db,
+      { userId: SYSTEM_ACTOR, reason: "RLS isolation setup" },
+      async (tx) => {
+        await tx.insert(schema.users).values({
+          id: sellerId,
+          email: `${sellerId}@test.bomy`,
+          role: "seller_owner",
+          name: "RLS Test Seller",
+        })
+        const [store] = await tx
+          .insert(schema.stores)
+          .values({
+            ownerId: sellerId,
+            name: "RLS Test Store",
+            slug: `rls-test-${randomUUID().slice(0, 8)}`,
+            status: "active",
+          })
+          .returning({ id: schema.stores.id })
+        storeId = store!.id
+
+        const [active] = await tx
+          .insert(schema.storeCategories)
+          .values({
+            name: "RLS Active Cat",
+            slug: `rls-active-${randomUUID().slice(0, 6)}`,
+            isActive: true,
+          })
+          .returning({ id: schema.storeCategories.id })
+        activeCatId = active!.id
+
+        const [inactive] = await tx
+          .insert(schema.storeCategories)
+          .values({
+            name: "RLS Inactive Cat",
+            slug: `rls-inactive-${randomUUID().slice(0, 6)}`,
+            isActive: false,
+          })
+          .returning({ id: schema.storeCategories.id })
+        inactiveCatId = inactive!.id
+
+        // Assign both categories to the store (withAdmin bypasses RLS)
+        await tx.insert(schema.storeCategoryAssignments).values([
+          { storeId, storeCategoryId: activeCatId },
+          { storeId, storeCategoryId: inactiveCatId },
+        ])
+      },
+    )
+  })
+
+  afterAll(async () => {
+    await withAdmin(
+      testDb.db,
+      { userId: SYSTEM_ACTOR, reason: "RLS isolation cleanup" },
+      async (tx) => {
+        await tx
+          .delete(schema.storeCategoryAssignments)
+          .where(eq(schema.storeCategoryAssignments.storeId, storeId))
+        await tx.delete(schema.storeCategories).where(eq(schema.storeCategories.id, activeCatId))
+        await tx.delete(schema.storeCategories).where(eq(schema.storeCategories.id, inactiveCatId))
+        await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
+        await tx.delete(schema.users).where(eq(schema.users.id, sellerId))
+      },
+    )
+    await testDb.close()
+  })
+
+  it("withPublicRead hides assignment for inactive category (active store)", async () => {
+    // The public arm of the SELECT policy requires both store.status='active' AND
+    // store_categories.is_active=true. Only the active cat assignment should be visible.
+    const rows = await withPublicRead(testDb.db, (tx) =>
+      tx
+        .select({ storeCategoryId: schema.storeCategoryAssignments.storeCategoryId })
+        .from(schema.storeCategoryAssignments)
+        .where(eq(schema.storeCategoryAssignments.storeId, storeId)),
+    )
+    const ids = rows.map((r) => r.storeCategoryId)
+    expect(ids).toContain(activeCatId)
+    expect(ids).not.toContain(inactiveCatId)
+  })
+
+  it("withTenant seller INSERT is blocked by RLS for inactive category", async () => {
+    // The INSERT WITH CHECK policy requires store_categories.is_active=true.
+    // Remove the existing inactive assignment first (withAdmin put it there), then
+    // attempt re-insert via seller context — RLS should reject with an error.
+    await expect(
+      withTenant(testDb.db, { userId: sellerId, userRole: "seller_owner" }, async (tx) => {
+        await tx
+          .delete(schema.storeCategoryAssignments)
+          .where(
+            and(
+              eq(schema.storeCategoryAssignments.storeId, storeId),
+              eq(schema.storeCategoryAssignments.storeCategoryId, inactiveCatId),
+            ),
+          )
+        await tx
+          .insert(schema.storeCategoryAssignments)
+          .values({ storeId, storeCategoryId: inactiveCatId })
+      }),
+    ).rejects.toThrow()
+
+    // Restore the inactive assignment so afterAll cleanup can remove it
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "restore" }, (tx) =>
+      tx
+        .insert(schema.storeCategoryAssignments)
+        .values({ storeId, storeCategoryId: inactiveCatId })
+        .onConflictDoNothing(),
+    )
   })
 })

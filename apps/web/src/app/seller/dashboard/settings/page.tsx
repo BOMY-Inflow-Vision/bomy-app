@@ -34,7 +34,7 @@ export default async function SellerSettingsPage() {
 
   if (!storeRow) redirect("/seller/dashboard")
 
-  // Load current category assignments
+  // Load current category assignments for this specific store only
   const assigned = await withTenant(
     getDb(),
     { userId: session.user.id, userRole: session.user.role },
@@ -42,13 +42,7 @@ export default async function SellerSettingsPage() {
       tx
         .select({ storeCategoryId: schema.storeCategoryAssignments.storeCategoryId })
         .from(schema.storeCategoryAssignments)
-        .innerJoin(
-          schema.stores,
-          and(
-            eq(schema.stores.id, schema.storeCategoryAssignments.storeId),
-            eq(schema.stores.ownerId, session.user.id),
-          ),
-        ),
+        .where(eq(schema.storeCategoryAssignments.storeId, storeRow.id)),
   )
 
   const assignedIds = new Set(assigned.map((r) => r.storeCategoryId))
