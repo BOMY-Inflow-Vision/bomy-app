@@ -26,7 +26,8 @@ export default function SellerDashboardLayout({ children }: { children: React.Re
             const isComingSoon =
               item.href !== "/seller/dashboard" &&
               item.href !== "/seller/dashboard/subscriptions" &&
-              item.href !== "/seller/dashboard/products"
+              item.href !== "/seller/dashboard/products" &&
+              item.href !== "/seller/dashboard/settings"
             return (
               <Link
                 key={item.href}

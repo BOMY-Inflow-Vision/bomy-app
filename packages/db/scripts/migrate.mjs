@@ -132,6 +132,10 @@ const MIGRATIONS = [
     name: "0023_variant_preorder_constraint",
     file: join(__dirname, "../drizzle/0023_variant_preorder_constraint.sql"),
   },
+  {
+    name: "0024_store_excerpt",
+    file: join(__dirname, "../drizzle/0024_store_excerpt.sql"),
+  },
 ]
 
 try {

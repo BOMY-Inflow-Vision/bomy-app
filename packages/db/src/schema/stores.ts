@@ -1,4 +1,14 @@
-import { bigint, index, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core"
+import { sql } from "drizzle-orm"
+import {
+  bigint,
+  check,
+  index,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core"
 
 import { storeStatusEnum } from "./enums.js"
 import { users } from "./users.js"
@@ -13,6 +23,7 @@ export const stores = pgTable(
     name: text("name").notNull(),
     slug: text("slug").notNull(),
     description: text("description"),
+    excerpt: text("excerpt"),
     status: storeStatusEnum("status").notNull().default("pending"),
     // Seller-set flat shipping fee per order, snapshotted into
     // checkout_session_stores.shipping_fee_sen at checkout initiation
@@ -25,5 +36,9 @@ export const stores = pgTable(
   (t) => ({
     slugUnique: uniqueIndex("stores_slug_unique_idx").on(t.slug),
     ownerIdx: index("stores_owner_idx").on(t.ownerId),
+    excerptLengthChk: check(
+      "stores_excerpt_length_chk",
+      sql`${t.excerpt} IS NULL OR length(${t.excerpt}) <= 160`,
+    ),
   }),
 )
