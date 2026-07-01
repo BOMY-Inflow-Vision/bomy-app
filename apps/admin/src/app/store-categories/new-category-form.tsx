@@ -23,11 +23,15 @@ export function NewStoreCategoryForm() {
 
   return (
     <form ref={ref} action={submit} className="flex items-center gap-2">
+      <label htmlFor="new-store-category-name" className="sr-only">
+        New category name
+      </label>
       <input
+        id="new-store-category-name"
         name="name"
         required
         placeholder="Category name"
-        className="rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        className="rounded border border-gray-300 px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
       />
       <button
         type="submit"
@@ -36,7 +40,11 @@ export function NewStoreCategoryForm() {
       >
         {pending ? "Adding…" : "Add Category"}
       </button>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && (
+        <p role="alert" aria-live="assertive" className="text-sm text-red-600">
+          {error}
+        </p>
+      )}
     </form>
   )
 }

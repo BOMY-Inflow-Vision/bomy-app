@@ -1,6 +1,6 @@
 "use server"
 
-import { and, eq } from "drizzle-orm"
+import { and, eq, inArray } from "drizzle-orm"
 
 import { schema, withTenant } from "@bomy/db"
 
@@ -80,6 +80,13 @@ export async function updateStoreCategories(
     return { ok: false, error: "Unauthorized" }
   }
 
+  const uniqueIds = [...new Set(categoryIds)]
+
+  const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  if (uniqueIds.some((id) => !uuidRe.test(id))) {
+    return { ok: false, error: "Invalid category selection." }
+  }
+
   let updateError: string | null = null
 
   try {
@@ -100,14 +107,30 @@ export async function updateStoreCategories(
           return
         }
 
+        if (uniqueIds.length > 0) {
+          const validCats = await tx
+            .select({ id: schema.storeCategories.id })
+            .from(schema.storeCategories)
+            .where(
+              and(
+                inArray(schema.storeCategories.id, uniqueIds),
+                eq(schema.storeCategories.isActive, true),
+              ),
+            )
+          if (validCats.length !== uniqueIds.length) {
+            updateError = "One or more selected categories are unavailable."
+            return
+          }
+        }
+
         // Replace all assignments atomically
         await tx
           .delete(schema.storeCategoryAssignments)
           .where(eq(schema.storeCategoryAssignments.storeId, store.id))
 
-        if (categoryIds.length > 0) {
+        if (uniqueIds.length > 0) {
           await tx.insert(schema.storeCategoryAssignments).values(
-            categoryIds.map((storeCategoryId) => ({
+            uniqueIds.map((storeCategoryId) => ({
               storeId: store.id,
               storeCategoryId,
             })),

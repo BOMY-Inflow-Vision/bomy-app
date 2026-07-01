@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 import { and, asc, eq } from "drizzle-orm"
 
-import { schema, withAdmin, withTenant } from "@bomy/db"
+import { schema, withPublicRead, withTenant } from "@bomy/db"
 
 import { auth } from "@/auth"
 import { getDb } from "@/lib/db"
@@ -23,15 +23,12 @@ export default async function SellerSettingsPage() {
         .limit(1)
       return store ?? null
     }),
-    withAdmin(
-      getDb(),
-      { userId: session.user.id, reason: "seller settings load categories" },
-      (tx) =>
-        tx
-          .select({ id: schema.storeCategories.id, name: schema.storeCategories.name })
-          .from(schema.storeCategories)
-          .where(eq(schema.storeCategories.isActive, true))
-          .orderBy(asc(schema.storeCategories.sortOrder), asc(schema.storeCategories.name)),
+    withPublicRead(getDb(), (tx) =>
+      tx
+        .select({ id: schema.storeCategories.id, name: schema.storeCategories.name })
+        .from(schema.storeCategories)
+        .where(eq(schema.storeCategories.isActive, true))
+        .orderBy(asc(schema.storeCategories.sortOrder), asc(schema.storeCategories.name)),
     ),
   ])
 

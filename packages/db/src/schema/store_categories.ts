@@ -36,7 +36,7 @@ export const storeCategoryAssignments = pgTable(
       .references(() => stores.id, { onDelete: "cascade" }),
     storeCategoryId: uuid("store_category_id")
       .notNull()
-      .references(() => storeCategories.id, { onDelete: "cascade" }),
+      .references(() => storeCategories.id, { onDelete: "restrict" }),
   },
   (t) => ({
     pk: primaryKey({ columns: [t.storeId, t.storeCategoryId] }),

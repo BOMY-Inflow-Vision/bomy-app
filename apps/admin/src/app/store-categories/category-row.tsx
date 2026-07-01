@@ -66,21 +66,33 @@ export function StoreCategoryRow({ cat }: { cat: StoreCategory }) {
     return (
       <tr className={cat.isActive ? "" : "opacity-50"}>
         <td className="px-4 py-2">
+          <label htmlFor={`cat-name-${cat.id}`} className="sr-only">
+            Category name
+          </label>
           <input
+            id={`cat-name-${cat.id}`}
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none"
+            className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus-visible:border-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
             autoFocus
           />
-          {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+          {error && (
+            <p role="alert" aria-live="assertive" className="mt-1 text-xs text-red-600">
+              {error}
+            </p>
+          )}
         </td>
         <td className="px-4 py-3 font-mono text-xs text-gray-500">{cat.slug}</td>
         <td className="px-4 py-2">
+          <label htmlFor={`cat-sort-${cat.id}`} className="sr-only">
+            Sort order
+          </label>
           <input
+            id={`cat-sort-${cat.id}`}
             type="number"
             value={sortOrder}
             onChange={(e) => setSortOrder(Number(e.target.value))}
-            className="w-20 rounded border border-gray-300 px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none"
+            className="w-20 rounded border border-gray-300 px-2 py-1 text-sm focus-visible:border-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
           />
         </td>
         <td className="px-4 py-3">{statusBadge}</td>
@@ -113,7 +125,11 @@ export function StoreCategoryRow({ cat }: { cat: StoreCategory }) {
       <td className="px-4 py-3 text-gray-500">{cat.sortOrder}</td>
       <td className="px-4 py-3">{statusBadge}</td>
       <td className="px-4 py-3 text-right">
-        {error && <p className="mb-1 text-xs text-red-600">{error}</p>}
+        {error && (
+          <p role="alert" aria-live="assertive" className="mb-1 text-xs text-red-600">
+            {error}
+          </p>
+        )}
         <div className="flex items-center justify-end gap-3">
           <button
             onClick={() => {
