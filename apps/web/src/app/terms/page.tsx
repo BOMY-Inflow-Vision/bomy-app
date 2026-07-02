@@ -104,7 +104,7 @@ export default function TermsPage() {
         <h2 className="mb-3 text-xl font-semibold">11. Contact</h2>
         <p>
           Questions about these terms can be sent to{" "}
-          <a href="mailto:contact@brandsofmalaysia.com" className="text-slate-900 underline">
+          <a href="mailto:contact@brandsofmalaysia.com" className="text-foreground underline">
             contact@brandsofmalaysia.com
           </a>
           .

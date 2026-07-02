@@ -40,7 +40,7 @@ export default async function MembershipSuccessPage() {
   const pendingFresh = sub?.status === "pending" && !isPendingAbandoned(sub, new Date())
 
   return (
-    <main className="flex min-h-screen items-start justify-center bg-gray-50 pt-20 px-4">
+    <main className="flex min-h-screen items-start justify-center bg-muted pt-20 px-4">
       <MembershipActivationPoller
         initialActive={sub?.status === "active"}
         pendingFresh={pendingFresh}
