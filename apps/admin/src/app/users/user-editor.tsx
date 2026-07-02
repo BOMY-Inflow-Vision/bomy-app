@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { updateUserProfile } from "./actions"
 import { validateUserProfile } from "./user-profile-schema"
 
@@ -51,14 +52,22 @@ export function UserEditor({
 
   return (
     <div className="flex flex-col gap-1">
+      <Label htmlFor="edit-name" className="sr-only">
+        Name
+      </Label>
       <Input
+        id="edit-name"
         value={nameVal}
         onChange={(e) => setNameVal(e.target.value)}
         placeholder="Name"
         className="h-7 px-2 py-1 text-xs"
       />
       {errors.name && <span className="text-xs text-destructive">{errors.name}</span>}
+      <Label htmlFor="edit-email" className="sr-only">
+        Email
+      </Label>
       <Input
+        id="edit-email"
         value={emailVal}
         onChange={(e) => setEmailVal(e.target.value)}
         placeholder="Email"

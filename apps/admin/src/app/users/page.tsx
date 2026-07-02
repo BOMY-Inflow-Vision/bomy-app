@@ -12,11 +12,11 @@ import { RoleSelector } from "./role-selector"
 import { UserEditor } from "./user-editor"
 
 const ROLE_COLORS: Record<string, string> = {
-  buyer: "bg-gray-100 text-gray-700",
+  buyer: "bg-muted text-foreground",
   seller_owner: "bg-green-100 text-green-700",
   seller_staff: "bg-emerald-100 text-emerald-700",
   bomy_ops: "bg-blue-100 text-blue-700",
-  bomy_admin: "bg-indigo-100 text-indigo-700",
+  bomy_admin: "bg-accent text-accent-foreground",
   bomy_finance: "bg-purple-100 text-purple-700",
 }
 
@@ -73,7 +73,7 @@ export default async function UsersPage() {
                   <Badge
                     variant="outline"
                     className={cn(
-                      ROLE_COLORS[row.role] ?? "bg-gray-100 text-gray-700",
+                      ROLE_COLORS[row.role] ?? "bg-muted text-foreground",
                       "border-transparent",
                     )}
                   >
