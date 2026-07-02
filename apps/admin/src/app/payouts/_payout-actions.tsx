@@ -4,6 +4,7 @@ import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { markPayoutCompleted, markPayoutFailed, markPayoutProcessing } from "./actions"
 
@@ -87,7 +88,11 @@ export function PayoutActions({ payoutId, status }: Props) {
 
       {showComplete && (
         <div className="flex flex-col gap-1">
+          <Label htmlFor="manual-ref" className="sr-only">
+            Manual reference
+          </Label>
           <Input
+            id="manual-ref"
             value={manualRef}
             onChange={(e) => setManualRef(e.target.value)}
             placeholder="Manual ref (required)"
@@ -124,7 +129,11 @@ export function PayoutActions({ payoutId, status }: Props) {
 
       {showFail && (
         <div className="flex flex-col gap-1">
+          <Label htmlFor="fail-notes" className="sr-only">
+            Fail notes
+          </Label>
           <Textarea
+            id="fail-notes"
             value={failNotes}
             onChange={(e) => setFailNotes(e.target.value)}
             placeholder="Notes (required)"

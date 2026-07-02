@@ -8,6 +8,8 @@ import { getDb } from "@/lib/db"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { triggerVoucherIssuance, updateVoucherConfig } from "./actions"
 
 export default async function VouchersPage() {
@@ -69,8 +71,11 @@ export default async function VouchersPage() {
         <Card className="p-6">
           <form id="voucher-config-form" action={updateVoucherConfig} className="space-y-4">
             <div className="flex items-center gap-4">
-              <label className="w-32 text-sm font-medium text-foreground">Type</label>
+              <Label htmlFor="voucher-type" className="w-32 text-sm font-medium text-foreground">
+                Type
+              </Label>
               <select
+                id="voucher-type"
                 name="type"
                 defaultValue={currentType}
                 className="rounded border border-input px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
@@ -84,11 +89,12 @@ export default async function VouchersPage() {
                 submittable after changing the type dropdown without JS.
                 The action only validates fields for the submitted type. */}
             <div className="flex items-center gap-4">
-              <label className="w-32 text-sm font-medium text-foreground">
+              <Label htmlFor="voucher-amount" className="w-32 text-sm font-medium text-foreground">
                 Amount (MYR)
                 <span className="ml-1 text-xs font-normal text-muted-foreground">(fixed)</span>
-              </label>
-              <input
+              </Label>
+              <Input
+                id="voucher-amount"
                 name="fixedAmountMyr"
                 type="text"
                 defaultValue={
@@ -97,15 +103,16 @@ export default async function VouchersPage() {
                     : ""
                 }
                 placeholder="e.g. 10.00"
-                className="w-32 rounded border border-input px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                className="w-32"
               />
             </div>
             <div className="flex items-center gap-4">
-              <label className="w-32 text-sm font-medium text-foreground">
+              <Label htmlFor="voucher-pct" className="w-32 text-sm font-medium text-foreground">
                 Percentage
                 <span className="ml-1 text-xs font-normal text-muted-foreground">(pct)</span>
-              </label>
-              <input
+              </Label>
+              <Input
+                id="voucher-pct"
                 name="percentage"
                 type="number"
                 min="1"
@@ -116,15 +123,16 @@ export default async function VouchersPage() {
                     : ""
                 }
                 placeholder="e.g. 20"
-                className="w-32 rounded border border-input px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                className="w-32"
               />
             </div>
             <div className="flex items-center gap-4">
-              <label className="w-32 text-sm font-medium text-foreground">
+              <Label htmlFor="voucher-min" className="w-32 text-sm font-medium text-foreground">
                 Range (MYR)
                 <span className="ml-1 text-xs font-normal text-muted-foreground">(random)</span>
-              </label>
-              <input
+              </Label>
+              <Input
+                id="voucher-min"
                 name="randomMinMyr"
                 type="text"
                 defaultValue={
@@ -133,10 +141,14 @@ export default async function VouchersPage() {
                     : ""
                 }
                 placeholder="Min"
-                className="w-24 rounded border border-input px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                className="w-24"
               />
               <span className="text-muted-foreground">–</span>
-              <input
+              <Label htmlFor="voucher-max" className="sr-only">
+                Max
+              </Label>
+              <Input
+                id="voucher-max"
                 name="randomMaxMyr"
                 type="text"
                 defaultValue={
@@ -145,7 +157,7 @@ export default async function VouchersPage() {
                     : ""
                 }
                 placeholder="Max"
-                className="w-24 rounded border border-input px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                className="w-24"
               />
             </div>
           </form>
