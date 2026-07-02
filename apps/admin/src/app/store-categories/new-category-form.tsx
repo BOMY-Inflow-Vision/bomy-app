@@ -2,6 +2,9 @@
 
 import { useRef, useState, useTransition } from "react"
 
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { createStoreCategory } from "./actions"
 
 export function NewStoreCategoryForm() {
@@ -23,25 +26,21 @@ export function NewStoreCategoryForm() {
 
   return (
     <form ref={ref} action={submit} className="flex items-center gap-2">
-      <label htmlFor="new-store-category-name" className="sr-only">
+      <Label htmlFor="new-store-category-name" className="sr-only">
         New category name
-      </label>
-      <input
+      </Label>
+      <Input
         id="new-store-category-name"
         name="name"
         required
         placeholder="Category name"
-        className="rounded border border-gray-300 px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+        className="w-48"
       />
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-      >
+      <Button type="submit" disabled={pending}>
         {pending ? "Adding…" : "Add Category"}
-      </button>
+      </Button>
       {error && (
-        <p role="alert" aria-live="assertive" className="text-sm text-red-600">
+        <p role="alert" aria-live="assertive" className="text-sm text-destructive">
           {error}
         </p>
       )}

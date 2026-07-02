@@ -5,6 +5,8 @@ import { schema, withAdmin } from "@bomy/db"
 
 import { auth } from "@/auth"
 import { getDb } from "@/lib/db"
+import { cn } from "@/lib/utils"
+import { Card } from "@/components/ui/card"
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "text-amber-600",
@@ -85,17 +87,18 @@ export default async function BrandSubscriptionsPage({
   return (
     <div className="p-6">
       <div className="mb-4 flex items-center gap-4">
-        <h1 className="text-lg font-semibold text-gray-900">Brand Subscriptions</h1>
+        <h1 className="text-lg font-semibold text-foreground">Brand Subscriptions</h1>
         <div className="flex gap-1 text-sm">
           {["", "pending", "active", "cancelled", "expired", "payment_failed"].map((s) => (
             <Link
               key={s}
               href={`/brand-subscriptions?${new URLSearchParams({ ...(s ? { status: s } : {}), ...(storeId ? { storeId } : {}) }).toString()}`}
-              className={`rounded px-3 py-1 ${
+              className={cn(
+                "rounded px-3 py-1",
                 status === s || (!status && !s)
-                  ? "bg-indigo-100 text-indigo-700"
-                  : "text-gray-500 hover:bg-gray-100"
-              }`}
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:bg-muted",
+              )}
             >
               {s || "All"}
             </Link>
@@ -103,10 +106,15 @@ export default async function BrandSubscriptionsPage({
         </div>
         {stores.length > 0 && (
           <div className="ml-auto flex items-center gap-2 text-sm">
-            <span className="text-gray-500">Store:</span>
+            <span className="text-muted-foreground">Store:</span>
             <Link
               href={`/brand-subscriptions?${new URLSearchParams({ ...(status ? { status } : {}) }).toString()}`}
-              className={`rounded px-2 py-1 ${!storeId ? "bg-indigo-100 text-indigo-700" : "text-gray-500 hover:bg-gray-100"}`}
+              className={cn(
+                "rounded px-2 py-1",
+                !storeId
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:bg-muted",
+              )}
             >
               All
             </Link>
@@ -114,7 +122,12 @@ export default async function BrandSubscriptionsPage({
               <Link
                 key={s.id}
                 href={`/brand-subscriptions?${new URLSearchParams({ storeId: s.id, ...(status ? { status } : {}) }).toString()}`}
-                className={`rounded px-2 py-1 ${storeId === s.id ? "bg-indigo-100 text-indigo-700" : "text-gray-500 hover:bg-gray-100"}`}
+                className={cn(
+                  "rounded px-2 py-1",
+                  storeId === s.id
+                    ? "bg-accent text-accent-foreground"
+                    : "text-muted-foreground hover:bg-muted",
+                )}
               >
                 {s.name}
               </Link>
@@ -122,10 +135,10 @@ export default async function BrandSubscriptionsPage({
           </div>
         )}
       </div>
-      <div className="rounded-lg border border-gray-200 bg-white">
+      <Card className="overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-500">
+            <tr className="border-b border-border bg-muted text-left text-xs font-semibold text-muted-foreground">
               <th className="px-4 py-3">Buyer</th>
               <th className="px-4 py-3">Store</th>
               <th className="px-4 py-3">Term</th>
@@ -137,32 +150,37 @@ export default async function BrandSubscriptionsPage({
           </thead>
           <tbody>
             {rows.map((row) => (
-              <tr key={row.id} className="border-b border-gray-100 last:border-0">
-                <td className="px-4 py-3 text-gray-700">{row.buyerEmail}</td>
-                <td className="px-4 py-3 text-gray-600">{row.storeName}</td>
-                <td className="px-4 py-3 text-gray-600">{row.termMonths}mo</td>
-                <td className="px-4 py-3 text-gray-600">
+              <tr key={row.id} className="border-b border-border last:border-0">
+                <td className="px-4 py-3 text-foreground">{row.buyerEmail}</td>
+                <td className="px-4 py-3 text-muted-foreground">{row.storeName}</td>
+                <td className="px-4 py-3 text-muted-foreground">{row.termMonths}mo</td>
+                <td className="px-4 py-3 text-muted-foreground">
                   {(Number(row.priceMyrSen) / 100).toFixed(2)}
                 </td>
-                <td className="px-4 py-3 text-gray-600">{row.discountPct}%</td>
+                <td className="px-4 py-3 text-muted-foreground">{row.discountPct}%</td>
                 <td
-                  className={`px-4 py-3 font-medium ${STATUS_COLORS[row.status] ?? "text-gray-600"}`}
+                  className={cn(
+                    "px-4 py-3 font-medium",
+                    STATUS_COLORS[row.status] ?? "text-muted-foreground",
+                  )}
                 >
                   {row.status}
                 </td>
-                <td className="px-4 py-3 text-gray-400">{row.periodEnd.toLocaleDateString()}</td>
+                <td className="px-4 py-3 text-muted-foreground">
+                  {row.periodEnd.toLocaleDateString()}
+                </td>
               </tr>
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
+                <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
                   No brand subscriptions found.
                 </td>
               </tr>
             )}
           </tbody>
         </table>
-      </div>
+      </Card>
     </div>
   )
 }
