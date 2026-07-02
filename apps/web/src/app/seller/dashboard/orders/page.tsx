@@ -5,6 +5,7 @@ import { makeDb, schema, withAdmin } from "@bomy/db"
 
 import { auth } from "@/auth"
 import { senToMyr } from "@/lib/money"
+import { cn } from "@/lib/utils"
 
 import { fetchSellerOrders } from "./queries"
 
@@ -60,7 +61,10 @@ export default async function SellerOrdersPage({ searchParams }: Props) {
       <div className="mb-6 flex gap-2">
         <a
           href="/seller/dashboard/orders"
-          className={`rounded-full px-3 py-1 text-sm ${!validStatus ? "bg-foreground text-background" : "bg-muted text-muted-foreground"}`}
+          className={cn(
+            "rounded-full px-3 py-1 text-sm",
+            !validStatus ? "bg-foreground text-background" : "bg-muted text-muted-foreground",
+          )}
         >
           All
         </a>
@@ -68,7 +72,12 @@ export default async function SellerOrdersPage({ searchParams }: Props) {
           <a
             key={s}
             href={`/seller/dashboard/orders?status=${s}`}
-            className={`rounded-full px-3 py-1 text-sm capitalize ${validStatus === s ? "bg-foreground text-background" : "bg-muted text-muted-foreground"}`}
+            className={cn(
+              "rounded-full px-3 py-1 text-sm capitalize",
+              validStatus === s
+                ? "bg-foreground text-background"
+                : "bg-muted text-muted-foreground",
+            )}
           >
             {s}
           </a>

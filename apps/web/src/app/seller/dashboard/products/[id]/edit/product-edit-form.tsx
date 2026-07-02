@@ -325,10 +325,11 @@ export function ProductEditForm({
                     </label>
                     {editState.fulfillmentChecked && (
                       <div className="flex items-center gap-1.5">
-                        <label className="text-xs text-muted-foreground">
+                        <Label htmlFor="lead-days-edit" className="text-xs text-muted-foreground">
                           Lead days (optional):
-                        </label>
-                        <input
+                        </Label>
+                        <Input
+                          id="lead-days-edit"
                           type="number"
                           min="1"
                           value={editState.leadDays}
@@ -336,7 +337,7 @@ export function ProductEditForm({
                             setEditState((s) => ({ ...s, leadDays: e.target.value }))
                           }
                           placeholder="e.g. 14"
-                          className="w-20 rounded border border-input px-2 py-1 text-xs focus:outline-none"
+                          className="w-20 text-xs"
                         />
                         <span className="text-xs text-muted-foreground">days</span>
                       </div>
@@ -504,14 +505,17 @@ export function ProductEditForm({
                 </label>
                 {addFulfillmentChecked && (
                   <div className="flex items-center gap-1.5">
-                    <label className="text-xs text-muted-foreground">Lead days (optional):</label>
-                    <input
+                    <Label htmlFor="lead-days-add" className="text-xs text-muted-foreground">
+                      Lead days (optional):
+                    </Label>
+                    <Input
+                      id="lead-days-add"
                       type="number"
                       min="1"
                       value={addLeadDays}
                       onChange={(e) => setAddLeadDays(e.target.value)}
                       placeholder="e.g. 14"
-                      className="w-20 rounded border border-input px-2 py-1 text-xs focus:outline-none"
+                      className="w-20 text-xs"
                     />
                     <span className="text-xs text-muted-foreground">days</span>
                   </div>

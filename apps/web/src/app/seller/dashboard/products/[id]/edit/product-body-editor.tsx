@@ -42,6 +42,8 @@ import {
   Youtube,
 } from "lucide-react"
 
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { getBodyImageUploadUrl, saveProductBody } from "../../actions"
 import { YoutubeEmbedExtension } from "./youtube-embed-extension"
 import { ImageUploadExtension } from "./image-upload-extension"
@@ -607,25 +609,31 @@ function InsertTableButton({ editor }: { editor: Editor | null }) {
           <p className="mb-2 text-xs font-semibold text-foreground">Insert table</p>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="mb-0.5 block text-xs text-muted-foreground">Rows</label>
-              <input
+              <Label htmlFor="table-rows" className="mb-0.5 block text-xs text-muted-foreground">
+                Rows
+              </Label>
+              <Input
+                id="table-rows"
                 type="number"
                 min={1}
                 max={20}
                 value={rows}
                 onChange={(e) => setRows(Math.min(20, Math.max(1, Number(e.target.value))))}
-                className="w-full rounded border border-input px-2 py-1 text-sm focus:border-primary focus:outline-none"
+                className="w-full text-sm"
               />
             </div>
             <div>
-              <label className="mb-0.5 block text-xs text-muted-foreground">Columns</label>
-              <input
+              <Label htmlFor="table-cols" className="mb-0.5 block text-xs text-muted-foreground">
+                Columns
+              </Label>
+              <Input
+                id="table-cols"
                 type="number"
                 min={1}
                 max={10}
                 value={cols}
                 onChange={(e) => setCols(Math.min(10, Math.max(1, Number(e.target.value))))}
-                className="w-full rounded border border-input px-2 py-1 text-sm focus:border-primary focus:outline-none"
+                className="w-full text-sm"
               />
             </div>
           </div>

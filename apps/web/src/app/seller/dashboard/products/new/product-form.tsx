@@ -306,16 +306,20 @@ export function ProductForm({ categories }: { categories: Category[] }) {
                     </label>
                     {v.fulfillmentChecked && (
                       <div className="flex items-center gap-1.5">
-                        <label className="text-xs text-muted-foreground">
+                        <Label
+                          htmlFor={`lead-days-${v.id}`}
+                          className="text-xs text-muted-foreground"
+                        >
                           Lead days (optional):
-                        </label>
-                        <input
+                        </Label>
+                        <Input
+                          id={`lead-days-${v.id}`}
                           type="number"
                           min="1"
                           value={v.leadDays}
                           onChange={(e) => updateVariantField(v.id, "leadDays", e.target.value)}
                           placeholder="e.g. 14"
-                          className="w-20 rounded border border-input px-2 py-1 text-xs focus:outline-none"
+                          className="w-20 text-xs"
                         />
                         <span className="text-xs text-muted-foreground">days</span>
                       </div>
