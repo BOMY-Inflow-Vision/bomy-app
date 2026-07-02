@@ -2,6 +2,10 @@
 
 import { useState } from "react"
 
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+
 import { enterTracking } from "./actions"
 
 function Spinner() {
@@ -46,32 +50,38 @@ export function EnterTrackingForm({ orderId, currentCarrier, currentTracking }: 
   return (
     <form
       onSubmit={(e) => void handleSubmit(e)}
-      className="space-y-4 rounded-xl border border-gray-200 p-6"
+      className="space-y-4 rounded-xl border border-border p-6"
     >
-      <h2 className="text-sm font-semibold text-gray-700">Tracking details</h2>
-      <input
-        type="text"
-        placeholder="Carrier (e.g. Pos Laju)"
-        value={carrier}
-        onChange={(e) => setCarrier(e.target.value)}
-        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-      />
-      <input
-        type="text"
-        placeholder="Tracking number"
-        value={tracking}
-        onChange={(e) => setTracking(e.target.value)}
-        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-      />
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      <button
-        type="submit"
-        disabled={pending}
-        className="flex items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
-      >
+      <h2 className="text-sm font-semibold text-foreground">Tracking details</h2>
+      <div>
+        <Label htmlFor="carrier" className="mb-1 block text-sm">
+          Carrier
+        </Label>
+        <Input
+          id="carrier"
+          type="text"
+          placeholder="Carrier (e.g. Pos Laju)"
+          value={carrier}
+          onChange={(e) => setCarrier(e.target.value)}
+        />
+      </div>
+      <div>
+        <Label htmlFor="tracking" className="mb-1 block text-sm">
+          Tracking number
+        </Label>
+        <Input
+          id="tracking"
+          type="text"
+          placeholder="Tracking number"
+          value={tracking}
+          onChange={(e) => setTracking(e.target.value)}
+        />
+      </div>
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      <Button type="submit" disabled={pending} className="flex items-center justify-center gap-2">
         {pending && <Spinner />}
         {pending ? "Saving…" : "Save tracking"}
-      </button>
+      </Button>
     </form>
   )
 }

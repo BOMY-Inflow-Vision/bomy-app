@@ -2,6 +2,8 @@
 
 import { useState } from "react"
 
+import { Button } from "@/components/ui/button"
+
 import { markDelivered } from "./actions"
 
 export function MarkDeliveredButton({ orderId }: { orderId: string }) {
@@ -22,14 +24,14 @@ export function MarkDeliveredButton({ orderId }: { orderId: string }) {
 
   return (
     <div>
-      <button
+      <Button
         onClick={() => void handleClick()}
         disabled={pending}
-        className="rounded-xl bg-green-700 px-6 py-3 text-sm font-semibold text-white hover:bg-green-800 disabled:opacity-50"
+        className="bg-green-700 hover:bg-green-800 text-white"
       >
         {pending ? "Marking…" : "Mark as delivered"}
-      </button>
-      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+      </Button>
+      {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
     </div>
   )
 }

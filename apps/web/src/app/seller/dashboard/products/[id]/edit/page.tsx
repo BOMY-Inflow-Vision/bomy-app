@@ -21,8 +21,11 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
   return (
     <div className="p-8">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Edit Product</h1>
-        <a href="/seller/dashboard/products" className="text-sm text-gray-500 hover:underline">
+        <h1 className="text-xl font-semibold text-foreground">Edit Product</h1>
+        <a
+          href="/seller/dashboard/products"
+          className="text-sm text-muted-foreground hover:underline"
+        >
           ← Back to Products
         </a>
       </div>
@@ -32,7 +35,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
         <ImageManager productId={product.id} images={images} />
 
         <section aria-labelledby="body-editor-heading">
-          <h2 id="body-editor-heading" className="mb-3 text-lg font-semibold text-gray-900">
+          <h2 id="body-editor-heading" className="mb-3 text-lg font-semibold text-foreground">
             Product Details
           </h2>
           <ProductBodyEditor

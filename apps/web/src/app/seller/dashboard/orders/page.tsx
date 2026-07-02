@@ -55,12 +55,12 @@ export default async function SellerOrdersPage({ searchParams }: Props) {
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
-      <h1 className="mb-6 text-2xl font-bold text-gray-900">Orders</h1>
+      <h1 className="mb-6 text-2xl font-bold text-foreground">Orders</h1>
 
       <div className="mb-6 flex gap-2">
         <a
           href="/seller/dashboard/orders"
-          className={`rounded-full px-3 py-1 text-sm ${!validStatus ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"}`}
+          className={`rounded-full px-3 py-1 text-sm ${!validStatus ? "bg-foreground text-background" : "bg-muted text-muted-foreground"}`}
         >
           All
         </a>
@@ -68,7 +68,7 @@ export default async function SellerOrdersPage({ searchParams }: Props) {
           <a
             key={s}
             href={`/seller/dashboard/orders?status=${s}`}
-            className={`rounded-full px-3 py-1 text-sm capitalize ${validStatus === s ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"}`}
+            className={`rounded-full px-3 py-1 text-sm capitalize ${validStatus === s ? "bg-foreground text-background" : "bg-muted text-muted-foreground"}`}
           >
             {s}
           </a>
@@ -76,31 +76,31 @@ export default async function SellerOrdersPage({ searchParams }: Props) {
       </div>
 
       {orders.length === 0 ? (
-        <p className="text-sm text-gray-500">No orders.</p>
+        <p className="text-sm text-muted-foreground">No orders.</p>
       ) : (
         <div className="space-y-3">
           {orders.map((order) => (
             <div
               key={order.id}
-              className="flex items-center justify-between rounded-xl border border-gray-200 px-6 py-4"
+              className="flex items-center justify-between rounded-xl border border-border px-6 py-4"
             >
               <div>
-                <p className="font-mono text-sm text-gray-500">{order.id.slice(0, 8)}…</p>
-                <span className="mt-1 inline-block rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium capitalize text-indigo-700">
+                <p className="font-mono text-sm text-muted-foreground">{order.id.slice(0, 8)}…</p>
+                <span className="mt-1 inline-block rounded-full bg-accent px-2 py-0.5 text-xs font-medium capitalize text-accent-foreground">
                   {order.fulfilmentStatus}
                 </span>
               </div>
               <div className="text-right">
-                <p className="text-sm font-semibold text-gray-900">
+                <p className="text-sm font-semibold text-foreground">
                   RM {senToMyr(order.sellerPayoutSen)}
                 </p>
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-muted-foreground">
                   {order.createdAt.toLocaleDateString("en-MY")}
                 </p>
               </div>
               <a
                 href={`/seller/dashboard/orders/${order.id}`}
-                className="ml-6 text-sm font-medium text-indigo-600 hover:underline"
+                className="ml-6 text-sm font-medium text-primary hover:underline"
               >
                 View
               </a>
