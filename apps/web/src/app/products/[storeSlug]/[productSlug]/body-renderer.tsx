@@ -79,7 +79,7 @@ function renderNode(node: Node, key: string): ReactNode {
           <table
             className={
               bordered
-                ? "w-full border-collapse [&_td]:border [&_td]:border-gray-300 [&_td]:px-3 [&_td]:py-2 [&_th]:border [&_th]:border-gray-300 [&_th]:bg-gray-50 [&_th]:px-3 [&_th]:py-2 [&_th]:font-semibold"
+                ? "w-full border-collapse [&_td]:border [&_td]:border-border [&_td]:px-3 [&_td]:py-2 [&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:px-3 [&_th]:py-2 [&_th]:font-semibold"
                 : undefined
             }
           >

@@ -1,5 +1,9 @@
 import Link from "next/link"
 
+import { cn } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+
 import { getBrands, getStoreCategories } from "./queries"
 
 interface Props {
@@ -35,8 +39,8 @@ export default async function BrandsPage({ searchParams }: Props) {
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Brands</h1>
-        <p className="mt-1 text-sm text-gray-500">Discover sellers on BOMY</p>
+        <h1 className="text-2xl font-bold text-foreground">Brands</h1>
+        <p className="mt-1 text-sm text-muted-foreground">Discover sellers on BOMY</p>
       </div>
 
       {/* Search */}
@@ -49,22 +53,16 @@ export default async function BrandsPage({ searchParams }: Props) {
           name="q"
           defaultValue={q}
           placeholder="Search brands…"
-          className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
+          className="flex-1 rounded-lg border border-input px-4 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
         />
         {category && <input type="hidden" name="category" value={category} />}
-        <button
-          type="submit"
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-        >
-          Search
-        </button>
+        <Button type="submit">Search</Button>
         {q && (
-          <Link
-            href={category ? `/brands?category=${encodeURIComponent(category)}` : "/brands"}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
-          >
-            Clear
-          </Link>
+          <Button variant="outline" asChild>
+            <Link href={category ? `/brands?category=${encodeURIComponent(category)}` : "/brands"}>
+              Clear
+            </Link>
+          </Button>
         )}
       </form>
 
@@ -72,14 +70,19 @@ export default async function BrandsPage({ searchParams }: Props) {
         {/* Category sidebar */}
         {storeCategories.length > 0 && (
           <aside className="w-44 shrink-0">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Categories
             </p>
             <ul className="space-y-1">
               <li>
                 <Link
                   href={q ? `/brands?q=${encodeURIComponent(q)}` : "/brands"}
-                  className={`block rounded-md px-3 py-1.5 text-sm ${!category ? "bg-indigo-50 font-medium text-indigo-700" : "text-gray-700 hover:bg-gray-50"}`}
+                  className={cn(
+                    "block rounded-md px-3 py-1.5 text-sm",
+                    !category
+                      ? "bg-accent font-medium text-accent-foreground"
+                      : "text-foreground hover:bg-muted",
+                  )}
                 >
                   All
                 </Link>
@@ -92,7 +95,12 @@ export default async function BrandsPage({ searchParams }: Props) {
                   <li key={cat.id}>
                     <Link
                       href={href}
-                      className={`block rounded-md px-3 py-1.5 text-sm ${category === cat.id ? "bg-indigo-50 font-medium text-indigo-700" : "text-gray-700 hover:bg-gray-50"}`}
+                      className={cn(
+                        "block rounded-md px-3 py-1.5 text-sm",
+                        category === cat.id
+                          ? "bg-accent font-medium text-accent-foreground"
+                          : "text-foreground hover:bg-muted",
+                      )}
                     >
                       {cat.name}
                     </Link>
@@ -104,14 +112,14 @@ export default async function BrandsPage({ searchParams }: Props) {
         )}
 
         {/* Brand grid */}
-        <div className="min-w-0 flex-1">
-          <p className="mb-4 text-sm text-gray-500">
+        <section aria-label="Brand results" className="min-w-0 flex-1">
+          <p className="mb-4 text-sm text-muted-foreground">
             {total} brand{total !== 1 ? "s" : ""}
             {q ? ` for "${q}"` : ""}
           </p>
 
           {brands.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-gray-300 py-20 text-center text-sm text-gray-400">
+            <div className="rounded-xl border border-dashed border-border py-20 text-center text-sm text-muted-foreground">
               No brands found.
             </div>
           ) : (
@@ -120,38 +128,33 @@ export default async function BrandsPage({ searchParams }: Props) {
                 <li key={b.id}>
                   <Link
                     href={`/brands/${b.slug}`}
-                    className="group flex h-full flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
+                    className="group flex h-full flex-col rounded-xl border border-border bg-background p-5 shadow-sm transition-shadow hover:shadow-md"
                   >
                     {/* Top row: avatar left, category pills top-right */}
                     <div className="mb-3 flex items-start justify-between gap-2">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-lg font-bold text-indigo-600">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-accent text-lg font-bold text-primary">
                         {b.name.charAt(0).toUpperCase()}
                       </div>
                       {b.categories.length > 0 && (
                         <div className="flex flex-wrap justify-end gap-1">
                           {b.categories.map((cat) => (
-                            <span
-                              key={cat}
-                              className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600"
-                            >
-                              {cat}
-                            </span>
+                            <Badge key={cat}>{cat}</Badge>
                           ))}
                         </div>
                       )}
                     </div>
 
-                    <p className="font-semibold text-gray-900 group-hover:text-indigo-600">
+                    <p className="font-semibold text-foreground group-hover:text-primary">
                       {b.name}
                     </p>
 
                     {b.excerpt && (
-                      <p className="mt-1 flex-1 text-sm leading-relaxed text-gray-500">
+                      <p className="mt-1 flex-1 text-sm leading-relaxed text-muted-foreground">
                         {b.excerpt}
                       </p>
                     )}
 
-                    <p className="mt-3 text-xs text-gray-400">
+                    <p className="mt-3 text-xs text-muted-foreground">
                       {b.productCount} product{b.productCount !== 1 ? "s" : ""}
                     </p>
                   </Link>
@@ -168,7 +171,7 @@ export default async function BrandsPage({ searchParams }: Props) {
                   return (
                     <span
                       key={`ellipsis-${i}`}
-                      className="flex h-11 w-11 items-center justify-center text-sm text-gray-400"
+                      className="flex h-11 w-11 items-center justify-center text-sm text-muted-foreground"
                       aria-hidden="true"
                     >
                       …
@@ -186,7 +189,12 @@ export default async function BrandsPage({ searchParams }: Props) {
                     href={href}
                     aria-label={`Page ${p}`}
                     aria-current={p === page ? "page" : undefined}
-                    className={`flex h-11 w-11 items-center justify-center rounded-md text-sm ${p === page ? "bg-indigo-600 text-white" : "border border-gray-300 text-gray-600 hover:bg-gray-50"}`}
+                    className={cn(
+                      "flex h-11 w-11 items-center justify-center rounded-md text-sm",
+                      p === page
+                        ? "bg-primary text-primary-foreground"
+                        : "border border-border text-muted-foreground hover:bg-muted",
+                    )}
                   >
                     {p}
                   </Link>
@@ -194,7 +202,7 @@ export default async function BrandsPage({ searchParams }: Props) {
               })}
             </nav>
           )}
-        </div>
+        </section>
       </div>
     </main>
   )

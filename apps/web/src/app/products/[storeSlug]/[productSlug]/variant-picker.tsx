@@ -2,6 +2,8 @@
 
 import { useState } from "react"
 
+import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
 import type { CartItem } from "@/lib/cart"
 import { useCart } from "@/lib/cart"
 import { formatMyrSen } from "@/lib/format"
@@ -81,7 +83,7 @@ export function VariantPicker({ product, variants }: VariantPickerProps) {
   }
 
   if (variants.length === 0) {
-    return <p className="text-sm text-gray-500">No variants available.</p>
+    return <p className="text-sm text-muted-foreground">No variants available.</p>
   }
 
   return (
@@ -89,7 +91,7 @@ export function VariantPicker({ product, variants }: VariantPickerProps) {
       {/* Variant selector */}
       {variants.length > 1 && (
         <div>
-          <p className="mb-2 text-sm font-medium text-gray-700">Choose variant</p>
+          <p className="mb-2 text-sm font-medium text-foreground">Choose variant</p>
           <div className="flex flex-wrap gap-2">
             {variants.map((v) => {
               const vSpecial = v.fulfillmentMode === "backorder" || v.fulfillmentMode === "preorder"
@@ -101,11 +103,13 @@ export function VariantPicker({ product, variants }: VariantPickerProps) {
                   key={v.id}
                   type="button"
                   onClick={() => setSelectedId(v.id)}
-                  className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+                  className={cn(
+                    "rounded-lg border px-3 py-1.5 text-sm transition-colors",
                     v.id === selectedId
-                      ? "border-indigo-600 bg-indigo-50 font-medium text-indigo-700"
-                      : "border-gray-300 text-gray-700 hover:border-indigo-400"
-                  } ${unavailable ? "opacity-50 line-through" : ""}`}
+                      ? "border-primary bg-accent font-medium text-accent-foreground"
+                      : "border-input text-foreground hover:border-primary",
+                    unavailable && "opacity-50 line-through",
+                  )}
                   disabled={unavailable}
                 >
                   {v.name}
@@ -119,11 +123,16 @@ export function VariantPicker({ product, variants }: VariantPickerProps) {
       {/* Price + stock / fulfillment status */}
       {selected && (
         <div className="space-y-1">
-          <p className="text-2xl font-bold text-indigo-600">{formatMyrSen(selected.priceSen)}</p>
+          <p className="text-2xl font-bold text-primary">{formatMyrSen(selected.priceSen)}</p>
           {isSpecialOrder ? (
             <FulfillmentLabel mode={selected.fulfillmentMode} days={selected.preorderLeadDays} />
           ) : (
-            <p className={`text-sm ${selected.stockCount > 0 ? "text-green-600" : "text-red-500"}`}>
+            <p
+              className={cn(
+                "text-sm",
+                selected.stockCount > 0 ? "text-green-600" : "text-destructive",
+              )}
+            >
               {selected.stockCount > 0 ? `${selected.stockCount} in stock` : "Out of stock"}
             </p>
           )}
@@ -131,14 +140,15 @@ export function VariantPicker({ product, variants }: VariantPickerProps) {
       )}
 
       {/* Add to cart */}
-      <button
+      <Button
         type="button"
         onClick={handleAddToCart}
         disabled={!canAddToCart}
-        className="w-full rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full rounded-xl px-6 py-3 text-sm font-semibold shadow-sm disabled:cursor-not-allowed"
+        size="lg"
       >
         {added ? "Added to cart ✓" : "Add to cart"}
-      </button>
+      </Button>
     </div>
   )
 }

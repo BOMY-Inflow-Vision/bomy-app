@@ -1,6 +1,8 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
 
+import { Button } from "@/components/ui/button"
+
 import { getStorePage } from "./queries"
 
 interface Props {
@@ -17,29 +19,26 @@ export default async function StorePage({ params }: Props) {
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
       {/* Store header */}
-      <div className="mb-8 rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
+      <div className="mb-8 rounded-2xl border border-border bg-background p-8 shadow-sm">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{store.name}</h1>
+            <h1 className="text-2xl font-bold text-foreground">{store.name}</h1>
             {store.description && (
-              <p className="mt-2 max-w-xl text-sm leading-relaxed text-gray-600">
+              <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">
                 {store.description}
               </p>
             )}
           </div>
-          <Link
-            href={`/brands/${store.slug}/subscribe`}
-            className="shrink-0 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-          >
-            Subscribe
-          </Link>
+          <Button asChild className="shrink-0">
+            <Link href={`/brands/${store.slug}/subscribe`}>Subscribe</Link>
+          </Button>
         </div>
       </div>
 
       {/* Product grid */}
-      <h2 className="mb-4 text-lg font-semibold text-gray-900">Products</h2>
+      <h2 className="mb-4 text-lg font-semibold text-foreground">Products</h2>
       {products.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-gray-300 py-16 text-center text-sm text-gray-400">
+        <p className="rounded-xl border border-dashed border-border py-16 text-center text-sm text-muted-foreground">
           No products yet.
         </p>
       ) : (
@@ -48,9 +47,9 @@ export default async function StorePage({ params }: Props) {
             <li key={p.id}>
               <Link
                 href={`/products/${store.slug}/${p.slug}`}
-                className="group block overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm hover:shadow-md"
+                className="group block overflow-hidden rounded-xl border border-border bg-background shadow-sm hover:shadow-md"
               >
-                <div className="aspect-square bg-gray-100">
+                <div className="aspect-square bg-muted">
                   {p.coverImageUrl ? (
                     <img
                       src={p.coverImageUrl}
@@ -58,13 +57,13 @@ export default async function StorePage({ params }: Props) {
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <div className="flex h-full items-center justify-center text-3xl text-gray-300">
+                    <div className="flex h-full items-center justify-center text-3xl text-muted-foreground">
                       📦
                     </div>
                   )}
                 </div>
                 <div className="p-3">
-                  <p className="truncate text-sm font-medium text-gray-900 group-hover:text-indigo-600">
+                  <p className="truncate text-sm font-medium text-foreground group-hover:text-primary">
                     {p.name}
                   </p>
                 </div>
