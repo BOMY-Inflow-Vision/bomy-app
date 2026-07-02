@@ -2,6 +2,9 @@
 
 import { useFormStatus } from "react-dom"
 
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
+
 function Spinner() {
   return (
     <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -24,13 +27,13 @@ export function SubmitButton({
 }) {
   const { pending } = useFormStatus()
   return (
-    <button
+    <Button
       type="submit"
       disabled={pending}
-      className={`flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60 ${className ?? ""}`}
+      className={cn("gap-2 disabled:cursor-not-allowed disabled:opacity-60", className)}
     >
       {pending && <Spinner />}
       {children}
-    </button>
+    </Button>
   )
 }

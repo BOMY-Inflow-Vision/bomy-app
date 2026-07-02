@@ -6,68 +6,72 @@ const BUSINESS_ADDRESS =
 
 export function Footer() {
   return (
-    <footer className="mt-16 border-t border-slate-200 bg-slate-50">
+    <footer className="mt-16 border-t border-border bg-muted">
       <div className="mx-auto max-w-6xl px-4 py-12">
         <div className="grid grid-cols-1 gap-10 md:grid-cols-4">
           <div className="md:col-span-2">
-            <p className="text-2xl font-bold tracking-tight text-slate-900">BOMY</p>
-            <p className="mt-3 text-sm text-slate-600">
+            <p className="text-2xl font-bold tracking-tight text-foreground">BOMY</p>
+            <p className="mt-3 text-sm text-muted-foreground">
               A curated Malaysian multivendor marketplace.
             </p>
-            <p className="mt-6 text-sm text-slate-700">BOMY by Inflo Vision (202503276795)</p>
-            <p className="mt-2 text-sm text-slate-700">
+            <p className="mt-6 text-sm text-muted-foreground">
+              BOMY by Inflo Vision (202503276795)
+            </p>
+            <p className="mt-2 text-sm text-muted-foreground">
               Email:{" "}
-              <a href={`mailto:${CONTACT_EMAIL}`} className="hover:text-slate-900 hover:underline">
+              <a href={`mailto:${CONTACT_EMAIL}`} className="hover:text-foreground hover:underline">
                 {CONTACT_EMAIL}
               </a>
             </p>
-            <p className="mt-2 text-sm text-slate-700">Address: {BUSINESS_ADDRESS}</p>
+            <p className="mt-2 text-sm text-muted-foreground">Address: {BUSINESS_ADDRESS}</p>
           </div>
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+            <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Quick Links
             </p>
-            <ul className="mt-3 space-y-2 text-sm text-slate-700">
+            <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
               <li>
-                <a href="/about" className="hover:text-slate-900 hover:underline">
+                <a href="/about" className="hover:text-foreground hover:underline">
                   About BOMY
                 </a>
               </li>
               <li>
-                <a href="/contact" className="hover:text-slate-900 hover:underline">
+                <a href="/contact" className="hover:text-foreground hover:underline">
                   Contact
                 </a>
               </li>
             </ul>
           </div>
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">Policies</p>
-            <ul className="mt-3 space-y-2 text-sm text-slate-700">
+            <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Policies
+            </p>
+            <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
               <li>
-                <a href="/terms" className="hover:text-slate-900 hover:underline">
+                <a href="/terms" className="hover:text-foreground hover:underline">
                   Terms of Service
                 </a>
               </li>
               <li>
-                <a href="/privacy" className="hover:text-slate-900 hover:underline">
+                <a href="/privacy" className="hover:text-foreground hover:underline">
                   Privacy Policy
                 </a>
               </li>
               <li>
-                <a href="/refund" className="hover:text-slate-900 hover:underline">
+                <a href="/refund" className="hover:text-foreground hover:underline">
                   Refund and Return
                 </a>
               </li>
               <li>
-                <a href="/shipping" className="hover:text-slate-900 hover:underline">
+                <a href="/shipping" className="hover:text-foreground hover:underline">
                   Shipping and Delivery
                 </a>
               </li>
             </ul>
           </div>
         </div>
-        <div className="mt-10 border-t border-slate-200 pt-6">
-          <p className="text-xs text-slate-500">© 2026 BOMY. All rights reserved.</p>
+        <div className="mt-10 border-t border-border pt-6">
+          <p className="text-xs text-muted-foreground">© 2026 BOMY. All rights reserved.</p>
         </div>
       </div>
     </footer>

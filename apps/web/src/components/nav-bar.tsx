@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react"
 import React, { useEffect, useState } from "react"
 
 import { useCart } from "@/lib/cart"
+import { cn } from "@/lib/utils"
 
 const NAV_LINKS = [
   { href: "/products", label: "Products" },
@@ -18,7 +19,7 @@ function CartLink() {
     <Link
       href="/cart"
       aria-label="Cart"
-      className="relative flex items-center text-gray-600 hover:text-gray-900"
+      className="relative flex items-center text-muted-foreground hover:text-foreground"
     >
       <svg
         className="h-6 w-6"
@@ -26,6 +27,7 @@ function CartLink() {
         viewBox="0 0 24 24"
         stroke="currentColor"
         strokeWidth={1.5}
+        aria-hidden="true"
       >
         <path
           strokeLinecap="round"
@@ -34,7 +36,7 @@ function CartLink() {
         />
       </svg>
       {hydrated && itemCount > 0 && (
-        <span className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-bold text-white">
+        <span className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
           {itemCount > 99 ? "99+" : itemCount}
         </span>
       )}
@@ -64,12 +66,12 @@ export function NavBar() {
       ]
     : [{ href: "/auth/sign-in", label: "Sign in" }]
 
-  const desktopLinkClass = "text-sm text-gray-600 hover:text-gray-900"
+  const desktopLinkClass = "text-sm text-muted-foreground hover:text-foreground"
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-gray-200 bg-white shadow-sm">
+    <nav className="sticky top-0 z-50 border-b border-border bg-background shadow-sm">
       <div className="flex h-14 items-center justify-between px-4">
-        <Link href="/" className="text-lg font-bold tracking-tight text-indigo-600">
+        <Link href="/" className="text-lg font-bold tracking-tight text-primary">
           BOMY
         </Link>
 
@@ -97,7 +99,7 @@ export function NavBar() {
             aria-label={open ? "Close menu" : "Open menu"}
             aria-expanded={open}
             aria-controls="mobile-menu"
-            className="inline-flex items-center justify-center rounded-md p-2.5 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+            className="inline-flex items-center justify-center rounded-md p-2.5 text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             <svg
               className="h-6 w-6"
@@ -105,6 +107,7 @@ export function NavBar() {
               viewBox="0 0 24 24"
               stroke="currentColor"
               strokeWidth={1.5}
+              aria-hidden="true"
             >
               {open ? (
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -124,9 +127,10 @@ export function NavBar() {
       <div
         id="mobile-menu"
         inert={!open}
-        className={`absolute inset-x-0 top-full origin-top border-b border-gray-200 bg-white shadow-lg transition duration-200 ease-out md:hidden ${
-          open ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-1 opacity-0"
-        }`}
+        className={cn(
+          "absolute inset-x-0 top-full origin-top border-b border-border bg-background shadow-lg transition duration-200 ease-out md:hidden",
+          open ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-1 opacity-0",
+        )}
       >
         <div className="flex flex-col gap-0.5 p-2">
           {[...NAV_LINKS, ...authLinks].map((link) => (
@@ -134,7 +138,7 @@ export function NavBar() {
               key={link.href}
               href={link.href}
               onClick={() => setOpen(false)}
-              className="rounded-md px-3 py-3 text-base text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+              className="rounded-md px-3 py-3 text-base text-foreground hover:bg-muted"
             >
               {link.label}
             </Link>
