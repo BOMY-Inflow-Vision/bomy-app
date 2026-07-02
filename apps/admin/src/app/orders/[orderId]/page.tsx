@@ -2,6 +2,9 @@ import { notFound } from "next/navigation"
 
 import { getDb } from "@/lib/db"
 import { senToMyr } from "@/lib/money"
+import { cn } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
+import { Card } from "@/components/ui/card"
 
 import { fetchOrderWithDetail } from "../_queries"
 import { CreatePayoutButton } from "./_create-payout-button"
@@ -16,24 +19,24 @@ export default async function AdminOrderDetailPage({ params }: Props) {
   if (!order) notFound()
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-8">
-      <a href="/orders" className="mb-6 block text-sm text-indigo-600 hover:underline">
+    <div className="mx-auto max-w-4xl px-4 py-8">
+      <a href="/orders" className="mb-6 block text-sm text-primary hover:underline">
         &larr; Back to orders
       </a>
 
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Order {order.id.slice(0, 8)}&hellip;</h1>
+        <h1 className="text-2xl font-bold text-foreground">Order {order.id.slice(0, 8)}&hellip;</h1>
         <div className="flex gap-2">
-          <span className="rounded-full bg-blue-100 px-3 py-1 text-sm font-medium capitalize text-blue-700">
+          <Badge variant="secondary" className="capitalize">
             {order.paymentStatus}
-          </span>
-          <span className="rounded-full bg-indigo-100 px-3 py-1 text-sm font-medium capitalize text-indigo-700">
+          </Badge>
+          <Badge variant="accent" className="capitalize">
             {order.fulfilmentStatus}
-          </span>
+          </Badge>
         </div>
       </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-4 text-sm text-gray-700">
+      <div className="mb-6 grid grid-cols-2 gap-4 text-sm text-foreground">
         <div>
           <span className="font-medium">Store:</span> {order.storeName}
         </div>
@@ -45,7 +48,7 @@ export default async function AdminOrderDetailPage({ params }: Props) {
           <span className="font-medium">Session:</span>{" "}
           <a
             href={`/checkout-sessions/${order.checkoutSessionId}`}
-            className="font-mono text-indigo-600 hover:underline"
+            className="font-mono text-primary hover:underline"
           >
             {order.checkoutSessionId.slice(0, 8)}&hellip;
           </a>
@@ -55,8 +58,8 @@ export default async function AdminOrderDetailPage({ params }: Props) {
         </div>
       </div>
 
-      <section className="mb-6 rounded-xl border border-gray-200 p-6">
-        <h2 className="mb-4 text-sm font-semibold text-gray-700">Financials</h2>
+      <Card className="mb-6 p-6">
+        <h2 className="mb-4 text-sm font-semibold text-muted-foreground">Financials</h2>
         <div className="space-y-2 text-sm">
           {(
             [
@@ -71,18 +74,18 @@ export default async function AdminOrderDetailPage({ params }: Props) {
             ] as [string, bigint][]
           ).map(([label, val]) => (
             <div key={label} className="flex justify-between">
-              <span className="text-gray-600">{label}</span>
-              <span className={`font-mono ${val < 0n ? "text-red-600" : ""}`}>
+              <span className="text-muted-foreground">{label}</span>
+              <span className={cn("font-mono", val < 0n && "text-destructive")}>
                 {val < 0n ? "−" : ""}RM {senToMyr(val < 0n ? -val : val)}
               </span>
             </div>
           ))}
         </div>
-      </section>
+      </Card>
 
-      <section className="mb-6 rounded-xl border border-gray-200 p-6">
-        <h2 className="mb-4 text-sm font-semibold text-gray-700">Items</h2>
-        <ul className="space-y-2 text-sm text-gray-700">
+      <Card className="mb-6 p-6">
+        <h2 className="mb-4 text-sm font-semibold text-muted-foreground">Items</h2>
+        <ul className="space-y-2 text-sm text-foreground">
           {order.items.map((item) => {
             const product = item.productSnapshot as { name?: string }
             const variant = item.variantSnapshot as { name?: string }
@@ -97,10 +100,10 @@ export default async function AdminOrderDetailPage({ params }: Props) {
             )
           })}
         </ul>
-      </section>
+      </Card>
 
-      <section className="mb-6 rounded-xl border border-gray-200 p-6 text-sm text-gray-700">
-        <h2 className="mb-4 font-semibold text-gray-900">Fulfilment timeline</h2>
+      <Card className="mb-6 p-6 text-sm text-foreground">
+        <h2 className="mb-4 font-semibold text-foreground">Fulfilment timeline</h2>
         {order.shippedAt && (
           <p>
             Shipped: {order.shippedAt.toLocaleDateString("en-MY")} &mdash; {order.carrier}{" "}
@@ -109,11 +112,11 @@ export default async function AdminOrderDetailPage({ params }: Props) {
         )}
         {order.deliveredAt && <p>Delivered: {order.deliveredAt.toLocaleDateString("en-MY")}</p>}
         {order.completedAt && <p>Completed: {order.completedAt.toLocaleDateString("en-MY")}</p>}
-      </section>
+      </Card>
 
-      <section className="mb-6 rounded-xl border border-gray-200 p-6">
+      <Card className="mb-6 p-6">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-700">Payout history</h2>
+          <h2 className="text-sm font-semibold text-muted-foreground">Payout history</h2>
           {order.fulfilmentStatus === "completed" &&
             !order.payouts.some((p) =>
               (["pending", "processing", "completed"] as const).includes(
@@ -122,10 +125,10 @@ export default async function AdminOrderDetailPage({ params }: Props) {
             ) && <CreatePayoutButton orderId={order.id} />}
         </div>
         {order.payouts.length === 0 ? (
-          <p className="text-sm text-gray-400">No payouts yet.</p>
+          <p className="text-sm text-muted-foreground">No payouts yet.</p>
         ) : (
-          <table className="w-full text-sm text-gray-700">
-            <thead className="text-xs uppercase text-gray-500">
+          <table className="w-full text-sm text-foreground">
+            <thead className="text-xs uppercase text-muted-foreground">
               <tr>
                 <th className="pb-2 text-left">Status</th>
                 <th className="pb-2 text-right">Amount</th>
@@ -147,7 +150,7 @@ export default async function AdminOrderDetailPage({ params }: Props) {
             </tbody>
           </table>
         )}
-      </section>
-    </main>
+      </Card>
+    </div>
   )
 }

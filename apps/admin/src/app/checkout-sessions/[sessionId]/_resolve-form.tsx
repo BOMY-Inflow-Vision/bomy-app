@@ -2,6 +2,9 @@
 
 import { useState } from "react"
 
+import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { resolvePaymentReview } from "./actions"
 
 export function ResolveForm({ sessionId }: { sessionId: string }) {
@@ -25,21 +28,20 @@ export function ResolveForm({ sessionId }: { sessionId: string }) {
 
   return (
     <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
-      <textarea
-        placeholder="Resolution note (required)"
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-        rows={4}
-        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-      />
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      <button
-        type="submit"
-        disabled={pending || !note.trim()}
-        className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-      >
+      <div className="space-y-2">
+        <Label htmlFor="resolution-note">Resolution note</Label>
+        <Textarea
+          id="resolution-note"
+          placeholder="Resolution note (required)"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          rows={4}
+        />
+      </div>
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      <Button type="submit" disabled={pending || !note.trim()}>
         {pending ? "Resolving…" : "Mark resolved"}
-      </button>
+      </Button>
     </form>
   )
 }

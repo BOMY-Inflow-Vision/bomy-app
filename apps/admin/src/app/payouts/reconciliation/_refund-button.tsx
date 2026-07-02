@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react"
 
+import { Button } from "@/components/ui/button"
 import { refundDuplicateCharge } from "./actions"
 
 export function RefundButton({ id }: { id: string }) {
@@ -10,8 +11,10 @@ export function RefundButton({ id }: { id: string }) {
 
   return (
     <div>
-      <button
+      <Button
         type="button"
+        variant="destructive"
+        size="sm"
         disabled={pending}
         onClick={() =>
           start(async () => {
@@ -20,11 +23,10 @@ export function RefundButton({ id }: { id: string }) {
             if (!res.ok) setError(res.error)
           })
         }
-        className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
       >
         {pending ? "Refunding…" : "Refund"}
-      </button>
-      {error ? <p className="mt-1 text-xs text-red-600">{error}</p> : null}
+      </Button>
+      {error ? <p className="mt-1 text-xs text-destructive">{error}</p> : null}
     </div>
   )
 }

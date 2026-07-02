@@ -4,6 +4,8 @@ import { notFound } from "next/navigation"
 import { schema, withAdmin } from "@bomy/db"
 
 import { getDb } from "@/lib/db"
+import { Badge } from "@/components/ui/badge"
+import { Card } from "@/components/ui/card"
 
 import { ResolveForm } from "./_resolve-form"
 
@@ -53,18 +55,20 @@ export default async function CheckoutSessionReviewPage({ params }: Props) {
   const isPending = session.status === "payment_review_required"
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8">
-      <a href="/orders" className="mb-6 block text-sm text-indigo-600 hover:underline">
+    <div className="mx-auto max-w-3xl px-4 py-8">
+      <a href="/orders" className="mb-6 block text-sm text-primary hover:underline">
         ← Back to orders
       </a>
 
-      <h1 className="mb-2 text-2xl font-bold text-gray-900">Payment Review</h1>
-      <p className="mb-6 text-sm text-gray-400 font-mono">{session.id}</p>
+      <h1 className="mb-2 text-2xl font-bold text-foreground">Payment Review</h1>
+      <p className="mb-6 font-mono text-sm text-muted-foreground">{session.id}</p>
 
-      <div className="mb-6 space-y-2 text-sm text-gray-700">
+      <div className="mb-6 space-y-2 text-sm text-foreground">
         <p>
           <span className="font-medium">Status:</span>{" "}
-          <span className="capitalize">{session.status.replace(/_/g, " ")}</span>
+          <Badge variant="outline" className="capitalize">
+            {session.status.replace(/_/g, " ")}
+          </Badge>
         </p>
         <p>
           <span className="font-medium">Last updated:</span>{" "}
@@ -73,27 +77,27 @@ export default async function CheckoutSessionReviewPage({ params }: Props) {
         {session.paymentReviewReason && (
           <p>
             <span className="font-medium">Review reason:</span>{" "}
-            <code className="text-xs bg-gray-100 px-1 rounded">{session.paymentReviewReason}</code>
+            <code className="rounded bg-muted px-1 text-xs">{session.paymentReviewReason}</code>
           </p>
         )}
         {reasonCopy && (
-          <p className="rounded-lg bg-yellow-50 border border-yellow-200 px-4 py-3 text-yellow-800">
+          <p className="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-yellow-800">
             {reasonCopy}
           </p>
         )}
       </div>
 
       {session.resolvedBy && (
-        <div className="mb-6 rounded-xl border border-green-200 bg-green-50 p-6 text-sm text-green-800">
-          <p className="font-semibold mb-1">Resolved</p>
+        <Card className="mb-6 border-green-200 bg-green-50 p-6 text-sm text-green-800">
+          <p className="mb-1 font-semibold">Resolved</p>
           <p>{session.resolutionNote}</p>
           <p className="mt-2 text-xs text-green-600">
             {session.resolvedAt?.toLocaleString("en-MY")} by {session.resolvedBy.slice(0, 8)}…
           </p>
-        </div>
+        </Card>
       )}
 
       {isPending && <ResolveForm sessionId={session.id} />}
-    </main>
+    </div>
   )
 }

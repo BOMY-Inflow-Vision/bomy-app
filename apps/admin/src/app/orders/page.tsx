@@ -7,6 +7,9 @@ import {
 
 import { getDb } from "@/lib/db"
 import { senToMyr } from "@/lib/money"
+import { cn } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
+import { Card } from "@/components/ui/card"
 
 import { fetchOrdersFiltered } from "./_queries"
 
@@ -47,12 +50,12 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
   const orders = await fetchOrdersFiltered(getDb(), filters)
 
   return (
-    <main className="mx-auto max-w-7xl px-4 py-8">
-      <h1 className="mb-6 text-2xl font-bold text-gray-900">Orders</h1>
+    <div className="mx-auto max-w-7xl px-4 py-8">
+      <h1 className="mb-6 text-2xl font-bold text-foreground">Orders</h1>
 
-      <div className="overflow-x-auto rounded-xl border border-gray-200">
-        <table className="w-full text-sm text-gray-700">
-          <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+      <Card className="overflow-x-auto">
+        <table className="w-full text-sm text-foreground">
+          <thead className="bg-muted text-xs uppercase text-muted-foreground">
             <tr>
               <th className="px-4 py-3 text-left">Order ID</th>
               <th className="px-4 py-3 text-left">Store</th>
@@ -65,17 +68,28 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
               <th className="px-4 py-3"></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-border">
             {orders.map((order) => (
-              <tr key={order.id} className="hover:bg-gray-50">
+              <tr key={order.id} className="hover:bg-muted/50">
                 <td className="px-4 py-3 font-mono">{order.id.slice(0, 8)}&hellip;</td>
                 <td className="px-4 py-3">{order.storeName}</td>
                 <td className="px-4 py-3 font-mono">{order.buyerId.slice(0, 8)}&hellip;</td>
-                <td className="px-4 py-3 capitalize">{order.paymentStatus}</td>
-                <td className="px-4 py-3 capitalize">{order.fulfilmentStatus}</td>
+                <td className="px-4 py-3">
+                  <Badge variant="secondary" className="capitalize">
+                    {order.paymentStatus}
+                  </Badge>
+                </td>
+                <td className="px-4 py-3">
+                  <Badge variant="outline" className="capitalize">
+                    {order.fulfilmentStatus}
+                  </Badge>
+                </td>
                 <td className="px-4 py-3 text-right">RM {senToMyr(order.sellerPayoutSen)}</td>
                 <td
-                  className={`px-4 py-3 text-right ${order.bomyCommissionSen < 0n ? "text-red-600" : ""}`}
+                  className={cn(
+                    "px-4 py-3 text-right",
+                    order.bomyCommissionSen < 0n && "text-destructive",
+                  )}
                 >
                   {order.bomyCommissionSen < 0n ? "−" : ""}RM{" "}
                   {senToMyr(
@@ -84,11 +98,11 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
                       : order.bomyCommissionSen,
                   )}
                 </td>
-                <td className="px-4 py-3 text-gray-400">
+                <td className="px-4 py-3 text-muted-foreground">
                   {order.createdAt.toLocaleDateString("en-MY")}
                 </td>
                 <td className="px-4 py-3">
-                  <a href={`/orders/${order.id}`} className="text-indigo-600 hover:underline">
+                  <a href={`/orders/${order.id}`} className="text-primary hover:underline">
                     View
                   </a>
                 </td>
@@ -96,14 +110,14 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
             ))}
             {orders.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-gray-400">
+                <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">
                   No orders found.
                 </td>
               </tr>
             )}
           </tbody>
         </table>
-      </div>
-    </main>
+      </Card>
+    </div>
   )
 }
