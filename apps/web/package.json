@@ -19,6 +19,8 @@
     "@bomy/hitpay": "workspace:*",
     "@bomy/mailer": "workspace:*",
     "@bomy/shared": "workspace:*",
+    "@radix-ui/react-label": "^2.1.0",
+    "@radix-ui/react-slot": "^1.1.0",
     "@tiptap/core": "3.27.1",
     "@tiptap/extension-table": "3.27.1",
     "@tiptap/react": "3.27.1",
