@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useTransition } from "react"
 
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { updateUserProfile } from "./actions"
 import { validateUserProfile } from "./user-profile-schema"
 
@@ -32,38 +34,42 @@ export function UserEditor({
   if (!editing) {
     return (
       <div>
-        <div className="font-medium text-gray-900">{displayName ?? "—"}</div>
-        <div className="text-xs text-gray-400">{displayEmail}</div>
-        <button
+        <div className="font-medium text-foreground">{displayName ?? "—"}</div>
+        <div className="text-xs text-muted-foreground">{displayEmail}</div>
+        <Button
           type="button"
+          variant="link"
+          size="sm"
           onClick={() => setEditing(true)}
-          className="mt-1 text-xs text-indigo-600 hover:underline"
+          className="mt-1 h-auto p-0 text-xs"
         >
           Edit
-        </button>
+        </Button>
       </div>
     )
   }
 
   return (
     <div className="flex flex-col gap-1">
-      <input
+      <Input
         value={nameVal}
         onChange={(e) => setNameVal(e.target.value)}
         placeholder="Name"
-        className="rounded border border-gray-200 px-2 py-1 text-xs text-gray-700"
+        className="h-7 px-2 py-1 text-xs"
       />
-      {errors.name && <span className="text-xs text-red-600">{errors.name}</span>}
-      <input
+      {errors.name && <span className="text-xs text-destructive">{errors.name}</span>}
+      <Input
         value={emailVal}
         onChange={(e) => setEmailVal(e.target.value)}
         placeholder="Email"
-        className="rounded border border-gray-200 px-2 py-1 text-xs text-gray-700"
+        className="h-7 px-2 py-1 text-xs"
       />
-      {errors.email && <span className="text-xs text-red-600">{errors.email}</span>}
+      {errors.email && <span className="text-xs text-destructive">{errors.email}</span>}
       <div className="flex gap-2">
-        <button
+        <Button
           type="button"
+          variant="link"
+          size="sm"
           disabled={pending}
           onClick={() => {
             setErrors({})
@@ -86,12 +92,14 @@ export function UserEditor({
               }
             })
           }}
-          className="text-xs text-indigo-600 hover:underline disabled:opacity-50"
+          className="h-auto p-0 text-xs disabled:opacity-50"
         >
           {pending ? "Saving…" : "Save"}
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           disabled={pending}
           onClick={() => {
             setEditing(false)
@@ -99,10 +107,10 @@ export function UserEditor({
             setEmailVal(displayEmail)
             setErrors({})
           }}
-          className="text-xs text-gray-500 hover:underline disabled:opacity-50"
+          className="h-auto p-0 text-xs text-muted-foreground disabled:opacity-50"
         >
           Cancel
-        </button>
+        </Button>
       </div>
     </div>
   )

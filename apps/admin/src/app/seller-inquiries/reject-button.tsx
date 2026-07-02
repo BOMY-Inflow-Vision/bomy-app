@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react"
 
+import { Button } from "@/components/ui/button"
 import { rejectInquiry } from "./actions"
 
 export function RejectButton({ inquiryId }: { inquiryId: string }) {
@@ -10,8 +11,10 @@ export function RejectButton({ inquiryId }: { inquiryId: string }) {
 
   return (
     <div className="flex flex-col items-end gap-1">
-      <button
+      <Button
         type="button"
+        variant="link"
+        size="sm"
         disabled={pending}
         onClick={() =>
           startTransition(async () => {
@@ -20,11 +23,11 @@ export function RejectButton({ inquiryId }: { inquiryId: string }) {
             if (!res.ok) setError(res.error)
           })
         }
-        className="text-sm text-amber-600 hover:underline disabled:opacity-50"
+        className="h-auto p-0 text-sm text-amber-600 disabled:opacity-50"
       >
         {pending ? "Rejecting…" : "Reject"}
-      </button>
-      {error && <span className="text-xs text-red-500">{error}</span>}
+      </Button>
+      {error && <span className="text-xs text-destructive">{error}</span>}
     </div>
   )
 }

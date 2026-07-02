@@ -7,12 +7,13 @@ import { schema, withAdmin, type InquiryStatus } from "@bomy/db"
 
 import { auth } from "@/auth"
 import { getDb } from "@/lib/db"
+import { Badge } from "@/components/ui/badge"
 import { ApproveForm } from "./approve-form"
 
 const STATUS_COLORS: Record<InquiryStatus, string> = {
-  pending: "bg-amber-100 text-amber-700",
-  approved: "bg-green-100 text-green-700",
-  rejected: "bg-red-100 text-red-700",
+  pending: "bg-amber-100 text-amber-700 border-transparent",
+  approved: "bg-green-100 text-green-700 border-transparent",
+  rejected: "bg-red-100 text-red-700 border-transparent",
 }
 
 interface Props {
@@ -59,38 +60,38 @@ export default async function SellerInquiryDetailPage({ params }: Props) {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
-      <Link href="/seller-inquiries" className="mb-6 block text-sm text-indigo-600 hover:underline">
+      <Link href="/seller-inquiries" className="mb-6 block text-sm text-primary hover:underline">
         ← Back to inquiries
       </Link>
 
       <div className="mb-4 flex items-center gap-3">
-        <h1 className="text-2xl font-bold text-gray-900">{row.name}</h1>
-        <span
-          className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[row.status]}`}
-        >
+        <h1 className="text-2xl font-bold text-foreground">{row.name}</h1>
+        <Badge variant="outline" className={STATUS_COLORS[row.status]}>
           {row.status}
-        </span>
+        </Badge>
       </div>
 
       <dl className="mb-6 grid grid-cols-3 gap-y-2 text-sm">
-        <dt className="text-gray-500">Email</dt>
-        <dd className="col-span-2 text-gray-800">{row.email}</dd>
-        <dt className="text-gray-500">Contact</dt>
-        <dd className="col-span-2 text-gray-800">{row.contactNumber}</dd>
-        <dt className="text-gray-500">Company</dt>
-        <dd className="col-span-2 text-gray-800">{row.companyName}</dd>
-        <dt className="text-gray-500">Store name</dt>
-        <dd className="col-span-2 text-gray-800">{row.storeName}</dd>
-        <dt className="text-gray-500">Message</dt>
-        <dd className="col-span-2 text-gray-800">{row.message ?? "—"}</dd>
-        <dt className="text-gray-500">Submitted</dt>
-        <dd className="col-span-2 text-gray-800">{row.createdAt.toLocaleString()}</dd>
-        <dt className="text-gray-500">Reviewed at</dt>
-        <dd className="col-span-2 text-gray-800">
+        <dt className="text-muted-foreground">Email</dt>
+        <dd className="col-span-2 text-foreground">{row.email}</dd>
+        <dt className="text-muted-foreground">Contact</dt>
+        <dd className="col-span-2 text-foreground">{row.contactNumber}</dd>
+        <dt className="text-muted-foreground">Company</dt>
+        <dd className="col-span-2 text-foreground">{row.companyName}</dd>
+        <dt className="text-muted-foreground">Store name</dt>
+        <dd className="col-span-2 text-foreground">{row.storeName}</dd>
+        <dt className="text-muted-foreground">Message</dt>
+        <dd className="col-span-2 text-foreground">{row.message ?? "—"}</dd>
+        <dt className="text-muted-foreground">Submitted</dt>
+        <dd className="col-span-2 text-foreground">{row.createdAt.toLocaleString()}</dd>
+        <dt className="text-muted-foreground">Reviewed at</dt>
+        <dd className="col-span-2 text-foreground">
           {row.reviewedAt ? row.reviewedAt.toLocaleString() : "—"}
         </dd>
-        <dt className="text-gray-500">Reviewed by</dt>
-        <dd className="col-span-2 text-gray-800">{row.reviewerName ?? row.reviewerEmail ?? "—"}</dd>
+        <dt className="text-muted-foreground">Reviewed by</dt>
+        <dd className="col-span-2 text-foreground">
+          {row.reviewerName ?? row.reviewerEmail ?? "—"}
+        </dd>
       </dl>
 
       {row.status === "pending" && <ApproveForm inquiryId={row.id} defaultSlug={row.storeName} />}
@@ -110,7 +111,7 @@ export default async function SellerInquiryDetailPage({ params }: Props) {
       )}
 
       {row.status === "rejected" && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+        <div className="rounded-lg border border-red-200 bg-destructive/10 p-4 text-sm text-destructive">
           Rejected{row.reviewedAt ? ` on ${row.reviewedAt.toLocaleString()}` : ""}
           {row.reviewerName ? ` by ${row.reviewerName}` : ""}.
         </div>

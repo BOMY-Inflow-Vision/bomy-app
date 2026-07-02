@@ -2,6 +2,9 @@
 
 import { useState, useTransition } from "react"
 
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { approveInquiry, rejectInquiry } from "../actions"
 
 function slugify(name: string): string {
@@ -26,18 +29,21 @@ export function ApproveForm({
   const [pending, startTransition] = useTransition()
 
   return (
-    <div className="space-y-3 rounded-lg border border-gray-200 bg-white p-4">
-      <label className="block text-sm font-medium text-gray-700">
-        Store slug
-        <input
+    <div className="space-y-3 rounded-lg border border-border bg-background p-4">
+      <div>
+        <Label htmlFor="store-slug" className="mb-1 block">
+          Store slug
+        </Label>
+        <Input
+          id="store-slug"
           type="text"
           value={slug}
           onChange={(e) => setSlug(e.target.value)}
-          className="mt-1 block w-full rounded border border-gray-300 px-2 py-1 font-mono text-sm"
+          className="font-mono"
         />
-      </label>
+      </div>
       <div className="flex gap-2">
-        <button
+        <Button
           type="button"
           disabled={pending}
           onClick={() =>
@@ -47,12 +53,12 @@ export function ApproveForm({
               if (!res.ok) setError(res.error)
             })
           }
-          className="rounded bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
         >
           {pending ? "Working…" : "Approve"}
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="outline"
           disabled={pending}
           onClick={() =>
             startTransition(async () => {
@@ -61,12 +67,12 @@ export function ApproveForm({
               if (!res.ok) setError(res.error)
             })
           }
-          className="rounded border border-amber-300 px-4 py-1.5 text-sm font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-50"
+          className="border-amber-300 text-amber-700 hover:bg-amber-50"
         >
           Reject
-        </button>
+        </Button>
       </div>
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
   )
 }
