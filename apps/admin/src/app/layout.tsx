@@ -15,7 +15,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en">
       <body className="flex min-h-screen">
         {session?.user && <Sidebar email={session.user.email ?? ""} />}
-        <main className="flex-1 bg-slate-50">{children}</main>
+        <main className="flex-1 bg-muted">{children}</main>
       </body>
     </html>
   )

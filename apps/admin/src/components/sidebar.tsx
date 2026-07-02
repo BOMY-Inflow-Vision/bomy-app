@@ -3,6 +3,8 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
+import { cn } from "@/lib/utils"
+
 const NAV = [
   { href: "/stores", label: "Stores" },
   { href: "/users", label: "Users" },
@@ -35,11 +37,12 @@ export function Sidebar({ email }: { email: string }) {
             <Link
               key={item.href}
               href={item.href}
-              className={
+              className={cn(
+                "px-4 py-2",
                 active
-                  ? "border-l-2 border-indigo-500 bg-slate-700 px-4 py-2 text-slate-100"
-                  : "px-4 py-2 hover:bg-slate-700 hover:text-slate-100"
-              }
+                  ? "border-l-2 border-primary bg-slate-700 text-slate-100"
+                  : "hover:bg-slate-700 hover:text-slate-100",
+              )}
             >
               {item.label}
             </Link>

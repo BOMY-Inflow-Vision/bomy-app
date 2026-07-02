@@ -5,6 +5,9 @@ import { schema, withAdmin } from "@bomy/db"
 
 import { auth } from "@/auth"
 import { getDb } from "@/lib/db"
+import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { markDispatched } from "./actions"
 
 const STATUS_COLORS: Record<string, string> = {
@@ -69,17 +72,18 @@ export default async function GoodieBoxPage({
   return (
     <div className="p-6">
       <div className="mb-4 flex items-center gap-4">
-        <h1 className="text-lg font-semibold text-gray-900">Goodie Box Dispatches</h1>
+        <h1 className="text-lg font-semibold text-foreground">Goodie Box Dispatches</h1>
         <div className="flex gap-1 text-sm">
           {["", "pending", "dispatched", "delivered"].map((s) => (
             <Link
               key={s}
               href={`/goodie-box?${new URLSearchParams({ ...(s ? { status: s } : {}), ...(quarter ? { quarter } : {}) }).toString()}`}
-              className={`rounded px-3 py-1 ${
+              className={cn(
+                "rounded px-3 py-1",
                 status === s || (!status && !s)
-                  ? "bg-indigo-100 text-indigo-700"
-                  : "text-gray-500 hover:bg-gray-100"
-              }`}
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:bg-muted",
+              )}
             >
               {s || "All"}
             </Link>
@@ -87,10 +91,15 @@ export default async function GoodieBoxPage({
         </div>
         {quarters.length > 0 && (
           <div className="ml-auto flex items-center gap-2 text-sm">
-            <span className="text-gray-500">Quarter:</span>
+            <span className="text-muted-foreground">Quarter:</span>
             <Link
               href={`/goodie-box?${new URLSearchParams({ ...(status ? { status } : {}) }).toString()}`}
-              className={`rounded px-2 py-1 ${!quarter ? "bg-indigo-100 text-indigo-700" : "text-gray-500 hover:bg-gray-100"}`}
+              className={cn(
+                "rounded px-2 py-1",
+                !quarter
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:bg-muted",
+              )}
             >
               All
             </Link>
@@ -98,7 +107,12 @@ export default async function GoodieBoxPage({
               <Link
                 key={q.quarter}
                 href={`/goodie-box?${new URLSearchParams({ quarter: q.quarter, ...(status ? { status } : {}) }).toString()}`}
-                className={`rounded px-2 py-1 ${quarter === q.quarter ? "bg-indigo-100 text-indigo-700" : "text-gray-500 hover:bg-gray-100"}`}
+                className={cn(
+                  "rounded px-2 py-1",
+                  quarter === q.quarter
+                    ? "bg-accent text-accent-foreground"
+                    : "text-muted-foreground hover:bg-muted",
+                )}
               >
                 {q.quarter}
               </Link>
@@ -106,10 +120,10 @@ export default async function GoodieBoxPage({
           </div>
         )}
       </div>
-      <div className="rounded-lg border border-gray-200 bg-white">
+      <div className="rounded-lg border border-border bg-background">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-500">
+            <tr className="border-b border-border bg-muted text-left text-xs font-semibold text-muted-foreground">
               <th className="px-4 py-3">Member</th>
               <th className="px-4 py-3">Quarter</th>
               <th className="px-4 py-3">Shipping Name</th>
@@ -121,19 +135,22 @@ export default async function GoodieBoxPage({
           </thead>
           <tbody>
             {rows.map((row) => (
-              <tr key={row.id} className="border-b border-gray-100 last:border-0">
-                <td className="px-4 py-3 text-gray-700">{row.userEmail}</td>
-                <td className="px-4 py-3 text-gray-600">{row.quarter}</td>
-                <td className="px-4 py-3 text-gray-600">{row.shippingName}</td>
+              <tr key={row.id} className="border-b border-border last:border-0">
+                <td className="px-4 py-3 text-foreground">{row.userEmail}</td>
+                <td className="px-4 py-3 text-muted-foreground">{row.quarter}</td>
+                <td className="px-4 py-3 text-muted-foreground">{row.shippingName}</td>
                 <td
-                  className={`px-4 py-3 font-medium ${STATUS_COLORS[row.status] ?? "text-gray-600"}`}
+                  className={cn(
+                    "px-4 py-3 font-medium",
+                    STATUS_COLORS[row.status] ?? "text-muted-foreground",
+                  )}
                 >
                   {row.status}
                 </td>
-                <td className="px-4 py-3 font-mono text-xs text-gray-400">
+                <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
                   {row.trackingNumber ?? "—"}
                 </td>
-                <td className="px-4 py-3 text-gray-400">
+                <td className="px-4 py-3 text-muted-foreground">
                   {row.dispatchedAt?.toLocaleDateString() ?? "—"}
                 </td>
                 <td className="px-4 py-3">
@@ -142,15 +159,15 @@ export default async function GoodieBoxPage({
                       action={markDispatched.bind(null, row.id)}
                       className="flex items-center gap-2"
                     >
-                      <input
+                      <Input
                         name="trackingNumber"
                         placeholder="Tracking no."
                         required
-                        className="w-32 rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        className="w-32 text-xs"
                       />
-                      <button type="submit" className="text-xs text-indigo-600 hover:underline">
+                      <Button type="submit" variant="link" size="sm" className="text-xs">
                         Mark Dispatched
-                      </button>
+                      </Button>
                     </form>
                   )}
                 </td>
@@ -158,7 +175,7 @@ export default async function GoodieBoxPage({
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
+                <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
                   No dispatches found.
                 </td>
               </tr>
