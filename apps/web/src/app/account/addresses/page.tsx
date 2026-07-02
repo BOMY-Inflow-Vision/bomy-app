@@ -15,7 +15,7 @@ export default async function AddressesPage() {
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
       <AccountTabs active="addresses" />
-      <h1 className="mb-6 text-2xl font-bold text-gray-900">Saved addresses</h1>
+      <h1 className="mb-6 text-2xl font-bold text-foreground">Saved addresses</h1>
       <AddressManager
         initial={addresses.map((a) => ({
           id: a.id,

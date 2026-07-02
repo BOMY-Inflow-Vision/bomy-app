@@ -2,6 +2,8 @@
 
 import { useState } from "react"
 
+import { Button } from "@/components/ui/button"
+
 import { confirmDelivery } from "./actions"
 
 interface Props {
@@ -26,14 +28,10 @@ export function ConfirmDeliveryButton({ orderId }: Props) {
 
   return (
     <div>
-      <button
-        onClick={() => void handleClick()}
-        disabled={pending}
-        className="rounded-xl bg-gray-900 px-6 py-3 text-sm font-semibold text-white hover:bg-gray-700 disabled:opacity-50"
-      >
+      <Button onClick={() => void handleClick()} disabled={pending} size="lg">
         {pending ? "Confirming…" : "Confirm delivery received"}
-      </button>
-      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+      </Button>
+      {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
     </div>
   )
 }

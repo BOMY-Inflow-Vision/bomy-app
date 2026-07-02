@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 
 import { auth } from "@/auth"
+import { Badge } from "@/components/ui/badge"
 import { senToMyr } from "@/lib/money"
 
 import { AccountTabs } from "../account-tabs"
@@ -23,9 +24,9 @@ export default async function BuyerOrdersPage() {
   return (
     <main className="mx-auto max-w-4xl px-4 py-8">
       <AccountTabs active="orders" />
-      <h1 className="mb-6 text-2xl font-bold text-gray-900">My Orders</h1>
+      <h1 className="mb-6 text-2xl font-bold text-foreground">My Orders</h1>
 
-      {grouped.size === 0 && <p className="text-sm text-gray-500">No orders yet.</p>}
+      {grouped.size === 0 && <p className="text-sm text-muted-foreground">No orders yet.</p>}
 
       {[...grouped.entries()].map(([sessionId, sessionOrders]) => {
         const totalSen = sessionOrders.reduce(
@@ -33,28 +34,30 @@ export default async function BuyerOrdersPage() {
           0n,
         )
         return (
-          <section key={sessionId} className="mb-8 rounded-xl border border-gray-200 p-6">
+          <section key={sessionId} className="mb-8 rounded-xl border border-border p-6">
             <div className="mb-4 flex items-center justify-between">
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-muted-foreground">
                 Order group · {sessionOrders[0]?.createdAt.toLocaleDateString("en-MY")}
               </p>
-              <p className="text-sm font-semibold text-gray-900">Total: RM {senToMyr(totalSen)}</p>
+              <p className="text-sm font-semibold text-foreground">
+                Total: RM {senToMyr(totalSen)}
+              </p>
             </div>
             <ul className="space-y-3">
               {sessionOrders.map((order) => (
                 <li
                   key={order.id}
-                  className="flex items-center justify-between rounded-lg bg-gray-50 px-4 py-3"
+                  className="flex items-center justify-between rounded-lg bg-muted px-4 py-3"
                 >
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{order.storeName}</p>
-                    <span className="mt-1 inline-block rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">
+                    <p className="text-sm font-medium text-foreground">{order.storeName}</p>
+                    <Badge variant="accent" className="mt-1">
                       {order.fulfilmentStatus}
-                    </span>
+                    </Badge>
                   </div>
                   <a
                     href={`/account/orders/${order.id}`}
-                    className="text-sm font-medium text-indigo-600 hover:underline"
+                    className="text-sm font-medium text-primary hover:underline"
                   >
                     View
                   </a>
