@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 
+import { Button } from "@/components/ui/button"
 import { formatMyrSen } from "@/lib/format"
 import { useCart } from "@/lib/cart"
 
@@ -11,7 +12,7 @@ export default function CartPage() {
   if (!hydrated) {
     return (
       <main className="mx-auto max-w-3xl px-4 py-8">
-        <h1 className="text-2xl font-bold text-gray-900">Your Cart</h1>
+        <h1 className="text-2xl font-bold text-foreground">Your Cart</h1>
       </main>
     )
   }
@@ -20,16 +21,16 @@ export default function CartPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
-      <h1 className="mb-6 text-2xl font-bold text-gray-900">
-        Your Cart {itemCount > 0 && <span className="text-gray-400">({itemCount})</span>}
+      <h1 className="mb-6 text-2xl font-bold text-foreground">
+        Your Cart {itemCount > 0 && <span className="text-muted-foreground">({itemCount})</span>}
       </h1>
 
       {items.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-gray-300 py-20 text-center">
-          <p className="text-sm text-gray-400">Your cart is empty.</p>
+        <div className="rounded-xl border border-dashed border-input py-20 text-center">
+          <p className="text-sm text-muted-foreground">Your cart is empty.</p>
           <Link
             href="/products"
-            className="mt-4 inline-block text-sm font-medium text-indigo-600 hover:underline"
+            className="mt-4 inline-block text-sm font-medium text-primary hover:underline"
           >
             Browse products
           </Link>
@@ -39,9 +40,9 @@ export default function CartPage() {
           {items.map((item) => (
             <div
               key={item.variantId}
-              className="flex items-start gap-4 rounded-xl border border-gray-200 bg-white p-4"
+              className="flex items-start gap-4 rounded-xl border border-border bg-background p-4"
             >
-              <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-gray-100">
+              <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-muted">
                 {item.coverImageUrl ? (
                   <img
                     src={item.coverImageUrl}
@@ -49,7 +50,7 @@ export default function CartPage() {
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <div className="flex h-full items-center justify-center text-2xl text-gray-300">
+                  <div className="flex h-full items-center justify-center text-2xl text-muted-foreground">
                     📦
                   </div>
                 )}
@@ -58,60 +59,63 @@ export default function CartPage() {
               <div className="flex-1">
                 <Link
                   href={`/products/${item.storeSlug}/${item.productSlug}`}
-                  className="text-sm font-medium text-gray-900 hover:text-indigo-600"
+                  className="text-sm font-medium text-foreground hover:text-primary"
                 >
                   {item.productName}
                 </Link>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   {item.storeName} · {item.variantName}
                 </p>
-                <p className="mt-1 text-sm font-semibold text-indigo-600">
+                <p className="mt-1 text-sm font-semibold text-primary">
                   {formatMyrSen(item.priceSen)}
                 </p>
               </div>
 
               <div className="flex items-center gap-2">
-                <button
+                <Button
                   type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-7 w-7"
                   onClick={() => updateQuantity(item.variantId, item.quantity - 1)}
-                  className="flex h-7 w-7 items-center justify-center rounded-md border border-gray-300 text-gray-600 hover:bg-gray-50"
                 >
                   −
-                </button>
+                </Button>
                 <span className="w-6 text-center text-sm">{item.quantity}</span>
-                <button
+                <Button
                   type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-7 w-7"
                   onClick={() => updateQuantity(item.variantId, item.quantity + 1)}
-                  className="flex h-7 w-7 items-center justify-center rounded-md border border-gray-300 text-gray-600 hover:bg-gray-50"
                 >
                   +
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="ml-2 text-xs text-destructive hover:text-destructive"
                   onClick={() => removeItem(item.variantId)}
-                  className="ml-2 text-xs text-red-500 hover:underline"
                 >
                   Remove
-                </button>
+                </Button>
               </div>
             </div>
           ))}
 
-          <div className="rounded-xl border border-gray-200 bg-white p-4">
+          <div className="rounded-xl border border-border bg-background p-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-700">Subtotal</span>
-              <span className="text-lg font-bold text-gray-900">{formatMyrSen(subtotal)}</span>
+              <span className="text-sm font-medium text-foreground">Subtotal</span>
+              <span className="text-lg font-bold text-foreground">{formatMyrSen(subtotal)}</span>
             </div>
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               Shipping, vouchers, and any brand-subscription discounts are applied at checkout — the
               final price you pay will be shown there.
             </p>
-            <Link
-              href="/checkout"
-              className="mt-4 block w-full rounded-md bg-indigo-600 px-4 py-2 text-center text-sm font-medium text-white hover:bg-indigo-500"
-            >
-              Continue to checkout
-            </Link>
+            <Button asChild className="mt-4 w-full">
+              <Link href="/checkout">Continue to checkout</Link>
+            </Button>
           </div>
         </div>
       )}

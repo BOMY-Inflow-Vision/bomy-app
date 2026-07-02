@@ -4,6 +4,8 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 
+import { Button } from "@/components/ui/button"
+
 import { cancelPendingCheckout } from "../actions"
 
 type CancelState =
@@ -50,9 +52,9 @@ export function CancelHandler() {
     return (
       <main className="mx-auto max-w-3xl px-4 py-8 text-center">
         <div className="mb-6 flex justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-gray-900" />
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-foreground" />
         </div>
-        <p className="text-sm text-gray-600">Cancelling your checkout…</p>
+        <p className="text-sm text-muted-foreground">Cancelling your checkout…</p>
       </main>
     )
   }
@@ -60,29 +62,26 @@ export function CancelHandler() {
   if (state.phase === "error") {
     return (
       <main className="mx-auto max-w-3xl px-4 py-8 text-center">
-        <h1 className="mb-2 text-2xl font-bold text-gray-900">Something went wrong</h1>
-        <p className="mb-6 text-sm text-gray-600">
+        <h1 className="mb-2 text-2xl font-bold text-foreground">Something went wrong</h1>
+        <p className="mb-6 text-sm text-muted-foreground">
           We couldn&apos;t cancel your checkout. Please try again or contact support.
         </p>
-        <Link href="/cart" className="text-sm font-medium text-gray-900 underline">
-          Back to cart
-        </Link>
+        <Button asChild variant="link">
+          <Link href="/cart">Back to cart</Link>
+        </Button>
       </main>
     )
   }
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8 text-center">
-      <h1 className="mb-2 text-2xl font-bold text-gray-900">Checkout cancelled</h1>
-      <p className="mb-6 text-sm text-gray-600">
+      <h1 className="mb-2 text-2xl font-bold text-foreground">Checkout cancelled</h1>
+      <p className="mb-6 text-sm text-muted-foreground">
         Your checkout has been cancelled. Your cart is still saved.
       </p>
-      <Link
-        href="/cart"
-        className="inline-block rounded-xl bg-gray-900 px-6 py-3 text-sm font-semibold text-white hover:bg-gray-700"
-      >
-        Back to cart
-      </Link>
+      <Button asChild>
+        <Link href="/cart">Back to cart</Link>
+      </Button>
     </main>
   )
 }

@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 
 import type { CheckoutSessionStatus } from "@bomy/db"
 
+import { Button } from "@/components/ui/button"
 import { useCart } from "@/lib/cart"
 
 import { getCheckoutSessionStatus } from "../actions"
@@ -78,10 +79,10 @@ export function SuccessPoller() {
     return (
       <main className="mx-auto max-w-3xl px-4 py-8 text-center">
         <div className="mb-6 flex justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-gray-900" />
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-foreground" />
         </div>
-        <h1 className="mb-2 text-2xl font-bold text-gray-900">Waiting for payment…</h1>
-        <p className="text-sm text-gray-600">Please wait while we confirm your payment.</p>
+        <h1 className="mb-2 text-2xl font-bold text-foreground">Waiting for payment…</h1>
+        <p className="text-sm text-muted-foreground">Please wait while we confirm your payment.</p>
       </main>
     )
   }
@@ -89,13 +90,13 @@ export function SuccessPoller() {
   if (state.phase === "not_found") {
     return (
       <main className="mx-auto max-w-3xl px-4 py-8">
-        <h1 className="mb-4 text-2xl font-bold text-gray-900">Session not found</h1>
-        <p className="mb-6 text-sm text-gray-600">
+        <h1 className="mb-4 text-2xl font-bold text-foreground">Session not found</h1>
+        <p className="mb-6 text-sm text-muted-foreground">
           This checkout session doesn&apos;t exist or has already been processed.
         </p>
-        <Link href="/cart" className="text-sm font-medium text-gray-900 underline">
-          Back to cart
-        </Link>
+        <Button asChild variant="link">
+          <Link href="/cart">Back to cart</Link>
+        </Button>
       </main>
     )
   }
@@ -103,8 +104,8 @@ export function SuccessPoller() {
   if (state.phase === "timed_out") {
     return (
       <main className="mx-auto max-w-3xl px-4 py-8 text-center">
-        <h1 className="mb-4 text-2xl font-bold text-gray-900">Still processing</h1>
-        <p className="text-sm text-gray-600">
+        <h1 className="mb-4 text-2xl font-bold text-foreground">Still processing</h1>
+        <p className="text-sm text-muted-foreground">
           Your payment is still being processed. Check your email or contact support if this
           persists.
         </p>
@@ -120,16 +121,13 @@ function DoneView({ status }: { status: CheckoutSessionStatus }) {
     return (
       <main className="mx-auto max-w-3xl px-4 py-8 text-center">
         <div className="mb-4 text-4xl">✓</div>
-        <h1 className="mb-2 text-2xl font-bold text-gray-900">Payment confirmed</h1>
-        <p className="mb-6 text-sm text-gray-600">
+        <h1 className="mb-2 text-2xl font-bold text-foreground">Payment confirmed</h1>
+        <p className="mb-6 text-sm text-muted-foreground">
           Your order has been placed. You&apos;ll receive a confirmation email shortly.
         </p>
-        <Link
-          href="/account/orders"
-          className="inline-block rounded-xl bg-gray-900 px-6 py-3 text-sm font-semibold text-white hover:bg-gray-700"
-        >
-          View my orders
-        </Link>
+        <Button asChild>
+          <Link href="/account/orders">View my orders</Link>
+        </Button>
       </main>
     )
   }
@@ -137,16 +135,13 @@ function DoneView({ status }: { status: CheckoutSessionStatus }) {
   if (status === "failed") {
     return (
       <main className="mx-auto max-w-3xl px-4 py-8 text-center">
-        <h1 className="mb-2 text-2xl font-bold text-gray-900">Payment failed</h1>
-        <p className="mb-6 text-sm text-gray-600">
+        <h1 className="mb-2 text-2xl font-bold text-foreground">Payment failed</h1>
+        <p className="mb-6 text-sm text-muted-foreground">
           Your payment was not successful. Please try again.
         </p>
-        <Link
-          href="/checkout"
-          className="inline-block rounded-xl bg-gray-900 px-6 py-3 text-sm font-semibold text-white hover:bg-gray-700"
-        >
-          Try again
-        </Link>
+        <Button asChild>
+          <Link href="/checkout">Try again</Link>
+        </Button>
       </main>
     )
   }
@@ -154,16 +149,13 @@ function DoneView({ status }: { status: CheckoutSessionStatus }) {
   if (status === "expired") {
     return (
       <main className="mx-auto max-w-3xl px-4 py-8 text-center">
-        <h1 className="mb-2 text-2xl font-bold text-gray-900">Session expired</h1>
-        <p className="mb-6 text-sm text-gray-600">
+        <h1 className="mb-2 text-2xl font-bold text-foreground">Session expired</h1>
+        <p className="mb-6 text-sm text-muted-foreground">
           Your checkout session has expired. Please return to your cart and try again.
         </p>
-        <Link
-          href="/cart"
-          className="inline-block rounded-xl bg-gray-900 px-6 py-3 text-sm font-semibold text-white hover:bg-gray-700"
-        >
-          Back to cart
-        </Link>
+        <Button asChild>
+          <Link href="/cart">Back to cart</Link>
+        </Button>
       </main>
     )
   }
@@ -171,16 +163,13 @@ function DoneView({ status }: { status: CheckoutSessionStatus }) {
   if (status === "cancelled") {
     return (
       <main className="mx-auto max-w-3xl px-4 py-8 text-center">
-        <h1 className="mb-2 text-2xl font-bold text-gray-900">Checkout cancelled</h1>
-        <p className="mb-6 text-sm text-gray-600">
+        <h1 className="mb-2 text-2xl font-bold text-foreground">Checkout cancelled</h1>
+        <p className="mb-6 text-sm text-muted-foreground">
           Your checkout was cancelled. Your cart is still saved.
         </p>
-        <Link
-          href="/cart"
-          className="inline-block rounded-xl bg-gray-900 px-6 py-3 text-sm font-semibold text-white hover:bg-gray-700"
-        >
-          Back to cart
-        </Link>
+        <Button asChild>
+          <Link href="/cart">Back to cart</Link>
+        </Button>
       </main>
     )
   }
@@ -188,8 +177,8 @@ function DoneView({ status }: { status: CheckoutSessionStatus }) {
   // payment_review_required | payment_review_resolved
   return (
     <main className="mx-auto max-w-3xl px-4 py-8 text-center">
-      <h1 className="mb-2 text-2xl font-bold text-gray-900">Payment under review</h1>
-      <p className="text-sm text-gray-600">
+      <h1 className="mb-2 text-2xl font-bold text-foreground">Payment under review</h1>
+      <p className="text-sm text-muted-foreground">
         Your payment is being reviewed. We&apos;ll email you once it&apos;s resolved.
       </p>
     </main>
