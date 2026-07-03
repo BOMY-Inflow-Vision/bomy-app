@@ -2,6 +2,11 @@
 
 import { useState, useTransition } from "react"
 
+import { cn } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { deleteCategory, toggleCategory, updateCategory } from "./actions"
 
 type Category = {
@@ -51,55 +56,56 @@ export function CategoryRow({ cat }: { cat: Category }) {
   }
 
   const statusBadge = (
-    <span
-      className={
+    <Badge
+      variant={cat.isActive ? "secondary" : "outline"}
+      className={cn(
         cat.isActive
-          ? "rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700"
-          : "rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500"
-      }
+          ? "border-transparent bg-green-100 text-green-700"
+          : "border-transparent bg-muted text-muted-foreground",
+      )}
     >
       {cat.isActive ? "Active" : "Inactive"}
-    </span>
+    </Badge>
   )
 
   if (editing) {
     return (
-      <tr className={cat.isActive ? "" : "opacity-50"}>
+      <tr className={cn(!cat.isActive && "opacity-50")}>
         <td className="px-4 py-2">
-          <input
+          <Label htmlFor={`cat-name-${cat.id}`} className="sr-only">
+            Category name
+          </Label>
+          <Input
+            id={`cat-name-${cat.id}`}
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none"
+            className="w-full"
             autoFocus
           />
-          {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+          {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
         </td>
-        <td className="px-4 py-3 font-mono text-xs text-gray-500">{cat.slug}</td>
+        <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{cat.slug}</td>
         <td className="px-4 py-2">
-          <input
+          <Label htmlFor={`cat-sort-${cat.id}`} className="sr-only">
+            Sort order
+          </Label>
+          <Input
+            id={`cat-sort-${cat.id}`}
             type="number"
             value={sortOrder}
             onChange={(e) => setSortOrder(Number(e.target.value))}
-            className="w-20 rounded border border-gray-300 px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none"
+            className="w-20"
           />
         </td>
         <td className="px-4 py-3">{statusBadge}</td>
         <td className="px-4 py-3 text-right">
           <div className="flex items-center justify-end gap-2">
-            <button
-              onClick={handleSave}
-              disabled={isPending}
-              className="rounded bg-indigo-600 px-3 py-1 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-            >
+            <Button size="sm" onClick={handleSave} disabled={isPending}>
               Save
-            </button>
-            <button
-              onClick={handleCancel}
-              disabled={isPending}
-              className="rounded border border-gray-300 px-3 py-1 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-            >
+            </Button>
+            <Button size="sm" variant="outline" onClick={handleCancel} disabled={isPending}>
               Cancel
-            </button>
+            </Button>
           </div>
         </td>
       </tr>
@@ -107,38 +113,44 @@ export function CategoryRow({ cat }: { cat: Category }) {
   }
 
   return (
-    <tr className={cat.isActive ? "" : "opacity-50"}>
-      <td className="px-4 py-3 font-medium text-gray-900">{cat.name}</td>
-      <td className="px-4 py-3 font-mono text-xs text-gray-500">{cat.slug}</td>
-      <td className="px-4 py-3 text-gray-500">{cat.sortOrder}</td>
+    <tr className={cn(!cat.isActive && "opacity-50")}>
+      <td className="px-4 py-3 font-medium text-foreground">{cat.name}</td>
+      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{cat.slug}</td>
+      <td className="px-4 py-3 text-muted-foreground">{cat.sortOrder}</td>
       <td className="px-4 py-3">{statusBadge}</td>
       <td className="px-4 py-3 text-right">
-        {error && <p className="mb-1 text-xs text-red-600">{error}</p>}
+        {error && <p className="mb-1 text-xs text-destructive">{error}</p>}
         <div className="flex items-center justify-end gap-3">
-          <button
+          <Button
+            variant="link"
+            size="sm"
+            className="h-auto p-0 text-xs"
             onClick={() => {
               setError(null)
               setEditing(true)
             }}
             disabled={isPending}
-            className="text-xs text-indigo-600 hover:underline disabled:opacity-50"
           >
             Edit
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
             onClick={handleToggle}
             disabled={isPending}
-            className="text-xs text-gray-500 hover:underline disabled:opacity-50"
           >
             {cat.isActive ? "Deactivate" : "Activate"}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-auto p-0 text-xs text-destructive hover:text-destructive"
             onClick={handleDelete}
             disabled={isPending}
-            className="text-xs text-red-500 hover:underline disabled:opacity-50"
           >
             Delete
-          </button>
+          </Button>
         </div>
       </td>
     </tr>

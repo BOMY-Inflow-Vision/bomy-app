@@ -2,6 +2,10 @@
 
 import { useState } from "react"
 
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { markPayoutCompleted, markPayoutFailed, markPayoutProcessing } from "./actions"
 
 interface Props {
@@ -50,96 +54,106 @@ export function PayoutActions({ payoutId, status }: Props) {
   }
 
   if (localStatus === "completed" || localStatus === "failed") {
-    return <span className="text-xs text-gray-400 capitalize">{localStatus}</span>
+    return <span className="text-xs text-muted-foreground capitalize">{localStatus}</span>
   }
 
   return (
     <div className="flex flex-col gap-1 text-xs">
-      {error && <p className="text-red-500">{error}</p>}
+      {error && <p className="text-destructive">{error}</p>}
 
       {localStatus === "pending" && (
-        <button
+        <Button
+          size="sm"
+          variant="secondary"
           onClick={() => {
             void doProcessing()
           }}
           disabled={loading}
-          className="rounded bg-blue-100 px-2 py-1 text-blue-700 hover:bg-blue-200 disabled:opacity-50"
+          className="bg-blue-100 text-blue-700 hover:bg-blue-200"
         >
-          &rarr; Processing
-        </button>
+          → Processing
+        </Button>
       )}
 
       {!showComplete && !showFail && (
-        <button
+        <Button
+          size="sm"
+          variant="secondary"
           onClick={() => setShowComplete(true)}
-          className="rounded bg-green-100 px-2 py-1 text-green-700 hover:bg-green-200"
+          className="bg-green-100 text-green-700 hover:bg-green-200"
         >
           Complete
-        </button>
+        </Button>
       )}
 
       {showComplete && (
         <div className="flex flex-col gap-1">
-          <input
+          <Label htmlFor={`manual-ref-${payoutId}`} className="sr-only">
+            Manual reference
+          </Label>
+          <Input
+            id={`manual-ref-${payoutId}`}
             value={manualRef}
             onChange={(e) => setManualRef(e.target.value)}
             placeholder="Manual ref (required)"
-            className="rounded border border-gray-200 px-2 py-1 text-xs"
+            className="h-7 text-xs"
           />
           <div className="flex gap-1">
-            <button
+            <Button
+              size="sm"
               onClick={() => {
                 void doComplete()
               }}
               disabled={loading || !manualRef.trim()}
-              className="rounded bg-green-600 px-2 py-1 text-white hover:bg-green-700 disabled:opacity-50"
+              className="bg-green-600 text-white hover:bg-green-700"
             >
               Confirm
-            </button>
-            <button
-              onClick={() => setShowComplete(false)}
-              className="rounded bg-gray-100 px-2 py-1 text-gray-600"
-            >
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => setShowComplete(false)}>
               Cancel
-            </button>
+            </Button>
           </div>
         </div>
       )}
 
       {!showComplete && !showFail && (
-        <button
+        <Button
+          size="sm"
+          variant="secondary"
           onClick={() => setShowFail(true)}
-          className="rounded bg-red-100 px-2 py-1 text-red-700 hover:bg-red-200"
+          className="bg-red-100 text-red-700 hover:bg-red-200"
         >
           Fail
-        </button>
+        </Button>
       )}
 
       {showFail && (
         <div className="flex flex-col gap-1">
-          <textarea
+          <Label htmlFor={`fail-notes-${payoutId}`} className="sr-only">
+            Fail notes
+          </Label>
+          <Textarea
+            id={`fail-notes-${payoutId}`}
             value={failNotes}
             onChange={(e) => setFailNotes(e.target.value)}
             placeholder="Notes (required)"
             rows={2}
-            className="rounded border border-gray-200 px-2 py-1 text-xs"
+            className="min-h-0 text-xs"
           />
           <div className="flex gap-1">
-            <button
+            <Button
+              size="sm"
+              variant="destructive"
               onClick={() => {
                 void doFail()
               }}
               disabled={loading || !failNotes.trim()}
-              className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 disabled:opacity-50"
             >
               Confirm
-            </button>
-            <button
-              onClick={() => setShowFail(false)}
-              className="rounded bg-gray-100 px-2 py-1 text-gray-600"
-            >
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => setShowFail(false)}>
               Cancel
-            </button>
+            </Button>
           </div>
         </div>
       )}

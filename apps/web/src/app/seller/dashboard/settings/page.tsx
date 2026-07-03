@@ -49,7 +49,7 @@ export default async function SellerSettingsPage() {
 
   return (
     <div className="p-8">
-      <h1 className="mb-6 text-xl font-semibold text-gray-900">Store Settings</h1>
+      <h1 className="mb-6 text-xl font-semibold text-foreground">Store Settings</h1>
       <SettingsForm
         currentExcerpt={storeRow.excerpt ?? ""}
         allCategories={allCategories}

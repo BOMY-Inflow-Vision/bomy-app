@@ -5,6 +5,11 @@ import { schema, withAdmin } from "@bomy/db"
 
 import { auth } from "@/auth"
 import { getDb } from "@/lib/db"
+import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { cancelMembership, updateRenewalNotificationDays } from "./actions"
 
 const STATUS_COLORS: Record<string, string> = {
@@ -77,58 +82,59 @@ export default async function MembershipsPage({
   return (
     <div className="space-y-8 p-6">
       {/* Renewal notification settings */}
-      <div>
-        <h2 className="mb-4 text-lg font-semibold text-gray-900">Renewal Notification Settings</h2>
-        <div className="rounded-lg border border-gray-200 bg-white p-6">
+      <section aria-labelledby="renewal-settings-heading">
+        <h2 id="renewal-settings-heading" className="mb-4 text-lg font-semibold text-foreground">
+          Renewal Notification Settings
+        </h2>
+        <Card className="p-6">
           <form action={updateRenewalNotificationDays} className="flex items-end gap-4">
             <div className="flex-1">
-              <label className="mb-1 block text-sm font-medium text-gray-700">
+              <Label htmlFor="notificationDays" className="mb-1 block">
                 Notification days
-                <span className="ml-1 text-xs font-normal text-gray-400">
+                <span className="ml-1 text-xs font-normal text-muted-foreground">
                   (comma-separated, descending e.g. 30, 14, 7, 1)
                 </span>
-              </label>
-              <input
+              </Label>
+              <Input
+                id="notificationDays"
                 name="notificationDays"
                 type="text"
                 defaultValue={currentNotifyDays}
-                className="w-64 rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-64"
               />
             </div>
-            <button
-              type="submit"
-              className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
-            >
-              Save
-            </button>
+            <Button type="submit">Save</Button>
           </form>
-        </div>
-      </div>
+        </Card>
+      </section>
 
       {/* Memberships roster */}
-      <div>
+      <section aria-labelledby="memberships-heading">
         <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-lg font-semibold text-gray-900">Platform Memberships</h1>
+          <h1 id="memberships-heading" className="text-lg font-semibold text-foreground">
+            Platform Memberships
+          </h1>
           <div className="flex gap-1 text-sm">
             {["", "pending", "active", "cancelled", "expired", "payment_failed"].map((s) => (
               <Link
                 key={s}
                 href={s ? `/memberships?status=${s}` : "/memberships"}
-                className={`rounded px-3 py-1 ${
+                className={cn(
+                  "rounded px-3 py-1",
                   status === s || (!status && !s)
-                    ? "bg-indigo-100 text-indigo-700"
-                    : "text-gray-500 hover:bg-gray-100"
-                }`}
+                    ? "bg-accent text-accent-foreground"
+                    : "text-muted-foreground hover:bg-muted",
+                )}
               >
                 {s || "All"}
               </Link>
             ))}
           </div>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white">
+        <Card className="overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-500">
+              <tr className="border-b border-border bg-muted text-left text-xs font-semibold text-muted-foreground">
                 <th className="px-4 py-3">User</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Price (MYR)</th>
@@ -139,33 +145,41 @@ export default async function MembershipsPage({
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr key={row.id} className="border-b border-gray-100 last:border-0">
-                  <td className="px-4 py-3 text-gray-700">{row.userEmail}</td>
+                <tr key={row.id} className="border-b border-border last:border-0">
+                  <td className="px-4 py-3 text-foreground">{row.userEmail}</td>
                   <td
-                    className={`px-4 py-3 font-medium ${STATUS_COLORS[row.status] ?? "text-gray-600"}`}
+                    className={cn(
+                      "px-4 py-3 font-medium",
+                      STATUS_COLORS[row.status] ?? "text-muted-foreground",
+                    )}
                   >
                     {row.status}
                     {row.cancelledAt && (
-                      <span className="ml-1 text-xs text-gray-400">
+                      <span className="ml-1 text-xs text-muted-foreground">
                         (cancelled {row.cancelledAt.toLocaleDateString()})
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-gray-600">
+                  <td className="px-4 py-3 text-muted-foreground">
                     {(Number(row.priceMyrSen) / 100).toFixed(2)}
                   </td>
-                  <td className="px-4 py-3 text-gray-400 text-xs">
+                  <td className="px-4 py-3 text-xs text-muted-foreground">
                     {row.periodStart.toLocaleDateString()} – {row.periodEnd.toLocaleDateString()}
                   </td>
-                  <td className="px-4 py-3 font-mono text-xs text-gray-400">
+                  <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
                     {row.hitpayRecurringId ?? "—"}
                   </td>
                   <td className="px-4 py-3">
                     {row.status === "active" && !row.cancelledAt && (
                       <form action={cancelMembership.bind(null, row.id)}>
-                        <button type="submit" className="text-red-600 hover:underline text-xs">
+                        <Button
+                          type="submit"
+                          variant="ghost"
+                          size="sm"
+                          className="h-auto p-0 text-xs text-destructive hover:text-destructive"
+                        >
                           Cancel
-                        </button>
+                        </Button>
                       </form>
                     )}
                   </td>
@@ -173,15 +187,15 @@ export default async function MembershipsPage({
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
+                  <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                     No memberships found.
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
-        </div>
-      </div>
+        </Card>
+      </section>
     </div>
   )
 }

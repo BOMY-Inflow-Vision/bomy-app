@@ -5,6 +5,11 @@ import { schema, withAdmin } from "@bomy/db"
 
 import { auth } from "@/auth"
 import { getDb } from "@/lib/db"
+import { cn } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { approveStore, suspendStore } from "./actions"
 import { CopyId } from "./copy-id"
 
@@ -97,18 +102,19 @@ export default async function StoresPage({
   return (
     <div className="p-6">
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-gray-900">Stores</h1>
+        <h1 className="text-lg font-semibold text-foreground">Stores</h1>
         <div className="flex items-center gap-3">
           <div className="flex gap-1 text-sm">
             {["", ...STORE_STATUSES].map((s) => (
               <Link
                 key={s || "all"}
                 href={buildHref({ status: s })}
-                className={`rounded px-3 py-1 ${
+                className={cn(
+                  "rounded px-3 py-1",
                   (isStoreStatus(status) ? status : "") === s
-                    ? "bg-indigo-100 text-indigo-700"
-                    : "text-gray-500 hover:bg-gray-100"
-                }`}
+                    ? "bg-accent text-accent-foreground"
+                    : "text-muted-foreground hover:bg-muted",
+                )}
               >
                 {s || "All"}
               </Link>
@@ -117,37 +123,41 @@ export default async function StoresPage({
           <form method="get" className="flex items-center gap-1">
             {isStoreStatus(status) && <input type="hidden" name="status" value={status} />}
             {sortKey !== "created_desc" && <input type="hidden" name="sort" value={sortKey} />}
-            <input
+            <label htmlFor="stores-search" className="sr-only">
+              Search stores
+            </label>
+            <Input
+              id="stores-search"
               type="text"
               name="q"
               defaultValue={q ?? ""}
               placeholder="Search…"
-              className="rounded border border-gray-300 px-2 py-1 text-sm"
+              className="h-8 w-40 text-sm"
             />
-            <button type="submit" className="rounded bg-gray-100 px-2 py-1 text-sm text-gray-600">
+            <Button type="submit" variant="outline" size="sm">
               Search
-            </button>
+            </Button>
           </form>
-          <Link
-            href="/stores/new"
-            className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
-          >
-            + Create Store
-          </Link>
+          <Button asChild>
+            <Link href="/stores/new">+ Create Store</Link>
+          </Button>
         </div>
       </div>
-      <div className="rounded-lg border border-gray-200 bg-white">
+      <Card>
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-500">
+            <tr className="border-b border-border bg-muted text-left text-xs font-semibold text-muted-foreground">
               <th className="px-4 py-3">
-                <Link href={buildHref({ sort: toggle("name") })} className="hover:text-gray-800">
+                <Link href={buildHref({ sort: toggle("name") })} className="hover:text-foreground">
                   Store {sortKey === "name" ? "▴" : sortKey === "name_desc" ? "▾" : ""}
                 </Link>
               </th>
               <th className="px-4 py-3">Owner</th>
               <th className="px-4 py-3">
-                <Link href={buildHref({ sort: toggle("status") })} className="hover:text-gray-800">
+                <Link
+                  href={buildHref({ sort: toggle("status") })}
+                  className="hover:text-foreground"
+                >
                   Status {sortKey === "status" ? "▴" : sortKey === "status_desc" ? "▾" : ""}
                 </Link>
               </th>
@@ -157,30 +167,36 @@ export default async function StoresPage({
           </thead>
           <tbody>
             {rows.map((row) => (
-              <tr key={row.id} className="border-b border-gray-100 last:border-0">
+              <tr key={row.id} className="border-b border-border last:border-0">
                 <td className="px-4 py-3">
-                  <div className="font-medium text-gray-900">{row.name}</div>
-                  <div className="font-mono text-xs text-gray-400">{row.slug}</div>
+                  <div className="font-medium text-foreground">{row.name}</div>
+                  <div className="font-mono text-xs text-muted-foreground">{row.slug}</div>
                   <CopyId id={row.id} />
                 </td>
-                <td className="px-4 py-3 text-gray-600">{row.ownerName ?? row.ownerEmail}</td>
-                <td className={`px-4 py-3 font-medium ${STATUS_COLORS[row.status]}`}>
-                  {row.status}
+                <td className="px-4 py-3 text-muted-foreground">
+                  {row.ownerName ?? row.ownerEmail}
                 </td>
-                <td className="px-4 py-3 text-gray-400">{row.createdAt.toLocaleDateString()}</td>
+                <td className="px-4 py-3">
+                  <Badge variant="outline" className={STATUS_COLORS[row.status]}>
+                    {row.status}
+                  </Badge>
+                </td>
+                <td className="px-4 py-3 text-muted-foreground">
+                  {row.createdAt.toLocaleDateString()}
+                </td>
                 <td className="px-4 py-3">
                   {row.status === "pending" && (
                     <form action={approveStore.bind(null, row.id)}>
-                      <button type="submit" className="text-indigo-600 hover:underline">
+                      <Button variant="link" type="submit" className="h-auto p-0">
                         Approve
-                      </button>
+                      </Button>
                     </form>
                   )}
                   {row.status === "active" && (
                     <form action={suspendStore.bind(null, row.id)}>
-                      <button type="submit" className="text-red-600 hover:underline">
+                      <Button variant="link" type="submit" className="h-auto p-0 text-destructive">
                         Suspend
-                      </button>
+                      </Button>
                     </form>
                   )}
                 </td>
@@ -188,14 +204,14 @@ export default async function StoresPage({
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-gray-400">
+                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
                   No stores found.
                 </td>
               </tr>
             )}
           </tbody>
         </table>
-      </div>
+      </Card>
     </div>
   )
 }

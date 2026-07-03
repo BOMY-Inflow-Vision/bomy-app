@@ -2,6 +2,8 @@
 
 import { useState } from "react"
 
+import { Button } from "@/components/ui/button"
+
 import { acceptConsent, declineConsent } from "./actions"
 
 function Spinner() {
@@ -32,21 +34,18 @@ export function ConsentActions() {
 
   return (
     <div className="flex flex-col gap-3">
-      <button
-        onClick={() => void handleAgree()}
-        disabled={pending !== null}
-        className="flex w-full items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-60"
-      >
+      <Button onClick={() => void handleAgree()} disabled={pending !== null} className="w-full">
         {pending === "agree" && <Spinner />}I Agree
-      </button>
-      <button
+      </Button>
+      <Button
+        variant="outline"
         onClick={() => void handleDecline()}
         disabled={pending !== null}
-        className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+        className="w-full"
       >
         {pending === "decline" && <Spinner />}
         Decline
-      </button>
+      </Button>
     </div>
   )
 }

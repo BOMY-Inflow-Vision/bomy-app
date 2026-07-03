@@ -16,9 +16,9 @@ export default async function CheckoutPage() {
   if (!enabled) {
     return (
       <main className="mx-auto max-w-3xl px-4 py-8">
-        <h1 className="mb-4 text-2xl font-bold text-gray-900">Checkout</h1>
-        <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
-          <p className="text-sm text-gray-600">
+        <h1 className="mb-4 text-2xl font-bold text-foreground">Checkout</h1>
+        <div className="rounded-xl border border-dashed border-input bg-muted p-6 text-center">
+          <p className="text-sm text-muted-foreground">
             Checkout is paused. We&apos;ll let you know when it&apos;s back.
           </p>
         </div>
@@ -41,7 +41,7 @@ export default async function CheckoutPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
-      <h1 className="mb-4 text-2xl font-bold text-gray-900">Checkout</h1>
+      <h1 className="mb-4 text-2xl font-bold text-foreground">Checkout</h1>
       <CheckoutForm savedAddresses={savedAddresses} />
     </main>
   )

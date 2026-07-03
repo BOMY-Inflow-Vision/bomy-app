@@ -1,6 +1,9 @@
 "use client"
 
 import { USER_ROLES, type UserRole } from "@bomy/db/types"
+
+import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
 import { updateUserRole } from "./actions"
 
 export function RoleSelector({ userId, currentRole }: { userId: string; currentRole: UserRole }) {
@@ -12,10 +15,14 @@ export function RoleSelector({ userId, currentRole }: { userId: string; currentR
       }}
       className="flex items-center gap-2"
     >
+      <Label htmlFor={`role-${userId}`} className="sr-only">
+        Role
+      </Label>
       <select
+        id={`role-${userId}`}
         name="role"
         defaultValue={currentRole}
-        className="rounded border border-gray-200 px-2 py-1 text-xs text-gray-700"
+        className="rounded border border-input px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
       >
         {USER_ROLES.map((r) => (
           <option key={r} value={r}>
@@ -23,9 +30,9 @@ export function RoleSelector({ userId, currentRole }: { userId: string; currentR
           </option>
         ))}
       </select>
-      <button type="submit" className="text-xs text-indigo-600 hover:underline">
+      <Button type="submit" variant="link" size="sm" className="h-auto p-0 text-xs">
         Save
-      </button>
+      </Button>
     </form>
   )
 }

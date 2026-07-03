@@ -1,5 +1,9 @@
 import Link from "next/link"
 
+import { cn } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+
 import { formatMyrSen, getCategories, getProducts } from "./queries"
 
 interface Props {
@@ -24,42 +28,48 @@ export default async function ProductsPage({ searchParams }: Props) {
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
+      <h1 className="mb-6 text-2xl font-bold text-foreground">Products</h1>
       {/* Search bar */}
       <form method="get" className="mb-6 flex gap-2">
+        <label htmlFor="products-search" className="sr-only">
+          Search products
+        </label>
         <input
+          id="products-search"
           name="q"
           defaultValue={q}
           placeholder="Search products…"
-          className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+          className="flex-1 rounded-lg border border-input px-4 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
         />
         {category && <input type="hidden" name="category" value={category} />}
-        <button
-          type="submit"
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-        >
-          Search
-        </button>
+        <Button type="submit">Search</Button>
         {q && (
-          <Link
-            href={category ? `/products?category=${encodeURIComponent(category)}` : "/products"}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
-          >
-            Clear
-          </Link>
+          <Button variant="outline" asChild>
+            <Link
+              href={category ? `/products?category=${encodeURIComponent(category)}` : "/products"}
+            >
+              Clear
+            </Link>
+          </Button>
         )}
       </form>
 
-      <div className="flex gap-6">
+      <div className="flex flex-col gap-6 sm:flex-row">
         {/* Category sidebar */}
-        <aside className="w-44 shrink-0">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <aside className="w-full sm:w-44 sm:shrink-0">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Categories
           </p>
           <ul className="space-y-1">
             <li>
               <Link
                 href={q ? `/products?q=${encodeURIComponent(q)}` : "/products"}
-                className={`block rounded-md px-3 py-1.5 text-sm ${!category ? "bg-indigo-50 font-medium text-indigo-700" : "text-gray-700 hover:bg-gray-50"}`}
+                className={cn(
+                  "block rounded-md px-3 py-1.5 text-sm",
+                  !category
+                    ? "bg-accent font-medium text-accent-foreground"
+                    : "text-foreground hover:bg-muted",
+                )}
               >
                 All
               </Link>
@@ -72,7 +82,12 @@ export default async function ProductsPage({ searchParams }: Props) {
                 <li key={cat.id}>
                   <Link
                     href={href}
-                    className={`block rounded-md px-3 py-1.5 text-sm ${category === cat.id ? "bg-indigo-50 font-medium text-indigo-700" : "text-gray-700 hover:bg-gray-50"}`}
+                    className={cn(
+                      "block rounded-md px-3 py-1.5 text-sm",
+                      category === cat.id
+                        ? "bg-accent font-medium text-accent-foreground"
+                        : "text-foreground hover:bg-muted",
+                    )}
                   >
                     {cat.name}
                   </Link>
@@ -83,14 +98,14 @@ export default async function ProductsPage({ searchParams }: Props) {
         </aside>
 
         {/* Product grid */}
-        <div className="flex-1">
-          <p className="mb-4 text-sm text-gray-500">
+        <section aria-label="Product results" className="flex-1">
+          <p className="mb-4 text-sm text-muted-foreground">
             {total} product{total !== 1 ? "s" : ""}
             {q ? ` for "${q}"` : ""}
           </p>
 
           {products.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-gray-300 py-20 text-center text-sm text-gray-400">
+            <div className="rounded-xl border border-dashed border-border py-20 text-center text-sm text-muted-foreground">
               No products found.
             </div>
           ) : (
@@ -99,9 +114,9 @@ export default async function ProductsPage({ searchParams }: Props) {
                 <li key={p.id}>
                   <Link
                     href={`/products/${p.storeSlug}/${p.slug}`}
-                    className="group block overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm hover:shadow-md"
+                    className="group block overflow-hidden rounded-xl border border-border bg-background shadow-sm hover:shadow-md"
                   >
-                    <div className="aspect-square bg-gray-100">
+                    <div className="aspect-square bg-muted">
                       {p.coverImageUrl ? (
                         <img
                           src={p.coverImageUrl}
@@ -109,23 +124,19 @@ export default async function ProductsPage({ searchParams }: Props) {
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <div className="flex h-full items-center justify-center text-3xl text-gray-300">
+                        <div className="flex h-full items-center justify-center text-3xl text-muted-foreground">
                           📦
                         </div>
                       )}
                     </div>
                     <div className="p-3">
-                      {p.categoryName && (
-                        <span className="mb-1 inline-block rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600">
-                          {p.categoryName}
-                        </span>
-                      )}
-                      <p className="truncate text-sm font-medium text-gray-900 group-hover:text-indigo-600">
+                      {p.categoryName && <Badge className="mb-1">{p.categoryName}</Badge>}
+                      <p className="truncate text-sm font-medium text-foreground group-hover:text-primary">
                         {p.name}
                       </p>
-                      <p className="truncate text-xs text-gray-500">{p.storeName}</p>
+                      <p className="truncate text-xs text-muted-foreground">{p.storeName}</p>
                       {p.minPriceSen != null && (
-                        <p className="mt-1 text-sm font-semibold text-indigo-600">
+                        <p className="mt-1 text-sm font-semibold text-primary">
                           from {formatMyrSen(p.minPriceSen)}
                         </p>
                       )}
@@ -138,7 +149,7 @@ export default async function ProductsPage({ searchParams }: Props) {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="mt-8 flex justify-center gap-2">
+            <nav aria-label="Products pagination" className="mt-8 flex justify-center gap-2">
               {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
                 const params = new URLSearchParams()
                 if (q) params.set("q", q)
@@ -148,15 +159,22 @@ export default async function ProductsPage({ searchParams }: Props) {
                   <Link
                     key={p}
                     href={`/products?${params.toString()}`}
-                    className={`flex h-8 w-8 items-center justify-center rounded-md text-sm ${p === page ? "bg-indigo-600 text-white" : "border border-gray-300 text-gray-600 hover:bg-gray-50"}`}
+                    aria-label={`Page ${p}`}
+                    aria-current={p === page ? "page" : undefined}
+                    className={cn(
+                      "flex h-8 w-8 items-center justify-center rounded-md text-sm",
+                      p === page
+                        ? "bg-primary text-primary-foreground"
+                        : "border border-border text-muted-foreground hover:bg-muted",
+                    )}
                   >
                     {p}
                   </Link>
                 )
               })}
-            </div>
+            </nav>
           )}
-        </div>
+        </section>
       </div>
     </main>
   )

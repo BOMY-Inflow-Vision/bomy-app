@@ -3,6 +3,11 @@
 import Script from "next/script"
 import { useActionState, useEffect, useRef, useState } from "react"
 
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { cn } from "@/lib/utils"
+
 import { sendMagicLinkAction } from "./actions"
 
 // Extend Window to include the Turnstile API (mirrors seller/apply/page.tsx).
@@ -72,27 +77,24 @@ export function MagicLinkForm() {
 
       <form action={action} className="flex flex-col gap-2">
         {state?.error && (
-          <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{state.error}</div>
+          <div className={cn("rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive")}>
+            {state.error}
+          </div>
         )}
-        <input
-          type="email"
-          name="email"
-          placeholder="you@example.com"
-          required
-          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200"
-        />
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="email">Email address</Label>
+          <Input type="email" id="email" name="email" placeholder="you@example.com" required />
+        </div>
         <input type="hidden" name="cf-turnstile-response" value={token} />
         <div ref={containerRef} className="flex justify-center" />
         {!SITEKEY && (
-          <p className="text-center text-xs text-gray-400">Sign-in temporarily unavailable.</p>
+          <p className="text-center text-xs text-muted-foreground">
+            Sign-in temporarily unavailable.
+          </p>
         )}
-        <button
-          type="submit"
-          disabled={pending || !token || !SITEKEY}
-          className="w-full rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
-        >
+        <Button type="submit" disabled={pending || !token || !SITEKEY} className="w-full">
           {pending ? "Sending…" : "Send magic link"}
-        </button>
+        </Button>
       </form>
     </>
   )

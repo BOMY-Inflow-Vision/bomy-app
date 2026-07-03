@@ -1,6 +1,8 @@
 "use client"
 
 import { useState } from "react"
+
+import { Button } from "@/components/ui/button"
 import { createPayoutRecord } from "../../payouts/actions"
 
 export function CreatePayoutButton({ orderId }: { orderId: string }) {
@@ -31,16 +33,16 @@ export function CreatePayoutButton({ orderId }: { orderId: string }) {
 
   return (
     <div>
-      <button
+      <Button
         onClick={() => {
           void handleClick()
         }}
         disabled={state === "loading"}
-        className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+        size="sm"
       >
         {state === "loading" ? "Creating…" : "Create Payout Record"}
-      </button>
-      {state === "error" && error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+      </Button>
+      {state === "error" && error && <p className="mt-2 text-sm text-destructive">{error}</p>}
     </div>
   )
 }

@@ -42,6 +42,8 @@ import {
   Youtube,
 } from "lucide-react"
 
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { getBodyImageUploadUrl, saveProductBody } from "../../actions"
 import { YoutubeEmbedExtension } from "./youtube-embed-extension"
 import { ImageUploadExtension } from "./image-upload-extension"
@@ -196,7 +198,7 @@ export function ProductBodyEditor({
       <div
         role="toolbar"
         aria-label="Body editor toolbar"
-        className="flex flex-wrap gap-1 rounded border border-gray-200 bg-gray-50 p-1"
+        className="flex flex-wrap gap-1 rounded border border-border bg-muted p-1"
       >
         <ToolbarButton
           action={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}
@@ -405,11 +407,11 @@ export function ProductBodyEditor({
 
       <EditorContent
         editor={editor}
-        className="[&_.ProseMirror]:prose [&_.ProseMirror]:max-w-none [&_.ProseMirror]:min-h-[200px] [&_.ProseMirror]:rounded [&_.ProseMirror]:border [&_.ProseMirror]:border-gray-200 [&_.ProseMirror]:p-3 [&_.ProseMirror]:focus:outline-none [&_.ProseMirror]:focus:ring-2 [&_.ProseMirror]:focus:ring-indigo-500"
+        className="[&_.ProseMirror]:prose [&_.ProseMirror]:max-w-none [&_.ProseMirror]:min-h-[200px] [&_.ProseMirror]:rounded [&_.ProseMirror]:border [&_.ProseMirror]:border-border [&_.ProseMirror]:p-3 [&_.ProseMirror]:focus:outline-none [&_.ProseMirror]:focus:ring-2 [&_.ProseMirror]:focus:ring-ring"
       />
 
       {saveError && (
-        <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+        <div className="rounded border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {saveError}
           {conflictDetected && (
             <button
@@ -429,7 +431,7 @@ export function ProductBodyEditor({
         <button
           type="submit"
           disabled={saveStatus === "saving" || isUploading || !dirty}
-          className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+          className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
         >
           {saveStatus === "saving" ? "Saving…" : "Save Product Details"}
         </button>
@@ -458,8 +460,8 @@ function ToolbarButton({
       aria-label={label}
       aria-pressed={active}
       title={title}
-      className={`min-h-[44px] min-w-[44px] rounded px-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 ${
-        active ? "bg-indigo-100 text-indigo-700" : "bg-white text-gray-700 hover:bg-gray-100"
+      className={`min-h-[44px] min-w-[44px] rounded px-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
+        active ? "bg-accent text-accent-foreground" : "bg-background text-foreground hover:bg-muted"
       }`}
     >
       {children}
@@ -486,10 +488,10 @@ function LinkButton({ editor }: { editor: Editor | null }) {
       aria-label="Set or unset link"
       aria-pressed={editor?.isActive("link") ?? false}
       title="Link"
-      className={`min-h-[44px] min-w-[44px] rounded px-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 ${
+      className={`min-h-[44px] min-w-[44px] rounded px-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
         (editor?.isActive("link") ?? false)
-          ? "bg-indigo-100 text-indigo-700"
-          : "bg-white text-gray-700 hover:bg-gray-100"
+          ? "bg-accent text-accent-foreground"
+          : "bg-background text-foreground hover:bg-muted"
       }`}
     >
       <Link2 className="h-4 w-4" />
@@ -534,7 +536,7 @@ function InsertImageUrlButton({ editor }: { editor: Editor | null }) {
       }}
       aria-label="Insert image by URL"
       title="Insert image by URL"
-      className="min-h-[44px] min-w-[44px] rounded bg-white px-2 text-sm text-gray-700 hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+      className="min-h-[44px] min-w-[44px] rounded bg-background px-2 text-sm text-foreground hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
     >
       <ImageIcon className="h-4 w-4" />
     </button>
@@ -552,7 +554,7 @@ function UploadImageButton({ editor }: { editor: Editor | null }) {
         }}
         aria-label="Upload image"
         title="Upload image"
-        className="min-h-[44px] min-w-[44px] rounded bg-white px-2 text-sm text-gray-700 hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+        className="min-h-[44px] min-w-[44px] rounded bg-background px-2 text-sm text-foreground hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
         <Upload className="h-4 w-4" />
       </button>
@@ -597,35 +599,41 @@ function InsertTableButton({ editor }: { editor: Editor | null }) {
         aria-label="Insert table"
         aria-expanded={open}
         title="Insert table"
-        className={`min-h-[44px] min-w-[44px] rounded px-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 ${open ? "bg-indigo-100 text-indigo-700" : "bg-white text-gray-700 hover:bg-gray-100"}`}
+        className={`min-h-[44px] min-w-[44px] rounded px-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${open ? "bg-accent text-accent-foreground" : "bg-background text-foreground hover:bg-muted"}`}
       >
         <Table className="h-4 w-4" />
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-20 mt-1 w-52 rounded-lg border border-gray-200 bg-white p-3 shadow-lg">
-          <p className="mb-2 text-xs font-semibold text-gray-700">Insert table</p>
+        <div className="absolute left-0 top-full z-20 mt-1 w-52 rounded-lg border border-border bg-background p-3 shadow-lg">
+          <p className="mb-2 text-xs font-semibold text-foreground">Insert table</p>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="mb-0.5 block text-xs text-gray-500">Rows</label>
-              <input
+              <Label htmlFor="table-rows" className="mb-0.5 block text-xs text-muted-foreground">
+                Rows
+              </Label>
+              <Input
+                id="table-rows"
                 type="number"
                 min={1}
                 max={20}
                 value={rows}
                 onChange={(e) => setRows(Math.min(20, Math.max(1, Number(e.target.value))))}
-                className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none"
+                className="w-full text-sm"
               />
             </div>
             <div>
-              <label className="mb-0.5 block text-xs text-gray-500">Columns</label>
-              <input
+              <Label htmlFor="table-cols" className="mb-0.5 block text-xs text-muted-foreground">
+                Columns
+              </Label>
+              <Input
+                id="table-cols"
                 type="number"
                 min={1}
                 max={10}
                 value={cols}
                 onChange={(e) => setCols(Math.min(10, Math.max(1, Number(e.target.value))))}
-                className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none"
+                className="w-full text-sm"
               />
             </div>
           </div>
@@ -635,7 +643,7 @@ function InsertTableButton({ editor }: { editor: Editor | null }) {
               editor?.chain().focus().insertTable({ rows, cols, withHeaderRow: true }).run()
               setOpen(false)
             }}
-            className="mt-2 w-full rounded bg-indigo-600 py-1.5 text-xs font-medium text-white hover:bg-indigo-700"
+            className="mt-2 w-full rounded bg-primary py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
           >
             Insert {rows} × {cols} table
           </button>
@@ -665,7 +673,7 @@ function TableControlButton({
       aria-label={label}
       aria-pressed={active}
       title={label}
-      className={`flex items-center gap-1 rounded px-2 py-1 text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 ${
+      className={`flex items-center gap-1 rounded px-2 py-1 text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
         danger
           ? "text-red-600 hover:bg-red-100"
           : active
@@ -700,7 +708,7 @@ function EmbedYouTubeButton({ editor }: { editor: Editor | null }) {
       }}
       aria-label="Embed YouTube video"
       title="Embed YouTube video"
-      className="min-h-[44px] min-w-[44px] rounded bg-white px-2 text-sm text-gray-700 hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+      className="min-h-[44px] min-w-[44px] rounded bg-background px-2 text-sm text-foreground hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
     >
       <Youtube className="h-4 w-4" />
     </button>

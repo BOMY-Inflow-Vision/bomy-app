@@ -4,6 +4,8 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
+import { Button } from "@/components/ui/button"
+
 import { abandonPendingBrandSubscription } from "../actions"
 
 interface Props {
@@ -42,7 +44,7 @@ export function BrandSubscriptionPoller({
 
   if (initialActive) {
     return (
-      <div className="w-full max-w-md rounded-2xl bg-white p-10 shadow-sm ring-1 ring-gray-200 text-center">
+      <div className="w-full max-w-md rounded-2xl bg-background p-10 text-center shadow-sm ring-1 ring-border">
         <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-green-50">
           <svg
             className="h-8 w-8 text-green-500"
@@ -50,20 +52,18 @@ export function BrandSubscriptionPoller({
             viewBox="0 0 24 24"
             stroke="currentColor"
             strokeWidth={2}
+            aria-hidden="true"
           >
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h1 className="text-xl font-semibold text-gray-900 mb-2">Subscription activated!</h1>
-        <p className="text-sm text-gray-500 mb-6">
+        <h1 className="mb-2 text-xl font-semibold text-foreground">Subscription activated!</h1>
+        <p className="mb-6 text-sm text-muted-foreground">
           You now get a discount on every order from {storeName}.
         </p>
-        <Link
-          href="/account/subscriptions"
-          className="block w-full rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-indigo-700 active:bg-indigo-800 transition-colors text-center"
-        >
-          View my subscriptions
-        </Link>
+        <Button asChild className="w-full">
+          <Link href="/account/subscriptions">View my subscriptions</Link>
+        </Button>
       </div>
     )
   }
@@ -73,14 +73,15 @@ export function BrandSubscriptionPoller({
   // received — and give the user a real way out instead of a redirect loop.
   if (timedOut || !pendingFresh) {
     return (
-      <div className="w-full max-w-md rounded-2xl bg-white p-10 shadow-sm ring-1 ring-gray-200 text-center">
-        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-indigo-50">
+      <div className="w-full max-w-md rounded-2xl bg-background p-10 text-center shadow-sm ring-1 ring-border">
+        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-accent">
           <svg
-            className="h-8 w-8 text-indigo-500"
+            className="h-8 w-8 text-primary"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
             strokeWidth={2}
+            aria-hidden="true"
           >
             <path
               strokeLinecap="round"
@@ -89,36 +90,34 @@ export function BrandSubscriptionPoller({
             />
           </svg>
         </div>
-        <h1 className="text-xl font-semibold text-gray-900 mb-2">
+        <h1 className="mb-2 text-xl font-semibold text-foreground">
           We haven&apos;t confirmed your payment
         </h1>
-        <p className="text-sm text-gray-500 mb-6 leading-relaxed">
+        <p className="mb-6 text-sm leading-relaxed text-muted-foreground">
           If you completed payment, confirmation can take a moment — check again shortly. If you
           didn&apos;t finish paying, you can start over.
         </p>
-        <button
-          type="button"
-          onClick={() => router.refresh()}
-          className="block w-full rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-indigo-700 active:bg-indigo-800 transition-colors text-center"
-        >
+        <Button type="button" className="w-full" onClick={() => router.refresh()}>
           I&apos;ve paid — check again
-        </button>
+        </Button>
         <form action={abandon} className="mt-3">
-          <button
-            type="submit"
-            className="block w-full rounded-xl border border-gray-200 bg-white px-6 py-3 text-sm font-semibold text-gray-600 hover:bg-gray-50 active:bg-gray-100 transition-colors text-center"
-          >
+          <Button type="submit" variant="outline" className="w-full">
             Start over
-          </button>
+          </Button>
         </form>
       </div>
     )
   }
 
   return (
-    <div className="w-full max-w-md rounded-2xl bg-white p-10 shadow-sm ring-1 ring-gray-200 text-center">
-      <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-indigo-50">
-        <svg className="h-8 w-8 animate-spin text-indigo-500" fill="none" viewBox="0 0 24 24">
+    <div className="w-full max-w-md rounded-2xl bg-background p-10 text-center shadow-sm ring-1 ring-border">
+      <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-accent">
+        <svg
+          className="h-8 w-8 animate-spin text-primary"
+          fill="none"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
           <circle
             className="opacity-25"
             cx="12"
@@ -134,8 +133,8 @@ export function BrandSubscriptionPoller({
           />
         </svg>
       </div>
-      <h1 className="text-xl font-semibold text-gray-900 mb-2">Activating your subscription…</h1>
-      <p className="text-sm text-gray-500">
+      <h1 className="mb-2 text-xl font-semibold text-foreground">Activating your subscription…</h1>
+      <p className="text-sm text-muted-foreground">
         Payment confirmed. Hang tight — this usually takes a few seconds.
       </p>
     </div>

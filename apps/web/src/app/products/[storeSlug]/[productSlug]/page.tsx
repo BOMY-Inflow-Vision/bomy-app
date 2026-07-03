@@ -17,19 +17,19 @@ export default async function ProductDetailPage({ params }: Props) {
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
-      <nav className="mb-6 flex items-center gap-2 text-sm text-gray-500">
-        <Link href="/products" className="hover:text-indigo-600">
+      <nav className="mb-6 flex items-center gap-2 text-sm text-muted-foreground">
+        <Link href="/products" className="hover:text-primary">
           Products
         </Link>
         <span>/</span>
-        <Link href={`/brands/${product.storeSlug}`} className="hover:text-indigo-600">
+        <Link href={`/brands/${product.storeSlug}`} className="hover:text-primary">
           {product.storeName}
         </Link>
         <span>/</span>
-        <span className="text-gray-900">{product.name}</span>
+        <span className="text-foreground">{product.name}</span>
       </nav>
 
-      <div className="grid gap-8 md:grid-cols-2">
+      <article className="grid gap-8 md:grid-cols-2">
         {/* Images */}
         <ProductImageGallery images={product.images} productName={product.name} />
 
@@ -38,15 +38,15 @@ export default async function ProductDetailPage({ params }: Props) {
           <div>
             <Link
               href={`/brands/${product.storeSlug}`}
-              className="text-xs font-medium uppercase tracking-wide text-indigo-500 hover:underline"
+              className="text-xs font-medium uppercase tracking-wide text-primary hover:underline"
             >
               {product.storeName}
             </Link>
-            <h1 className="mt-1 text-2xl font-bold text-gray-900">{product.name}</h1>
+            <h1 className="mt-1 text-2xl font-bold text-foreground">{product.name}</h1>
           </div>
 
           {product.description && (
-            <p className="text-sm leading-relaxed text-gray-600">{product.description}</p>
+            <p className="text-sm leading-relaxed text-muted-foreground">{product.description}</p>
           )}
 
           <VariantPicker
@@ -65,11 +65,11 @@ export default async function ProductDetailPage({ params }: Props) {
             }))}
           />
         </div>
-      </div>
+      </article>
 
       {product.bodyHtml && (
         <section aria-labelledby="product-details-heading" className="mt-10">
-          <h2 id="product-details-heading" className="mb-4 text-xl font-semibold text-gray-900">
+          <h2 id="product-details-heading" className="mb-4 text-xl font-semibold text-foreground">
             Product Details
           </h2>
           <div className="prose max-w-3xl">

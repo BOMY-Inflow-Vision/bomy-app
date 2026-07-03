@@ -3,6 +3,11 @@
 import Script from "next/script"
 import { useActionState, useEffect, useRef, useState } from "react"
 
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+
 import { submitSellerInquiry } from "./actions"
 
 declare global {
@@ -82,11 +87,11 @@ export default function SellerApplyPage() {
 
   if (state.success) {
     return (
-      <main className="flex min-h-screen items-start justify-center bg-gray-50 pt-16">
-        <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-sm ring-1 ring-gray-200 text-center">
+      <main className="flex min-h-screen items-start justify-center bg-muted pt-16">
+        <div className="w-full max-w-md rounded-2xl bg-background p-8 shadow-sm ring-1 ring-border text-center">
           <div className="text-4xl mb-4">🎉</div>
-          <h1 className="text-lg font-semibold text-gray-900">Application Submitted!</h1>
-          <p className="mt-2 text-sm text-gray-500">
+          <h1 className="text-lg font-semibold text-foreground">Application Submitted!</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
             Our team will review your application and contact you within 3–5 business days.
           </p>
         </div>
@@ -95,7 +100,7 @@ export default function SellerApplyPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-start justify-center bg-gray-50 pt-16">
+    <main className="flex min-h-screen items-start justify-center bg-muted pt-16">
       {/* Scoped to the form branch: the state.success early-return above unmounts
           this, so a back-nav to the form re-fetches the script. Harmless — the
           render effect's widgetIdRef guard prevents a duplicate widget. */}
@@ -105,71 +110,64 @@ export default function SellerApplyPage() {
         onReady={() => setScriptReady(true)}
       />
 
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-sm ring-1 ring-gray-200">
-        <h1 className="mb-1 text-xl font-semibold text-gray-900">Become a Seller</h1>
-        <p className="mb-6 text-sm text-gray-500">
+      <div className="w-full max-w-md rounded-2xl bg-background p-8 shadow-sm ring-1 ring-border">
+        <h1 className="mb-1 text-xl font-semibold text-foreground">Become a Seller</h1>
+        <p className="mb-6 text-sm text-muted-foreground">
           Interested in selling on BOMY? Fill in the form and our team will be in touch.
         </p>
 
         {state.error && (
-          <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="mb-4 rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
             {state.error}
           </div>
         )}
 
         <form action={action} className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Full Name *</label>
-            <input
-              name="name"
-              required
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
-            />
+            <Label htmlFor="name" className="mb-1 block text-sm font-medium">
+              Full Name *
+            </Label>
+            <Input id="name" name="name" required />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Email *</label>
-            <input
-              name="email"
-              type="email"
-              required
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
-            />
+            <Label htmlFor="email" className="mb-1 block text-sm font-medium">
+              Email *
+            </Label>
+            <Input id="email" name="email" type="email" required />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Contact Number *</label>
-            <input
+            <Label htmlFor="contactNumber" className="mb-1 block text-sm font-medium">
+              Contact Number *
+            </Label>
+            <Input
+              id="contactNumber"
               name="contactNumber"
               type="tel"
               required
               placeholder="+60 12-345 6789"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Company Name *</label>
-            <input
-              name="companyName"
-              required
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
-            />
+            <Label htmlFor="companyName" className="mb-1 block text-sm font-medium">
+              Company Name *
+            </Label>
+            <Input id="companyName" name="companyName" required />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Store Name *</label>
-            <input
-              name="storeName"
-              required
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
-            />
+            <Label htmlFor="storeName" className="mb-1 block text-sm font-medium">
+              Store Name *
+            </Label>
+            <Input id="storeName" name="storeName" required />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              Message <span className="text-gray-400">(optional)</span>
-            </label>
-            <textarea
+            <Label htmlFor="message" className="mb-1 block text-sm font-medium">
+              Message <span className="text-muted-foreground font-normal">(optional)</span>
+            </Label>
+            <Textarea
+              id="message"
               name="message"
               rows={3}
               placeholder="Tell us a bit about your products..."
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
             />
           </div>
 
@@ -183,13 +181,9 @@ export default function SellerApplyPage() {
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={pending || !token || !SITEKEY}
-            className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-          >
+          <Button type="submit" disabled={pending || !token || !SITEKEY} className="w-full">
             {pending ? "Submitting…" : "Submit Application"}
-          </button>
+          </Button>
         </form>
       </div>
     </main>

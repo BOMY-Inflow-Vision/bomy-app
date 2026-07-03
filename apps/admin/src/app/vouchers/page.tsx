@@ -5,6 +5,11 @@ import { schema, withAdmin } from "@bomy/db"
 
 import { auth } from "@/auth"
 import { getDb } from "@/lib/db"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { triggerVoucherIssuance, updateVoucherConfig } from "./actions"
 
 export default async function VouchersPage() {
@@ -62,15 +67,18 @@ export default async function VouchersPage() {
     <div className="space-y-8 p-6">
       {/* Monthly voucher config */}
       <div>
-        <h1 className="mb-4 text-lg font-semibold text-gray-900">Monthly Voucher Config</h1>
-        <div className="rounded-lg border border-gray-200 bg-white p-6">
+        <h1 className="mb-4 text-lg font-semibold text-foreground">Monthly Voucher Config</h1>
+        <Card className="p-6">
           <form id="voucher-config-form" action={updateVoucherConfig} className="space-y-4">
             <div className="flex items-center gap-4">
-              <label className="w-32 text-sm font-medium text-gray-700">Type</label>
+              <Label htmlFor="voucher-type" className="w-32 text-sm font-medium text-foreground">
+                Type
+              </Label>
               <select
+                id="voucher-type"
                 name="type"
                 defaultValue={currentType}
-                className="rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="rounded border border-input px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
               >
                 <option value="fixed_myr">Fixed MYR</option>
                 <option value="percentage">Percentage</option>
@@ -81,11 +89,12 @@ export default async function VouchersPage() {
                 submittable after changing the type dropdown without JS.
                 The action only validates fields for the submitted type. */}
             <div className="flex items-center gap-4">
-              <label className="w-32 text-sm font-medium text-gray-700">
+              <Label htmlFor="voucher-amount" className="w-32 text-sm font-medium text-foreground">
                 Amount (MYR)
-                <span className="ml-1 text-xs font-normal text-gray-400">(fixed)</span>
-              </label>
-              <input
+                <span className="ml-1 text-xs font-normal text-muted-foreground">(fixed)</span>
+              </Label>
+              <Input
+                id="voucher-amount"
                 name="fixedAmountMyr"
                 type="text"
                 defaultValue={
@@ -94,15 +103,16 @@ export default async function VouchersPage() {
                     : ""
                 }
                 placeholder="e.g. 10.00"
-                className="w-32 rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-32"
               />
             </div>
             <div className="flex items-center gap-4">
-              <label className="w-32 text-sm font-medium text-gray-700">
+              <Label htmlFor="voucher-pct" className="w-32 text-sm font-medium text-foreground">
                 Percentage
-                <span className="ml-1 text-xs font-normal text-gray-400">(pct)</span>
-              </label>
-              <input
+                <span className="ml-1 text-xs font-normal text-muted-foreground">(pct)</span>
+              </Label>
+              <Input
+                id="voucher-pct"
                 name="percentage"
                 type="number"
                 min="1"
@@ -113,15 +123,16 @@ export default async function VouchersPage() {
                     : ""
                 }
                 placeholder="e.g. 20"
-                className="w-32 rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-32"
               />
             </div>
             <div className="flex items-center gap-4">
-              <label className="w-32 text-sm font-medium text-gray-700">
+              <Label htmlFor="voucher-min" className="w-32 text-sm font-medium text-foreground">
                 Range (MYR)
-                <span className="ml-1 text-xs font-normal text-gray-400">(random)</span>
-              </label>
-              <input
+                <span className="ml-1 text-xs font-normal text-muted-foreground">(random)</span>
+              </Label>
+              <Input
+                id="voucher-min"
                 name="randomMinMyr"
                 type="text"
                 defaultValue={
@@ -130,10 +141,14 @@ export default async function VouchersPage() {
                     : ""
                 }
                 placeholder="Min"
-                className="w-24 rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-24"
               />
-              <span className="text-gray-400">–</span>
-              <input
+              <span className="text-muted-foreground">–</span>
+              <Label htmlFor="voucher-max" className="sr-only">
+                Max
+              </Label>
+              <Input
+                id="voucher-max"
                 name="randomMaxMyr"
                 type="text"
                 defaultValue={
@@ -142,39 +157,36 @@ export default async function VouchersPage() {
                     : ""
                 }
                 placeholder="Max"
-                className="w-24 rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-24"
               />
             </div>
           </form>
           {/* Buttons are siblings — never nest forms. Save Config references
               voucher-config-form via the form= attribute (HTML5 association). */}
-          <div className="flex items-center gap-3 pt-2">
-            <button
-              type="submit"
-              form="voucher-config-form"
-              className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
-            >
+          <div className="flex items-center gap-3 pt-4">
+            <Button type="submit" form="voucher-config-form" size="sm">
               Save Config
-            </button>
+            </Button>
             <form action={triggerVoucherIssuance}>
-              <button
+              <Button
                 type="submit"
-                className="rounded-lg bg-amber-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-amber-700"
+                size="sm"
+                className="bg-amber-600 text-white hover:bg-amber-700"
               >
                 Issue Now
-              </button>
+              </Button>
             </form>
           </div>
-        </div>
+        </Card>
       </div>
 
       {/* Redemption stats */}
       <div>
-        <h2 className="mb-3 text-base font-semibold text-gray-800">Redemption Rate by Month</h2>
-        <div className="rounded-lg border border-gray-200 bg-white">
+        <h2 className="mb-3 text-base font-semibold text-foreground">Redemption Rate by Month</h2>
+        <Card>
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-500">
+              <tr className="border-b border-border bg-muted text-left text-xs font-semibold text-muted-foreground">
                 <th className="px-4 py-3">Month</th>
                 <th className="px-4 py-3">Issued</th>
                 <th className="px-4 py-3">Redeemed</th>
@@ -185,41 +197,40 @@ export default async function VouchersPage() {
               {statsRows.map((row) => {
                 const rate = row.total > 0 ? Math.round((row.redeemed / row.total) * 100) : 0
                 return (
-                  <tr key={row.issuedMonth} className="border-b border-gray-100 last:border-0">
-                    <td className="px-4 py-3 font-mono text-xs text-gray-700">{row.issuedMonth}</td>
-                    <td className="px-4 py-3 text-gray-600">{row.total}</td>
-                    <td className="px-4 py-3 text-gray-600">{row.redeemed}</td>
-                    <td className="px-4 py-3 text-gray-600">{rate}%</td>
+                  <tr key={row.issuedMonth} className="border-b border-border last:border-0">
+                    <td className="px-4 py-3 font-mono text-xs text-foreground">
+                      {row.issuedMonth}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">{row.total}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{row.redeemed}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{rate}%</td>
                   </tr>
                 )
               })}
               {statsRows.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-4 py-6 text-center text-gray-400">
+                  <td colSpan={4} className="px-4 py-6 text-center text-muted-foreground">
                     No vouchers issued yet.
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
-        </div>
+        </Card>
       </div>
 
       {/* Compensation vouchers */}
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-gray-800">Compensation Vouchers</h2>
-          <Link
-            href="/vouchers/new"
-            className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
-          >
-            + Create Voucher
-          </Link>
+          <h2 className="text-base font-semibold text-foreground">Compensation Vouchers</h2>
+          <Button asChild size="sm">
+            <Link href="/vouchers/new">+ Create Voucher</Link>
+          </Button>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white">
+        <Card>
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-500">
+              <tr className="border-b border-border bg-muted text-left text-xs font-semibold text-muted-foreground">
                 <th className="px-4 py-3">User</th>
                 <th className="px-4 py-3">Code</th>
                 <th className="px-4 py-3">Type</th>
@@ -241,31 +252,37 @@ export default async function VouchersPage() {
                 }
 
                 return (
-                  <tr key={row.id} className="border-b border-gray-100 last:border-0">
-                    <td className="px-4 py-3 text-gray-700">{row.userEmail}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-gray-900">{row.code}</td>
-                    <td className="px-4 py-3 text-gray-600">{row.type}</td>
-                    <td className="px-4 py-3 font-medium text-gray-700">{value}</td>
-                    <td className="px-4 py-3 text-gray-400">{row.issuedMonth}</td>
-                    <td className="px-4 py-3 text-gray-400">
+                  <tr key={row.id} className="border-b border-border last:border-0">
+                    <td className="px-4 py-3 text-foreground">{row.userEmail}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-foreground">{row.code}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{row.type}</td>
+                    <td className="px-4 py-3 font-medium text-foreground">{value}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{row.issuedMonth}</td>
+                    <td className="px-4 py-3 text-muted-foreground">
                       {row.expiresAt.toLocaleDateString()}
                     </td>
-                    <td className="px-4 py-3 text-gray-400">
-                      {row.redeemedAt ? row.redeemedAt.toLocaleDateString() : "—"}
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {row.redeemedAt ? (
+                        <Badge variant="secondary" className="capitalize">
+                          {row.redeemedAt.toLocaleDateString()}
+                        </Badge>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                   </tr>
                 )
               })}
               {vouchers.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
+                  <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
                     No vouchers found.
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
-        </div>
+        </Card>
       </div>
     </div>
   )

@@ -1,4 +1,4 @@
-import { and, count, eq, ilike, inArray, or } from "drizzle-orm"
+import { and, asc, count, eq, exists, ilike, inArray, or } from "drizzle-orm"
 
 import { makeDb, schema, withPublicRead } from "@bomy/db"
 
@@ -9,9 +9,29 @@ function getDb() {
 }
 
 const PAGE_SIZE = 24
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-export async function getBrands({ query, page = 1 }: { query?: string; page?: number }) {
+export async function getStoreCategories() {
+  return withPublicRead(getDb(), (db) =>
+    db
+      .select({ id: schema.storeCategories.id, name: schema.storeCategories.name })
+      .from(schema.storeCategories)
+      .where(eq(schema.storeCategories.isActive, true))
+      .orderBy(asc(schema.storeCategories.sortOrder), asc(schema.storeCategories.name)),
+  )
+}
+
+export async function getBrands({
+  query,
+  page = 1,
+  storeCategoryId,
+}: {
+  query?: string
+  page?: number
+  storeCategoryId?: string
+}) {
   const offset = (page - 1) * PAGE_SIZE
+  const safeCat = storeCategoryId && UUID_RE.test(storeCategoryId) ? storeCategoryId : undefined
 
   return withPublicRead(getDb(), async (db) => {
     const where = and(
@@ -20,6 +40,19 @@ export async function getBrands({ query, page = 1 }: { query?: string; page?: nu
         ? or(
             ilike(schema.stores.name, `%${query.trim()}%`),
             ilike(schema.stores.excerpt, `%${query.trim()}%`),
+          )
+        : undefined,
+      safeCat
+        ? exists(
+            db
+              .select({ x: schema.storeCategoryAssignments.storeId })
+              .from(schema.storeCategoryAssignments)
+              .where(
+                and(
+                  eq(schema.storeCategoryAssignments.storeId, schema.stores.id),
+                  eq(schema.storeCategoryAssignments.storeCategoryId, safeCat),
+                ),
+              ),
           )
         : undefined,
     )

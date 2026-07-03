@@ -1,6 +1,9 @@
 import { redirect } from "next/navigation"
 
 import { auth } from "@/auth"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { createVoucher } from "../actions"
 
 export default async function NewVoucherPage() {
@@ -17,7 +20,7 @@ export default async function NewVoucherPage() {
 
   return (
     <div className="p-6">
-      <h1 className="mb-6 text-lg font-semibold text-gray-900">Create Compensation Voucher</h1>
+      <h1 className="mb-6 text-lg font-semibold text-foreground">Create Compensation Voucher</h1>
       <form
         action={async (formData) => {
           "use server"
@@ -26,77 +29,70 @@ export default async function NewVoucherPage() {
         }}
         className="max-w-md space-y-4"
       >
-        <div>
-          <label className="block text-sm font-medium text-gray-700">User Email</label>
-          <input
+        <div className="space-y-1.5">
+          <Label htmlFor="userEmail">User Email</Label>
+          <Input
+            id="userEmail"
             name="userEmail"
             type="email"
             required
             placeholder="buyer@example.com"
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Voucher Code</label>
-          <input
+        <div className="space-y-1.5">
+          <Label htmlFor="code">Voucher Code</Label>
+          <Input
+            id="code"
             name="code"
             type="text"
             required
             placeholder="COMP-XXXX"
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="font-mono"
           />
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="text-xs text-muted-foreground">
             Must be unique. Use COMP- prefix for compensation vouchers.
           </p>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Amount (MYR)</label>
-          <input
+        <div className="space-y-1.5">
+          <Label htmlFor="fixedAmountMyr">Amount (MYR)</Label>
+          <Input
+            id="fixedAmountMyr"
             name="fixedAmountMyr"
             type="number"
             min="0.01"
             step="0.01"
             required
             placeholder="10.00"
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Issued Month</label>
-          <input
+        <div className="space-y-1.5">
+          <Label htmlFor="issuedMonth">Issued Month</Label>
+          <Input
+            id="issuedMonth"
             name="issuedMonth"
             type="month"
             required
             defaultValue={currentMonth}
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="text-xs text-muted-foreground">
             Format YYYY-MM. One voucher per user per month.
           </p>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Expires On</label>
-          <input
+        <div className="space-y-1.5">
+          <Label htmlFor="expiresAt">Expires On</Label>
+          <Input
+            id="expiresAt"
             name="expiresAt"
             type="date"
             required
             defaultValue={defaultExpiry}
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
         </div>
         <div className="flex gap-3 pt-2">
-          <button
-            type="submit"
-            className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-          >
-            Create Voucher
-          </button>
-          <a
-            href="/vouchers"
-            className="rounded-lg border border-gray-300 px-5 py-2 text-sm text-gray-600 hover:bg-gray-50"
-          >
-            Cancel
-          </a>
+          <Button type="submit">Create Voucher</Button>
+          <Button variant="outline" asChild>
+            <a href="/vouchers">Cancel</a>
+          </Button>
         </div>
       </form>
     </div>

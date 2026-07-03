@@ -2,6 +2,10 @@
 
 import { useEffect, useState, useTransition } from "react"
 
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+
 import { updateDisplayName } from "./profile-actions"
 import { validateDisplayName } from "./profile-schema"
 
@@ -21,29 +25,28 @@ export function NameEditor({ name }: { name: string | null }) {
   if (!editing) {
     return (
       <div className="flex items-center gap-2">
-        <p className="truncate text-lg font-semibold text-gray-900">{displayName ?? "—"}</p>
-        <button
-          type="button"
-          onClick={() => setEditing(true)}
-          className="text-xs text-indigo-600 hover:underline"
-        >
+        <p className="truncate text-lg font-semibold text-foreground">{displayName ?? "—"}</p>
+        <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(true)}>
           Edit
-        </button>
+        </Button>
       </div>
     )
   }
 
   return (
     <div className="space-y-1">
+      <Label htmlFor="display-name">Name</Label>
       <div className="flex items-center gap-2">
-        <input
+        <Input
+          id="display-name"
           value={value}
           onChange={(e) => setValue(e.target.value)}
           placeholder="Your name"
-          className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+          className="w-full"
         />
-        <button
+        <Button
           type="button"
+          size="sm"
           disabled={pending}
           onClick={() => {
             setError(null)
@@ -62,24 +65,24 @@ export function NameEditor({ name }: { name: string | null }) {
               }
             })
           }}
-          className="text-xs text-indigo-600 hover:underline disabled:opacity-50"
         >
           {pending ? "Saving…" : "Save"}
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           disabled={pending}
           onClick={() => {
             setEditing(false)
             setValue(displayName ?? "")
             setError(null)
           }}
-          className="text-xs text-gray-500 hover:underline disabled:opacity-50"
         >
           Cancel
-        </button>
+        </Button>
       </div>
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   )
 }

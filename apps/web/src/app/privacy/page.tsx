@@ -19,7 +19,7 @@ export default function PrivacyPage() {
         <p>
           Inflo Vision (Partnership), Malaysia. Registration: 202503276795. Address: 19-2, Lorong
           Mayang Pasir 5, Taman Sri Tunas, 11950 Bayan Lepas, Pulau Pinang. Privacy contact:{" "}
-          <a href="mailto:contact@brandsofmalaysia.com" className="text-slate-900 underline">
+          <a href="mailto:contact@brandsofmalaysia.com" className="text-foreground underline">
             contact@brandsofmalaysia.com
           </a>
           .
@@ -132,7 +132,7 @@ export default function PrivacyPage() {
         <h2 className="mb-3 text-xl font-semibold">13. Contact</h2>
         <p>
           Questions about this policy can be sent to{" "}
-          <a href="mailto:contact@brandsofmalaysia.com" className="text-slate-900 underline">
+          <a href="mailto:contact@brandsofmalaysia.com" className="text-foreground underline">
             contact@brandsofmalaysia.com
           </a>
           .

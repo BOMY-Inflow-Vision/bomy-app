@@ -3,6 +3,8 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
+import { cn } from "@/lib/utils"
+
 const NAV = [
   { href: "/seller/dashboard", label: "Overview", exact: true },
   { href: "/seller/dashboard/subscriptions", label: "Subscriptions" },
@@ -32,20 +34,21 @@ export default function SellerDashboardLayout({ children }: { children: React.Re
               <Link
                 key={item.href}
                 href={isComingSoon ? "#" : item.href}
-                className={
+                className={cn(
+                  "px-5 py-2",
                   active
-                    ? "border-l-2 border-indigo-500 bg-slate-700 px-5 py-2 text-slate-100"
+                    ? "border-l-2 border-primary bg-slate-700 text-slate-100"
                     : isComingSoon
-                      ? "cursor-default px-5 py-2 text-slate-600"
-                      : "px-5 py-2 hover:bg-slate-700 hover:text-slate-100"
-                }
+                      ? "cursor-default text-slate-600"
+                      : "hover:bg-slate-700 hover:text-slate-100",
+                )}
                 {...(isComingSoon
                   ? { onClick: (e: React.MouseEvent<HTMLAnchorElement>) => e.preventDefault() }
                   : {})}
               >
                 {item.label}
                 {isComingSoon && (
-                  <span className="ml-2 rounded bg-slate-700 px-1.5 py-0.5 text-xs text-indigo-400">
+                  <span className="ml-2 rounded bg-slate-700 px-1.5 py-0.5 text-xs text-primary/70">
                     soon
                   </span>
                 )}
@@ -54,7 +57,7 @@ export default function SellerDashboardLayout({ children }: { children: React.Re
           })}
         </nav>
       </aside>
-      <main className="flex-1 bg-slate-50">{children}</main>
+      <main className="flex-1 bg-muted">{children}</main>
     </div>
   )
 }

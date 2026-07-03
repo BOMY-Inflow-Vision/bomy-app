@@ -4,6 +4,9 @@ import { schema, withAdmin } from "@bomy/db"
 
 import { getDb } from "@/lib/db"
 import { senToMyr } from "@/lib/money"
+import { cn } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
+import { Card } from "@/components/ui/card"
 
 import { PayoutActions } from "./_payout-actions"
 
@@ -54,10 +57,10 @@ export default async function PayoutsPage({ searchParams }: Props) {
   const statuses = ["pending", "processing", "completed", "failed"]
 
   return (
-    <main className="mx-auto max-w-7xl px-4 py-8">
+    <div className="mx-auto max-w-7xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Payouts</h1>
-        <a href="/payouts/reconciliation" className="text-sm text-indigo-600 hover:underline">
+        <h1 className="text-2xl font-bold text-foreground">Payouts</h1>
+        <a href="/payouts/reconciliation" className="text-sm text-primary hover:underline">
           Reconciliation →
         </a>
       </div>
@@ -65,7 +68,10 @@ export default async function PayoutsPage({ searchParams }: Props) {
       <div className="mb-6 flex gap-2">
         <a
           href="/payouts"
-          className={`rounded-full px-3 py-1 text-sm ${!validStatus ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"}`}
+          className={cn(
+            "rounded-full px-3 py-1 text-sm",
+            !validStatus ? "bg-foreground text-background" : "bg-muted text-muted-foreground",
+          )}
         >
           All
         </a>
@@ -73,16 +79,21 @@ export default async function PayoutsPage({ searchParams }: Props) {
           <a
             key={s}
             href={`/payouts?status=${s}`}
-            className={`rounded-full px-3 py-1 text-sm capitalize ${validStatus === s ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"}`}
+            className={cn(
+              "rounded-full px-3 py-1 text-sm capitalize",
+              validStatus === s
+                ? "bg-foreground text-background"
+                : "bg-muted text-muted-foreground",
+            )}
           >
             {s}
           </a>
         ))}
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-gray-200">
-        <table className="w-full text-sm text-gray-700">
-          <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+      <Card className="overflow-x-auto">
+        <table className="w-full text-sm text-foreground">
+          <thead className="bg-muted text-xs uppercase text-muted-foreground">
             <tr>
               <th className="px-4 py-3 text-left">Order</th>
               <th className="px-4 py-3 text-left">Store</th>
@@ -94,20 +105,24 @@ export default async function PayoutsPage({ searchParams }: Props) {
               <th className="px-4 py-3 text-left">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-border">
             {payouts.map((p) => (
-              <tr key={p.id} className="hover:bg-gray-50">
+              <tr key={p.id} className="hover:bg-muted/50">
                 <td className="px-4 py-3">
                   <a
                     href={`/orders/${p.orderId}`}
-                    className="font-mono text-indigo-600 hover:underline"
+                    className="font-mono text-primary hover:underline"
                   >
                     {p.orderId.slice(0, 8)}…
                   </a>
                 </td>
                 <td className="px-4 py-3">{p.storeName}</td>
                 <td className="px-4 py-3 text-right">RM {senToMyr(p.amountSen)}</td>
-                <td className="px-4 py-3 capitalize">{p.status}</td>
+                <td className="px-4 py-3">
+                  <Badge variant="outline" className="capitalize">
+                    {p.status}
+                  </Badge>
+                </td>
                 <td className="px-4 py-3">{p.manualRef ?? "—"}</td>
                 <td className="px-4 py-3">{p.triggeredAt.toLocaleDateString("en-MY")}</td>
                 <td className="px-4 py-3">{p.completedAt?.toLocaleDateString("en-MY") ?? "—"}</td>
@@ -118,14 +133,14 @@ export default async function PayoutsPage({ searchParams }: Props) {
             ))}
             {payouts.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-gray-400">
+                <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
                   No payouts.
                 </td>
               </tr>
             )}
           </tbody>
         </table>
-      </div>
-    </main>
+      </Card>
+    </div>
   )
 }

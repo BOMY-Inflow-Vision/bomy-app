@@ -2,6 +2,11 @@
 
 import { useState, useTransition } from "react"
 
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { cn } from "@/lib/utils"
 import { MY_STATES } from "@/lib/shipping-address-schema"
 
 import { addAddress, deleteAddress, setDefault, updateAddress } from "./actions"
@@ -72,69 +77,80 @@ export function AddressManager({ initial }: { initial: Row[] }) {
     <div className="space-y-6">
       <ul className="space-y-3">
         {initial.map((a) => (
-          <li key={a.id} className="rounded-lg border border-gray-200 bg-white p-4 text-sm">
-            <div className="flex items-start justify-between">
-              <div>
-                {a.label && <div className="font-medium text-gray-900">{a.label}</div>}
-                <div className="text-gray-700">
-                  {a.name} · {a.phone}
+          <li key={a.id}>
+            <Card>
+              <CardContent className="p-4 text-sm">
+                <div className="flex items-start justify-between">
+                  <div>
+                    {a.label && <div className="font-medium text-foreground">{a.label}</div>}
+                    <div className="text-foreground">
+                      {a.name} · {a.phone}
+                    </div>
+                    <div className="text-muted-foreground">
+                      {[a.line1, a.line2, a.city, a.postcode, a.state].filter(Boolean).join(", ")}
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    {a.isDefault ? (
+                      <span className="rounded bg-green-100 px-2 py-0.5 text-xs text-green-700">
+                        Default
+                      </span>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="link"
+                        size="sm"
+                        disabled={pending}
+                        onClick={() => startTransition(async () => void (await setDefault(a.id)))}
+                        className="h-auto p-0 text-xs"
+                      >
+                        Set default
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      variant="link"
+                      size="sm"
+                      disabled={pending}
+                      onClick={() => startEdit(a)}
+                      className="h-auto p-0 text-xs"
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="link"
+                      size="sm"
+                      disabled={pending}
+                      onClick={() => startTransition(async () => void (await deleteAddress(a.id)))}
+                      className="h-auto p-0 text-xs text-destructive hover:text-destructive"
+                    >
+                      Delete
+                    </Button>
+                  </div>
                 </div>
-                <div className="text-gray-500">
-                  {[a.line1, a.line2, a.city, a.postcode, a.state].filter(Boolean).join(", ")}
-                </div>
-              </div>
-              <div className="flex flex-col items-end gap-1">
-                {a.isDefault ? (
-                  <span className="rounded bg-green-100 px-2 py-0.5 text-xs text-green-700">
-                    Default
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => startTransition(async () => void (await setDefault(a.id)))}
-                    className="text-xs text-indigo-600 hover:underline disabled:opacity-50"
-                  >
-                    Set default
-                  </button>
-                )}
-                <button
-                  type="button"
-                  disabled={pending}
-                  onClick={() => startEdit(a)}
-                  className="text-xs text-indigo-600 hover:underline disabled:opacity-50"
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  disabled={pending}
-                  onClick={() => startTransition(async () => void (await deleteAddress(a.id)))}
-                  className="text-xs text-red-600 hover:underline disabled:opacity-50"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           </li>
         ))}
-        {initial.length === 0 && <li className="text-sm text-gray-500">No saved addresses yet.</li>}
+        {initial.length === 0 && (
+          <li className="text-sm text-muted-foreground">No saved addresses yet.</li>
+        )}
       </ul>
 
       {!formOpen ? (
-        <button
+        <Button
           type="button"
           onClick={() => {
             setForm(EMPTY)
             setAdding(true)
           }}
-          className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-700"
         >
           Add address
-        </button>
+        </Button>
       ) : (
         <form
-          className="space-y-3 rounded-lg border border-gray-200 p-4"
+          className="space-y-3 rounded-lg border border-border p-4"
           onSubmit={(e) => {
             e.preventDefault()
             setErrors({})
@@ -161,73 +177,90 @@ export function AddressManager({ initial }: { initial: Row[] }) {
             })
           }}
         >
-          {errors.form && <p className="text-xs text-red-600">{errors.form}</p>}
-          <Input
+          {errors.form && <p className="text-xs text-destructive">{errors.form}</p>}
+          <AddressField
+            id="addr-label"
+            label="Label (e.g. Home)"
             placeholder="Label (e.g. Home)"
             value={form.label}
             onChange={field("label")}
             err={errors.label}
           />
-          <Input
+          <AddressField
+            id="addr-name"
+            label="Full name"
             placeholder="Full name"
             value={form.name}
             onChange={field("name")}
             err={errors.name}
           />
-          <Input
+          <AddressField
+            id="addr-phone"
+            label="Phone"
             placeholder="Phone (+60…)"
             value={form.phone}
             onChange={field("phone")}
             err={errors.phone}
           />
-          <Input
+          <AddressField
+            id="addr-line1"
+            label="Address line 1"
             placeholder="Address line 1"
             value={form.line1}
             onChange={field("line1")}
             err={errors.line1}
           />
-          <Input
+          <AddressField
+            id="addr-line2"
+            label="Address line 2 (optional)"
             placeholder="Address line 2 (optional)"
             value={form.line2}
             onChange={field("line2")}
             err={errors.line2}
           />
-          <Input placeholder="City" value={form.city} onChange={field("city")} err={errors.city} />
-          <Input
+          <AddressField
+            id="addr-city"
+            label="City"
+            placeholder="City"
+            value={form.city}
+            onChange={field("city")}
+            err={errors.city}
+          />
+          <AddressField
+            id="addr-postcode"
+            label="Postcode"
             placeholder="Postcode"
             value={form.postcode}
             onChange={field("postcode")}
             err={errors.postcode}
           />
-          <select
-            value={form.state}
-            onChange={field("state")}
-            className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
-          >
-            <option value="">Select state…</option>
-            {MY_STATES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-          {errors.state && <p className="text-xs text-red-600">{errors.state}</p>}
+          <div>
+            <Label htmlFor="addr-state">State</Label>
+            <select
+              id="addr-state"
+              value={form.state}
+              onChange={field("state")}
+              className={cn(
+                "mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm",
+                "focus:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+              )}
+            >
+              <option value="">Select state…</option>
+              {MY_STATES.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+            {errors.state && <p className="mt-1 text-xs text-destructive">{errors.state}</p>}
+          </div>
           <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={pending}
-              className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-            >
+            <Button type="submit" disabled={pending}>
               {pending ? "Saving…" : editingId ? "Save changes" : "Save address"}
-            </button>
-            <button
-              type="button"
-              disabled={pending}
-              onClick={resetForm}
-              className="text-sm text-gray-500 hover:underline"
-            >
+            </Button>
+            <Button type="button" variant="ghost" disabled={pending} onClick={resetForm}>
               Cancel
-            </button>
+            </Button>
           </div>
         </form>
       )}
@@ -235,14 +268,21 @@ export function AddressManager({ initial }: { initial: Row[] }) {
   )
 }
 
-function Input({
+function AddressField({
+  id,
+  label,
   err,
   ...props
-}: React.InputHTMLAttributes<HTMLInputElement> & { err?: string | undefined }) {
+}: React.InputHTMLAttributes<HTMLInputElement> & {
+  id: string
+  label: string
+  err?: string | undefined
+}) {
   return (
     <div>
-      <input {...props} className="w-full rounded border border-gray-300 px-3 py-2 text-sm" />
-      {err && <p className="mt-1 text-xs text-red-600">{err}</p>}
+      <Label htmlFor={id}>{label}</Label>
+      <Input id={id} {...props} className="mt-1" />
+      {err && <p className="mt-1 text-xs text-destructive">{err}</p>}
     </div>
   )
 }

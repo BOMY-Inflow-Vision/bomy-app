@@ -43,29 +43,29 @@ export default async function SellerOrderDetailPage({ params }: Props) {
   if (!order) notFound()
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8">
+    <div className="mx-auto max-w-3xl px-4 py-8">
       <a
         href="/seller/dashboard/orders"
-        className="mb-6 block text-sm text-indigo-600 hover:underline"
+        className="mb-6 block text-sm text-primary hover:underline"
       >
         ← Back to orders
       </a>
 
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Order {order.id.slice(0, 8)}…</h1>
-        <span className="rounded-full bg-indigo-100 px-3 py-1 text-sm font-medium capitalize text-indigo-700">
+        <h1 className="text-2xl font-bold text-foreground">Order {order.id.slice(0, 8)}…</h1>
+        <span className="rounded-full bg-accent px-3 py-1 text-sm font-medium capitalize text-accent-foreground">
           {order.fulfilmentStatus}
         </span>
       </div>
 
-      <section className="mb-6 rounded-xl border border-gray-200 p-6">
-        <h2 className="mb-2 text-sm font-semibold text-gray-700">Items</h2>
+      <section className="mb-6 rounded-xl border border-border p-6">
+        <h2 className="mb-2 text-sm font-semibold text-foreground">Items</h2>
         <ul className="space-y-2">
           {order.items.map((item) => {
             const product = item.productSnapshot as { name?: string }
             const variant = item.variantSnapshot as { name?: string }
             return (
-              <li key={item.id} className="flex justify-between text-sm text-gray-700">
+              <li key={item.id} className="flex justify-between text-sm text-foreground">
                 <span>
                   {product.name ?? "Product"} — {variant.name ?? "Default"} × {item.quantity}
                 </span>
@@ -76,12 +76,12 @@ export default async function SellerOrderDetailPage({ params }: Props) {
         </ul>
       </section>
 
-      <section className="mb-6 space-y-2 rounded-xl border border-gray-200 p-6 text-sm text-gray-700">
-        <div className="flex justify-between font-semibold text-gray-900">
+      <section className="mb-6 space-y-2 rounded-xl border border-border p-6 text-sm text-foreground">
+        <div className="flex justify-between font-semibold text-foreground">
           <span>Your payout</span>
           <span>RM {senToMyr(order.sellerPayoutSen)}</span>
         </div>
-        <div className="flex justify-between text-gray-500">
+        <div className="flex justify-between text-muted-foreground">
           <span>Payment processing fee</span>
           <span>RM {senToMyr(order.pspFeeAllocatedSen)}</span>
         </div>
@@ -98,6 +98,6 @@ export default async function SellerOrderDetailPage({ params }: Props) {
       )}
 
       {order.fulfilmentStatus === "shipped" && <MarkDeliveredButton orderId={order.id} />}
-    </main>
+    </div>
   )
 }

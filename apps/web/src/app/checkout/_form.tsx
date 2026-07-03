@@ -2,11 +2,15 @@
 
 import { useEffect, useState, useTransition } from "react"
 
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { useCart } from "@/lib/cart"
 import { CHECKOUT_USER_COPY } from "@/lib/checkout-errors"
 import { formatMyrSen } from "@/lib/format"
 import { MY_STATES, validateShippingAddress } from "@/lib/shipping-address-schema"
 import type { ShippingAddressErrors } from "@/lib/shipping-address-schema"
+import { cn } from "@/lib/utils"
 
 import { addAddress } from "../account/addresses/actions"
 import { initiateCheckout, priceCheckoutPreview } from "./actions"
@@ -165,13 +169,13 @@ export function CheckoutForm({ savedAddresses = [] }: { savedAddresses?: SavedAd
   }
 
   if (!hydrated) {
-    return <p className="text-sm text-gray-500">Loading cart…</p>
+    return <p className="text-sm text-muted-foreground">Loading cart…</p>
   }
 
   if (items.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
-        <p className="text-sm text-gray-600">Your cart is empty.</p>
+      <div className="rounded-xl border border-dashed border-input bg-muted p-6 text-center">
+        <p className="text-sm text-muted-foreground">Your cart is empty.</p>
       </div>
     )
   }
@@ -201,18 +205,18 @@ export function CheckoutForm({ savedAddresses = [] }: { savedAddresses?: SavedAd
 
       {/* Order summary */}
       <section>
-        <h2 className="mb-3 text-base font-semibold text-gray-900">Order summary</h2>
+        <h2 className="mb-3 text-base font-semibold text-foreground">Order summary</h2>
         {preview === null || isPending ? (
           <div className="animate-pulse space-y-2">
-            <div className="h-4 w-3/4 rounded bg-gray-200" />
-            <div className="h-4 w-1/2 rounded bg-gray-200" />
-            <div className="h-4 w-2/3 rounded bg-gray-200" />
+            <div className="h-4 w-3/4 rounded bg-muted" />
+            <div className="h-4 w-1/2 rounded bg-muted" />
+            <div className="h-4 w-2/3 rounded bg-muted" />
           </div>
         ) : preview.ok ? (
-          <div className="divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white">
+          <div className="divide-y divide-border rounded-lg border border-border bg-background">
             {preview.storeRows.map((row) => (
               <div key={row.storeId} className="px-4 py-3 text-sm">
-                <div className="flex justify-between text-gray-700">
+                <div className="flex justify-between text-foreground">
                   <span>Subtotal</span>
                   <span>{formatMyrSen(Number(row.retailSubtotalSen))}</span>
                 </div>
@@ -228,30 +232,30 @@ export function CheckoutForm({ savedAddresses = [] }: { savedAddresses?: SavedAd
                     <span>−{formatMyrSen(Number(row.voucherContributionSen))}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-gray-600">
+                <div className="flex justify-between text-muted-foreground">
                   <span>Shipping</span>
                   <span>{formatMyrSen(Number(row.shippingFeeSen))}</span>
                 </div>
               </div>
             ))}
             <div className="px-4 py-3 text-sm font-semibold">
-              <div className="flex justify-between text-gray-900">
+              <div className="flex justify-between text-foreground">
                 <span>Total</span>
                 <span>{formatMyrSen(Number(preview.totalBuyerPaysSen))}</span>
               </div>
             </div>
           </div>
         ) : (
-          <p className="text-sm text-red-600">{CHECKOUT_USER_COPY[preview.error]}</p>
+          <p className="text-sm text-destructive">{CHECKOUT_USER_COPY[preview.error]}</p>
         )}
       </section>
 
       {/* Voucher */}
       {availableVouchers.length > 0 && (
         <section>
-          <h2 className="mb-3 text-base font-semibold text-gray-900">Voucher</h2>
+          <h2 className="mb-3 text-base font-semibold text-foreground">Voucher</h2>
           <select
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400"
+            className="w-full rounded-lg border border-input px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             value={voucherId ?? ""}
             onChange={(e) => setVoucherId(e.target.value || null)}
           >
@@ -267,13 +271,16 @@ export function CheckoutForm({ savedAddresses = [] }: { savedAddresses?: SavedAd
 
       {/* Shipping address */}
       <section>
-        <h2 className="mb-3 text-base font-semibold text-gray-900">Shipping address</h2>
+        <h2 className="mb-3 text-base font-semibold text-foreground">Shipping address</h2>
         {savedAddresses.length > 0 && (
           <div className="mb-4">
             <select
               value={selectedId}
               onChange={(e) => setSelectedId(e.target.value)}
-              className={inputClass(false)}
+              className={cn(
+                "w-full rounded-lg border px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2",
+                "border-input focus:ring-ring",
+              )}
             >
               {savedAddresses.map((a) => (
                 <option key={a.id} value={a.id}>
@@ -285,7 +292,7 @@ export function CheckoutForm({ savedAddresses = [] }: { savedAddresses?: SavedAd
           </div>
         )}
         {selectedId !== "new" ? (
-          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+          <div className="rounded-lg border border-border bg-muted p-4 text-sm text-foreground">
             {[
               address.name,
               address.phone,
@@ -300,60 +307,76 @@ export function CheckoutForm({ savedAddresses = [] }: { savedAddresses?: SavedAd
           </div>
         ) : (
           <div className="space-y-4">
-            <Field label="Full name" error={fieldErrors.name}>
-              <input
+            <Field label="Full name" fieldId="addr-name" error={fieldErrors.name}>
+              <Input
+                id="addr-name"
                 type="text"
                 autoComplete="name"
                 value={address.name}
                 onChange={handleAddressField("name")}
-                className={inputClass(!!fieldErrors.name)}
+                className={cn(
+                  fieldErrors.name && "border-destructive focus-visible:ring-destructive",
+                )}
               />
             </Field>
 
-            <Field label="Phone" error={fieldErrors.phone}>
-              <input
+            <Field label="Phone" fieldId="addr-phone" error={fieldErrors.phone}>
+              <Input
+                id="addr-phone"
                 type="tel"
                 autoComplete="tel"
                 placeholder="+60123456789"
                 value={address.phone}
                 onChange={handleAddressField("phone")}
-                className={inputClass(!!fieldErrors.phone)}
+                className={cn(
+                  fieldErrors.phone && "border-destructive focus-visible:ring-destructive",
+                )}
               />
             </Field>
 
-            <Field label="Address line 1" error={fieldErrors.line1}>
-              <input
+            <Field label="Address line 1" fieldId="addr-line1" error={fieldErrors.line1}>
+              <Input
+                id="addr-line1"
                 type="text"
                 autoComplete="address-line1"
                 value={address.line1}
                 onChange={handleAddressField("line1")}
-                className={inputClass(!!fieldErrors.line1)}
+                className={cn(
+                  fieldErrors.line1 && "border-destructive focus-visible:ring-destructive",
+                )}
               />
             </Field>
 
-            <Field label="Address line 2 (optional)" error={fieldErrors.line2}>
-              <input
+            <Field label="Address line 2 (optional)" fieldId="addr-line2" error={fieldErrors.line2}>
+              <Input
+                id="addr-line2"
                 type="text"
                 autoComplete="address-line2"
                 value={address.line2}
                 onChange={handleAddressField("line2")}
-                className={inputClass(!!fieldErrors.line2)}
+                className={cn(
+                  fieldErrors.line2 && "border-destructive focus-visible:ring-destructive",
+                )}
               />
             </Field>
 
             <div className="grid grid-cols-2 gap-4">
-              <Field label="City" error={fieldErrors.city}>
-                <input
+              <Field label="City" fieldId="addr-city" error={fieldErrors.city}>
+                <Input
+                  id="addr-city"
                   type="text"
                   autoComplete="address-level2"
                   value={address.city}
                   onChange={handleAddressField("city")}
-                  className={inputClass(!!fieldErrors.city)}
+                  className={cn(
+                    fieldErrors.city && "border-destructive focus-visible:ring-destructive",
+                  )}
                 />
               </Field>
 
-              <Field label="Postcode" error={fieldErrors.postcode}>
-                <input
+              <Field label="Postcode" fieldId="addr-postcode" error={fieldErrors.postcode}>
+                <Input
+                  id="addr-postcode"
                   type="text"
                   inputMode="numeric"
                   pattern="[0-9]{5}"
@@ -361,17 +384,25 @@ export function CheckoutForm({ savedAddresses = [] }: { savedAddresses?: SavedAd
                   autoComplete="postal-code"
                   value={address.postcode}
                   onChange={handleAddressField("postcode")}
-                  className={inputClass(!!fieldErrors.postcode)}
+                  className={cn(
+                    fieldErrors.postcode && "border-destructive focus-visible:ring-destructive",
+                  )}
                 />
               </Field>
             </div>
 
-            <Field label="State" error={fieldErrors.state}>
+            <Field label="State" fieldId="addr-state" error={fieldErrors.state}>
               <select
+                id="addr-state"
                 autoComplete="address-level1"
                 value={address.state}
                 onChange={handleAddressField("state")}
-                className={inputClass(!!fieldErrors.state)}
+                className={cn(
+                  "w-full rounded-lg border px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2",
+                  fieldErrors.state
+                    ? "border-destructive focus:ring-destructive"
+                    : "border-input focus:ring-ring",
+                )}
               >
                 <option value="">Select state…</option>
                 {MY_STATES.map((s) => (
@@ -382,7 +413,7 @@ export function CheckoutForm({ savedAddresses = [] }: { savedAddresses?: SavedAd
               </select>
             </Field>
 
-            <label className="flex items-center gap-2 text-sm text-gray-700">
+            <label className="flex items-center gap-2 text-sm text-foreground">
               <input
                 type="checkbox"
                 checked={saveToBook}
@@ -396,44 +427,37 @@ export function CheckoutForm({ savedAddresses = [] }: { savedAddresses?: SavedAd
 
       {/* Top error banner */}
       {topError && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3">
-          <p className="text-sm text-red-700">{topError}</p>
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3">
+          <p className="text-sm text-destructive">{topError}</p>
         </div>
       )}
 
-      <button
-        type="submit"
-        disabled={isPending}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-gray-900 px-6 py-3 text-sm font-semibold text-white hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
-      >
+      <Button type="submit" size="lg" disabled={isPending} className="w-full">
         {isPending && <Spinner />}
         {isPending ? "Processing…" : "Proceed to payment"}
-      </button>
+      </Button>
     </form>
   )
 }
 
-function inputClass(hasError: boolean) {
-  return [
-    "w-full rounded-lg border px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2",
-    hasError ? "border-red-400 focus:ring-red-300" : "border-gray-300 focus:ring-gray-400",
-  ].join(" ")
-}
-
 function Field({
   label,
+  fieldId,
   error,
   children,
 }: {
   label: string
+  fieldId: string
   error?: string | undefined
   children: React.ReactNode
 }) {
   return (
     <div>
-      <label className="mb-1 block text-sm font-medium text-gray-700">{label}</label>
+      <Label htmlFor={fieldId} className="mb-1 block text-sm font-medium">
+        {label}
+      </Label>
       {children}
-      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+      {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
     </div>
   )
 }

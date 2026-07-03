@@ -19,26 +19,26 @@ export default async function ConsentPage() {
   const version = session.user.currentTosVersion ?? "current"
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-50">
-      <div className="w-full max-w-lg rounded-2xl bg-white p-8 shadow-sm ring-1 ring-gray-200">
+    <main className="flex min-h-screen items-center justify-center bg-muted">
+      <div className="w-full max-w-lg rounded-2xl bg-background p-8 shadow-sm ring-1 ring-border">
         <div className="mb-6 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             Before you continue
           </h1>
-          <p className="mt-2 text-sm text-gray-500">
+          <p className="mt-2 text-sm text-muted-foreground">
             Please review and accept our updated Terms of Service and Privacy Policy (version{" "}
             {version}) to use BOMY.
           </p>
         </div>
 
-        <div className="mb-6 rounded-lg bg-gray-50 p-4 text-sm text-gray-700">
+        <div className="mb-6 rounded-lg bg-muted p-4 text-sm text-foreground">
           <p>
             By clicking <strong>I Agree</strong>, you confirm you have read and accept our{" "}
-            <a href="/terms" target="_blank" className="text-gray-900 underline">
+            <a href="/terms" target="_blank" className="text-foreground underline">
               Terms of Service
             </a>{" "}
             and{" "}
-            <a href="/privacy" target="_blank" className="text-gray-900 underline">
+            <a href="/privacy" target="_blank" className="text-foreground underline">
               Privacy Policy
             </a>
             .

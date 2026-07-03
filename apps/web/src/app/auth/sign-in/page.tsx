@@ -11,11 +11,11 @@ export default function SignInPage({
   searchParams: Promise<{ consent?: string }>
 }) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-50">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-sm ring-1 ring-gray-200">
+    <main className="flex min-h-screen items-center justify-center bg-muted">
+      <div className="w-full max-w-sm rounded-2xl bg-background p-8 shadow-sm ring-1 ring-border">
         <div className="mb-8 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Sign in to BOMY</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Sign in to BOMY</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             {emailEnabled
               ? "Choose how you'd like to sign in"
               : "Continue with your Google account"}
@@ -31,7 +31,7 @@ export default function SignInPage({
               await signIn("google", { redirectTo: "/auth/consent" })
             }}
           >
-            <SubmitButton className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50">
+            <SubmitButton className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted">
               <GoogleIcon />
               Continue with Google
             </SubmitButton>
@@ -40,9 +40,9 @@ export default function SignInPage({
           {emailEnabled && (
             <>
               <div className="relative flex items-center">
-                <div className="flex-grow border-t border-gray-200" />
-                <span className="mx-3 flex-shrink text-xs text-gray-400">or</span>
-                <div className="flex-grow border-t border-gray-200" />
+                <div className="flex-grow border-t border-border" />
+                <span className="mx-3 flex-shrink text-xs text-muted-foreground">or</span>
+                <div className="flex-grow border-t border-border" />
               </div>
 
               <MagicLinkForm />
@@ -50,7 +50,7 @@ export default function SignInPage({
           )}
         </div>
 
-        <p className="mt-6 text-center text-xs text-gray-400">
+        <p className="mt-6 text-center text-xs text-muted-foreground">
           By continuing you agree to our{" "}
           <a href="/terms" className="underline">
             Terms of Service

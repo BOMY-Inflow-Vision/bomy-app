@@ -1,11 +1,16 @@
+import Link from "next/link"
 import { redirect } from "next/navigation"
 
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { createStore } from "../actions"
 
 export default function NewStorePage() {
   return (
     <div className="p-6">
-      <h1 className="mb-6 text-lg font-semibold text-gray-900">Create Store</h1>
+      <h1 className="mb-6 text-lg font-semibold text-foreground">Create Store</h1>
       <form
         action={async (formData) => {
           "use server"
@@ -15,60 +20,56 @@ export default function NewStorePage() {
         className="max-w-md space-y-4"
       >
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">Owner Email *</label>
-          <input
+          <Label htmlFor="ownerEmail" className="mb-1 block">
+            Owner Email *
+          </Label>
+          <Input
+            id="ownerEmail"
             name="ownerEmail"
             type="email"
             required
             placeholder="seller@example.com"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
           />
-          <p className="mt-1 text-xs text-gray-400">User must already exist in the system</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            User must already exist in the system
+          </p>
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">Store Name *</label>
-          <input
-            name="name"
-            required
-            placeholder="Kedai Maju"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
-          />
+          <Label htmlFor="name" className="mb-1 block">
+            Store Name *
+          </Label>
+          <Input id="name" name="name" required placeholder="Kedai Maju" />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">Slug *</label>
-          <input
+          <Label htmlFor="slug" className="mb-1 block">
+            Slug *
+          </Label>
+          <Input
+            id="slug"
             name="slug"
             required
             placeholder="kedai-maju"
             pattern="[a-z0-9-]{3,50}"
             title="Lowercase letters, numbers, hyphens only. 3–50 characters."
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:border-indigo-500 focus:outline-none"
+            className="font-mono"
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">
+          <Label htmlFor="description" className="mb-1 block">
             Description (optional)
-          </label>
-          <textarea
+          </Label>
+          <Textarea
+            id="description"
             name="description"
             rows={3}
             placeholder="Brief description of the store"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
           />
         </div>
         <div className="flex gap-3">
-          <button
-            type="submit"
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-          >
-            Create Store
-          </button>
-          <a
-            href="/stores"
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Cancel
-          </a>
+          <Button type="submit">Create Store</Button>
+          <Button variant="outline" asChild>
+            <Link href="/stores">Cancel</Link>
+          </Button>
         </div>
       </form>
     </div>

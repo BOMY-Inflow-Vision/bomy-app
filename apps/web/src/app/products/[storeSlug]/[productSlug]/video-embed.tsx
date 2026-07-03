@@ -15,7 +15,7 @@ export function VideoEmbed({ videoId, title }: { videoId: string; title?: string
     return (
       <button
         type="button"
-        className="relative flex aspect-video w-full cursor-pointer items-center justify-center rounded bg-gray-900 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+        className="relative flex aspect-video w-full cursor-pointer items-center justify-center rounded bg-foreground text-background focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-background"
         onClick={() => setActive(true)}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {

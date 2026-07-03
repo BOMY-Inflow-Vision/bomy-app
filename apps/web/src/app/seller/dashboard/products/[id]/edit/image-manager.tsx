@@ -2,6 +2,9 @@
 
 import { useEffect, useRef, useState } from "react"
 
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+
 import { addProductImage, getPresignedUploadUrl, removeProductImage } from "../../actions"
 
 type ProductImage = {
@@ -87,72 +90,78 @@ export function ImageManager({
   }
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-      <h2 className="mb-4 text-sm font-semibold text-gray-700">Images</h2>
+    <Card>
+      <CardContent className="p-6">
+        <h2 className="mb-4 text-sm font-semibold text-foreground">Images</h2>
 
-      {error && <p className="mb-3 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</p>}
+        {error && (
+          <p className="mb-3 rounded-lg bg-destructive/10 px-4 py-2 text-sm text-destructive">
+            {error}
+          </p>
+        )}
 
-      <div className="mb-4 flex flex-wrap gap-3">
-        {images.map((img) => (
-          <div key={img.id} className="group relative">
-            <img
-              src={img.url}
-              alt={img.altText ?? ""}
-              className="h-24 w-24 rounded-lg object-cover ring-1 ring-gray-200"
-            />
-            <button
-              type="button"
-              onClick={() => {
-                void handleRemove(img.id)
-              }}
-              className="absolute right-1 top-1 hidden rounded-full bg-red-500 p-0.5 text-white group-hover:block"
-              aria-label="Remove image"
-            >
-              <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none">
-                <path
-                  d="M1 1l10 10M11 1L1 11"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </button>
-          </div>
-        ))}
-
-        <label
-          className={`relative flex h-24 w-24 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-gray-300 text-gray-400 hover:border-indigo-400 hover:text-indigo-500 ${uploading ? "pointer-events-none" : ""}`}
-        >
-          {uploading ? (
-            <>
-              <span className="z-10 text-xs font-medium text-indigo-600">{progress}%</span>
-              <div
-                className="absolute bottom-0 left-0 h-1.5 bg-indigo-500 transition-all duration-150"
-                style={{ width: `${progress}%` }}
+        <div className="mb-4 flex flex-wrap gap-3">
+          {images.map((img) => (
+            <div key={img.id} className="group relative">
+              <img
+                src={img.url}
+                alt={img.altText ?? ""}
+                className="h-24 w-24 rounded-lg object-cover ring-1 ring-border"
               />
-            </>
-          ) : (
-            <>
-              <span className="text-2xl">+</span>
-              <span className="text-xs">Add image</span>
-            </>
-          )}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              void handleFileChange(e)
-            }}
-            disabled={uploading}
-          />
-        </label>
-      </div>
+              <Button
+                type="button"
+                onClick={() => {
+                  void handleRemove(img.id)
+                }}
+                className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 p-0.5 text-white transition-opacity hover:bg-red-600 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
+                aria-label="Remove image"
+              >
+                <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                  <path
+                    d="M1 1l10 10M11 1L1 11"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </Button>
+            </div>
+          ))}
 
-      <p className="text-xs text-gray-400">
-        JPEG, PNG, WebP. Max 2 MB per image. Images are uploaded directly to cloud storage.
-      </p>
-    </div>
+          <label
+            className={`relative flex h-24 w-24 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-input text-muted-foreground hover:border-primary hover:text-primary ${uploading ? "pointer-events-none" : ""}`}
+          >
+            {uploading ? (
+              <>
+                <span className="z-10 text-xs font-medium text-primary">{progress}%</span>
+                <div
+                  className="absolute bottom-0 left-0 h-1.5 bg-primary transition-all duration-150"
+                  style={{ width: `${progress}%` }}
+                />
+              </>
+            ) : (
+              <>
+                <span className="text-2xl">+</span>
+                <span className="text-xs">Add image</span>
+              </>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                void handleFileChange(e)
+              }}
+              disabled={uploading}
+            />
+          </label>
+        </div>
+
+        <p className="text-xs text-muted-foreground">
+          JPEG, PNG, WebP. Max 2 MB per image. Images are uploaded directly to cloud storage.
+        </p>
+      </CardContent>
+    </Card>
   )
 }

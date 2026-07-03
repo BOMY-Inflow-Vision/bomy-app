@@ -2,6 +2,9 @@
 
 import { useRef, useState, useTransition } from "react"
 
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { createCategory } from "./actions"
 
 export function NewCategoryForm() {
@@ -23,20 +26,20 @@ export function NewCategoryForm() {
 
   return (
     <form ref={ref} action={submit} className="flex items-center gap-2">
-      <input
+      <Label htmlFor="new-category-name" className="sr-only">
+        New category name
+      </Label>
+      <Input
+        id="new-category-name"
         name="name"
         required
         placeholder="Category name"
-        className="rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        className="w-48"
       />
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-      >
+      <Button type="submit" disabled={pending}>
         {pending ? "Adding…" : "Add Category"}
-      </button>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      </Button>
+      {error && <p className="text-sm text-destructive">{error}</p>}
     </form>
   )
 }
