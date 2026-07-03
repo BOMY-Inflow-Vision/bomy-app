@@ -159,7 +159,11 @@ export default async function GoodieBoxPage({
                       action={markDispatched.bind(null, row.id)}
                       className="flex items-center gap-2"
                     >
+                      <label htmlFor={`tracking-${row.id}`} className="sr-only">
+                        Tracking number
+                      </label>
                       <Input
+                        id={`tracking-${row.id}`}
                         name="trackingNumber"
                         placeholder="Tracking no."
                         required

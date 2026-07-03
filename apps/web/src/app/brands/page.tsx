@@ -66,10 +66,10 @@ export default async function BrandsPage({ searchParams }: Props) {
         )}
       </form>
 
-      <div className="flex gap-6">
+      <div className="flex flex-col gap-6 sm:flex-row">
         {/* Category sidebar */}
         {storeCategories.length > 0 && (
-          <aside className="w-44 shrink-0">
+          <aside className="w-full sm:w-44 sm:shrink-0">
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Categories
             </p>

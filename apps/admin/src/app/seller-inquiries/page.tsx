@@ -109,7 +109,11 @@ export default async function SellerInquiriesPage({
           <form method="get" className="flex items-center gap-1">
             {isStatus(status) && <input type="hidden" name="status" value={status} />}
             {sortKey !== "created_desc" && <input type="hidden" name="sort" value={sortKey} />}
+            <label htmlFor="inquiries-search" className="sr-only">
+              Search inquiries
+            </label>
             <Input
+              id="inquiries-search"
               type="text"
               name="q"
               defaultValue={q ?? ""}

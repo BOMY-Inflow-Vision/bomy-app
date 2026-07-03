@@ -55,7 +55,7 @@ export default async function SellerOrdersPage({ searchParams }: Props) {
   const statuses = ["processing", "shipped", "delivered", "completed", "cancelled"]
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8">
+    <div className="mx-auto max-w-5xl px-4 py-8">
       <h1 className="mb-6 text-2xl font-bold text-foreground">Orders</h1>
 
       <div className="mb-6 flex gap-2">
@@ -117,6 +117,6 @@ export default async function SellerOrdersPage({ searchParams }: Props) {
           ))}
         </div>
       )}
-    </main>
+    </div>
   )
 }

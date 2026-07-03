@@ -28,9 +28,14 @@ export default async function ProductsPage({ searchParams }: Props) {
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
+      <h1 className="mb-6 text-2xl font-bold text-foreground">Products</h1>
       {/* Search bar */}
       <form method="get" className="mb-6 flex gap-2">
+        <label htmlFor="products-search" className="sr-only">
+          Search products
+        </label>
         <input
+          id="products-search"
           name="q"
           defaultValue={q}
           placeholder="Search products…"
@@ -49,9 +54,9 @@ export default async function ProductsPage({ searchParams }: Props) {
         )}
       </form>
 
-      <div className="flex gap-6">
+      <div className="flex flex-col gap-6 sm:flex-row">
         {/* Category sidebar */}
-        <aside className="w-44 shrink-0">
+        <aside className="w-full sm:w-44 sm:shrink-0">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Categories
           </p>

@@ -52,22 +52,22 @@ export function UserEditor({
 
   return (
     <div className="flex flex-col gap-1">
-      <Label htmlFor="edit-name" className="sr-only">
+      <Label htmlFor={`edit-name-${userId}`} className="sr-only">
         Name
       </Label>
       <Input
-        id="edit-name"
+        id={`edit-name-${userId}`}
         value={nameVal}
         onChange={(e) => setNameVal(e.target.value)}
         placeholder="Name"
         className="h-7 px-2 py-1 text-xs"
       />
       {errors.name && <span className="text-xs text-destructive">{errors.name}</span>}
-      <Label htmlFor="edit-email" className="sr-only">
+      <Label htmlFor={`edit-email-${userId}`} className="sr-only">
         Email
       </Label>
       <Input
-        id="edit-email"
+        id={`edit-email-${userId}`}
         value={emailVal}
         onChange={(e) => setEmailVal(e.target.value)}
         placeholder="Email"

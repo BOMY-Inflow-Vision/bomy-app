@@ -59,7 +59,7 @@ export default async function SellerInquiryDetailPage({ params }: Props) {
   if (!row) notFound()
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8">
+    <div className="mx-auto max-w-3xl px-4 py-8">
       <Link href="/seller-inquiries" className="mb-6 block text-sm text-primary hover:underline">
         ← Back to inquiries
       </Link>
@@ -116,6 +116,6 @@ export default async function SellerInquiryDetailPage({ params }: Props) {
           {row.reviewerName ? ` by ${row.reviewerName}` : ""}.
         </div>
       )}
-    </main>
+    </div>
   )
 }

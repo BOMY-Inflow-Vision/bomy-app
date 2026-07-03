@@ -123,7 +123,11 @@ export default async function StoresPage({
           <form method="get" className="flex items-center gap-1">
             {isStoreStatus(status) && <input type="hidden" name="status" value={status} />}
             {sortKey !== "created_desc" && <input type="hidden" name="sort" value={sortKey} />}
+            <label htmlFor="stores-search" className="sr-only">
+              Search stores
+            </label>
             <Input
+              id="stores-search"
               type="text"
               name="q"
               defaultValue={q ?? ""}

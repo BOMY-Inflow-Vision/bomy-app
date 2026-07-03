@@ -88,11 +88,11 @@ export function PayoutActions({ payoutId, status }: Props) {
 
       {showComplete && (
         <div className="flex flex-col gap-1">
-          <Label htmlFor="manual-ref" className="sr-only">
+          <Label htmlFor={`manual-ref-${payoutId}`} className="sr-only">
             Manual reference
           </Label>
           <Input
-            id="manual-ref"
+            id={`manual-ref-${payoutId}`}
             value={manualRef}
             onChange={(e) => setManualRef(e.target.value)}
             placeholder="Manual ref (required)"
@@ -129,11 +129,11 @@ export function PayoutActions({ payoutId, status }: Props) {
 
       {showFail && (
         <div className="flex flex-col gap-1">
-          <Label htmlFor="fail-notes" className="sr-only">
+          <Label htmlFor={`fail-notes-${payoutId}`} className="sr-only">
             Fail notes
           </Label>
           <Textarea
-            id="fail-notes"
+            id={`fail-notes-${payoutId}`}
             value={failNotes}
             onChange={(e) => setFailNotes(e.target.value)}
             placeholder="Notes (required)"

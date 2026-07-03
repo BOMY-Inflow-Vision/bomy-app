@@ -113,7 +113,7 @@ export function ImageManager({
                 onClick={() => {
                   void handleRemove(img.id)
                 }}
-                className="absolute right-1 top-1 hidden h-5 w-5 rounded-full bg-red-500 p-0.5 text-white group-hover:flex items-center justify-center hover:bg-red-600"
+                className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 p-0.5 text-white opacity-0 transition-opacity hover:bg-red-600 group-hover:opacity-100 focus-visible:opacity-100"
                 aria-label="Remove image"
               >
                 <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none" aria-hidden="true">

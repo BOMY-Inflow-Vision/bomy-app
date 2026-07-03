@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 
 export default function UnauthorizedPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center">
+    <div className="flex min-h-screen items-center justify-center">
       <div className="text-center">
         <h1 className="text-2xl font-semibold text-foreground">Access Denied</h1>
         <p className="mt-2 text-sm text-muted-foreground">
@@ -14,6 +14,6 @@ export default function UnauthorizedPage() {
           <Link href="/auth/sign-in">Sign in with a different account</Link>
         </Button>
       </div>
-    </main>
+    </div>
   )
 }

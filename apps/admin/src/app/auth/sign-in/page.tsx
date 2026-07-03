@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button"
 
 export default function SignInPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-900">
+    <div className="flex min-h-screen items-center justify-center bg-slate-900">
       <div className="w-full max-w-sm rounded-2xl bg-background p-8 shadow-sm">
         <div className="mb-8 text-center">
           <h1 className="text-xl font-semibold text-foreground">Admin Sign In</h1>
@@ -22,6 +22,6 @@ export default function SignInPage() {
           </Button>
         </form>
       </div>
-    </main>
+    </div>
   )
 }
