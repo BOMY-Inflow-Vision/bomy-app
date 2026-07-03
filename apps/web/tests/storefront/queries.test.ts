@@ -549,6 +549,116 @@ describe.skipIf(!shouldRun)("getBrands store category pills", () => {
   })
 })
 
+describe.skipIf(!shouldRun)("getBrands category filter", () => {
+  let testDb: ReturnType<typeof makeDb>
+  let userId: string
+  let filteredStoreId: string
+  let unfilteredStoreId: string
+  let storeCatId: string
+  let filteredSlug: string
+  let unfilteredSlug: string
+
+  beforeAll(async () => {
+    process.env["DATABASE_URL"] = DATABASE_URL as string
+    testDb = makeDb({ url: DATABASE_URL as string })
+    userId = randomUUID()
+    filteredSlug = `cf-a-${randomUUID().slice(0, 8)}`
+    unfilteredSlug = `cf-b-${randomUUID().slice(0, 8)}`
+
+    await withAdmin(
+      testDb.db,
+      { userId: SYSTEM_ACTOR, reason: "getBrands category filter setup" },
+      async (tx) => {
+        await tx.insert(schema.users).values({
+          id: userId,
+          email: `${userId}@test.bomy`,
+          role: "seller_owner",
+          name: "CF Seller",
+        })
+
+        const [cat] = await tx
+          .insert(schema.storeCategories)
+          .values({
+            name: `CF Cat ${randomUUID().slice(0, 6)}`,
+            slug: `cfcat-${randomUUID().slice(0, 8)}`,
+            isActive: true,
+          })
+          .returning({ id: schema.storeCategories.id })
+        storeCatId = cat!.id
+
+        const [storeA] = await tx
+          .insert(schema.stores)
+          .values({
+            ownerId: userId,
+            name: `CF ${filteredSlug}`,
+            slug: filteredSlug,
+            status: "active",
+          })
+          .returning({ id: schema.stores.id })
+        filteredStoreId = storeA!.id
+
+        const [storeB] = await tx
+          .insert(schema.stores)
+          .values({
+            ownerId: userId,
+            name: `CF ${unfilteredSlug}`,
+            slug: unfilteredSlug,
+            status: "active",
+          })
+          .returning({ id: schema.stores.id })
+        unfilteredStoreId = storeB!.id
+
+        await tx
+          .insert(schema.storeCategoryAssignments)
+          .values({ storeId: filteredStoreId, storeCategoryId: storeCatId })
+      },
+    )
+  })
+
+  afterAll(async () => {
+    await withAdmin(
+      testDb.db,
+      { userId: SYSTEM_ACTOR, reason: "getBrands category filter cleanup" },
+      async (tx) => {
+        await tx
+          .delete(schema.storeCategoryAssignments)
+          .where(eq(schema.storeCategoryAssignments.storeId, filteredStoreId))
+        await tx.delete(schema.storeCategories).where(eq(schema.storeCategories.id, storeCatId))
+        await tx.delete(schema.stores).where(eq(schema.stores.id, filteredStoreId))
+        await tx.delete(schema.stores).where(eq(schema.stores.id, unfilteredStoreId))
+        await tx.delete(schema.users).where(eq(schema.users.id, userId))
+      },
+    )
+    await testDb.close()
+  })
+
+  it("returns only stores assigned to the given storeCategoryId", async () => {
+    const { brands } = await getBrands({ storeCategoryId: storeCatId })
+    expect(brands.some((b) => b.id === filteredStoreId)).toBe(true)
+    expect(brands.some((b) => b.id === unfilteredStoreId)).toBe(false)
+  })
+
+  it("combined query + storeCategoryId returns matching store", async () => {
+    const { brands } = await getBrands({ query: filteredSlug, storeCategoryId: storeCatId })
+    expect(brands.find((b) => b.id === filteredStoreId)).toBeDefined()
+  })
+
+  it("query match without storeCategoryId match returns empty", async () => {
+    const { brands } = await getBrands({ query: filteredSlug, storeCategoryId: randomUUID() })
+    expect(brands.find((b) => b.id === filteredStoreId)).toBeUndefined()
+  })
+
+  it("invalid UUID storeCategoryId is silently ignored — falls back to unfiltered results", async () => {
+    const { brands } = await getBrands({ query: filteredSlug, storeCategoryId: "not-a-uuid" })
+    expect(brands.find((b) => b.id === filteredStoreId)).toBeDefined()
+  })
+
+  it("valid UUID with no matching stores returns empty", async () => {
+    const { brands } = await getBrands({ query: filteredSlug, storeCategoryId: randomUUID() })
+    expect(brands.find((b) => b.id === filteredStoreId)).toBeUndefined()
+  })
+})
+
 describe.skipIf(!shouldRun)("updateStoreCategories action", () => {
   let testDb: ReturnType<typeof makeDb>
   let sellerId: string
