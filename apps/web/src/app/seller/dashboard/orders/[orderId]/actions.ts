@@ -2,7 +2,7 @@
 
 import { and, eq, inArray } from "drizzle-orm"
 
-import { makeDb, schema, withAdmin } from "@bomy/db"
+import { makeDb, schema, withAdmin, withTenant, type UserRole } from "@bomy/db"
 
 import { auth } from "@/auth"
 
@@ -14,9 +14,10 @@ function getDb() {
 
 type Result = { ok: true } | { ok: false; error: "UNAUTHENTICATED" | "NOT_FOUND" }
 
-async function resolveStoreId(userId: string): Promise<string | null> {
+async function resolveStoreId(userId: string, userRole: UserRole): Promise<string | null> {
+  if (userRole !== "seller_owner") return null
   const db = getDb()
-  const rows = await withAdmin(db, { userId, reason: "seller resolveStoreId" }, async (tx) =>
+  const rows = await withTenant(db, { userId, userRole }, async (tx) =>
     tx
       .select({ id: schema.stores.id })
       .from(schema.stores)
@@ -35,7 +36,7 @@ export async function enterTracking(
   if (!session) return { ok: false, error: "UNAUTHENTICATED" }
   const userId = session.user.id
 
-  const storeId = await resolveStoreId(userId)
+  const storeId = await resolveStoreId(userId, session.user.role)
   if (!storeId) return { ok: false, error: "NOT_FOUND" }
 
   const db = getDb()
@@ -82,7 +83,7 @@ export async function markDelivered(orderId: string): Promise<Result> {
   if (!session) return { ok: false, error: "UNAUTHENTICATED" }
   const userId = session.user.id
 
-  const storeId = await resolveStoreId(userId)
+  const storeId = await resolveStoreId(userId, session.user.role)
   if (!storeId) return { ok: false, error: "NOT_FOUND" }
 
   const db = getDb()

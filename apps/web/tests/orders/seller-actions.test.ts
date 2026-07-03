@@ -286,4 +286,34 @@ describe.skipIf(!shouldRun)("seller order actions", () => {
       error: "UNAUTHENTICATED",
     })
   })
+
+  it("36 — non-seller role: enterTracking → NOT_FOUND (role guard fires before DB write)", async () => {
+    const orderId = await seedOrder(storeAId, "processing")
+    mockAuth.mockResolvedValue({ user: { id: sellerAId, role: "buyer" } })
+    const result = await enterTracking(orderId, "DHL", "X")
+    expect(result).toEqual({ ok: false, error: "NOT_FOUND" })
+    // Verify the order was NOT updated (guard returned before any write)
+    const row = await readOrder(orderId)
+    expect(row?.fulfilmentStatus).toBe("processing")
+  })
+
+  it("37 — non-seller role: markDelivered → NOT_FOUND (role guard fires before DB write)", async () => {
+    const orderId = await seedOrder(storeAId, "shipped", new Date())
+    mockAuth.mockResolvedValue({ user: { id: sellerAId, role: "buyer" } })
+    const result = await markDelivered(orderId)
+    expect(result).toEqual({ ok: false, error: "NOT_FOUND" })
+    // Verify the order was NOT updated
+    const row = await readOrder(orderId)
+    expect(row?.fulfilmentStatus).toBe("shipped")
+  })
+
+  it("38 — store-resolution read emits no admin_bypass_audit row", async () => {
+    const orderId = await seedOrder(storeAId, "processing")
+    mockAuth.mockResolvedValue({ user: { id: sellerAId, role: "seller_owner" } })
+    const before = await countAuditByReason("seller resolveStoreId")
+    await enterTracking(orderId, "Pos Laju", "EE999000001MY")
+    const after = await countAuditByReason("seller resolveStoreId")
+    // withTenant emits no audit row; reason "seller resolveStoreId" must never appear
+    expect(after).toBe(before)
+  })
 })

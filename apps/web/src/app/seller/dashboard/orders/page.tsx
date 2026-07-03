@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm"
 import { redirect } from "next/navigation"
 
-import { makeDb, schema, withAdmin } from "@bomy/db"
+import { makeDb, schema, withTenant } from "@bomy/db"
 
 import { auth } from "@/auth"
 import { senToMyr } from "@/lib/money"
@@ -38,9 +38,9 @@ export default async function SellerOrdersPage({ searchParams }: Props) {
     redirect("/auth/sign-in")
   }
 
-  const [store] = await withAdmin(
+  const [store] = await withTenant(
     getDb(),
-    { userId: session.user.id, reason: "seller resolve store" },
+    { userId: session.user.id, userRole: session.user.role },
     async (tx) =>
       tx
         .select({ id: schema.stores.id })
