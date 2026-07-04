@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto"
 import { and, desc, eq, gt, inArray, isNull } from "drizzle-orm"
 import { notFound, redirect } from "next/navigation"
 
-import { makeDb, schema, withAdmin, withTenant, type UserRole } from "@bomy/db"
+import { makeDb, schema, withAdmin, withPublicRead, withTenant, type UserRole } from "@bomy/db"
 import { HitPayClient, type PaymentRequestResponse } from "@bomy/hitpay"
 
 import { auth } from "@/auth"
@@ -48,36 +48,28 @@ function isUniqueViolation(err: unknown): boolean {
 
 // Used by the subscribe page to show the store's available active plans.
 export async function getStorePlans(slug: string) {
-  const rows = await withAdmin(
-    getDb(),
-    {
-      userId: "00000000-0000-0000-0000-000000000001",
-      reason: "read brand subscription plans for subscribe page",
-    },
-    async (tx) => {
-      const storeRows = await tx
-        .select()
-        .from(schema.stores)
-        .where(eq(schema.stores.slug, slug))
-        .limit(1)
-      const store = storeRows[0]
-      if (!store || store.status !== "active") return null
+  return withPublicRead(getDb(), async (tx) => {
+    const storeRows = await tx
+      .select()
+      .from(schema.stores)
+      .where(eq(schema.stores.slug, slug))
+      .limit(1)
+    const store = storeRows[0]
+    if (!store || store.status !== "active") return null
 
-      const plans = await tx
-        .select()
-        .from(schema.brandSubscriptionPlans)
-        .where(
-          and(
-            eq(schema.brandSubscriptionPlans.storeId, store.id),
-            eq(schema.brandSubscriptionPlans.isActive, true),
-          ),
-        )
-        .orderBy(schema.brandSubscriptionPlans.termMonths)
+    const plans = await tx
+      .select()
+      .from(schema.brandSubscriptionPlans)
+      .where(
+        and(
+          eq(schema.brandSubscriptionPlans.storeId, store.id),
+          eq(schema.brandSubscriptionPlans.isActive, true),
+        ),
+      )
+      .orderBy(schema.brandSubscriptionPlans.termMonths)
 
-      return { store, plans }
-    },
-  )
-  return rows
+    return { store, plans }
+  })
 }
 
 // Bound via subscribeToBrand.bind(null, planId) on each plan card.
@@ -98,34 +90,30 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
   // HITPAY_WEBHOOK_URL is optional — falls back to global webhook in HitPay dashboard.
   const webhookUrl = process.env["HITPAY_WEBHOOK_URL"]
 
-  // Read plan + store in one admin pass (plans are public data, but we need
+  // Read plan + store via public read (plans are public data, but we need
   // store status and slug for the redirect URL).
-  const planData = await withAdmin(
-    getDb(),
-    { userId: session.user.id, reason: "read brand subscription plan for subscribe checkout" },
-    async (tx) => {
-      const rows = await tx
-        .select({
-          plan: schema.brandSubscriptionPlans,
-          store: {
-            id: schema.stores.id,
-            name: schema.stores.name,
-            slug: schema.stores.slug,
-            status: schema.stores.status,
-          },
-        })
-        .from(schema.brandSubscriptionPlans)
-        .innerJoin(schema.stores, eq(schema.stores.id, schema.brandSubscriptionPlans.storeId))
-        .where(
-          and(
-            eq(schema.brandSubscriptionPlans.id, planId),
-            eq(schema.brandSubscriptionPlans.isActive, true),
-          ),
-        )
-        .limit(1)
-      return rows[0] ?? null
-    },
-  )
+  const planData = await withPublicRead(getDb(), async (tx) => {
+    const rows = await tx
+      .select({
+        plan: schema.brandSubscriptionPlans,
+        store: {
+          id: schema.stores.id,
+          name: schema.stores.name,
+          slug: schema.stores.slug,
+          status: schema.stores.status,
+        },
+      })
+      .from(schema.brandSubscriptionPlans)
+      .innerJoin(schema.stores, eq(schema.stores.id, schema.brandSubscriptionPlans.storeId))
+      .where(
+        and(
+          eq(schema.brandSubscriptionPlans.id, planId),
+          eq(schema.brandSubscriptionPlans.isActive, true),
+        ),
+      )
+      .limit(1)
+    return rows[0] ?? null
+  })
 
   if (!planData || planData.store.status !== "active") notFound()
 
@@ -277,7 +265,12 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
         await tx
           .update(schema.brandSubscriptions)
           .set({ hitpayPaymentRequestId: paymentRequest!.id, updatedAt: new Date() })
-          .where(eq(schema.brandSubscriptions.id, subId))
+          .where(
+            and(
+              eq(schema.brandSubscriptions.id, subId),
+              eq(schema.brandSubscriptions.userId, session.user.id),
+            ),
+          )
       },
     )
   } catch (err) {
@@ -298,7 +291,12 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
             await tx
               .update(schema.brandSubscriptions)
               .set({ hitpayPaymentRequestId: paymentRequest!.id, updatedAt: new Date() })
-              .where(eq(schema.brandSubscriptions.id, subId))
+              .where(
+                and(
+                  eq(schema.brandSubscriptions.id, subId),
+                  eq(schema.brandSubscriptions.userId, session.user.id),
+                ),
+              )
           },
         )
         fallbackSaved = true
@@ -314,7 +312,12 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
             async (tx) => {
               await tx
                 .delete(schema.brandSubscriptions)
-                .where(eq(schema.brandSubscriptions.id, subId))
+                .where(
+                  and(
+                    eq(schema.brandSubscriptions.id, subId),
+                    eq(schema.brandSubscriptions.userId, session.user.id),
+                  ),
+                )
             },
           )
         } catch {
@@ -338,7 +341,12 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
           async (tx) => {
             await tx
               .delete(schema.brandSubscriptions)
-              .where(eq(schema.brandSubscriptions.id, subId))
+              .where(
+                and(
+                  eq(schema.brandSubscriptions.id, subId),
+                  eq(schema.brandSubscriptions.userId, session.user.id),
+                ),
+              )
           },
         )
       } catch {

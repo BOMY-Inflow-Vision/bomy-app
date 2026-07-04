@@ -211,7 +211,12 @@ export async function joinMembership() {
         await tx
           .update(schema.memberSubscriptions)
           .set({ hitpayRecurringId: billing!.id, updatedAt: new Date() })
-          .where(eq(schema.memberSubscriptions.id, subId))
+          .where(
+            and(
+              eq(schema.memberSubscriptions.id, subId),
+              eq(schema.memberSubscriptions.userId, session.user.id),
+            ),
+          )
       },
     )
   } catch (err) {
@@ -242,7 +247,12 @@ export async function joinMembership() {
               await tx
                 .update(schema.memberSubscriptions)
                 .set({ hitpayRecurringId: billing!.id, updatedAt: new Date() })
-                .where(eq(schema.memberSubscriptions.id, subId))
+                .where(
+                  and(
+                    eq(schema.memberSubscriptions.id, subId),
+                    eq(schema.memberSubscriptions.userId, session.user.id),
+                  ),
+                )
             },
           )
         } catch {
@@ -258,7 +268,12 @@ export async function joinMembership() {
           async (tx) => {
             await tx
               .delete(schema.memberSubscriptions)
-              .where(eq(schema.memberSubscriptions.id, subId))
+              .where(
+                and(
+                  eq(schema.memberSubscriptions.id, subId),
+                  eq(schema.memberSubscriptions.userId, session.user.id),
+                ),
+              )
           },
         )
       }
@@ -275,7 +290,12 @@ export async function joinMembership() {
         async (tx) => {
           await tx
             .delete(schema.memberSubscriptions)
-            .where(eq(schema.memberSubscriptions.id, subId))
+            .where(
+              and(
+                eq(schema.memberSubscriptions.id, subId),
+                eq(schema.memberSubscriptions.userId, session.user.id),
+              ),
+            )
         },
       )
     }

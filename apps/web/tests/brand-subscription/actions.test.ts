@@ -11,7 +11,7 @@
 import { randomUUID } from "node:crypto"
 
 import { makeDb, schema, withAdmin } from "@bomy/db"
-import { eq } from "drizzle-orm"
+import { eq, sql } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi, type Mock } from "vitest"
 
 vi.mock("next/navigation", () => ({
@@ -31,6 +31,7 @@ import { auth } from "@/auth"
 import { HitPayClient } from "@bomy/hitpay"
 import {
   abandonPendingBrandSubscription,
+  getStorePlans,
   subscribeToBrand,
 } from "../../src/app/brands/[slug]/subscribe/actions"
 
@@ -315,6 +316,47 @@ describe.skipIf(!shouldRun)("subscribeToBrand", () => {
 
   // DB correlation failure compensation paths are covered in actions.unit.test.ts
 
+  it("plan+store catalog read emits no admin_bypass_audit row", async () => {
+    mockAuth.mockResolvedValue({ user: { id: userId, role: "buyer", email: "t@test.bomy" } })
+    const mockPR = {
+      id: "pr-audit-check",
+      url: "https://securecheckout.hit-pay.com/pr-audit-check",
+    }
+    MockHitPayClient.mockImplementation(() => ({
+      createPaymentRequest: vi.fn().mockResolvedValue(mockPR),
+    }))
+
+    const countCheckoutRead = async () => {
+      const [row] = await withAdmin(
+        testDb.db,
+        { userId: SYSTEM_ACTOR, reason: "test count" },
+        async (tx) =>
+          tx
+            .select({ c: sql<number>`count(*)::int` })
+            .from(schema.adminBypassAudit)
+            .where(
+              eq(
+                schema.adminBypassAudit.reason,
+                "read brand subscription plan for subscribe checkout",
+              ),
+            ),
+      )
+      return row!.c
+    }
+
+    const before = await countCheckoutRead()
+    // subscribeToBrand throws a RedirectError on success — catch it.
+    await subscribeToBrand(planId).catch(() => {})
+    const after = await countCheckoutRead()
+
+    expect(after).toBe(before) // withPublicRead emits no audit row; reason count must not change
+
+    // cleanup: remove the pending row that subscribeToBrand inserted
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
+      await tx.delete(schema.brandSubscriptions).where(eq(schema.brandSubscriptions.userId, userId))
+    })
+  })
+
   // ── abandonPendingBrandSubscription ───────────────────────────────────────
 
   describe("abandonPendingBrandSubscription", () => {
@@ -412,5 +454,118 @@ describe.skipIf(!shouldRun)("subscribeToBrand", () => {
       const url = await expectRedirect(() => abandonPendingBrandSubscription(storeSlug()))
       expect(url).toBe(`/brands/${storeSlug()}/subscribe`)
     })
+  })
+})
+
+describe.skipIf(!shouldRun)("getStorePlans", () => {
+  let testDb2: ReturnType<typeof makeDb>
+  let ownerId2: string
+  let storeId2: string
+  let planId2: string
+  const slug2 = `test-catalog-${randomUUID().slice(0, 8)}`
+
+  beforeAll(async () => {
+    process.env["DATABASE_URL"] = DATABASE_URL as string
+    testDb2 = makeDb({ url: DATABASE_URL as string })
+    ownerId2 = randomUUID()
+    storeId2 = randomUUID()
+    planId2 = randomUUID()
+
+    await withAdmin(testDb2.db, { userId: SYSTEM_ACTOR, reason: "test seed" }, async (tx) => {
+      await tx.insert(schema.users).values({
+        id: ownerId2,
+        email: `${ownerId2}@test.bomy`,
+        role: "seller_owner",
+      })
+      await tx.insert(schema.stores).values({
+        id: storeId2,
+        ownerId: ownerId2,
+        name: "Catalog Test Store",
+        slug: slug2,
+        status: "active",
+      })
+      await tx.insert(schema.brandSubscriptionPlans).values({
+        id: planId2,
+        storeId: storeId2,
+        termMonths: 6,
+        priceMyrSen: 12000n,
+        discountPct: 10,
+        isActive: true,
+      })
+    })
+  })
+
+  afterAll(async () => {
+    await withAdmin(testDb2.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
+      await tx
+        .delete(schema.brandSubscriptionPlans)
+        .where(eq(schema.brandSubscriptionPlans.storeId, storeId2))
+      await tx.delete(schema.stores).where(eq(schema.stores.id, storeId2))
+      await tx.delete(schema.users).where(eq(schema.users.id, ownerId2))
+    })
+    await testDb2.close()
+  })
+
+  it("returns store + plans for an active store", async () => {
+    const result = await getStorePlans(slug2)
+    expect(result).not.toBeNull()
+    expect(result?.store.id).toBe(storeId2)
+    expect(result?.plans).toHaveLength(1)
+    expect(result?.plans[0]?.id).toBe(planId2)
+  })
+
+  it("returns null for an unknown slug", async () => {
+    const result = await getStorePlans("no-such-slug-xyz-99999")
+    expect(result).toBeNull()
+  })
+
+  it("returns null for a suspended store", async () => {
+    // "inactive" is not a valid store status. Valid values: "active" | "suspended" | "pending".
+    await withAdmin(
+      testDb2.db,
+      { userId: SYSTEM_ACTOR, reason: "test: suspend store" },
+      async (tx) => {
+        await tx
+          .update(schema.stores)
+          .set({ status: "suspended" })
+          .where(eq(schema.stores.id, storeId2))
+      },
+    )
+
+    const result = await getStorePlans(slug2)
+    expect(result).toBeNull()
+
+    await withAdmin(
+      testDb2.db,
+      { userId: SYSTEM_ACTOR, reason: "test: restore store" },
+      async (tx) => {
+        await tx
+          .update(schema.stores)
+          .set({ status: "active" })
+          .where(eq(schema.stores.id, storeId2))
+      },
+    )
+  })
+
+  it("getStorePlans writes no admin_bypass_audit row", async () => {
+    // Capture before/after counts filtered to the old withAdmin reason so the
+    // assertion is independent of prior DB state (avoid .toBe(0) history-dependency).
+    const countByReason = async (reason: string) => {
+      const [row] = await withAdmin(
+        testDb2.db,
+        { userId: SYSTEM_ACTOR, reason: "test count" },
+        async (tx) =>
+          tx
+            .select({ c: sql<number>`count(*)::int` })
+            .from(schema.adminBypassAudit)
+            .where(eq(schema.adminBypassAudit.reason, reason)),
+      )
+      return row!.c
+    }
+
+    const before = await countByReason("read brand subscription plans for subscribe page")
+    await getStorePlans(slug2)
+    const after = await countByReason("read brand subscription plans for subscribe page")
+    expect(after).toBe(before) // withPublicRead emits no audit row; count must not change
   })
 })
