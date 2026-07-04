@@ -265,7 +265,12 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
         await tx
           .update(schema.brandSubscriptions)
           .set({ hitpayPaymentRequestId: paymentRequest!.id, updatedAt: new Date() })
-          .where(eq(schema.brandSubscriptions.id, subId))
+          .where(
+            and(
+              eq(schema.brandSubscriptions.id, subId),
+              eq(schema.brandSubscriptions.userId, session.user.id),
+            ),
+          )
       },
     )
   } catch (err) {
@@ -286,7 +291,12 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
             await tx
               .update(schema.brandSubscriptions)
               .set({ hitpayPaymentRequestId: paymentRequest!.id, updatedAt: new Date() })
-              .where(eq(schema.brandSubscriptions.id, subId))
+              .where(
+                and(
+                  eq(schema.brandSubscriptions.id, subId),
+                  eq(schema.brandSubscriptions.userId, session.user.id),
+                ),
+              )
           },
         )
         fallbackSaved = true
@@ -302,7 +312,12 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
             async (tx) => {
               await tx
                 .delete(schema.brandSubscriptions)
-                .where(eq(schema.brandSubscriptions.id, subId))
+                .where(
+                  and(
+                    eq(schema.brandSubscriptions.id, subId),
+                    eq(schema.brandSubscriptions.userId, session.user.id),
+                  ),
+                )
             },
           )
         } catch {
@@ -326,7 +341,12 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
           async (tx) => {
             await tx
               .delete(schema.brandSubscriptions)
-              .where(eq(schema.brandSubscriptions.id, subId))
+              .where(
+                and(
+                  eq(schema.brandSubscriptions.id, subId),
+                  eq(schema.brandSubscriptions.userId, session.user.id),
+                ),
+              )
           },
         )
       } catch {
