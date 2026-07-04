@@ -23,6 +23,7 @@ vi.mock("@bomy/db", () => ({
   makeDb: vi.fn().mockReturnValue({ db: {}, close: vi.fn() }),
   schema: {},
   withAdmin: vi.fn(),
+  withPublicRead: vi.fn(),
   withTenant: vi.fn(),
 }))
 
@@ -45,6 +46,21 @@ describe("subscribeToBrand — DB correlation failure compensation", () => {
     })
     // No existing subscription — bypass guard.
     ;(dbModule.withTenant as unknown as Mock).mockResolvedValue([])
+    // Plan + store read (no auth, public catalog lookup).
+    ;(dbModule.withPublicRead as unknown as Mock).mockResolvedValue({
+      plan: {
+        id: PLAN_ID,
+        storeId: STORE_ID,
+        termMonths: 3,
+        priceMyrSen: 5000n,
+        discountPct: 5,
+        description: null,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      store: { id: STORE_ID, name: "Test Brand", slug: "test-brand", status: "active" },
+    })
   })
 
   afterEach(() => {
@@ -55,37 +71,17 @@ describe("subscribeToBrand — DB correlation failure compensation", () => {
     const createPaymentRequest = vi.fn().mockRejectedValue(new Error("HitPay unreachable"))
     ;(HitPayClient as unknown as Mock).mockImplementation(() => ({ createPaymentRequest }))
 
+    // withPublicRead: read plan+store (set in beforeEach)
     // withAdmin call order:
-    //   1 — read plan+store
-    //   2 — insert pending row
-    //   3 — (HitPay throws before store call) delete pending row cleanup
-    let callCount = 0
+    //   1 — insert pending row
+    //   2 — (HitPay throws before store call) delete pending row cleanup
     const mockWithAdmin = dbModule.withAdmin as unknown as Mock
-    mockWithAdmin.mockImplementation(() => {
-      callCount++
-      if (callCount === 1) {
-        return {
-          plan: {
-            id: PLAN_ID,
-            storeId: STORE_ID,
-            termMonths: 3,
-            priceMyrSen: 5000n,
-            discountPct: 5,
-            description: null,
-            isActive: true,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          },
-          store: { id: STORE_ID, name: "Test Brand", slug: "test-brand", status: "active" },
-        }
-      }
-      return undefined // insert, delete
-    })
+    mockWithAdmin.mockResolvedValue(undefined) // insert + delete
 
     await expect(subscribeToBrand(PLAN_ID)).rejects.toThrow("HitPay unreachable")
 
-    // pending row cleanup must be called (3rd withAdmin = delete)
-    expect(mockWithAdmin).toHaveBeenCalledTimes(3)
+    // pending row cleanup must be called (2nd withAdmin = delete)
+    expect(mockWithAdmin).toHaveBeenCalledTimes(2)
   })
 
   it("DB correlation write fails: tries fallback write, then deletes row on double failure", async () => {
@@ -95,42 +91,26 @@ describe("subscribeToBrand — DB correlation failure compensation", () => {
     })
     ;(HitPayClient as unknown as Mock).mockImplementation(() => ({ createPaymentRequest }))
 
+    // withPublicRead: read plan+store (set in beforeEach)
     // withAdmin call order:
-    //   1 — read plan+store
-    //   2 — insert pending row
-    //   3 — store hitpay_payment_request_id ← throw
-    //   4 — fallback write ← throw
-    //   5 — delete orphan row
+    //   1 — insert pending row
+    //   2 — store hitpay_payment_request_id ← throw
+    //   3 — fallback write ← throw
+    //   4 — delete orphan row
     let callCount = 0
     const mockWithAdmin = dbModule.withAdmin as unknown as Mock
     mockWithAdmin.mockImplementation(() => {
       callCount++
-      if (callCount === 1) {
-        return {
-          plan: {
-            id: PLAN_ID,
-            storeId: STORE_ID,
-            termMonths: 3,
-            priceMyrSen: 5000n,
-            discountPct: 5,
-            description: null,
-            isActive: true,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          },
-          store: { id: STORE_ID, name: "Test Brand", slug: "test-brand", status: "active" },
-        }
-      }
-      if (callCount === 2) return undefined // insert
-      if (callCount === 3) throw new Error("DB write failed — primary")
-      if (callCount === 4) throw new Error("DB write failed — fallback")
+      if (callCount === 1) return undefined // insert
+      if (callCount === 2) throw new Error("DB write failed — primary")
+      if (callCount === 3) throw new Error("DB write failed — fallback")
       return undefined // delete
     })
 
     await expect(subscribeToBrand(PLAN_ID)).rejects.toThrow("DB write failed — primary")
 
-    // 5 calls: plan read + insert + primary fail + fallback fail + delete
-    expect(mockWithAdmin).toHaveBeenCalledTimes(5)
+    // 4 calls: insert + primary fail + fallback fail + delete
+    expect(mockWithAdmin).toHaveBeenCalledTimes(4)
   })
 
   it("DB correlation write fails: fallback succeeds → redirects to checkout, does NOT delete row", async () => {
@@ -140,34 +120,18 @@ describe("subscribeToBrand — DB correlation failure compensation", () => {
     })
     ;(HitPayClient as unknown as Mock).mockImplementation(() => ({ createPaymentRequest }))
 
+    // withPublicRead: read plan+store (set in beforeEach)
     // withAdmin call order:
-    //   1 — read plan+store
-    //   2 — insert pending row
-    //   3 — store hitpay_payment_request_id ← throw
-    //   4 — fallback write ← succeed → redirect to paymentRequest.url
-    // (no 5th call — row is NOT deleted; redirect throws before throw err is reached)
+    //   1 — insert pending row
+    //   2 — store hitpay_payment_request_id ← throw
+    //   3 — fallback write ← succeed → redirect to paymentRequest.url
+    // (no 4th call — row is NOT deleted; redirect throws before throw err is reached)
     let callCount = 0
     const mockWithAdmin = dbModule.withAdmin as unknown as Mock
     mockWithAdmin.mockImplementation(() => {
       callCount++
-      if (callCount === 1) {
-        return {
-          plan: {
-            id: PLAN_ID,
-            storeId: STORE_ID,
-            termMonths: 3,
-            priceMyrSen: 5000n,
-            discountPct: 5,
-            description: null,
-            isActive: true,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          },
-          store: { id: STORE_ID, name: "Test Brand", slug: "test-brand", status: "active" },
-        }
-      }
-      if (callCount === 2) return undefined // insert
-      if (callCount === 3) throw new Error("DB write failed — primary")
+      if (callCount === 1) return undefined // insert
+      if (callCount === 2) throw new Error("DB write failed — primary")
       return undefined // fallback write succeeds
     })
 
@@ -175,8 +139,8 @@ describe("subscribeToBrand — DB correlation failure compensation", () => {
     const err = await subscribeToBrand(PLAN_ID).catch((e: Error) => e)
     expect((err as Error).message).toBe("REDIRECT:https://securecheckout.hit-pay.com/pr-xyz789")
 
-    // 4 calls: plan read + insert + primary fail + fallback succeed; NO delete
-    expect(mockWithAdmin).toHaveBeenCalledTimes(4)
+    // 3 calls: insert + primary fail + fallback succeed; NO delete
+    expect(mockWithAdmin).toHaveBeenCalledTimes(3)
   })
 })
 
@@ -199,6 +163,7 @@ describe("subscribeToBrand — payments disabled guard (PR #39)", () => {
     // and not the existing notFound() for missing planData.
     expect(auth).not.toHaveBeenCalled()
     expect(dbModule.withAdmin).not.toHaveBeenCalled()
+    expect(dbModule.withPublicRead).not.toHaveBeenCalled()
     expect(dbModule.withTenant).not.toHaveBeenCalled()
     expect(HitPayClient).not.toHaveBeenCalled()
   })
