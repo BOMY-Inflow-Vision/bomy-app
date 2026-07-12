@@ -5,6 +5,7 @@ import {
   type OrderPaymentStatus,
 } from "@bomy/db"
 
+import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { senToMyr } from "@/lib/money"
 import { cn } from "@/lib/utils"
@@ -24,6 +25,7 @@ interface Props {
 }
 
 export default async function AdminOrdersPage({ searchParams }: Props) {
+  const { id: adminId } = await requireAdmin()
   const params = await searchParams
   const filters: {
     paymentStatus?: OrderPaymentStatus
@@ -47,7 +49,7 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
   if (params.store_id) filters.storeId = params.store_id
   if (params.date_from) filters.dateFrom = params.date_from
   if (params.date_to) filters.dateTo = params.date_to
-  const orders = await fetchOrdersFiltered(getDb(), filters)
+  const orders = await fetchOrdersFiltered(adminId, getDb(), filters)
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">

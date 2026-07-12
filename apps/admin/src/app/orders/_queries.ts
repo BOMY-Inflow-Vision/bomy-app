@@ -3,8 +3,6 @@ import { and, desc, eq, gte, lte, sql } from "drizzle-orm"
 import { schema, withAdmin, type Database } from "@bomy/db"
 import type { OrderFulfilmentStatus, OrderPaymentStatus } from "@bomy/db"
 
-const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001" as const
-
 export interface OrderFilters {
   paymentStatus?: string
   fulfilmentStatus?: string
@@ -25,51 +23,46 @@ export type AdminOrderListItem = {
 }
 
 export async function fetchOrdersFiltered(
+  actorId: string,
   db: Database,
   filters: OrderFilters,
 ): Promise<AdminOrderListItem[]> {
-  return withAdmin(
-    db,
-    { userId: SYSTEM_ACTOR, reason: "admin fetchOrdersFiltered" },
-    async (tx) => {
-      const conditions = []
-      if (filters.paymentStatus) {
-        conditions.push(
-          eq(schema.orders.paymentStatus, filters.paymentStatus as OrderPaymentStatus),
-        )
-      }
-      if (filters.fulfilmentStatus) {
-        conditions.push(
-          eq(schema.orders.fulfilmentStatus, filters.fulfilmentStatus as OrderFulfilmentStatus),
-        )
-      }
-      if (filters.storeId) {
-        conditions.push(eq(schema.orders.storeId, filters.storeId))
-      }
-      if (filters.dateFrom) {
-        conditions.push(gte(schema.orders.createdAt, new Date(filters.dateFrom)))
-      }
-      if (filters.dateTo) {
-        conditions.push(lte(schema.orders.createdAt, new Date(filters.dateTo)))
-      }
+  return withAdmin(db, { userId: actorId, reason: "admin fetchOrdersFiltered" }, async (tx) => {
+    const conditions = []
+    if (filters.paymentStatus) {
+      conditions.push(eq(schema.orders.paymentStatus, filters.paymentStatus as OrderPaymentStatus))
+    }
+    if (filters.fulfilmentStatus) {
+      conditions.push(
+        eq(schema.orders.fulfilmentStatus, filters.fulfilmentStatus as OrderFulfilmentStatus),
+      )
+    }
+    if (filters.storeId) {
+      conditions.push(eq(schema.orders.storeId, filters.storeId))
+    }
+    if (filters.dateFrom) {
+      conditions.push(gte(schema.orders.createdAt, new Date(filters.dateFrom)))
+    }
+    if (filters.dateTo) {
+      conditions.push(lte(schema.orders.createdAt, new Date(filters.dateTo)))
+    }
 
-      return tx
-        .select({
-          id: schema.orders.id,
-          storeName: schema.stores.name,
-          buyerId: schema.orders.buyerId,
-          paymentStatus: schema.orders.paymentStatus,
-          fulfilmentStatus: schema.orders.fulfilmentStatus,
-          sellerPayoutSen: schema.orders.sellerPayoutSen,
-          bomyCommissionSen: schema.orders.bomyCommissionSen,
-          createdAt: schema.orders.createdAt,
-        })
-        .from(schema.orders)
-        .innerJoin(schema.stores, eq(schema.orders.storeId, schema.stores.id))
-        .where(conditions.length > 0 ? and(...conditions) : undefined)
-        .orderBy(desc(schema.orders.createdAt))
-    },
-  )
+    return tx
+      .select({
+        id: schema.orders.id,
+        storeName: schema.stores.name,
+        buyerId: schema.orders.buyerId,
+        paymentStatus: schema.orders.paymentStatus,
+        fulfilmentStatus: schema.orders.fulfilmentStatus,
+        sellerPayoutSen: schema.orders.sellerPayoutSen,
+        bomyCommissionSen: schema.orders.bomyCommissionSen,
+        createdAt: schema.orders.createdAt,
+      })
+      .from(schema.orders)
+      .innerJoin(schema.stores, eq(schema.orders.storeId, schema.stores.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(schema.orders.createdAt))
+  })
 }
 
 export type AdminOrderDetail = {
@@ -113,12 +106,13 @@ export type AdminOrderDetail = {
 }
 
 export async function fetchOrderWithDetail(
+  actorId: string,
   db: Database,
   orderId: string,
 ): Promise<AdminOrderDetail | null> {
   const rows = await withAdmin(
     db,
-    { userId: SYSTEM_ACTOR, reason: "admin fetchOrderWithDetail" },
+    { userId: actorId, reason: "admin fetchOrderWithDetail" },
     async (tx) =>
       tx
         .select({
@@ -155,7 +149,7 @@ export async function fetchOrderWithDetail(
 
   const [items, payouts] = await withAdmin(
     db,
-    { userId: SYSTEM_ACTOR, reason: "admin fetchOrderDetail items+payouts" },
+    { userId: actorId, reason: "admin fetchOrderDetail items+payouts" },
     async (tx) => {
       const i = await tx
         .select({
@@ -188,10 +182,10 @@ export async function fetchOrderWithDetail(
   return { ...order, items, payouts }
 }
 
-export async function fetchNegativeCommissionOrders(db: Database) {
+export async function fetchNegativeCommissionOrders(actorId: string, db: Database) {
   return withAdmin(
     db,
-    { userId: SYSTEM_ACTOR, reason: "admin fetchNegativeCommissionOrders" },
+    { userId: actorId, reason: "admin fetchNegativeCommissionOrders" },
     async (tx) =>
       tx
         .select({

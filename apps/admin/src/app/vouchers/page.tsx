@@ -3,7 +3,7 @@ import { desc, eq, sql } from "drizzle-orm"
 
 import { schema, withAdmin } from "@bomy/db"
 
-import { auth } from "@/auth"
+import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -13,34 +13,27 @@ import { Label } from "@/components/ui/label"
 import { triggerVoucherIssuance, updateVoucherConfig } from "./actions"
 
 export default async function VouchersPage() {
-  const session = await auth()
-  if (!session) return null
+  const { id: adminId } = await requireAdmin()
 
   const [configRows, statsRows, vouchers] = await Promise.all([
-    withAdmin(
-      getDb(),
-      { userId: session.user.id, reason: "admin read voucher config" },
-      async (tx) =>
-        tx
-          .select({ key: schema.platformConfig.key, value: schema.platformConfig.value })
-          .from(schema.platformConfig)
-          .where(sql`${schema.platformConfig.key} like 'voucher_monthly_%'`),
+    withAdmin(getDb(), { userId: adminId, reason: "admin read voucher config" }, async (tx) =>
+      tx
+        .select({ key: schema.platformConfig.key, value: schema.platformConfig.value })
+        .from(schema.platformConfig)
+        .where(sql`${schema.platformConfig.key} like 'voucher_monthly_%'`),
     ),
-    withAdmin(
-      getDb(),
-      { userId: session.user.id, reason: "admin voucher redemption stats" },
-      async (tx) =>
-        tx
-          .select({
-            issuedMonth: schema.vouchers.issuedMonth,
-            total: sql<number>`count(*)`,
-            redeemed: sql<number>`count(${schema.vouchers.redeemedAt})`,
-          })
-          .from(schema.vouchers)
-          .groupBy(schema.vouchers.issuedMonth)
-          .orderBy(desc(schema.vouchers.issuedMonth)),
+    withAdmin(getDb(), { userId: adminId, reason: "admin voucher redemption stats" }, async (tx) =>
+      tx
+        .select({
+          issuedMonth: schema.vouchers.issuedMonth,
+          total: sql<number>`count(*)`,
+          redeemed: sql<number>`count(${schema.vouchers.redeemedAt})`,
+        })
+        .from(schema.vouchers)
+        .groupBy(schema.vouchers.issuedMonth)
+        .orderBy(desc(schema.vouchers.issuedMonth)),
     ),
-    withAdmin(getDb(), { userId: session.user.id, reason: "admin list vouchers" }, async (tx) =>
+    withAdmin(getDb(), { userId: adminId, reason: "admin list vouchers" }, async (tx) =>
       tx
         .select({
           id: schema.vouchers.id,

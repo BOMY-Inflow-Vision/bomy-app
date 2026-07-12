@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation"
 
+import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { senToMyr } from "@/lib/money"
 import { cn } from "@/lib/utils"
@@ -14,8 +15,9 @@ interface Props {
 }
 
 export default async function AdminOrderDetailPage({ params }: Props) {
+  const { id: adminId } = await requireAdmin()
   const { orderId } = await params
-  const order = await fetchOrderWithDetail(getDb(), orderId)
+  const order = await fetchOrderWithDetail(adminId, getDb(), orderId)
   if (!order) notFound()
 
   return (

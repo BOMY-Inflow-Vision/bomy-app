@@ -1,14 +1,13 @@
 import { redirect } from "next/navigation"
 
-import { auth } from "@/auth"
+import { requireAdmin } from "@/lib/auth"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { createVoucher } from "../actions"
 
 export default async function NewVoucherPage() {
-  const session = await auth()
-  if (!session) redirect("/auth/sign-in")
+  await requireAdmin()
 
   const nextMonth = new Date()
   nextMonth.setMonth(nextMonth.getMonth() + 1)

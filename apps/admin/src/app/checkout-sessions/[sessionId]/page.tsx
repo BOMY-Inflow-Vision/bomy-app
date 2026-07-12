@@ -3,13 +3,12 @@ import { notFound } from "next/navigation"
 
 import { schema, withAdmin } from "@bomy/db"
 
+import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 
 import { ResolveForm } from "./_resolve-form"
-
-const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001" as const
 
 const REASON_COPY: Record<string, string> = {
   amount_mismatch:
@@ -25,11 +24,12 @@ interface Props {
 }
 
 export default async function CheckoutSessionReviewPage({ params }: Props) {
+  const { id: adminId } = await requireAdmin({ roles: ["bomy_admin", "bomy_ops"] })
   const { sessionId } = await params
 
   const [session] = await withAdmin(
     getDb(),
-    { userId: SYSTEM_ACTOR, reason: "admin view checkout session" },
+    { userId: adminId, reason: "admin view checkout session" },
     async (tx) =>
       tx
         .select({

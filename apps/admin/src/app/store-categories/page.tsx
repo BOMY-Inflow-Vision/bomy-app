@@ -2,19 +2,18 @@ import { asc } from "drizzle-orm"
 
 import { schema, withAdmin } from "@bomy/db"
 
-import { auth } from "@/auth"
+import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { Card } from "@/components/ui/card"
 import { StoreCategoryRow } from "./category-row"
 import { NewStoreCategoryForm } from "./new-category-form"
 
 export default async function StoreCategoriesPage() {
-  const session = await auth()
-  if (!session) return null
+  const { id: adminId } = await requireAdmin()
 
   const rows = await withAdmin(
     getDb(),
-    { userId: session.user.id, reason: "admin list store categories" },
+    { userId: adminId, reason: "admin list store categories" },
     async (tx) =>
       tx
         .select({

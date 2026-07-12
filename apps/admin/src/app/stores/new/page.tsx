@@ -1,13 +1,16 @@
 import Link from "next/link"
 import { redirect } from "next/navigation"
 
+import { requireAdmin } from "@/lib/auth"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { createStore } from "../actions"
 
-export default function NewStorePage() {
+export default async function NewStorePage() {
+  await requireAdmin()
+
   return (
     <div className="p-6">
       <h1 className="mb-6 text-lg font-semibold text-foreground">Create Store</h1>

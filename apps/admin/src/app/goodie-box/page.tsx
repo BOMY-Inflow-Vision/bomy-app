@@ -3,7 +3,7 @@ import { and, desc, eq, sql } from "drizzle-orm"
 
 import { schema, withAdmin } from "@bomy/db"
 
-import { auth } from "@/auth"
+import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -21,13 +21,12 @@ export default async function GoodieBoxPage({
 }: {
   searchParams: Promise<{ quarter?: string; status?: string }>
 }) {
-  const session = await auth()
-  if (!session) return null
+  const { id: adminId } = await requireAdmin()
   const { quarter, status } = await searchParams
 
   const quarters = await withAdmin(
     getDb(),
-    { userId: session.user.id, reason: "admin list goodie box quarters" },
+    { userId: adminId, reason: "admin list goodie box quarters" },
     async (tx) =>
       tx
         .selectDistinct({ quarter: schema.goodieBoxDispatches.quarter })
@@ -37,7 +36,7 @@ export default async function GoodieBoxPage({
 
   const rows = await withAdmin(
     getDb(),
-    { userId: session.user.id, reason: "admin list goodie box dispatches" },
+    { userId: adminId, reason: "admin list goodie box dispatches" },
     async (tx) => {
       const q = tx
         .select({
