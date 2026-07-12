@@ -41,7 +41,10 @@ export async function refreshRole(token: RoleToken, deps: RefreshDeps): Promise<
     next.roleCheckedAt = now
     return next
   } catch (err) {
-    console.warn("[admin] role refresh failed; failing closed for this request:", err)
+    // Log a sanitized message only — a raw driver error can carry connection
+    // details (DSN fragments) that should not land in admin logs.
+    const message = err instanceof Error ? err.message : String(err)
+    console.warn("[admin] role refresh failed; failing closed for this request:", message)
     next.roleRefreshFailed = true
     return next
   }

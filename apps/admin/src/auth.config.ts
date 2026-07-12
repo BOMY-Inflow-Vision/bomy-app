@@ -20,6 +20,11 @@ export const authConfig = {
       session.roleRefreshFailed = token["roleRefreshFailed"] === true
       return session
     },
+    // Edge middleware gate — a best-effort first pass only. It runs on the
+    // decoded cookie and MUST stay DB-free, so it deliberately does NOT consult
+    // `roleRefreshFailed` or re-derive the role. Real enforcement (fresh-role
+    // re-derivation + fail-closed) is the server-side requireAdmin/requireAdminId
+    // gate that every page and action calls; do not add a DB lookup here.
     authorized({ auth, request: { nextUrl } }) {
       if (PUBLIC_AUTH_PATHS.some((path) => nextUrl.pathname.startsWith(path))) return true
 
