@@ -17,6 +17,7 @@ export const authConfig = {
     session({ session, token }) {
       if (token["id"]) session.user.id = token["id"] as string
       if (token["role"]) session.user.role = token["role"] as UserRole
+      session.roleRefreshFailed = token["roleRefreshFailed"] === true
       return session
     },
     authorized({ auth, request: { nextUrl } }) {
