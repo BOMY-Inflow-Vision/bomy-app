@@ -5,15 +5,6 @@ import { BOMY_ADMIN_ROLES, type UserRole } from "@bomy/db"
 
 import { auth } from "@/auth"
 
-export function requireRole(session: Session | null, roles: UserRole[]): string {
-  if (!session) throw new Error("UNAUTHENTICATED")
-  const role = (session.user as typeof session.user & { role?: UserRole }).role
-  if (!roles.includes(role)) {
-    throw new Error("FORBIDDEN")
-  }
-  return session.user.id
-}
-
 function roleOf(session: Session | null): UserRole | undefined {
   return (session?.user as (Session["user"] & { role?: UserRole }) | undefined)?.role
 }

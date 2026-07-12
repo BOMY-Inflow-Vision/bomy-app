@@ -6,12 +6,11 @@ import { revalidatePath } from "next/cache"
 import { schema, withAdmin } from "@bomy/db"
 import { HitPayClient } from "@bomy/hitpay"
 
-import { auth } from "@/auth"
+import { requireAdminId } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 
 export async function updateRenewalNotificationDays(formData: FormData) {
-  const session = await auth()
-  if (!session) throw new Error("Unauthorized")
+  const adminId = await requireAdminId()
 
   const raw = (formData.get("notificationDays") as string | null)?.trim()
   if (!raw) throw new Error("Notification days are required")
@@ -25,7 +24,7 @@ export async function updateRenewalNotificationDays(formData: FormData) {
 
   await withAdmin(
     getDb(),
-    { userId: session.user.id, reason: "admin update renewal_notification_days" },
+    { userId: adminId, reason: "admin update renewal_notification_days" },
     async (tx) => {
       await tx
         .insert(schema.platformConfig)
@@ -33,21 +32,15 @@ export async function updateRenewalNotificationDays(formData: FormData) {
           key: "renewal_notification_days",
           value: days,
           description: "Days before membership expiry at which renewal reminder emails are sent.",
-          updatedBy: session.user.id,
+          updatedBy: adminId,
         })
         .onConflictDoUpdate({
           target: schema.platformConfig.key,
-          set: { value: days, updatedBy: session.user.id, updatedAt: new Date() },
+          set: { value: days, updatedBy: adminId, updatedAt: new Date() },
         })
     },
   )
   revalidatePath("/memberships")
-}
-
-async function getAdminId() {
-  const session = await auth()
-  if (!session) throw new Error("Unauthorized")
-  return session.user.id
 }
 
 function hitpayClient() {
@@ -59,7 +52,7 @@ function hitpayClient() {
 }
 
 export async function cancelMembership(subId: string) {
-  const adminId = await getAdminId()
+  const adminId = await requireAdminId()
 
   // Fetch subscription outside the write transaction so the connection
   // is not held open during the HitPay HTTP call.

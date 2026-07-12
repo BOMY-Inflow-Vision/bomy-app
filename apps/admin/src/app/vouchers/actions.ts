@@ -5,12 +5,11 @@ import { revalidatePath } from "next/cache"
 
 import { schema, withAdmin } from "@bomy/db"
 
-import { auth } from "@/auth"
+import { requireAdminId } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 
 export async function triggerVoucherIssuance() {
-  const session = await auth()
-  if (!session) throw new Error("Unauthorized")
+  await requireAdminId()
 
   const apiUrl = process.env["NEXT_PUBLIC_API_URL"]
   if (!apiUrl) throw new Error("NEXT_PUBLIC_API_URL is not configured")
@@ -28,12 +27,6 @@ export async function triggerVoucherIssuance() {
   }
 
   revalidatePath("/vouchers")
-}
-
-async function getAdminId() {
-  const session = await auth()
-  if (!session) throw new Error("Unauthorized")
-  return session.user.id
 }
 
 function parseMyrToSen(myr: string): bigint {
@@ -56,7 +49,7 @@ export async function createVoucher(formData: FormData) {
   }
 
   const fixedAmountSen = parseMyrToSen(fixedAmountMyr)
-  const adminId = await getAdminId()
+  const adminId = await requireAdminId()
 
   await withAdmin(getDb(), { userId: adminId, reason: "admin create voucher" }, async (tx) => {
     const [user] = await tx
@@ -84,7 +77,7 @@ export async function updateVoucherConfig(formData: FormData) {
     throw new Error("Invalid voucher type")
   }
 
-  const adminId = await getAdminId()
+  const adminId = await requireAdminId()
 
   await withAdmin(
     getDb(),

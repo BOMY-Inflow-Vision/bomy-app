@@ -5,17 +5,11 @@ import { revalidatePath } from "next/cache"
 
 import { schema, withAdmin } from "@bomy/db"
 
-import { auth } from "@/auth"
+import { requireAdminId } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 
-async function getAdminId() {
-  const session = await auth()
-  if (!session) throw new Error("Unauthorized")
-  return session.user.id
-}
-
 export async function togglePlanActive(planId: string, isActive: boolean) {
-  const adminId = await getAdminId()
+  const adminId = await requireAdminId()
   await withAdmin(
     getDb(),
     { userId: adminId, reason: "admin toggle brand plan active" },

@@ -5,31 +5,20 @@ import { revalidatePath } from "next/cache"
 
 import { schema, withAdmin, type UserRole, USER_ROLES } from "@bomy/db"
 
-import { auth } from "@/auth"
+import { requireAdminId } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { validateUserProfile } from "./user-profile-schema"
 
-async function requireAdmin() {
-  const session = await auth()
-  if (!session) throw new Error("Unauthorized")
-  if (session.user.role !== "bomy_admin") throw new Error("Forbidden")
-  return session
-}
-
 export async function updateUserRole(userId: string, role: UserRole) {
   if (!USER_ROLES.includes(role)) throw new Error(`Invalid role: ${role}`)
-  const session = await requireAdmin()
+  const adminId = await requireAdminId({ roles: ["bomy_admin"] })
 
-  await withAdmin(
-    getDb(),
-    { userId: session.user.id, reason: "admin update user role" },
-    async (tx) => {
-      await tx
-        .update(schema.users)
-        .set({ role, updatedAt: new Date() })
-        .where(eq(schema.users.id, userId))
-    },
-  )
+  await withAdmin(getDb(), { userId: adminId, reason: "admin update user role" }, async (tx) => {
+    await tx
+      .update(schema.users)
+      .set({ role, updatedAt: new Date() })
+      .where(eq(schema.users.id, userId))
+  })
   revalidatePath("/users")
 }
 
@@ -37,7 +26,7 @@ export async function updateUserProfile(
   userId: string,
   input: { name: string; email: string },
 ): Promise<{ ok: true } | { ok: false; errors: { name?: string; email?: string } }> {
-  const session = await requireAdmin()
+  const adminId = await requireAdminId({ roles: ["bomy_admin"] })
 
   const parsed = validateUserProfile(input)
   if (!parsed.ok) return { ok: false, errors: parsed.errors }
@@ -47,7 +36,7 @@ export async function updateUserProfile(
   try {
     result = await withAdmin(
       getDb(),
-      { userId: session.user.id, reason: "admin update user profile" },
+      { userId: adminId, reason: "admin update user profile" },
       async (tx) => {
         const dup = await tx
           .select({ id: schema.users.id })
