@@ -7,6 +7,7 @@ import { expireAbandonedPendingMemberships } from "./jobs/expire-abandoned-pendi
 import { expireCancelledMemberships } from "./jobs/expire-cancelled-memberships.js"
 import { loggingPlugin } from "./plugins/logging.js"
 import { mailerPlugin } from "./plugins/mailer.js"
+import { rateLimitPlugin } from "./plugins/rate-limit.js"
 import { sessionPlugin } from "./plugins/session.js"
 import { healthRoutes } from "./routes/health.js"
 import { internalJobRoutes } from "./routes/internal/jobs.js"
@@ -22,6 +23,9 @@ export async function createApp(opts: { enableJobs?: boolean } = {}) {
   const isDev = process.env["NODE_ENV"] !== "production"
 
   const app = Fastify({
+    // Railway terminates TLS at its proxy; trust X-Forwarded-For so request.ip
+    // (and the rate limiter keyed on it) resolves to the real client address.
+    trustProxy: true,
     logger: {
       level: process.env["LOG_LEVEL"] ?? "info",
       ...(isDev && {
@@ -32,6 +36,7 @@ export async function createApp(opts: { enableJobs?: boolean } = {}) {
 
   await app.register(sensible)
   await app.register(cookie)
+  await app.register(rateLimitPlugin)
   await app.register(loggingPlugin)
   await app.register(dbPlugin)
   await app.register(sessionPlugin)

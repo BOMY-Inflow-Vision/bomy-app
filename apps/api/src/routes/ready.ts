@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify"
 import { checkPostgres, checkRedis } from "../lib/checks.js"
 
 export async function readyRoutes(app: FastifyInstance) {
-  app.get("/ready", async (_request, reply) => {
+  app.get("/ready", { config: { rateLimit: false } }, async (_request, reply) => {
     const [pg, redis] = await Promise.allSettled([checkPostgres(), checkRedis()])
 
     const checks = {
