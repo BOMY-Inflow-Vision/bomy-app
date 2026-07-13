@@ -5,17 +5,15 @@ import { revalidatePath } from "next/cache"
 
 import { schema, withAdmin } from "@bomy/db"
 
-import { auth } from "@/auth"
-import { requireRole } from "@/lib/auth"
+import { requireAdminId } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 
 type Result = { ok: true } | { ok: false; error: "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND" }
 
 export async function resolvePaymentReview(sessionId: string, note: string): Promise<Result> {
-  const session = await auth()
   let userId: string
   try {
-    userId = requireRole(session, ["bomy_admin", "bomy_ops"])
+    userId = await requireAdminId({ roles: ["bomy_admin", "bomy_ops"] })
   } catch (err) {
     const msg = err instanceof Error ? err.message : ""
     if (msg === "FORBIDDEN") return { ok: false, error: "FORBIDDEN" }

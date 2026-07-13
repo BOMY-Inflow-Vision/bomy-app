@@ -5,17 +5,11 @@ import { revalidatePath } from "next/cache"
 
 import { schema, withAdmin } from "@bomy/db"
 
-import { auth } from "@/auth"
+import { requireAdminId } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 
-async function getAdminId() {
-  const session = await auth()
-  if (!session) throw new Error("Unauthorized")
-  return session.user.id
-}
-
 export async function approveStore(storeId: string) {
-  const adminId = await getAdminId()
+  const adminId = await requireAdminId()
   await withAdmin(getDb(), { userId: adminId, reason: "admin approve store" }, async (tx) => {
     const [store] = await tx
       .select({ ownerId: schema.stores.ownerId })
@@ -36,7 +30,7 @@ export async function approveStore(storeId: string) {
 }
 
 export async function suspendStore(storeId: string) {
-  const adminId = await getAdminId()
+  const adminId = await requireAdminId()
   await withAdmin(getDb(), { userId: adminId, reason: "admin suspend store" }, async (tx) => {
     await tx
       .update(schema.stores)
@@ -47,7 +41,7 @@ export async function suspendStore(storeId: string) {
 }
 
 export async function createStore(formData: FormData) {
-  const adminId = await getAdminId()
+  const adminId = await requireAdminId()
   const ownerEmail = formData.get("ownerEmail") as string
   const name = formData.get("name") as string
   const slug = formData.get("slug") as string

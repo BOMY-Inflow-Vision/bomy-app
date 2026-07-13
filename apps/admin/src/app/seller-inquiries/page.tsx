@@ -3,7 +3,7 @@ import { and, asc, desc, eq, ilike, or, type SQL } from "drizzle-orm"
 
 import { INQUIRY_STATUSES, schema, withAdmin, type InquiryStatus } from "@bomy/db"
 
-import { auth } from "@/auth"
+import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
@@ -30,8 +30,7 @@ export default async function SellerInquiriesPage({
 }: {
   searchParams: Promise<{ status?: string; q?: string; sort?: string }>
 }) {
-  const session = await auth()
-  if (!session) return null
+  const { id: adminId } = await requireAdmin()
   const { status, q, sort } = await searchParams
   const sortKey: SortKey = (SORTS as readonly string[]).includes(sort ?? "")
     ? (sort as SortKey)
@@ -39,7 +38,7 @@ export default async function SellerInquiriesPage({
 
   const rows = await withAdmin(
     getDb(),
-    { userId: session.user.id, reason: "admin list inquiries" },
+    { userId: adminId, reason: "admin list inquiries" },
     async (tx) => {
       const filters: SQL[] = []
       if (isStatus(status)) filters.push(eq(schema.sellerInquiries.status, status))

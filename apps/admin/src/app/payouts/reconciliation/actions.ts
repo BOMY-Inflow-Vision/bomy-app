@@ -6,8 +6,7 @@ import { revalidatePath } from "next/cache"
 import { schema, withAdmin } from "@bomy/db"
 import { HitPayClient, HitPayError } from "@bomy/hitpay"
 
-import { auth } from "@/auth"
-import { requireRole } from "@/lib/auth"
+import { requireAdminId } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { senToMyr } from "@/lib/money"
 
@@ -35,10 +34,9 @@ function hitpayClient(): HitPayClient {
 }
 
 export async function refundDuplicateCharge(id: string): Promise<Result> {
-  const session = await auth()
   let adminId: string
   try {
-    adminId = requireRole(session, [...PAYOUT_ROLES])
+    adminId = await requireAdminId({ roles: PAYOUT_ROLES })
   } catch (err) {
     const msg = err instanceof Error ? err.message : ""
     if (msg === "FORBIDDEN") return { ok: false, error: "FORBIDDEN" }

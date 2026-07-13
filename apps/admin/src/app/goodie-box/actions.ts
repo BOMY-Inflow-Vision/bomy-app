@@ -5,20 +5,14 @@ import { revalidatePath } from "next/cache"
 
 import { schema, withAdmin } from "@bomy/db"
 
-import { auth } from "@/auth"
+import { requireAdminId } from "@/lib/auth"
 import { getDb } from "@/lib/db"
-
-async function getAdminId() {
-  const session = await auth()
-  if (!session) throw new Error("Unauthorized")
-  return session.user.id
-}
 
 export async function markDispatched(dispatchId: string, formData: FormData) {
   const trackingNumber = (formData.get("trackingNumber") as string | null)?.trim()
   if (!trackingNumber) throw new Error("Tracking number is required")
 
-  const adminId = await getAdminId()
+  const adminId = await requireAdminId()
   await withAdmin(
     getDb(),
     { userId: adminId, reason: "admin mark goodie box dispatched" },

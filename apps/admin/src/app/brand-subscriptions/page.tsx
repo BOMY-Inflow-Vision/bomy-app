@@ -3,7 +3,7 @@ import { and, desc, eq, sql } from "drizzle-orm"
 
 import { schema, withAdmin } from "@bomy/db"
 
-import { auth } from "@/auth"
+import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { cn } from "@/lib/utils"
 import { Card } from "@/components/ui/card"
@@ -21,13 +21,12 @@ export default async function BrandSubscriptionsPage({
 }: {
   searchParams: Promise<{ status?: string; storeId?: string }>
 }) {
-  const session = await auth()
-  if (!session) return null
+  const { id: adminId } = await requireAdmin()
   const { status, storeId } = await searchParams
 
   const rows = await withAdmin(
     getDb(),
-    { userId: session.user.id, reason: "admin list brand subscriptions" },
+    { userId: adminId, reason: "admin list brand subscriptions" },
     async (tx) => {
       const conditions = []
       if (
@@ -72,7 +71,7 @@ export default async function BrandSubscriptionsPage({
 
   const stores = await withAdmin(
     getDb(),
-    { userId: session.user.id, reason: "admin list stores for brand sub filter" },
+    { userId: adminId, reason: "admin list stores for brand sub filter" },
     async (tx) =>
       tx
         .selectDistinct({ id: schema.stores.id, name: schema.stores.name })

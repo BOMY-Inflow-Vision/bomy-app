@@ -39,6 +39,14 @@ describe("admin authConfig.session — JWT → session propagation (edge middlew
     expect(result.user.id).toBeUndefined()
     expect(result.user.role).toBeUndefined()
   })
+
+  it("propagates roleRefreshFailed from the token", () => {
+    const session = { user: {} as { id?: string; role?: UserRole } } as Record<string, unknown> & {
+      user: { id?: string; role?: UserRole }
+    }
+    authConfig.callbacks.session({ session, token: { roleRefreshFailed: true } } as never)
+    expect(session["roleRefreshFailed"]).toBe(true)
+  })
 })
 
 describe("admin authConfig.authorized — BOMY role gate", () => {

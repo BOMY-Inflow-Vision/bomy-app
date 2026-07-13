@@ -103,18 +103,18 @@ describe.skipIf(!shouldRun)("admin user actions", () => {
     expect(audit.length).toBeGreaterThanOrEqual(1)
   })
 
-  it("rejects a non-bomy_admin from updateUserProfile (Forbidden, no write)", async () => {
+  it("rejects a non-bomy_admin from updateUserProfile (FORBIDDEN, no write)", async () => {
     mockAuth.mockResolvedValue({ user: { id: adminId, role: "bomy_ops" } })
     await expect(updateUserProfile(targetId, { name: "x", email: "x@y.com" })).rejects.toThrow(
-      /Forbidden/,
+      /FORBIDDEN/,
     )
     expect((await readUser(targetId))?.name).toBe("Old Name")
   })
 
-  it("blocks a non-bomy_admin from self-promoting via updateUserRole (Forbidden, no write)", async () => {
+  it("blocks a non-bomy_admin from self-promoting via updateUserRole (FORBIDDEN, no write)", async () => {
     for (const role of ["bomy_ops", "bomy_finance"] as const) {
       mockAuth.mockResolvedValue({ user: { id: adminId, role } })
-      await expect(updateUserRole(targetId, "bomy_admin")).rejects.toThrow(/Forbidden/)
+      await expect(updateUserRole(targetId, "bomy_admin")).rejects.toThrow(/FORBIDDEN/)
       expect((await readUser(targetId))?.role).toBe("buyer")
     }
   })

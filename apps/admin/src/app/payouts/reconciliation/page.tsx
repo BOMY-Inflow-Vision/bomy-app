@@ -2,7 +2,7 @@ import { asc, eq, inArray } from "drizzle-orm"
 
 import { schema, withAdmin } from "@bomy/db"
 
-import { auth } from "@/auth"
+import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { senToMyr } from "@/lib/money"
 import { Badge } from "@/components/ui/badge"
@@ -11,19 +11,15 @@ import { Card } from "@/components/ui/card"
 import { fetchNegativeCommissionOrders } from "../../orders/_queries"
 import { RefundButton } from "./_refund-button"
 
-const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001" as const
-
 export default async function ReconciliationPage() {
-  const session = await auth()
-  const canRefund = ["bomy_admin", "bomy_finance"].includes(
-    (session?.user as { role?: string } | undefined)?.role ?? "",
-  )
+  const { id: adminId, role } = await requireAdmin({ roles: ["bomy_admin", "bomy_finance"] })
+  const canRefund = ["bomy_admin", "bomy_finance"].includes(role)
 
   const [negativeOrders, reviewSessions, duplicateCharges] = await Promise.all([
-    fetchNegativeCommissionOrders(getDb()),
+    fetchNegativeCommissionOrders(adminId, getDb()),
     withAdmin(
       getDb(),
-      { userId: SYSTEM_ACTOR, reason: "admin list payment review sessions" },
+      { userId: adminId, reason: "admin list payment review sessions" },
       async (tx) =>
         tx
           .select({
@@ -36,15 +32,12 @@ export default async function ReconciliationPage() {
           .where(eq(schema.checkoutSessions.status, "payment_review_required"))
           .orderBy(asc(schema.checkoutSessions.createdAt)),
     ),
-    withAdmin(
-      getDb(),
-      { userId: SYSTEM_ACTOR, reason: "admin list duplicate charges" },
-      async (tx) =>
-        tx
-          .select()
-          .from(schema.duplicateCharges)
-          .where(inArray(schema.duplicateCharges.status, ["detected", "refund_pending"]))
-          .orderBy(asc(schema.duplicateCharges.detectedAt)),
+    withAdmin(getDb(), { userId: adminId, reason: "admin list duplicate charges" }, async (tx) =>
+      tx
+        .select()
+        .from(schema.duplicateCharges)
+        .where(inArray(schema.duplicateCharges.status, ["detected", "refund_pending"]))
+        .orderBy(asc(schema.duplicateCharges.detectedAt)),
     ),
   ])
 

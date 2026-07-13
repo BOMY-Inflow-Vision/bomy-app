@@ -3,7 +3,7 @@ import { and, asc, desc, eq, ilike, or, type SQL } from "drizzle-orm"
 
 import { schema, withAdmin } from "@bomy/db"
 
-import { auth } from "@/auth"
+import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
@@ -34,8 +34,7 @@ export default async function StoresPage({
 }: {
   searchParams: Promise<{ status?: string; q?: string; sort?: string }>
 }) {
-  const session = await auth()
-  if (!session) return null
+  const { id: adminId } = await requireAdmin()
   const { status, q, sort } = await searchParams
   const sortKey: SortKey = (SORTS as readonly string[]).includes(sort ?? "")
     ? (sort as SortKey)
@@ -43,7 +42,7 @@ export default async function StoresPage({
 
   const rows = await withAdmin(
     getDb(),
-    { userId: session.user.id, reason: "admin list stores" },
+    { userId: adminId, reason: "admin list stores" },
     async (tx) => {
       const filters: SQL[] = []
       if (isStoreStatus(status)) filters.push(eq(schema.stores.status, status))

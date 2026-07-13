@@ -5,18 +5,12 @@ import { revalidatePath } from "next/cache"
 
 import { schema, withAdmin } from "@bomy/db"
 
-import { auth } from "@/auth"
+import { requireAdminId } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { getMailer } from "@/lib/mailer"
 import { sendApprovalEmail } from "@/notifications/seller-inquiry"
 
 type ReviewResult = { ok: true } | { ok: false; error: string }
-
-async function getAdminId() {
-  const session = await auth()
-  if (!session) throw new Error("Unauthorized")
-  return session.user.id
-}
 
 function slugify(name: string): string {
   return name
@@ -29,7 +23,7 @@ function slugify(name: string): string {
 }
 
 export async function deleteInquiry(inquiryId: string) {
-  const adminId = await getAdminId()
+  const adminId = await requireAdminId()
   await withAdmin(
     getDb(),
     { userId: adminId, reason: "admin delete seller inquiry" },
@@ -43,7 +37,7 @@ export async function deleteInquiry(inquiryId: string) {
 type ApprovePayload = { email: string; name: string | null; storeName: string; finalSlug: string }
 
 export async function approveInquiry(inquiryId: string, slug: string): Promise<ReviewResult> {
-  const adminId = await getAdminId()
+  const adminId = await requireAdminId()
 
   let result: ReviewResult | ApprovePayload
   try {
@@ -176,7 +170,7 @@ export async function approveInquiry(inquiryId: string, slug: string): Promise<R
 }
 
 export async function rejectInquiry(inquiryId: string): Promise<ReviewResult> {
-  const adminId = await getAdminId()
+  const adminId = await requireAdminId()
 
   const result = await withAdmin(
     getDb(),

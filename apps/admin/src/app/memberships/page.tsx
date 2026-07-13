@@ -3,7 +3,7 @@ import { desc, eq, sql } from "drizzle-orm"
 
 import { schema, withAdmin } from "@bomy/db"
 
-import { auth } from "@/auth"
+import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -25,14 +25,13 @@ export default async function MembershipsPage({
 }: {
   searchParams: Promise<{ status?: string }>
 }) {
-  const session = await auth()
-  if (!session) return null
+  const { id: adminId } = await requireAdmin()
   const { status } = await searchParams
 
   const [notifyDaysRow, rows] = await Promise.all([
     withAdmin(
       getDb(),
-      { userId: session.user.id, reason: "admin read renewal_notification_days" },
+      { userId: adminId, reason: "admin read renewal_notification_days" },
       async (tx) =>
         tx
           .select({ value: schema.platformConfig.value })
@@ -40,39 +39,35 @@ export default async function MembershipsPage({
           .where(eq(schema.platformConfig.key, "renewal_notification_days"))
           .limit(1),
     ).then((r) => r[0]),
-    withAdmin(
-      getDb(),
-      { userId: session.user.id, reason: "admin list memberships" },
-      async (tx) => {
-        const q = tx
-          .select({
-            id: schema.memberSubscriptions.id,
-            userEmail: schema.users.email,
-            status: schema.memberSubscriptions.status,
-            priceMyrSen: schema.memberSubscriptions.priceMyrSen,
-            periodStart: schema.memberSubscriptions.periodStart,
-            periodEnd: schema.memberSubscriptions.periodEnd,
-            cancelledAt: schema.memberSubscriptions.cancelledAt,
-            hitpayRecurringId: schema.memberSubscriptions.hitpayRecurringId,
-          })
-          .from(schema.memberSubscriptions)
-          .innerJoin(schema.users, eq(schema.users.id, schema.memberSubscriptions.userId))
-          .orderBy(desc(sql`${schema.memberSubscriptions.createdAt}`))
+    withAdmin(getDb(), { userId: adminId, reason: "admin list memberships" }, async (tx) => {
+      const q = tx
+        .select({
+          id: schema.memberSubscriptions.id,
+          userEmail: schema.users.email,
+          status: schema.memberSubscriptions.status,
+          priceMyrSen: schema.memberSubscriptions.priceMyrSen,
+          periodStart: schema.memberSubscriptions.periodStart,
+          periodEnd: schema.memberSubscriptions.periodEnd,
+          cancelledAt: schema.memberSubscriptions.cancelledAt,
+          hitpayRecurringId: schema.memberSubscriptions.hitpayRecurringId,
+        })
+        .from(schema.memberSubscriptions)
+        .innerJoin(schema.users, eq(schema.users.id, schema.memberSubscriptions.userId))
+        .orderBy(desc(sql`${schema.memberSubscriptions.createdAt}`))
 
-        if (
-          status &&
-          ["pending", "active", "cancelled", "expired", "payment_failed"].includes(status)
-        ) {
-          return q.where(
-            eq(
-              schema.memberSubscriptions.status,
-              status as "pending" | "active" | "cancelled" | "expired" | "payment_failed",
-            ),
-          )
-        }
-        return q
-      },
-    ),
+      if (
+        status &&
+        ["pending", "active", "cancelled", "expired", "payment_failed"].includes(status)
+      ) {
+        return q.where(
+          eq(
+            schema.memberSubscriptions.status,
+            status as "pending" | "active" | "cancelled" | "expired" | "payment_failed",
+          ),
+        )
+      }
+      return q
+    }),
   ])
 
   const currentNotifyDays = Array.isArray(notifyDaysRow?.value)

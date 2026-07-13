@@ -5,7 +5,7 @@ import { notFound } from "next/navigation"
 
 import { schema, withAdmin, type InquiryStatus } from "@bomy/db"
 
-import { auth } from "@/auth"
+import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { Badge } from "@/components/ui/badge"
 import { ApproveForm } from "./approve-form"
@@ -21,14 +21,13 @@ interface Props {
 }
 
 export default async function SellerInquiryDetailPage({ params }: Props) {
-  const session = await auth()
-  if (!session) return null
+  const { id: adminId } = await requireAdmin()
   const { id } = await params
 
   const reviewer = alias(schema.users, "reviewer")
   const [row] = await withAdmin(
     getDb(),
-    { userId: session.user.id, reason: "admin view seller inquiry" },
+    { userId: adminId, reason: "admin view seller inquiry" },
     async (tx) =>
       tx
         .select({

@@ -1,10 +1,12 @@
 import { DrizzleAdapter } from "@auth/drizzle-adapter"
+import { eq } from "drizzle-orm"
 import NextAuth from "next-auth"
 import type { DefaultSession } from "next-auth"
 
 import { makeAuthDb, schema, type UserRole } from "@bomy/db"
 
 import { authConfig } from "./auth.config"
+import { refreshRole, type RoleToken } from "./lib/role-refresh"
 
 declare module "next-auth" {
   interface Session {
@@ -12,6 +14,7 @@ declare module "next-auth" {
       id: string
       role: UserRole
     } & DefaultSession["user"]
+    roleRefreshFailed?: boolean
   }
 }
 
@@ -38,17 +41,32 @@ function getNextAuth(): ReturnType<typeof NextAuth> {
     session: { strategy: "jwt" },
     callbacks: {
       ...authConfig.callbacks,
-      jwt({ token, user }) {
+      async jwt({ token, user }) {
         if (user?.id) {
           const dbUser = user as typeof user & { role?: UserRole }
           token["id"] = user.id
           token["role"] = dbUser.role ?? "buyer"
+          token["roleCheckedAt"] = Date.now()
+          token["roleRefreshFailed"] = false
+          return token
         }
-        return token
+        const refreshed = await refreshRole(token as RoleToken, {
+          now: Date.now(),
+          lookupRole: async (userId) => {
+            const rows = await db
+              .select({ role: schema.users.role })
+              .from(schema.users)
+              .where(eq(schema.users.id, userId))
+              .limit(1)
+            return rows[0]?.role ?? null
+          },
+        })
+        return { ...token, ...refreshed }
       },
       session({ session, token }) {
         session.user.id = (token["id"] as string) ?? token.sub ?? ""
         session.user.role = (token["role"] as UserRole) ?? "buyer"
+        session.roleRefreshFailed = token["roleRefreshFailed"] === true
         return session
       },
     },

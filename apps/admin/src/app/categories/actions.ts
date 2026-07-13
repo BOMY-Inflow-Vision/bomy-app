@@ -5,14 +5,8 @@ import { revalidatePath } from "next/cache"
 
 import { schema, withAdmin } from "@bomy/db"
 
-import { auth } from "@/auth"
+import { requireAdminId } from "@/lib/auth"
 import { getDb } from "@/lib/db"
-
-async function getAdminId() {
-  const session = await auth()
-  if (!session) throw new Error("Unauthorized")
-  return session.user.id
-}
 
 function slugify(name: string): string {
   return name
@@ -24,7 +18,7 @@ function slugify(name: string): string {
 export async function createCategory(
   formData: FormData,
 ): Promise<{ ok: false; error: string } | { ok: true }> {
-  const adminId = await getAdminId()
+  const adminId = await requireAdminId()
   const name = (formData.get("name") as string | null)?.trim() ?? ""
   if (!name) return { ok: false, error: "Name is required" }
 
@@ -54,7 +48,7 @@ export async function createCategory(
 }
 
 export async function toggleCategory(id: string, isActive: boolean): Promise<void> {
-  const adminId = await getAdminId()
+  const adminId = await requireAdminId()
   await withAdmin(getDb(), { userId: adminId, reason: "admin toggle category" }, async (tx) => {
     await tx.update(schema.categories).set({ isActive }).where(eq(schema.categories.id, id))
   })
@@ -66,7 +60,7 @@ export async function updateCategory(
   name: string,
   sortOrder: number,
 ): Promise<{ ok: false; error: string } | { ok: true }> {
-  const adminId = await getAdminId()
+  const adminId = await requireAdminId()
   const trimmed = name.trim()
   if (!trimmed) return { ok: false, error: "Name is required" }
   if (!Number.isSafeInteger(sortOrder) || sortOrder < 0 || sortOrder > 2_147_483_647)
@@ -85,7 +79,7 @@ export async function updateCategory(
 export async function deleteCategory(
   id: string,
 ): Promise<{ ok: false; error: string } | { ok: true }> {
-  const adminId = await getAdminId()
+  const adminId = await requireAdminId()
 
   try {
     await withAdmin(getDb(), { userId: adminId, reason: "admin delete category" }, async (tx) => {

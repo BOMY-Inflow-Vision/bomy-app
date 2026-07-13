@@ -6,8 +6,7 @@ import { revalidatePath } from "next/cache"
 
 import { schema, withAdmin } from "@bomy/db"
 
-import { auth } from "@/auth"
-import { requireRole } from "@/lib/auth"
+import { requireAdminId } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { getMailer } from "@/lib/mailer"
 import { sendPayoutPendingEmail } from "@/notifications/payout"
@@ -26,10 +25,9 @@ type ActionResult =
   | { ok: false; error: "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND" | "INVALID_INPUT" }
 
 export async function createPayoutRecord(orderId: string): Promise<CreateResult> {
-  const session = await auth()
   let adminId: string
   try {
-    adminId = requireRole(session, [...PAYOUT_ROLES])
+    adminId = await requireAdminId({ roles: PAYOUT_ROLES })
   } catch (err) {
     const msg = err instanceof Error ? err.message : ""
     if (msg === "FORBIDDEN") return { ok: false, error: "FORBIDDEN" }
@@ -132,10 +130,9 @@ export async function createPayoutRecord(orderId: string): Promise<CreateResult>
 }
 
 export async function markPayoutProcessing(payoutId: string): Promise<ActionResult> {
-  const session = await auth()
   let adminId: string
   try {
-    adminId = requireRole(session, [...PAYOUT_ROLES])
+    adminId = await requireAdminId({ roles: PAYOUT_ROLES })
   } catch (err) {
     const msg = err instanceof Error ? err.message : ""
     if (msg === "FORBIDDEN") return { ok: false, error: "FORBIDDEN" }
@@ -162,10 +159,9 @@ export async function markPayoutCompleted(
   payoutId: string,
   manualRef: string,
 ): Promise<ActionResult> {
-  const session = await auth()
   let adminId: string
   try {
-    adminId = requireRole(session, [...PAYOUT_ROLES])
+    adminId = await requireAdminId({ roles: PAYOUT_ROLES })
   } catch (err) {
     const msg = err instanceof Error ? err.message : ""
     if (msg === "FORBIDDEN") return { ok: false, error: "FORBIDDEN" }
@@ -196,10 +192,9 @@ export async function markPayoutCompleted(
 }
 
 export async function markPayoutFailed(payoutId: string, notes: string): Promise<ActionResult> {
-  const session = await auth()
   let adminId: string
   try {
-    adminId = requireRole(session, [...PAYOUT_ROLES])
+    adminId = await requireAdminId({ roles: PAYOUT_ROLES })
   } catch (err) {
     const msg = err instanceof Error ? err.message : ""
     if (msg === "FORBIDDEN") return { ok: false, error: "FORBIDDEN" }

@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm"
 
 import { schema, withAdmin } from "@bomy/db"
 
-import { auth } from "@/auth"
+import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
@@ -21,14 +21,13 @@ const ROLE_COLORS: Record<string, string> = {
 }
 
 export default async function UsersPage() {
-  const session = await auth()
-  if (!session) return null
+  const { id: adminId, role } = await requireAdmin()
 
-  const canEdit = session.user.role === "bomy_admin"
+  const canEdit = role === "bomy_admin"
 
   const rows = await withAdmin(
     getDb(),
-    { userId: session.user.id, reason: "admin list users" },
+    { userId: adminId, reason: "admin list users" },
     async (tx) =>
       tx
         .select({

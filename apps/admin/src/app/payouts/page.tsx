@@ -2,6 +2,7 @@ import { and, desc, eq } from "drizzle-orm"
 
 import { schema, withAdmin } from "@bomy/db"
 
+import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { senToMyr } from "@/lib/money"
 import { cn } from "@/lib/utils"
@@ -9,8 +10,6 @@ import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 
 import { PayoutActions } from "./_payout-actions"
-
-const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001" as const
 
 const PAYOUT_STATUSES = ["pending", "processing", "completed", "failed"] as const
 type PayoutStatus = (typeof PAYOUT_STATUSES)[number]
@@ -20,6 +19,7 @@ interface Props {
 }
 
 export default async function PayoutsPage({ searchParams }: Props) {
+  const { id: adminId } = await requireAdmin({ roles: ["bomy_admin", "bomy_finance"] })
   const { status } = await searchParams
 
   const validStatus = PAYOUT_STATUSES.includes(status as PayoutStatus)
@@ -28,7 +28,7 @@ export default async function PayoutsPage({ searchParams }: Props) {
 
   const payouts = await withAdmin(
     getDb(),
-    { userId: SYSTEM_ACTOR, reason: "admin list payouts" },
+    { userId: adminId, reason: "admin list payouts" },
     async (tx) => {
       const conditions = []
       if (validStatus) {
