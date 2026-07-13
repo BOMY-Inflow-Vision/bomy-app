@@ -16,9 +16,9 @@ import {
 } from "../../src/plugins/rate-limit.js"
 
 async function buildApp() {
-  // trustProxy mirrors the production server (server.ts) so request.ip resolves
-  // to the leftmost X-Forwarded-For value behind Railway's proxy.
-  const app = Fastify({ trustProxy: true })
+  // trustProxy mirrors the production server (server.ts): trust one hop so
+  // request.ip resolves to the rightmost (Railway-stamped) X-Forwarded-For value.
+  const app = Fastify({ trustProxy: 1 })
   await app.register(rateLimitPlugin)
 
   app.get("/limited", async () => ({ ok: true }))
@@ -95,5 +95,32 @@ describe("rateLimitPlugin", () => {
 
     // A different client IP still has a fresh bucket.
     expect((await app.inject({ method: "GET", url: "/tiny", headers: ipB })).statusCode).toBe(200)
+  })
+
+  it("keys on the trusted (Railway-appended, rightmost) IP, not a spoofed leftmost XFF", async () => {
+    // Railway's edge proxy appends the real client to the RIGHT of
+    // X-Forwarded-For; the leftmost entries are attacker-controlled. Rotating
+    // the spoofed prefix must NOT mint fresh buckets, or the limiter is trivially
+    // bypassed. /tiny has max 2, so the third request from the same real client
+    // must 429 despite a rotating spoof.
+    const realClient = "5.5.5.5"
+    const tiny = (spoof: string) =>
+      app.inject({
+        method: "GET",
+        url: "/tiny",
+        headers: { "x-forwarded-for": `${spoof}, ${realClient}` },
+      })
+
+    expect((await tiny("1.1.1.1")).statusCode).toBe(200)
+    expect((await tiny("2.2.2.2")).statusCode).toBe(200)
+    expect((await tiny("3.3.3.3")).statusCode).toBe(429)
+
+    // A genuinely different real client (different rightmost) keeps its own bucket.
+    const other = await app.inject({
+      method: "GET",
+      url: "/tiny",
+      headers: { "x-forwarded-for": "1.1.1.1, 8.8.8.8" },
+    })
+    expect(other.statusCode).toBe(200)
   })
 })

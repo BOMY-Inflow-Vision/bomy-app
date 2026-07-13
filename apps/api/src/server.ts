@@ -23,9 +23,13 @@ export async function createApp(opts: { enableJobs?: boolean } = {}) {
   const isDev = process.env["NODE_ENV"] !== "production"
 
   const app = Fastify({
-    // Railway terminates TLS at its proxy; trust X-Forwarded-For so request.ip
-    // (and the rate limiter keyed on it) resolves to the real client address.
-    trustProxy: true,
+    // Trust exactly one proxy hop (Railway's edge). Railway appends the real
+    // client to the RIGHT of X-Forwarded-For, so `1` makes request.ip resolve to
+    // that rightmost, proxy-stamped address — NOT the spoofable leftmost entries
+    // a client can send. `true` would trust the leftmost and let anyone bypass
+    // the rate limiter by rotating X-Forwarded-For. (Assumes the API sits one hop
+    // behind Railway's edge; confirm with a prod smoke if a CDN is added.)
+    trustProxy: 1,
     logger: {
       level: process.env["LOG_LEVEL"] ?? "info",
       ...(isDev && {

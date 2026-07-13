@@ -17,7 +17,7 @@ import { healthRoutes } from "../../src/routes/health.js"
 import { hitpayWebhookRoutes } from "../../src/routes/webhooks/hitpay.js"
 
 async function buildApp() {
-  const app = Fastify({ trustProxy: true })
+  const app = Fastify({ trustProxy: 1 })
   await app.register(rateLimitPlugin)
   await app.register(healthRoutes)
   await app.register(hitpayWebhookRoutes)
