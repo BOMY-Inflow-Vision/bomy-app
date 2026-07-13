@@ -15,7 +15,7 @@ ops console handles approvals, payouts, reconciliation, and config.
 
 - **Owner:** Charlie (solo founder; Inflo Vision Sdn Bhd, SSM 202503276795, Penang).
 - **Built by:** "Andy" (AI technical lead — Claude Code sessions) with "Bob" (strategist reviewer).
-  Every PR went through review; history lives in `log/` (gitignored) and GitHub PRs #0–#87.
+  Every PR went through review; history lives in `log/` (gitignored) and GitHub PRs #0–#88.
 - **Currency:** MYR only today (all money in **bigint sen**); USD/international is a roadmap item.
 - **Current status:** Site, admin, and API are deployed. Memberships/brand subscriptions are code-complete,
   but **HitPay is not approving the merchant account at the moment (as of 2026-07)**, so the live smoke
@@ -149,10 +149,13 @@ with `Authorization: Bearer <INTERNAL_API_SECRET>`.
 
 - **Web:** Google OAuth + magic-link email (Turnstile + regex + per-email cooldown before
   `signIn("nodemailer")`). JWT callback bakes `id`, `role`, and **PDPA consent state** into the
-  token at sign-in; a consent gate in `auth.config.ts#authorized` redirects unconsented users to
-  `/auth/consent` (both `tos` and `privacy` rows for the current `tos_version` must exist — state
-  is always re-derived from DB, never trusted from the client). Route protection: `/account`,
-  `/dashboard`, `/membership/manage|success` need login; `/seller/dashboard` needs `seller_owner`.
+  token; the consent claims are derived from the DB at sign-in and on `unstable_update()` (both
+  `tos` and `privacy` rows for the current `tos_version` must exist), never from client-supplied
+  update payloads. A consent gate in `auth.config.ts#authorized` then redirects unconsented users
+  to `/auth/consent` using those **JWT claims** (edge, no per-request DB read) — so, like role,
+  consent is only as fresh as the token (up to 30 days; see the role-freshness note below). Route
+  protection: `/account`, `/dashboard`, `/membership/manage|success` need login; `/seller/dashboard`
+  needs `seller_owner`.
 - **Admin:** Google only. Two layers: the edge `authorized()` is a **best-effort first pass** (requires
   role ∈ {`bomy_ops`, `bomy_admin`, `bomy_finance`}, else `/unauthorized`) and stays DB-free; the real
   enforcement is the **server-side gate** — every page calls `requireAdmin(...)` and every server
