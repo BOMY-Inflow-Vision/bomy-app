@@ -6,6 +6,10 @@ import { and, desc, eq, isNull, ne } from "drizzle-orm"
 import type { FastifyPluginAsync } from "fastify"
 
 import { trace } from "@opentelemetry/api"
+import {
+  API_RATE_LIMIT_TIME_WINDOW,
+  HITPAY_WEBHOOK_RATE_LIMIT_MAX,
+} from "../../plugins/rate-limit.js"
 import { deriveEventIdentity } from "../../webhooks/hitpay/idempotency.js"
 import { handleOrderPayment } from "../../webhooks/hitpay/order-fanout.js"
 import { dispatchOrderNotifications } from "../../notifications/order.js"
@@ -84,7 +88,20 @@ export const hitpayWebhookRoutes: FastifyPluginAsync = async (app) => {
     done(null, body)
   })
 
-  app.post<{ Body: string }>("/webhooks/hitpay", async (request, reply) => {
+  // Stricter than the global default — a forged-signature flood is blunted here
+  // before it reaches HMAC verification and DB work. Its own groupId keeps this
+  // bucket separate from other routes' counters.
+  const webhookRateLimit = {
+    config: {
+      rateLimit: {
+        max: HITPAY_WEBHOOK_RATE_LIMIT_MAX,
+        timeWindow: API_RATE_LIMIT_TIME_WINDOW,
+        groupId: "hitpay-webhook",
+      },
+    },
+  }
+
+  app.post<{ Body: string }>("/webhooks/hitpay", webhookRateLimit, async (request, reply) => {
     const rawBody = request.body
     const signature = request.headers["hitpay-signature"]
 

@@ -7,6 +7,7 @@ import { expireAbandonedPendingMemberships } from "./jobs/expire-abandoned-pendi
 import { expireCancelledMemberships } from "./jobs/expire-cancelled-memberships.js"
 import { loggingPlugin } from "./plugins/logging.js"
 import { mailerPlugin } from "./plugins/mailer.js"
+import { rateLimitPlugin } from "./plugins/rate-limit.js"
 import { sessionPlugin } from "./plugins/session.js"
 import { healthRoutes } from "./routes/health.js"
 import { internalJobRoutes } from "./routes/internal/jobs.js"
@@ -22,6 +23,13 @@ export async function createApp(opts: { enableJobs?: boolean } = {}) {
   const isDev = process.env["NODE_ENV"] !== "production"
 
   const app = Fastify({
+    // Trust exactly one proxy hop (Railway's edge). Railway appends the real
+    // client to the RIGHT of X-Forwarded-For, so `1` makes request.ip resolve to
+    // that rightmost, proxy-stamped address — NOT the spoofable leftmost entries
+    // a client can send. `true` would trust the leftmost and let anyone bypass
+    // the rate limiter by rotating X-Forwarded-For. (Assumes the API sits one hop
+    // behind Railway's edge; confirm with a prod smoke if a CDN is added.)
+    trustProxy: 1,
     logger: {
       level: process.env["LOG_LEVEL"] ?? "info",
       ...(isDev && {
@@ -32,6 +40,7 @@ export async function createApp(opts: { enableJobs?: boolean } = {}) {
 
   await app.register(sensible)
   await app.register(cookie)
+  await app.register(rateLimitPlugin)
   await app.register(loggingPlugin)
   await app.register(dbPlugin)
   await app.register(sessionPlugin)

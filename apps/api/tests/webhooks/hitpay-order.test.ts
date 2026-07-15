@@ -22,6 +22,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 
 import { runInventoryReservationExpiryJob } from "../../src/jobs/inventory-reservation-expiry.js"
 import { createApp } from "../../src/server.js"
+import { nextTestClientIp } from "../helpers/client-ip.js"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
 
@@ -464,6 +465,7 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay — order-payment integration
         "content-type": "application/json",
         "hitpay-signature": sign(body),
         "hitpay-event-type": opts.eventType ?? "payment_request.completed",
+        "x-forwarded-for": nextTestClientIp(),
         ...(opts.eventId !== undefined ? { "hitpay-event-id": opts.eventId } : {}),
       },
       body,

@@ -16,6 +16,7 @@ import { and, eq } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 
 import { createApp } from "../../src/server.js"
+import { nextTestClientIp } from "../helpers/client-ip.js"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
 
@@ -41,6 +42,7 @@ function webhookInject(
     headers: {
       "content-type": "application/json",
       "hitpay-signature": makeSignature(body),
+      "x-forwarded-for": nextTestClientIp(),
       ...extraHeaders,
     },
     body,
@@ -117,6 +119,7 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
         headers: {
           "content-type": "application/json",
           "hitpay-signature": "deadbeef",
+          "x-forwarded-for": nextTestClientIp(),
         },
         body,
       })
@@ -1994,6 +1997,7 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
         "content-type": "application/json",
         "hitpay-signature": signature,
         "hitpay-event-type": "payment_request.completed",
+        "x-forwarded-for": nextTestClientIp(),
         // No hitpay-event-id — tests the fallback path
       }
 
@@ -2212,6 +2216,7 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay", () => {
           "hitpay-signature": "deadbeef",
           "hitpay-event-type": "payment_request.completed",
           "hitpay-event-id": eventId,
+          "x-forwarded-for": nextTestClientIp(),
         },
         body: JSON.stringify({
           payment_request_id: paymentRequestId,
