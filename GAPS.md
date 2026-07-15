@@ -51,6 +51,12 @@
 
 ## 3. No rate limiting on any public endpoint · SECURITY, MEDIUM
 
+- **Status (2026-07-15):** `apps/api` addressed. PR #90 added `@fastify/rate-limit` (global
+  100/min/IP, `/webhooks/hitpay` 30/min, `/health`+`/ready` exempt, `trustProxy: 1`). The prod
+  smoke then showed the API runs **multiple instances**, so the per-instance in-memory store did not
+  actually throttle a load-balanced client. Follow-up PR moves the store to **shared Redis**
+  (`REDIS_URL`, `skipOnError: true` fail-open). **Close only after the re-run prod smoke passes** —
+  fresh connections should 429 past the cap. Web server-action throttling is still open (below).
 - **What:** `apps/api` has no rate-limit plugin — `/webhooks/hitpay` (does HMAC before any DB work,
   good, but HMAC on unbounded bodies is still CPU), `/me`, `/health`, `/ready` are unthrottled.
   On web, server actions (checkout preview, address CRUD, profile edit) have no per-user throttle;
@@ -129,9 +135,11 @@
 - **What:** `expireCancelledMemberships` and `expireAbandonedPendingMemberships` run via
   `setInterval` in `apps/api/src/server.ts:53-84` — once per process. BullMQ jobs are deduplicated
   by Redis job schedulers; these two are not.
-- **Why it matters:** Today Railway runs one instance, so it's fine. Scale to 2+ replicas and the
-  sweeps run concurrently; the updates are idempotent-ish but were not designed for it, and there
-  is no `SKIP LOCKED` on those paths.
+- **Why it matters:** ~~Today Railway runs one instance, so it's fine.~~ **Confirmed LIVE
+  (2026-07-15):** the PR #90 prod smoke proved `apps/api` runs **multiple instances**, so these two
+  sweeps are **already double-running** in prod. The updates are idempotent-ish and were not designed
+  for it, and there is no `SKIP LOCKED` on those paths. Priority raised — this is now active, not
+  hypothetical.
 - **Fix (single task):** Move both sweeps onto a BullMQ repeatable queue (daily), exactly like
   `brand-subscription-expiry` — the scheduler file already shows the pattern. Delete the interval
   block from `server.ts`.
