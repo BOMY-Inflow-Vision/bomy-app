@@ -40,6 +40,29 @@ export const rateLimitPlugin = fp(async (app: FastifyInstance) => {
       })
     : undefined
 
+  if (redis) {
+    // skipOnError fails open, so a Redis outage silently disables limiting.
+    // Log once on each transition (down / recovered) so ops can tell when the
+    // GAPS #3 protection is degraded — without spamming a line per retry.
+    let degraded = false
+    redis.on("error", (err: Error) => {
+      if (degraded) return
+      degraded = true
+      app.log.error(
+        { err: err.message, component: "rate-limit-redis" },
+        "rate-limit Redis unavailable — limiting is failing open",
+      )
+    })
+    redis.on("ready", () => {
+      if (!degraded) return
+      degraded = false
+      app.log.info(
+        { component: "rate-limit-redis" },
+        "rate-limit Redis recovered — limiting restored",
+      )
+    })
+  }
+
   await app.register(rateLimit, {
     max: API_RATE_LIMIT_MAX,
     timeWindow: API_RATE_LIMIT_TIME_WINDOW,
