@@ -10,6 +10,7 @@ import { mailerPlugin } from "./plugins/mailer.js"
 import { rateLimitPlugin } from "./plugins/rate-limit.js"
 import { sessionPlugin } from "./plugins/session.js"
 import { healthRoutes } from "./routes/health.js"
+import { ipDebugRoutes } from "./routes/internal/ip-debug.js"
 import { internalJobRoutes } from "./routes/internal/jobs.js"
 import { meRoutes } from "./routes/me.js"
 import { readyRoutes } from "./routes/ready.js"
@@ -101,6 +102,11 @@ export async function createApp(opts: { enableJobs?: boolean } = {}) {
   // Internal trigger endpoint (e.g. "Issue Now" from admin). Always registered
   // so the route exists even when enableJobs=false (returns 503 gracefully).
   await app.register(internalJobRoutes)
+
+  // TEMPORARY (GAPS #3): proxy-header diagnostic. 404s unless
+  // ENABLE_IP_DIAGNOSTIC=1, so registering it here is inert. Remove with the
+  // rate-limit keying fix.
+  await app.register(ipDebugRoutes)
 
   return app
 }

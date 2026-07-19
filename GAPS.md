@@ -57,6 +57,16 @@
   actually throttle a load-balanced client. Follow-up PR moves the store to **shared Redis**
   (`REDIS_URL`, `skipOnError: true` fail-open). **Close only after the re-run prod smoke passes** —
   fresh connections should 429 past the cap. Web server-action throttling is still open (below).
+- **Status (2026-07-19): STILL OPEN — the limiter keys on the wrong IP.** The post-#91 prod smoke
+  sent 90 bad-signature `POST /webhooks/hitpay` over **fresh** connections → **0× 429**; 40 over a
+  single keep-alive connection → 429 as expected. Cause: `trustProxy: 1` resolves `request.ip` to
+  the **rightmost** X-Forwarded-For entry, which on Railway is an **edge-node IP that rotates per
+  connection** (DataPacket SG, `152.233.x.x`) — not the client. Every connection gets a new key, so
+  the cap never accumulates. The Redis store is necessary but cannot help while the **key** is
+  wrong. Railway's edge HTTP log (`railway logs -s @bomy/api --http --json`) carries the real client
+  in `srcIp`. **The correct hop must be proved, not guessed** — `GET /internal/ip-debug`
+  (`ENABLE_IP_DIAGNOSTIC=1` + `INTERNAL_API_SECRET`) exists to run that probe; the keying fix and
+  the removal of that endpoint close this gap.
 - **What:** `apps/api` has no rate-limit plugin — `/webhooks/hitpay` (does HMAC before any DB work,
   good, but HMAC on unbounded bodies is still CPU), `/me`, `/health`, `/ready` are unthrottled.
   On web, server actions (checkout preview, address CRUD, profile edit) have no per-user throttle;
