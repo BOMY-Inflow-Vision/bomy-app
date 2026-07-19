@@ -24,10 +24,16 @@ type IpDebugPayload = {
   socketRemoteAddress: string | null
 }
 
+/** Build with the route registered under whatever env is currently set. */
 async function buildApp() {
   const app = Fastify({ trustProxy: 1 })
   await app.register(ipDebugRoutes)
   return app
+}
+
+/** Control app: the route module was never registered at all. */
+async function buildControlApp() {
+  return Fastify({ trustProxy: 1 })
 }
 
 function get(
@@ -38,56 +44,94 @@ function get(
 }
 
 describe("GET /internal/ip-debug", () => {
-  let app: Awaited<ReturnType<typeof buildApp>>
+  let apps: Awaited<ReturnType<typeof buildApp>>[] = []
 
-  beforeEach(async () => {
+  /** Boot an app under the current env and close it after the test. */
+  async function boot() {
+    const app = await buildApp()
+    apps.push(app)
+    return app
+  }
+
+  beforeEach(() => {
     process.env["INTERNAL_API_SECRET"] = SECRET
     process.env["ENABLE_IP_DIAGNOSTIC"] = "1"
-    app = await buildApp()
+    apps = []
   })
 
   afterEach(async () => {
-    await app.close()
+    await Promise.all(apps.map((a) => a.close()))
     delete process.env["INTERNAL_API_SECRET"]
     delete process.env["ENABLE_IP_DIAGNOSTIC"]
   })
 
-  it("404s when ENABLE_IP_DIAGNOSTIC is unset — inert on merge", async () => {
-    delete process.env["ENABLE_IP_DIAGNOSTIC"]
-    expect((await get(app)).statusCode).toBe(404)
-  })
+  describe("disabled (ENABLE_IP_DIAGNOSTIC unset or not exactly '1')", () => {
+    // The endpoint must be indistinguishable from a path that does not exist in
+    // this build — a custom 404 body would fingerprint it (Bob review: the old
+    // {"error":"Not Found"} was 21 bytes vs Fastify's 89).
+    it.each([
+      ["unset", undefined],
+      ["'true'", "true"],
+      ["'0'", "0"],
+    ])("is byte-identical to an unregistered route when the flag is %s", async (_label, value) => {
+      if (value === undefined) delete process.env["ENABLE_IP_DIAGNOSTIC"]
+      else process.env["ENABLE_IP_DIAGNOSTIC"] = value
 
-  it("404s when ENABLE_IP_DIAGNOSTIC is set to anything other than 1", async () => {
-    process.env["ENABLE_IP_DIAGNOSTIC"] = "true"
-    expect((await get(app)).statusCode).toBe(404)
-  })
+      const app = await boot()
+      const control = await buildControlApp()
+      apps.push(control)
 
-  it("404s before checking the secret, so the flag alone hides the route", async () => {
-    delete process.env["ENABLE_IP_DIAGNOSTIC"]
-    const res = await get(app, {})
-    expect(res.statusCode).toBe(404)
+      const disabled = await get(app)
+      const absent = await get(control)
+
+      expect(disabled.statusCode).toBe(404)
+      expect(disabled.body).toBe(absent.body)
+      expect(disabled.headers["content-length"]).toBe(absent.headers["content-length"])
+      expect(disabled.headers["content-type"]).toBe(absent.headers["content-type"])
+    })
+
+    it("stays hidden regardless of whether a valid secret is supplied", async () => {
+      delete process.env["ENABLE_IP_DIAGNOSTIC"]
+      const app = await boot()
+
+      const withSecret = await get(app)
+      const withoutSecret = await get(app, {})
+
+      expect(withSecret.statusCode).toBe(404)
+      expect(withSecret.body).toBe(withoutSecret.body)
+    })
+
+    it("disables a still-running instance when the flag is cleared post-boot", async () => {
+      const app = await boot() // registered with the flag on
+      delete process.env["ENABLE_IP_DIAGNOSTIC"]
+
+      const res = await get(app)
+
+      expect(res.statusCode).toBe(404)
+    })
   })
 
   it("503s when the flag is on but INTERNAL_API_SECRET is not configured", async () => {
     delete process.env["INTERNAL_API_SECRET"]
+    const app = await boot()
     expect((await get(app)).statusCode).toBe(503)
   })
 
   it("401s without an Authorization header", async () => {
-    expect((await get(app, {})).statusCode).toBe(401)
+    expect((await get(await boot(), {})).statusCode).toBe(401)
   })
 
   it("401s on a wrong secret of the same length", async () => {
     const wrong = "x".repeat(SECRET.length)
-    expect((await get(app, { authorization: `Bearer ${wrong}` })).statusCode).toBe(401)
+    expect((await get(await boot(), { authorization: `Bearer ${wrong}` })).statusCode).toBe(401)
   })
 
   it("401s on a wrong secret of a different length", async () => {
-    expect((await get(app, { authorization: "Bearer short" })).statusCode).toBe(401)
+    expect((await get(await boot(), { authorization: "Bearer short" })).statusCode).toBe(401)
   })
 
   it("echoes the proxy headers and resolved IPs when authorised", async () => {
-    const res = await get(app, {
+    const res = await get(await boot(), {
       authorization: `Bearer ${SECRET}`,
       "x-forwarded-for": "161.142.170.133, 152.233.1.2",
       "x-real-ip": "152.233.1.2",
@@ -117,7 +161,7 @@ describe("GET /internal/ip-debug", () => {
   })
 
   it("reports nulls for absent proxy headers", async () => {
-    const res = await get(app)
+    const res = await get(await boot())
 
     expect(res.statusCode).toBe(200)
     const body = res.json<IpDebugPayload>()

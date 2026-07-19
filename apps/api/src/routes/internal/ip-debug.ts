@@ -13,18 +13,24 @@ import { secretsMatch } from "../../lib/timing-safe-compare.js"
  * and whether Railway strips a caller-supplied one. This endpoint reports the
  * candidates so a probe can be correlated against Railway's edge log `srcIp`.
  *
- * Double-gated and inert on merge: it 404s unless ENABLE_IP_DIAGNOSTIC=1, and
- * then still requires the INTERNAL_API_SECRET bearer. **Delete this route once
- * the keying fix lands.**
+ * Double-gated and inert on merge: unless ENABLE_IP_DIAGNOSTIC=1 the route is
+ * **never registered**, so a probe gets Fastify's ordinary not-found response —
+ * byte-identical to any other unrouted path, leaving no trace the endpoint
+ * exists in this build. When registered it still requires the
+ * INTERNAL_API_SECRET bearer. **Delete this route once the keying fix lands.**
  *
  * GET /internal/ip-debug
  */
 export async function ipDebugRoutes(app: FastifyInstance) {
+  // Registration-time gate. Railway restarts the service on an env change, so
+  // reading the flag once at boot is sufficient.
+  if (process.env["ENABLE_IP_DIAGNOSTIC"] !== "1") return
+
   app.get("/internal/ip-debug", async (request, reply) => {
-    // 404 (not 403) while disabled: an unset flag should leave no trace that the
-    // route exists, and this runs before any secret handling.
+    // Defence in depth: the flag is re-checked per request, so clearing it in a
+    // still-running process disables the endpoint even before a restart.
     if (process.env["ENABLE_IP_DIAGNOSTIC"] !== "1") {
-      return reply.status(404).send({ error: "Not Found" })
+      return reply.callNotFound()
     }
 
     const secret = process.env["INTERNAL_API_SECRET"]

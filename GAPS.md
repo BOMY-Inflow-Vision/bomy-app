@@ -65,19 +65,20 @@
   the cap never accumulates. The Redis store is necessary but cannot help while the **key** is
   wrong. Railway's edge HTTP log (`railway logs -s @bomy/api --http --json`) carries the real client
   in `srcIp`. **The correct hop must be proved, not guessed** — `GET /internal/ip-debug`
-  (`ENABLE_IP_DIAGNOSTIC=1` + `INTERNAL_API_SECRET`) exists to run that probe; the keying fix and
+  (`ENABLE_IP_DIAGNOSTIC=1` + `INTERNAL_API_SECRET`) exists to run that probe; procedure in
+  [`docs/runbooks/ip-diagnostic-probe.md`](docs/runbooks/ip-diagnostic-probe.md). The keying fix and
   the removal of that endpoint close this gap.
-- **What:** `apps/api` has no rate-limit plugin — `/webhooks/hitpay` (does HMAC before any DB work,
-  good, but HMAC on unbounded bodies is still CPU), `/me`, `/health`, `/ready` are unthrottled.
-  On web, server actions (checkout preview, address CRUD, profile edit) have no per-user throttle;
-  only magic-link (cooldown) and seller-apply (Turnstile) are protected.
-- **Where:** `apps/api/src/server.ts` (no `@fastify/rate-limit` registered); web server actions
-  under `apps/web/src/app/**/actions.ts`.
+- **What:** `apps/api` is rate-limited but **not effectively** — the plugin is registered (#90/#91)
+  and `/webhooks/hitpay` (HMAC before any DB work, good, but HMAC on unbounded bodies is still CPU)
+  and `/me` carry caps, with `/health` + `/ready` exempt; the caps just don't bind because of the
+  keying bug above. On web, server actions (checkout preview, address CRUD, profile edit) have no
+  per-user throttle; only magic-link (cooldown) and seller-apply (Turnstile) are protected.
+- **Where:** `apps/api/src/plugins/rate-limit.ts` + `trustProxy` in `apps/api/src/server.ts`; web
+  server actions under `apps/web/src/app/**/actions.ts`.
 - **Why it matters:** Griefing vector (junk load on Railway/Neon) and brute-force surface. Vercel
   and Cloudflare absorb some of this for web, but the Railway API is directly reachable.
-- **Fix (single task):** Add `@fastify/rate-limit` in `server.ts` with a global default
-  (e.g. 100 req/min/IP) and a stricter override on `/webhooks/hitpay`; allowlist `/health` +
-  `/ready`. Web actions can wait.
+- **Fix (remaining):** Run the probe runbook, then set a `keyGenerator` on the proved header and
+  re-smoke. Web actions can wait.
 
 ## 4. Non-constant-time secret comparisons · SECURITY, LOW-MEDIUM
 
