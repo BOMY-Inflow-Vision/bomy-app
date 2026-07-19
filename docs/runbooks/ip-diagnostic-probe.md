@@ -19,19 +19,17 @@ The fix is a `keyGenerator` reading whichever header is (a) stably equal to the 
 
 ## §0. Pre-flight
 
-- [ ] PR #92 (or its successor carrying `apps/api/src/routes/internal/ip-debug.ts`) is **merged to `main` and deployed**. Confirm the running deployment contains it:
-      `bash
-    railway status
-    railway logs -s @bomy/api -d --lines 20   # confirm a recent successful boot
-    `
-- [ ] Confirm you are pointed at the right project/service/environment: project **BOMY**, service **`@bomy/api`**, environment **production**. `railway status` prints all three. **If the environment is not `production`, stop** — the edge topology is what's under test.
-- [ ] Have the production `INTERNAL_API_SECRET` value to hand (Railway service variables). Do **not** echo it.
-- [ ] Know your own egress IP, from an independent source, to compare against:
-      `bash
-    curl -s https://api.ipify.org; echo
-    `
-      Record it. This is the expected "real client" value throughout.
+- [ ] PR #92 (or its successor carrying `apps/api/src/routes/internal/ip-debug.ts`) is **merged to `main` and deployed**, and the running deployment contains it.
+- [ ] You are pointed at the right project/service/environment: project **BOMY**, service **`@bomy/api`**, environment **production**. **If the environment is not `production`, stop** — the edge topology is what's under test.
+- [ ] You have the production `INTERNAL_API_SECRET` value to hand (Railway service variables). Do **not** echo it.
+- [ ] You have recorded your own egress IP from an independent source. This is the expected "real client" value throughout.
 - [ ] You are on a stable connection (not switching Wi-Fi/VPN mid-probe) — a changing egress IP invalidates the correlation.
+
+```bash
+railway status                            # confirms project + service + environment
+railway logs -s @bomy/api -d --lines 20   # confirm a recent successful boot
+curl -s https://api.ipify.org; echo       # your egress IP — record it
+```
 
 > **Not a pre-flight check:** there is no way to verify the endpoint responds before enabling the flag. While disabled the route is not registered, so it is byte-identical to any unrouted path (that is the intended behaviour, tested in `apps/api/tests/routes/internal/ip-debug.test.ts`). A 404 at this stage proves nothing either way.
 
