@@ -39,7 +39,7 @@ railway variable delete --help            # must print usage, not "unrecognized 
 
 > **CLI version:** the commands below are verified against **Railway CLI 5.18.0**. Flag names have already churned once in this area (`--unset` does not exist despite a legacy `--set` that does). If your CLI differs and the rehearsal above fails, **stop and re-derive the disable command from `railway variable --help` before enabling** — an enable you cannot reverse is the one outcome this runbook must never produce.
 
-> **Not a pre-flight check:** there is no way to verify the endpoint responds before enabling the flag. While disabled the route is not registered, so it is byte-identical to any unrouted path (that is the intended behaviour, tested in `apps/api/tests/routes/internal/ip-debug.test.ts`). A 404 at this stage proves nothing either way.
+> **Not a pre-flight check:** there is no way to verify the endpoint responds before enabling the flag. While disabled the route is not registered, so the response is identical to what **that same path** returns in a build where the route was never registered (Fastify echoes the requested path in the 404 body, so this is a per-path equivalence, not a universal one — that is the intended behaviour, tested in `apps/api/tests/routes/internal/ip-debug.test.ts`). A 404 at this stage proves nothing either way.
 
 ---
 

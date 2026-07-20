@@ -50,7 +50,7 @@
 ## §5 Disable confirmation
 
 **Disabled at:** 2026-07-20T03:59:52Z — before the analysis below.
-**Final deployment (disabled state):** `0daf51f9`, commit `0bb82bd`, created 2026-07-20T03:59:32Z. Re-verified still 404 at 04:4xZ after a long-hung `railway restart --yes` from the incident finally returned; that restart changed nothing (deployment id unchanged).
+**Final deployment (disabled state):** `0daf51f9`, commit `0bb82bd`, created 2026-07-20T03:59:32Z. Re-verified still 404 at approximately 04:4xZ (**exact timestamp not retained**) after a long-hung `railway restart --yes` from the incident finally returned; that restart changed nothing (deployment id unchanged).
 
 ```
 $ curl -s https://bomyapi-production.up.railway.app/internal/ip-debug
