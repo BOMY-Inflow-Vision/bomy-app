@@ -15,8 +15,38 @@ export const API_RATE_LIMIT_TIME_WINDOW = 60_000
 export const HITPAY_WEBHOOK_RATE_LIMIT_MAX = 30
 
 /**
- * Global rate limiter (GAPS #3). The default keyGenerator uses request.ip, which
- * resolves to the forwarded client IP because the server sets trustProxy: 1.
+ * Rate-limit key: the real client IP.
+ *
+ * **Not `request.ip`.** Under `trustProxy` that resolves to the rightmost
+ * X-Forwarded-For entry, which on Railway is an edge node that **rotates per
+ * connection** — so every fresh connection minted a new key and the cap never
+ * accumulated. That was GAPS #3: 90 fresh-connection requests produced 0× 429.
+ *
+ * Railway sets `X-Real-IP` to the real client and **overwrites** any
+ * caller-supplied value, so it is both stable and unspoofable. Proved on prod
+ * 2026-07-20 — see `docs/runbooks/evidence/2026-07-20_ip-diagnostic-probe_prod.md`
+ * for the measurements, including that `X-Envoy-External-Address` passes through
+ * client-controlled and must never be used here.
+ *
+ * Falls back to `request.ip` when the header is absent (local dev, tests, or a
+ * future non-Railway host). Deliberately **not** a shared constant: a single
+ * fallback key would let one header-less client exhaust the bucket for all of
+ * them.
+ */
+export function clientIpKey(request: {
+  headers: Record<string, string | string[] | undefined>
+  ip: string
+}): string {
+  const header = request.headers["x-real-ip"]
+  // Node may surface a repeated header as an array — key on the first value so a
+  // duplicated header shares a bucket with the single-value form.
+  const value = Array.isArray(header) ? header[0] : header
+  if (typeof value === "string" && value.trim().length > 0) return value.trim()
+  return request.ip
+}
+
+/**
+ * Global rate limiter (GAPS #3). Keys on the real client IP via `clientIpKey`.
  * Routes opt out with `config.rateLimit: false` (health/ready) or tighten via a
  * per-route `config.rateLimit` override (the HitPay webhook).
  *
@@ -67,6 +97,7 @@ export const rateLimitPlugin = fp(async (app: FastifyInstance) => {
     max: API_RATE_LIMIT_MAX,
     timeWindow: API_RATE_LIMIT_TIME_WINDOW,
     skipOnError: true,
+    keyGenerator: clientIpKey,
     ...(redis ? { redis } : {}),
   })
 
