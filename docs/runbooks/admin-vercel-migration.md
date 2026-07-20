@@ -177,7 +177,8 @@ Sequence:
 ## 7. Assert the DB role (RLS is not proven by a successful read)
 
 A page that loads data proves nothing about RLS: an owner-role connection returns identical rows
-while bypassing RLS entirely. Only the session's own `current_user` settles it.
+while bypassing RLS entirely. The session's own `current_user` settles the **role-identity**
+question — which is the specific mistake this gate catches. It does not settle RLS itself.
 
 ### 7A. 🔴 Link gate — this assertion CAN false-pass, and silently
 
@@ -199,7 +200,7 @@ vercel link            # select the NEW admin project — not bomy-app
 Verify the resulting link before trusting anything downstream:
 
 ```sh
-cat apps/admin/.vercel/project.json     # projectName must be the admin project
+cat .vercel/project.json     # you are in apps/admin — projectName must be the admin project
 vercel project inspect                  # cross-check ID/name against the dashboard
 ```
 
@@ -215,8 +216,9 @@ vercel env run -e production -- pnpm --filter @bomy/db ops:db-role:assert
 
 `vercel env run` passes project variables to the command without writing them to disk. The script
 reads `DATABASE_URL` **explicitly** (no `DATABASE_APP_URL` fallback), connects through the same
-`makeDb()` path admin uses, runs `SELECT current_user::text`, prints only the role, always closes
-the connection, and **exits non-zero unless the role is exactly `bomy_app`**.
+`makeDb()` path admin uses, runs `SELECT current_user::text`, prints only the role and non-secret
+status text — **never the connection string** — always closes the connection, and **exits non-zero
+unless the role is exactly `bomy_app`**.
 
 > **Scope:** this is a **role-identity gate**, not an RLS audit. It proves which role the connection
 > authenticates as — which is what catches an owner-role `DATABASE_URL`. Actual RLS enforcement also
@@ -248,14 +250,20 @@ Perform §6.4 now: set `AUTH_URL=https://admin.brandsofmalaysia.com` and redeplo
 _alias-configured_ deployment, which this one replaces. An unverified build must never be what DNS
 is pointed at.
 
-Against the **final deployment's own immutable URL** (`<deployment-id>.vercel.app`, not the alias):
+Against the **final deployment's own generated URL**, not the alias.
+
+> **Copy the generated URL verbatim from the deployment page.** Do NOT construct it from the
+> deployment ID: Vercel deployment IDs (`dpl_…`) are a different identifier from generated
+> deployment URLs, which are built from project name, a unique hash, and scope. ID and URL are
+> recorded as **separate** evidence fields.
 
 - [ ] Deployment status is **successful**.
 - [ ] **§1A Turbo gate repeated** — its log shows `@bomy/admin#build`, not a bare `next build`.
-- [ ] HTTP health: `curl -sI https://<immutable-deployment-url>/` → `307`.
-- [ ] **Record this deployment ID in the evidence file** (§12) — separately from the first one.
+- [ ] HTTP health: `curl -sI https://<generated-deployment-url>/` → `307`.
+- [ ] **Record both the deployment ID and the generated URL** in the evidence file (§12) —
+      separately, and separately from the first deployment.
 
-> Sign-in cannot be completed end-to-end against the immutable URL at this point, because
+> Sign-in cannot be completed end-to-end against the generated URL at this point, because
 > `AUTH_URL` now points at the custom domain that Railway still serves. That is expected: the
 > full-domain OAuth proof is §10, immediately after DNS. These gates confirm the artefact is sound
 > before cutover; §10 confirms the flow after it.
@@ -354,11 +362,11 @@ evidence file.
 
 ## Final deployment (§8A — after AUTH_URL -> custom domain)
 
-- Deployment ID (final):
-- Immutable URL:
+- Deployment ID (final, `dpl_…`):
+- Generated URL (copied verbatim from the deployment page):
 - Status successful: YES / NO
 - Turbo gate repeated: PASS / FAIL — paste the log line
-- `curl -sI <immutable URL>`:
+- `curl -sI <generated URL>`:
 
 ## DNS
 

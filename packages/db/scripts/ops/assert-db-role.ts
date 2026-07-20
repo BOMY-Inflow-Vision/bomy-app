@@ -25,7 +25,7 @@ import { makeDb } from "../../src/index.js"
  *   vercel env pull --environment=production   # NOT this — writes to disk
  *   vercel env run -e production -- pnpm --filter @bomy/db ops:db-role:assert
  *
- * Prints only the role name. Never prints the connection string.
+ * Prints only the role name and non-secret status text. Never prints the connection string.
  */
 
 const EXPECTED_ROLE = "bomy_app"
