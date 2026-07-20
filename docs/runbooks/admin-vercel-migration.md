@@ -5,8 +5,8 @@
 | **Audience**         | Charlie (project owner). Requires Vercel team admin, Cloudflare DNS edit, and Google Cloud Console access — no role below owner can complete this. |
 | **Environments**     | prod only (`admin.brandsofmalaysia.com`). No staging equivalent exists.                                                                            |
 | **Owner**            | Andy                                                                                                                                               |
-| **Revision**         | 2 — 2026-07-20 (rev 1 rewritten after Bob review of PR #94)                                                                                        |
-| **Reversible until** | **Step 9.** Steps 1–8 are additive or single-edit-revertible; **deleting the Railway service in Step 9 is the destructive boundary.**              |
+| **Revision**         | 3 — 2026-07-20 (rev 2 corrected after Bob re-review of PR #94)                                                                                     |
+| **Reversible until** | **Step 11.** Steps 1–10 are additive or single-edit-revertible; **deleting the Railway service in Step 11 is the destructive boundary.**           |
 
 > Moves the live admin console from Railway (Docker `standalone`) to Vercel, keeping
 > `admin.brandsofmalaysia.com`. Supersedes the _hosting_ half of `admin-custom-domain.md`; that
@@ -78,13 +78,17 @@ every env var in `turbo.json` is then being handled differently than this runboo
 - [ ] You can edit the **admin Google OAuth client** in Google Cloud Console (the one supplying
       `AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET` to the admin service).
 - [ ] Admin is currently reachable on Railway: `curl -sI https://admin.brandsofmalaysia.com/` → `307`.
-- [ ] **Record the current DNS state as rollback evidence** — before touching anything:
+- [ ] **Record the current DNS state as rollback evidence** — before touching anything.
+
+      **Capture the target and configured TTL from the Cloudflare dashboard**, not from `dig`.
+      `dig` reports a recursive resolver's *remaining cache TTL*, not the value configured in
+      Cloudflare (which is often `Auto`) — so it cannot be trusted as the rollback value.
 
       ```sh
-      dig +noall +answer admin.brandsofmalaysia.com   # capture target AND TTL
+      dig +noall +answer admin.brandsofmalaysia.com   # secondary: independent public-DNS evidence
       ```
 
-      Write the exact current CNAME target and TTL into the evidence file (§11). This is the
+      Write the Cloudflare-configured CNAME target and TTL into the evidence file (§12). This is the
       rollback target; do not rely on memory or on a generic value.
 
 ### 2A. Retrieving the current Railway env values
@@ -175,15 +179,35 @@ Sequence:
 A page that loads data proves nothing about RLS: an owner-role connection returns identical rows
 while bypassing RLS entirely. Only the session's own `current_user` settles it.
 
-**Gate: confirm the Vercel CLI is linked to the NEW admin project, not the existing web project.**
+### 7A. 🔴 Link gate — this assertion CAN false-pass, and silently
+
+**The repository root is linked to the `bomy-app` (web) project** — check `.vercel/project.json`,
+`projectName: "bomy-app"`. `vercel env run` uses **the linked project's** variables. So running this
+from the repo root reads **web's** Production env, and because **web already uses `bomy_app`, the
+assertion passes green while telling you nothing about the admin project.** A gate that can only
+false-pass is worse than no gate.
+
+**❌ Never run this from the repository root. Never rely on the root `.vercel` link.**
+
+Link `apps/admin` to its own project explicitly:
 
 ```sh
-vercel project ls          # or: cat .vercel/project.json
+cd apps/admin
+vercel link            # select the NEW admin project — not bomy-app
 ```
 
-Linking to the wrong project would assert against `apps/web`'s credential and produce a false pass.
+Verify the resulting link before trusting anything downstream:
 
-Then, from the repo root:
+```sh
+cat apps/admin/.vercel/project.json     # projectName must be the admin project
+vercel project inspect                  # cross-check ID/name against the dashboard
+```
+
+- [ ] `apps/admin/.vercel/project.json` exists and names the **admin** project (it does **not**
+      exist before this step).
+- [ ] Project **name and ID** match the dashboard, and are recorded in the evidence file (§12).
+
+Then, **from `apps/admin`** (the `pnpm --filter` command resolves correctly from here):
 
 ```sh
 vercel env run -e production -- pnpm --filter @bomy/db ops:db-role:assert
@@ -194,7 +218,12 @@ reads `DATABASE_URL` **explicitly** (no `DATABASE_APP_URL` fallback), connects t
 `makeDb()` path admin uses, runs `SELECT current_user::text`, prints only the role, always closes
 the connection, and **exits non-zero unless the role is exactly `bomy_app`**.
 
-- [ ] Output is `current_user: bomy_app` and `OK: …`, exit `0`.
+> **Scope:** this is a **role-identity gate**, not an RLS audit. It proves which role the connection
+> authenticates as — which is what catches an owner-role `DATABASE_URL`. Actual RLS enforcement also
+> depends on role attributes (`BYPASSRLS`), table ownership, and the policies. Do not cite a green
+> result as proof that RLS is on.
+
+- [ ] Output is `current_user: bomy_app` and `OK: expected limited role confirmed…`, exit `0`.
 - [ ] Secondary preflight (cheap, non-authoritative): the configured `DATABASE_URL` visibly begins
       `postgresql://bomy_app:`.
 
@@ -211,7 +240,25 @@ the connection, and **exits non-zero unless the role is exactly `bomy_app`**.
       `HITPAY_API_KEY`/`HITPAY_API_URL` are present.
 - [ ] §7 DB-role assertion is green.
 
-Then perform §6.4 (`AUTH_URL` → custom domain, redeploy).
+### 8A. 🔴 Gate the FINAL deployment — the OAuth proof above does not cover it
+
+Perform §6.4 now: set `AUTH_URL=https://admin.brandsofmalaysia.com` and redeploy.
+
+**That redeploy produces a NEW deployment.** Everything proven in §5–§8 was proven against the
+_alias-configured_ deployment, which this one replaces. An unverified build must never be what DNS
+is pointed at.
+
+Against the **final deployment's own immutable URL** (`<deployment-id>.vercel.app`, not the alias):
+
+- [ ] Deployment status is **successful**.
+- [ ] **§1A Turbo gate repeated** — its log shows `@bomy/admin#build`, not a bare `next build`.
+- [ ] HTTP health: `curl -sI https://<immutable-deployment-url>/` → `307`.
+- [ ] **Record this deployment ID in the evidence file** (§12) — separately from the first one.
+
+> Sign-in cannot be completed end-to-end against the immutable URL at this point, because
+> `AUTH_URL` now points at the custom domain that Railway still serves. That is expected: the
+> full-domain OAuth proof is §10, immediately after DNS. These gates confirm the artefact is sound
+> before cutover; §10 confirms the flow after it.
 
 ## 9. DNS cutover
 
@@ -238,7 +285,7 @@ uninterrupted service matters — do not wait until after DNS has moved.
    ```
 
 **Rollback:** restore the CNAME target and TTL recorded in §2. Railway is still deployed and serving
-until §10, so this restores service in one DNS edit.
+until §11, so this restores service in one DNS edit.
 
 ## 10. Post-cutover verification
 
@@ -273,12 +320,19 @@ evidence file.
 
 - Operator: Charlie
 - Started / finished (UTC):
-- Runbook revision: 2
+- Runbook revision: 3
+
+## Project link (§7A)
+
+- Admin project NAME:
+- Admin project ID:
+- `apps/admin/.vercel/project.json` verified against dashboard: YES / NO
+- Confirmed NOT run from repo root (root links to `bomy-app`): YES / NO
 
 ## Build path
 
 - Vercel project alias:
-- Deployment ID (first):
+- Deployment ID (first, alias-configured):
 - §1A Turbo gate: PASS / FAIL — paste the `@bomy/admin#build` log line
 
 ## Environment
@@ -286,23 +340,32 @@ evidence file.
 - Variable NAMES configured (no values):
 - Any Railway variable NOT carried over, and why:
 
-## DB role assertion (§7)
+## DB role assertion (§7) — role identity only, NOT an RLS audit
 
-- CLI linked to project:
+- Run from `apps/admin` (not repo root): YES / NO
 - Command exit code:
 - current_user result:
 
 ## OAuth
 
-- Sign-in on \*.vercel.app: PASS / FAIL
-- Sign-in on custom domain: PASS / FAIL
+- Sign-in on \*.vercel.app (alias deployment): PASS / FAIL
+- Sign-in on custom domain (§10): PASS / FAIL
 - Redirect URIs registered:
+
+## Final deployment (§8A — after AUTH_URL -> custom domain)
+
+- Deployment ID (final):
+- Immutable URL:
+- Status successful: YES / NO
+- Turbo gate repeated: PASS / FAIL — paste the log line
+- `curl -sI <immutable URL>`:
 
 ## DNS
 
-- BEFORE — target + TTL (rollback value):
+- BEFORE — Cloudflare-configured target + TTL (rollback value):
+- BEFORE — `dig` output (secondary evidence):
 - AFTER — target + TTL:
-- Certificate ready before DNS edit: YES / NO
+- Certificate ready BEFORE DNS edit: YES / NO
 - dig / curl results:
 
 ## Rollback
