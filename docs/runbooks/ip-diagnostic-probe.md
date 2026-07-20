@@ -3,7 +3,7 @@
 **Audience:** Charlie, or any operator with Railway CLI access to the BOMY project and the `INTERNAL_API_SECRET` value.
 **Environment:** **production only** (`@bomy/api` on Railway). The question being answered — how many proxy hops sit in front of the API, and which header survives them — is a property of the production edge and cannot be reproduced locally.
 **Owner:** Charlie.
-**Last revised:** 2026-07-19
+**Last revised:** 2026-07-20 (§5 corrected after the first real execution — see evidence/2026-07-20)
 
 ---
 
@@ -39,7 +39,7 @@ railway variable delete --help            # must print usage, not "unrecognized 
 
 > **CLI version:** the commands below are verified against **Railway CLI 5.18.0**. Flag names have already churned once in this area (`--unset` does not exist despite a legacy `--set` that does). If your CLI differs and the rehearsal above fails, **stop and re-derive the disable command from `railway variable --help` before enabling** — an enable you cannot reverse is the one outcome this runbook must never produce.
 
-> **Not a pre-flight check:** there is no way to verify the endpoint responds before enabling the flag. While disabled the route is not registered, so it is byte-identical to any unrouted path (that is the intended behaviour, tested in `apps/api/tests/routes/internal/ip-debug.test.ts`). A 404 at this stage proves nothing either way.
+> **Not a pre-flight check:** there is no way to verify the endpoint responds before enabling the flag. While disabled the route is not registered, so the response is identical to what **that same path** returns in a build where the route was never registered (Fastify echoes the requested path in the 404 body, so this is a per-path equivalence, not a universal one — that is the intended behaviour, tested in `apps/api/tests/routes/internal/ip-debug.test.ts`). A 404 at this stage proves nothing either way.
 
 ---
 
@@ -135,26 +135,58 @@ Capture the matching edge log line again.
 
 Run this **as soon as §4's capture is saved** — before reading the results, before writing anything up, before forming any conclusion. Analysis is unbounded in time; the exposure window must not be.
 
+> ⚠️ **`railway variable delete` does NOT trigger a redeploy** (verified in prod, 2026-07-20). The variable disappears from the Railway config while the **running container keeps its boot environment** — so the endpoint stays live and answering while `variable list` insists the flag is gone. `railway restart --yes` also hung without effect. **Deleting first is the wrong order.** Set it to `0` — a _set_ does trigger a redeploy, and `0` fails the `!== "1"` check on both gates — then delete.
+
+> 🚫 **Do not paste these four steps as one block.** Each step has a gate that must pass before the next runs. Running them back-to-back reproduces the exact failure this section exists to prevent.
+
+### Step 1 — set to `0` (this is what actually disables it)
+
+```bash
+railway variable set ENABLE_IP_DIAGNOSTIC=0 \
+  --service @bomy/api --environment production
+```
+
+### Step 2 — GATE: wait for the redeploy, confirm the endpoint is gone
+
+**Do not continue until this returns the standard 404.**
+
+```bash
+curl -s https://bomyapi-production.up.railway.app/internal/ip-debug
+# REQUIRED: {"message":"Route GET:/internal/ip-debug not found","error":"Not Found","statusCode":404}
+```
+
+Took ~20s on 2026-07-20. If it still returns `200` or `401`, the flag is still live in the running container — go to the escalation ladder below. **Do not run step 3 while the endpoint is still answering.**
+
+### Step 3 — only now, remove the variable
+
+The running container keeps `0`; any future deploy sees no variable at all.
+
 ```bash
 railway variable delete ENABLE_IP_DIAGNOSTIC \
   --service @bomy/api --environment production
+
 unset IP_DEBUG_SECRET
 ```
 
-Wait for the redeploy, then confirm the endpoint is gone:
+### Step 4 — GATE: confirm the final state
 
 ```bash
-curl -s -o /dev/null -w "%{http_code}\n" https://bomyapi-production.up.railway.app/health   # expect 200
-curl -s https://bomyapi-production.up.railway.app/internal/ip-debug                          # expect the standard Fastify 404 body
+curl -s https://bomyapi-production.up.railway.app/internal/ip-debug   # standard Fastify 404
+curl -s -o /dev/null -w "health %{http_code}\n" https://bomyapi-production.up.railway.app/health   # 200
+curl -s -o /dev/null -w "ready  %{http_code}\n" https://bomyapi-production.up.railway.app/ready    # 200
 
 # Confirm the variable itself is gone. Grep for the single key — never dump the
 # whole list with --kv/--json, which prints every secret in raw form (§1).
 railway variable list --service @bomy/api --environment production | grep -c ENABLE_IP_DIAGNOSTIC   # expect 0
 ```
 
-The 404 response must be the ordinary not-found payload (`{"message":"Route GET:/internal/ip-debug not found","error":"Not Found","statusCode":404}`) — the same body any unrouted path returns.
+Record the final deployment id (`railway deployment list --service @bomy/api --environment production`) in the evidence file.
 
-**If the delete fails or the variable is still present:** you are in the one state this runbook must never leave behind. Retry; if it still fails, remove the variable from the Railway dashboard UI directly, and do not stop working until a probe returns the standard 404.
+The 404 must be the ordinary not-found payload. Note that Fastify **echoes the requested path** in that body, so it is not byte-identical across different paths — the correct claim is that it matches what a build without this route returns **for this same path**.
+
+**The endpoint returning 404 is the only thing that counts as disabled.** An exit code of 0, an empty `variable list` grep, or a `SUCCESS` deployment row are all insufficient — every one of those reported success in the 2026-07-20 run while the endpoint was still live. Do not proceed on config state; proceed on the probe.
+
+**If the endpoint is still answering:** you are in the one state this runbook must never leave behind. Escalate through: `variable set …=0` (above) → `railway redeploy --service @bomy/api --environment production --yes` → remove the variable from the Railway dashboard UI and restart the service there. **Do not stop working, and do not begin analysis, until a probe returns the standard 404.**
 
 **Rollback is this same section** — the endpoint is read-only, touches no database, and holds no state, so there is nothing else to undo. If anything looks wrong at any point in §2–§4 — unexpected status codes, the wrong deployment serving traffic, an unstable egress IP — run §5 immediately and restart from §0.
 
@@ -238,5 +270,6 @@ The probe is not finished when the flag is off. GAPS #3 closes only when **all**
 3. The re-run prod smoke passes: bad-signature `POST /webhooks/hitpay` over **fresh** connections now returns 429 past the ~30 cap.
 4. `ENABLE_IP_DIAGNOSTIC` is confirmed absent from the Railway service variables:
    `railway variable list --service @bomy/api --environment production | grep -c ENABLE_IP_DIAGNOSTIC` returns `0`.
-   (Never dump the list with `--kv`/`--json` — see §1.)
+   (Never dump the list with `--kv`/`--json` — see §1.) **Config absence is not proof** — the
+   endpoint must also 404, per §5.
 5. This runbook is deleted in the same PR, and the GAPS #3 entry updated to closed citing the evidence file.

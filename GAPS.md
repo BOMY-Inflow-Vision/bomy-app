@@ -51,12 +51,14 @@
 
 ## 3. No rate limiting on any public endpoint · SECURITY, MEDIUM
 
-- **Status (2026-07-15):** `apps/api` addressed. PR #90 added `@fastify/rate-limit` (global
-  100/min/IP, `/webhooks/hitpay` 30/min, `/health`+`/ready` exempt, `trustProxy: 1`). The prod
-  smoke then showed the API runs **multiple instances**, so the per-instance in-memory store did not
-  actually throttle a load-balanced client. Follow-up PR moves the store to **shared Redis**
-  (`REDIS_URL`, `skipOnError: true` fail-open). **Close only after the re-run prod smoke passes** —
-  fresh connections should 429 past the cap. Web server-action throttling is still open (below).
+- **Status (2026-07-15, SUPERSEDED — the causal explanation here was wrong):** `apps/api` addressed.
+  PR #90 added `@fastify/rate-limit` (global 100/min/IP, `/webhooks/hitpay` 30/min, `/health`+`/ready`
+  exempt, `trustProxy: 1`). The prod smoke showed the cap not binding across fresh connections, which
+  was **attributed at the time to the API running multiple instances** behind a load balancer;
+  the follow-up PR moved the store to **shared Redis** (`REDIS_URL`, `skipOnError: true` fail-open).
+  **That multiple-instances inference was never verified and is now believed false** — see the
+  2026-07-20 status below. Redis remains the right store (deploy overlap, future horizontal scaling),
+  but it was not the fix for this symptom. Web server-action throttling is still open (below).
 - **Status (2026-07-19): STILL OPEN — the limiter keys on the wrong IP.** The post-#91 prod smoke
   sent 90 bad-signature `POST /webhooks/hitpay` over **fresh** connections → **0× 429**; 40 over a
   single keep-alive connection → 429 as expected. Cause: `trustProxy: 1` resolves `request.ip` to
@@ -68,6 +70,16 @@
   (`ENABLE_IP_DIAGNOSTIC=1` + `INTERNAL_API_SECRET`) exists to run that probe; procedure in
   [`docs/runbooks/ip-diagnostic-probe.md`](docs/runbooks/ip-diagnostic-probe.md). The keying fix and
   the removal of that endpoint close this gap.
+- **Status (2026-07-20): PROBED — answer is `X-Real-IP`.** Evidence:
+  [`docs/runbooks/evidence/2026-07-20_ip-diagnostic-probe_prod.md`](docs/runbooks/evidence/2026-07-20_ip-diagnostic-probe_prod.md).
+  `request.ip` returned **4 distinct edge IPs across 6 requests**, confirming the rotating-key cause
+  directly. `X-Real-IP` was correct (== egress == edge-log `srcIp`), stable across all 6, and
+  **not spoofable** — Railway overwrites both `X-Forwarded-For` and `X-Real-IP` wholesale (a
+  3-entry spoofed chain arrived as a clean 2-entry `[client], [edge]`). XFF-leftmost also satisfied
+  all three measured criteria but is **positional** and degrades silently if a hop is added, so
+  `X-Real-IP` is preferred. **`X-Envoy-External-Address` passes through client-controlled — never
+  key or trust it.** Remaining work: `keyGenerator` on `X-Real-IP`, delete the diagnostic endpoint +
+  runbook, re-smoke fresh connections for a 429 past ~30.
 - **What:** `apps/api` is rate-limited but **not effectively** — the plugin is registered (#90/#91)
   and `/webhooks/hitpay` (HMAC before any DB work, good, but HMAC on unbounded bodies is still CPU)
   and `/me` carry caps, with `/health` + `/ready` exempt; the caps just don't bind because of the
@@ -146,11 +158,20 @@
 - **What:** `expireCancelledMemberships` and `expireAbandonedPendingMemberships` run via
   `setInterval` in `apps/api/src/server.ts:53-84` — once per process. BullMQ jobs are deduplicated
   by Redis job schedulers; these two are not.
-- **Why it matters:** ~~Today Railway runs one instance, so it's fine.~~ **Confirmed LIVE
-  (2026-07-15):** the PR #90 prod smoke proved `apps/api` runs **multiple instances**, so these two
-  sweeps are **already double-running** in prod. The updates are idempotent-ish and were not designed
-  for it, and there is no `SKIP LOCKED` on those paths. Priority raised — this is now active, not
-  hypothetical.
+- **Why it matters:** ~~**Confirmed LIVE (2026-07-15):** the PR #90 prod smoke proved `apps/api`
+  runs **multiple instances**, so these two sweeps are already double-running in prod.~~
+  **RETRACTED 2026-07-20 — that inference was unsound.** The smoke observed only that the rate-limit
+  cap failed to bind across fresh connections; the 2026-07-20 probe showed the actual cause was a
+  **rotating edge IP** (4 distinct values across 6 requests), which fully explains the symptom
+  **without** multiple app instances. Railway service config reads `numReplicas: 1`, single region
+  `asia-southeast1`. **There is no evidence the sweeps are double-running in steady state.**
+- **Residual risk (real but narrower):** during a **rolling deploy** the outgoing and incoming
+  containers overlap, and each runs the startup sweep on boot — so a double-run is possible per
+  deploy, not continuously. There is no `SKIP LOCKED` on those paths.
+- **Before working this:** verify actual concurrency directly rather than inferring it from a
+  rate-limit symptom (e.g. instrument the sweep with a per-boot id and count distinct ids in one
+  window, or check replica count at the moment of the run). Priority returns to **LOW-MEDIUM** —
+  fragile-by-design, not actively firing.
 - **Fix (single task):** Move both sweeps onto a BullMQ repeatable queue (daily), exactly like
   `brand-subscription-expiry` — the scheduler file already shows the pattern. Delete the interval
   block from `server.ts`.
