@@ -17,6 +17,7 @@
     "test:watch": "vitest",
     "migrate": "node scripts/migrate.mjs",
     "ops:platform-config:set": "tsx scripts/ops/platform-config-flip.ts",
+    "ops:db-role:assert": "tsx scripts/ops/assert-db-role.ts",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio"
