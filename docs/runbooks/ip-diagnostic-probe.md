@@ -3,7 +3,7 @@
 **Audience:** Charlie, or any operator with Railway CLI access to the BOMY project and the `INTERNAL_API_SECRET` value.
 **Environment:** **production only** (`@bomy/api` on Railway). The question being answered — how many proxy hops sit in front of the API, and which header survives them — is a property of the production edge and cannot be reproduced locally.
 **Owner:** Charlie.
-**Last revised:** 2026-07-19
+**Last revised:** 2026-07-20 (§5 corrected after the first real execution — see evidence/2026-07-20)
 
 ---
 
@@ -135,9 +135,20 @@ Capture the matching edge log line again.
 
 Run this **as soon as §4's capture is saved** — before reading the results, before writing anything up, before forming any conclusion. Analysis is unbounded in time; the exposure window must not be.
 
+> ⚠️ **`railway variable delete` does NOT trigger a redeploy** (verified in prod, 2026-07-20). The variable disappears from the Railway config while the **running container keeps its boot environment** — so the endpoint stays live and answering while `variable list` insists the flag is gone. `railway restart --yes` also hung without effect. **Deleting first is the wrong order.** Set it to `0` — a _set_ does trigger a redeploy, and `0` fails the `!== "1"` check on both gates — then delete.
+
 ```bash
+# 1. Set to 0. This DOES redeploy, and 0 disables both gates.
+railway variable set ENABLE_IP_DIAGNOSTIC=0 \
+  --service @bomy/api --environment production
+
+# 2. Wait for the redeploy, then CONFIRM (below) before doing anything else.
+
+# 3. Only after the endpoint is confirmed 404, remove the variable. The running
+#    container keeps 0; any future deploy sees no variable at all.
 railway variable delete ENABLE_IP_DIAGNOSTIC \
   --service @bomy/api --environment production
+
 unset IP_DEBUG_SECRET
 ```
 
@@ -154,7 +165,9 @@ railway variable list --service @bomy/api --environment production | grep -c ENA
 
 The 404 response must be the ordinary not-found payload (`{"message":"Route GET:/internal/ip-debug not found","error":"Not Found","statusCode":404}`) — the same body any unrouted path returns.
 
-**If the delete fails or the variable is still present:** you are in the one state this runbook must never leave behind. Retry; if it still fails, remove the variable from the Railway dashboard UI directly, and do not stop working until a probe returns the standard 404.
+**The endpoint returning 404 is the only thing that counts as disabled.** An exit code of 0, an empty `variable list` grep, or a `SUCCESS` deployment row are all insufficient — every one of those reported success in the 2026-07-20 run while the endpoint was still live. Do not proceed on config state; proceed on the probe.
+
+**If the endpoint is still answering:** you are in the one state this runbook must never leave behind. Escalate through: `variable set …=0` (above) → `railway redeploy --service @bomy/api --environment production --yes` → remove the variable from the Railway dashboard UI and restart the service there. **Do not stop working, and do not begin analysis, until a probe returns the standard 404.**
 
 **Rollback is this same section** — the endpoint is read-only, touches no database, and holds no state, so there is nothing else to undo. If anything looks wrong at any point in §2–§4 — unexpected status codes, the wrong deployment serving traffic, an unstable egress IP — run §5 immediately and restart from §0.
 
@@ -238,5 +251,6 @@ The probe is not finished when the flag is off. GAPS #3 closes only when **all**
 3. The re-run prod smoke passes: bad-signature `POST /webhooks/hitpay` over **fresh** connections now returns 429 past the ~30 cap.
 4. `ENABLE_IP_DIAGNOSTIC` is confirmed absent from the Railway service variables:
    `railway variable list --service @bomy/api --environment production | grep -c ENABLE_IP_DIAGNOSTIC` returns `0`.
-   (Never dump the list with `--kv`/`--json` — see §1.)
+   (Never dump the list with `--kv`/`--json` — see §1.) **Config absence is not proof** — the
+   endpoint must also 404, per §5.
 5. This runbook is deleted in the same PR, and the GAPS #3 entry updated to closed citing the evidence file.
