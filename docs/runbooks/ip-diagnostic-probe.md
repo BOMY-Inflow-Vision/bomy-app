@@ -137,33 +137,52 @@ Run this **as soon as §4's capture is saved** — before reading the results, b
 
 > ⚠️ **`railway variable delete` does NOT trigger a redeploy** (verified in prod, 2026-07-20). The variable disappears from the Railway config while the **running container keeps its boot environment** — so the endpoint stays live and answering while `variable list` insists the flag is gone. `railway restart --yes` also hung without effect. **Deleting first is the wrong order.** Set it to `0` — a _set_ does trigger a redeploy, and `0` fails the `!== "1"` check on both gates — then delete.
 
+> 🚫 **Do not paste these four steps as one block.** Each step has a gate that must pass before the next runs. Running them back-to-back reproduces the exact failure this section exists to prevent.
+
+### Step 1 — set to `0` (this is what actually disables it)
+
 ```bash
-# 1. Set to 0. This DOES redeploy, and 0 disables both gates.
 railway variable set ENABLE_IP_DIAGNOSTIC=0 \
   --service @bomy/api --environment production
+```
 
-# 2. Wait for the redeploy, then CONFIRM (below) before doing anything else.
+### Step 2 — GATE: wait for the redeploy, confirm the endpoint is gone
 
-# 3. Only after the endpoint is confirmed 404, remove the variable. The running
-#    container keeps 0; any future deploy sees no variable at all.
+**Do not continue until this returns the standard 404.**
+
+```bash
+curl -s https://bomyapi-production.up.railway.app/internal/ip-debug
+# REQUIRED: {"message":"Route GET:/internal/ip-debug not found","error":"Not Found","statusCode":404}
+```
+
+Took ~20s on 2026-07-20. If it still returns `200` or `401`, the flag is still live in the running container — go to the escalation ladder below. **Do not run step 3 while the endpoint is still answering.**
+
+### Step 3 — only now, remove the variable
+
+The running container keeps `0`; any future deploy sees no variable at all.
+
+```bash
 railway variable delete ENABLE_IP_DIAGNOSTIC \
   --service @bomy/api --environment production
 
 unset IP_DEBUG_SECRET
 ```
 
-Wait for the redeploy, then confirm the endpoint is gone:
+### Step 4 — GATE: confirm the final state
 
 ```bash
-curl -s -o /dev/null -w "%{http_code}\n" https://bomyapi-production.up.railway.app/health   # expect 200
-curl -s https://bomyapi-production.up.railway.app/internal/ip-debug                          # expect the standard Fastify 404 body
+curl -s https://bomyapi-production.up.railway.app/internal/ip-debug   # standard Fastify 404
+curl -s -o /dev/null -w "health %{http_code}\n" https://bomyapi-production.up.railway.app/health   # 200
+curl -s -o /dev/null -w "ready  %{http_code}\n" https://bomyapi-production.up.railway.app/ready    # 200
 
 # Confirm the variable itself is gone. Grep for the single key — never dump the
 # whole list with --kv/--json, which prints every secret in raw form (§1).
 railway variable list --service @bomy/api --environment production | grep -c ENABLE_IP_DIAGNOSTIC   # expect 0
 ```
 
-The 404 response must be the ordinary not-found payload (`{"message":"Route GET:/internal/ip-debug not found","error":"Not Found","statusCode":404}`) — the same body any unrouted path returns.
+Record the final deployment id (`railway deployment list --service @bomy/api --environment production`) in the evidence file.
+
+The 404 must be the ordinary not-found payload. Note that Fastify **echoes the requested path** in that body, so it is not byte-identical across different paths — the correct claim is that it matches what a build without this route returns **for this same path**.
 
 **The endpoint returning 404 is the only thing that counts as disabled.** An exit code of 0, an empty `variable list` grep, or a `SUCCESS` deployment row are all insufficient — every one of those reported success in the 2026-07-20 run while the endpoint was still live. Do not proceed on config state; proceed on the probe.
 

@@ -50,6 +50,7 @@
 ## §5 Disable confirmation
 
 **Disabled at:** 2026-07-20T03:59:52Z — before the analysis below.
+**Final deployment (disabled state):** `0daf51f9`, commit `0bb82bd`, created 2026-07-20T03:59:32Z. Re-verified still 404 at 04:4xZ after a long-hung `railway restart --yes` from the incident finally returned; that restart changed nothing (deployment id unchanged).
 
 ```
 $ curl -s https://bomyapi-production.up.railway.app/internal/ip-debug
@@ -61,13 +62,13 @@ $ railway variable list --service @bomy/api --environment production | grep -c E
 $ curl -s .../health   → 200    $ curl -s .../ready → 200
 ```
 
-Confirmed four times, including once with an `Authorization` header present — the standard not-found body every time, byte-identical to any unrouted path.
+Confirmed four times, including once with an `Authorization` header present — the standard not-found body every time. **Precisely:** Fastify echoes the requested path in that body, so it is _not_ byte-identical across different paths; what it matches is the response a build without this route returns **for this same path** (verified pre-merge against a control app in `apps/api/tests/routes/internal/ip-debug.test.ts`).
 
 ### ⚠️ Deviation — the disable took ~45 min, not ~5
 
 **`railway variable delete` does NOT trigger a redeploy.** The variable vanished from the Railway config immediately, but the running container kept `ENABLE_IP_DIAGNOSTIC=1` in its boot environment, so **the endpoint stayed live and answering `401` while the config claimed it was gone.** `railway restart --yes` hung without effect. What worked: `railway variable set ENABLE_IP_DIAGNOSTIC=0` (a _set_ does trigger a redeploy, and `0` fails the `!== "1"` check on both gates), then deleting the variable afterwards — the running container keeps `0`, and any future deploy sees no variable at all.
 
-Exposure window was ~45 minutes instead of the intended ~5. No unauthorised access is possible in that window (the bearer gate held throughout), but the runbook's §5 was wrong and has been corrected.
+Exposure window was ~45 minutes instead of the intended ~5. **What the evidence supports:** unauthenticated requests to the endpoint continued to return `401` throughout the window — the bearer gate was observed holding. It does **not** establish that no unauthorised access occurred; no access-log audit of the window was performed. The runbook's §5 was wrong and has been corrected.
 
 **The §5 confirm step is what caught this.** Had the runbook trusted the delete command's exit code, production would have been left with a live diagnostic endpoint and a config file insisting otherwise.
 
@@ -83,10 +84,10 @@ Exposure window was ~45 minutes instead of the intended ~5. No unauthorised acce
 | `X-Envoy-External-Address` | ❌ no                       | ❌ no               | ❌ **client-controlled** | ❌ **never**          |
 | `socket.remoteAddress`     | ❌ no (`100.64.0.x` CGNAT)  | ❌ no (6 distinct)  | ✅ n/a                   | ❌ no                 |
 
-**Conclusion: key the rate limiter on `X-Real-IP`.**
+**Conclusion: key the rate limiter on `X-Real-IP` — the preferred header.**
 
-It is the only header that satisfies all three criteria outright. Railway sets it to the real client and overwrites any caller-supplied value (proved in B1 and B2).
+Two candidates satisfied all three measured criteria: `X-Real-IP` and `X-Forwarded-For` leftmost. Railway sets both to the real client and overwrites any caller-supplied value (proved in B1, B2 and B3). `X-Real-IP` is preferred because it is a single unambiguous value.
 
-`X-Forwarded-For` leftmost is equally correct and equally unspoofable, but requires positional parsing and silently degrades to an edge IP if Railway ever inserts another hop. `X-Real-IP` is a single unambiguous value with no positional assumption. **`trustProxy: 2` would work today** — XFF was exactly two entries every time — **but it is precisely the hop-count guess this probe existed to avoid**, and it breaks silently if the chain length changes.
+`X-Forwarded-For` leftmost is equally correct and equally unspoofable **on the measured evidence**, but requires positional parsing and would silently degrade to an edge IP if Railway ever inserted another hop. `X-Real-IP` carries no positional assumption. **`trustProxy: 2` would work today** — XFF was exactly two entries every time — **but it is precisely the hop-count guess this probe existed to avoid**, and it breaks silently if the chain length changes.
 
 Recommended change (next PR): a `keyGenerator` on `X-Real-IP` with a documented fallback, keeping #91's Redis store, then re-smoke fresh connections and confirm 429 past ~30.
