@@ -1,4 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "turbo build --filter=@bomy/admin"
+  "buildCommand": "turbo build --filter=@bomy/admin",
+  "regions": ["sin1"]
 }
