@@ -73,7 +73,10 @@ every env var in `turbo.json` is then being handled differently than this runboo
 ## 2. Pre-flight checklist
 
 - [ ] PR #94 is merged to `main` (carries `vercel.json` + the `turbo.json` declarations).
-- [ ] You can create projects in the Vercel team **`ck-projects-my`** (`team_rSvF6LShlwNoVTCB2p2rD6hk`).
+- [ ] You can create projects in the Vercel team that owns the BOMY projects — **team ID
+      `team_rSvF6LShlwNoVTCB2p2rD6hk`** (key on the ID; the slug/name are volatile — this is Charlie's
+      shared agency dev team, renamed several times, and the BOMY projects are slated to transfer to a
+      dedicated **Team BOMY** on Pro at go-live).
 - [ ] You can edit **Cloudflare DNS** for `brandsofmalaysia.com`.
 - [ ] You can edit the **admin Google OAuth client** in Google Cloud Console (the one supplying
       `AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET` to the admin service).
