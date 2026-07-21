@@ -48,13 +48,22 @@ async function buildApp() {
 
 describe("rateLimitPlugin", () => {
   let app: Awaited<ReturnType<typeof buildApp>>
+  let savedRedisUrl: string | undefined
 
   beforeEach(async () => {
+    // These assert keyGenerator LOGIC, which is store-independent. Force the
+    // in-memory store (fresh per app) so buckets don't bleed between tests via a
+    // shared Redis instance, and so a re-run inside the 60s window can't carry
+    // counts over. The Redis store path itself is covered by
+    // rate-limit-redis.test.ts.
+    savedRedisUrl = process.env["REDIS_URL"]
+    delete process.env["REDIS_URL"]
     app = await buildApp()
   })
 
   afterEach(async () => {
     await app.close()
+    if (savedRedisUrl !== undefined) process.env["REDIS_URL"] = savedRedisUrl
   })
 
   it("allows requests up to the global default, then returns 429", async () => {

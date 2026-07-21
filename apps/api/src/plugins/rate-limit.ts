@@ -38,10 +38,13 @@ export function clientIpKey(request: {
   ip: string
 }): string {
   const header = request.headers["x-real-ip"]
-  // Node may surface a repeated header as an array — key on the first value so a
-  // duplicated header shares a bucket with the single-value form.
-  const value = Array.isArray(header) ? header[0] : header
-  if (typeof value === "string" && value.trim().length > 0) return value.trim()
+  // A repeated header may arrive as an array OR, more commonly, Node joins the
+  // copies into one "a, b" string. Either way take the FIRST value, so
+  // "7.7.7.7, 7.7.7.7" shares a bucket with the single-value "7.7.7.7" instead
+  // of keying on the joined string.
+  const raw = Array.isArray(header) ? header[0] : header
+  const value = typeof raw === "string" ? raw.split(",")[0]?.trim() : undefined
+  if (value) return value
   return request.ip
 }
 

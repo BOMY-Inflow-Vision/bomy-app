@@ -35,15 +35,21 @@ function forgedWebhook(app: Awaited<ReturnType<typeof buildApp>>) {
 
 describe("rate-limit wiring (real routes)", () => {
   let app: Awaited<ReturnType<typeof buildApp>>
+  let savedRedisUrl: string | undefined
 
   beforeEach(async () => {
     process.env["HITPAY_SALT"] = "test-salt-for-wiring"
+    // In-memory store (fresh per app): asserts the real routes carry the limit
+    // config, not the Redis store. Avoids cross-test / 60s-window bucket bleed.
+    savedRedisUrl = process.env["REDIS_URL"]
+    delete process.env["REDIS_URL"]
     app = await buildApp()
   })
 
   afterEach(async () => {
     await app.close()
     delete process.env["HITPAY_SALT"]
+    if (savedRedisUrl !== undefined) process.env["REDIS_URL"] = savedRedisUrl
   })
 
   it("exempts GET /health from the global limit", async () => {
