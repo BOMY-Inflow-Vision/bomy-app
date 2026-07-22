@@ -2,6 +2,11 @@
 
 One committed file per execution of a runbook on a real environment.
 
+**When to create it:** create the evidence file **before executing the first irreversible or
+externally-visible step**, then append each gate's result as you run it. Mark any missed capture as
+`"not retained"` rather than reconstructing it later — a captured-live record is durable; an
+after-the-fact reconstruction has gaps (as the admin-vercel-migration evidence shows).
+
 ## File naming
 
 `YYYY-MM-DD_<runbook-slug>_<env>.md`
