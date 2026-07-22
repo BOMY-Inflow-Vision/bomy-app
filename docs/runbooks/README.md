@@ -14,8 +14,15 @@ When a staff member executes a runbook, they capture evidence under [`evidence/`
 
 ## Current runbooks
 
-| Runbook                                                    | Environments                          | Trigger                                                                                                                             |
-| ---------------------------------------------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| [`checkout-enabled-flip.md`](./checkout-enabled-flip.md)   | local, staging (template), prod (TBD) | First-time enable of buyer checkout on a target env, or rollback to disable.                                                        |
-| [`ip-diagnostic-probe.md`](./ip-diagnostic-probe.md)       | prod only                             | Prove which proxy header carries the real client IP, to fix rate-limit keying (GAPS #3). **Temporary — delete with the fix.**       |
-| [`admin-vercel-migration.md`](./admin-vercel-migration.md) | prod only                             | Move `apps/admin` off Railway onto Vercel, keeping `admin.brandsofmalaysia.com`. **One-time — delete once decommission completes.** |
+| Runbook                                                  | Environments                          | Trigger                                                                                                                       |
+| -------------------------------------------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| [`checkout-enabled-flip.md`](./checkout-enabled-flip.md) | local, staging (template), prod (TBD) | First-time enable of buyer checkout on a target env, or rollback to disable.                                                  |
+| [`ip-diagnostic-probe.md`](./ip-diagnostic-probe.md)     | prod only                             | Prove which proxy header carries the real client IP, to fix rate-limit keying (GAPS #3). **Temporary — delete with the fix.** |
+
+## Completed runbooks (reference / templates)
+
+One-time procedures that have finished executing. Kept for institutional knowledge and as templates for similar future work (e.g. migrating/transferring other client projects), not as active runbooks. Each links its committed execution evidence.
+
+| Runbook                                                    | Completed  | Evidence                                                                                                                                                  |
+| ---------------------------------------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`admin-vercel-migration.md`](./admin-vercel-migration.md) | 2026-07-22 | [`evidence/2026-07-21_admin-vercel-migration_prod.md`](./evidence/2026-07-21_admin-vercel-migration_prod.md) — `apps/admin` Railway→Vercel + decommission |
