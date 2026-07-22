@@ -49,17 +49,20 @@
   evidence under `docs/runbooks/evidence/`. The live smoke waits on either HitPay approval or the
   Stripe path.
 
-## 3. No rate limiting on any public endpoint · SECURITY, MEDIUM
+## 3. No rate limiting on any public endpoint · SECURITY, MEDIUM — `apps/api` half CLOSED
 
-- **Status (2026-07-21): `apps/api` keying FIXED IN CODE — prod re-smoke pending.** The limiter now
-  keys on `X-Real-IP` via `clientIpKey` (`apps/api/src/plugins/rate-limit.ts`), falling back to
-  `request.ip` when absent (dev/tests) — never a shared constant, which would let one header-less
-  client exhaust every other's bucket. Unit tests cover the rotating-edge-IP regression, spoofed-XFF
-  precedence, the fallback, and a duplicated-header case. The temporary `/internal/ip-debug` endpoint
-  and its runbook were **removed** in the same change (evidence file retained). **Not fully closed:**
-  (a) the prod re-smoke — fresh connections must 429 past ~30 — is **pending Charlie's approval**
-  (it fires ~35 bad-signature webhook POSTs at prod); (b) **web server-action throttling is still
-  open** (see the `What` note below). Close this gap only when both land.
+- **Status (2026-07-22): `apps/api` keying CLOSED — prod re-smoke PASSED.** PR #98 (merged `a491fdd`,
+  deployed `a67a2153`) ships `clientIpKey` in `apps/api/src/plugins/rate-limit.ts`, keying on
+  `X-Real-IP` with a `request.ip` fallback for dev/tests (never a shared constant — that would let
+  one header-less client exhaust every other's bucket). Re-smoke evidence:
+  [`docs/runbooks/evidence/2026-07-22_rate-limit-resmoke_prod.md`](docs/runbooks/evidence/2026-07-22_rate-limit-resmoke_prod.md)
+  — 35 fresh-connection bad-signature `POST /webhooks/hitpay` → **30× 401 then 429 from request 31**,
+  exactly matching the 30 cap. Compare the 2026-07-19 status below: the identical fresh-connection
+  method previously produced **0× 429** across 90 requests. The temporary `/internal/ip-debug`
+  endpoint and its runbook were removed in the same PR (probe evidence retained).
+- **Still open: web server-action throttling** (see the `What` note below) — checkout preview,
+  address CRUD, and profile edit have no per-user throttle. This gap stays open overall until that
+  lands; only the `apps/api` half is closed.
 - **Status (2026-07-15, SUPERSEDED — the causal explanation here was wrong):** `apps/api` addressed.
   PR #90 added `@fastify/rate-limit` (global 100/min/IP, `/webhooks/hitpay` 30/min, `/health`+`/ready`
   exempt, `trustProxy: 1`). The prod smoke showed the cap not binding across fresh connections, which
@@ -88,17 +91,17 @@
   `X-Real-IP` is preferred. **`X-Envoy-External-Address` passes through client-controlled — never
   key or trust it.** Remaining work: `keyGenerator` on `X-Real-IP`, delete the diagnostic endpoint +
   runbook, re-smoke fresh connections for a 429 past ~30.
-- **What:** `apps/api` is rate-limited but **not effectively** — the plugin is registered (#90/#91)
-  and `/webhooks/hitpay` (HMAC before any DB work, good, but HMAC on unbounded bodies is still CPU)
-  and `/me` carry caps, with `/health` + `/ready` exempt; the caps just don't bind because of the
-  keying bug above. On web, server actions (checkout preview, address CRUD, profile edit) have no
-  per-user throttle; only magic-link (cooldown) and seller-apply (Turnstile) are protected.
+- **What:** `apps/api` rate limiting now works end-to-end — the plugin (#90/#91) plus the `X-Real-IP`
+  keying fix (#98) means `/webhooks/hitpay` (HMAC before any DB work, good, but HMAC on unbounded
+  bodies is still CPU) and `/me` caps actually bind, with `/health` + `/ready` exempt. On web,
+  server actions (checkout preview, address CRUD, profile edit) still have no per-user throttle;
+  only magic-link (cooldown) and seller-apply (Turnstile) are protected.
 - **Where:** `apps/api/src/plugins/rate-limit.ts` + `trustProxy` in `apps/api/src/server.ts`; web
   server actions under `apps/web/src/app/**/actions.ts`.
 - **Why it matters:** Griefing vector (junk load on Railway/Neon) and brute-force surface. Vercel
   and Cloudflare absorb some of this for web, but the Railway API is directly reachable.
-- **Fix (remaining):** `apps/api` keying is done in code; run the prod re-smoke to confirm, then the
-  API side is closed. Web server-action throttling is the remaining open item.
+- **Fix (remaining):** `apps/api` side closed 2026-07-22. Web server-action throttling is the only
+  remaining open item.
 
 ## 4. Non-constant-time secret comparisons · SECURITY, LOW-MEDIUM
 
