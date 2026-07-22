@@ -1,10 +1,13 @@
 /**
  * Integration — shared Redis store across instances (GAPS #3 follow-up).
  *
- * The prod smoke on PR #90 showed apps/api runs multiple instances, so the
- * per-instance in-memory limiter did not throttle a client whose requests were
- * load-balanced across instances. With REDIS_URL set the store must be shared:
- * two independent app instances count against ONE bucket.
+ * A per-instance in-memory limiter only tracks one process's view of a key, so
+ * it can't survive a rolling deploy (old + new container briefly overlapping)
+ * or any future horizontal scaling. With REDIS_URL set the store must be
+ * shared: two independent app instances count against ONE bucket. (The PR #90
+ * prod smoke that originally motivated this was the rotating-edge-IP keying
+ * bug — see GAPS.md #3/#9 — not confirmed multiple app replicas; Redis is
+ * still the right store regardless.)
  *
  * Requires a reachable Redis; skips without REDIS_URL.
  */

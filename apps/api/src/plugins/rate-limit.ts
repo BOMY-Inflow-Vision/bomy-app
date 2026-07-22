@@ -53,10 +53,15 @@ export function clientIpKey(request: {
  * Routes opt out with `config.rateLimit: false` (health/ready) or tighten via a
  * per-route `config.rateLimit` override (the HitPay webhook).
  *
- * Store: when REDIS_URL is set (prod), a **shared Redis store** so the limit is
- * enforced across all Railway instances — a per-instance in-memory store lets a
- * client bypass the cap by being load-balanced across instances (found by the
- * PR #90 prod smoke). Without REDIS_URL (local/test) it falls back to in-memory.
+ * Store: when REDIS_URL is set (prod), a **shared Redis store**. A per-instance
+ * in-memory store would only track one process's view of a key, so it can't
+ * survive a rolling deploy (old + new container briefly overlapping) or any
+ * future horizontal scaling — Redis makes the bucket authoritative regardless
+ * of which process serves a request. (The PR #90 prod smoke that motivated this
+ * was actually the rotating-edge-IP bug fixed by `clientIpKey` above, not
+ * confirmed multiple app replicas — see GAPS.md #3/#9 — but Redis remains the
+ * right store for deploy overlap and future scaling.) Without REDIS_URL
+ * (local/test) it falls back to in-memory.
  *
  * `skipOnError: true` fails **open**: if Redis is unreachable the limiter is
  * skipped rather than 500-ing every request — a Redis blip degrades limiting,
