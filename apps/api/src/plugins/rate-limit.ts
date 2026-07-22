@@ -15,15 +15,53 @@ export const API_RATE_LIMIT_TIME_WINDOW = 60_000
 export const HITPAY_WEBHOOK_RATE_LIMIT_MAX = 30
 
 /**
- * Global rate limiter (GAPS #3). The default keyGenerator uses request.ip, which
- * resolves to the forwarded client IP because the server sets trustProxy: 1.
+ * Rate-limit key: the real client IP.
+ *
+ * **Not `request.ip`.** Under `trustProxy` that resolves to the rightmost
+ * X-Forwarded-For entry, which on Railway is an edge node that **rotates per
+ * connection** — so every fresh connection minted a new key and the cap never
+ * accumulated. That was GAPS #3: 90 fresh-connection requests produced 0× 429.
+ *
+ * Railway sets `X-Real-IP` to the real client and **overwrites** any
+ * caller-supplied value, so it is both stable and unspoofable. Proved on prod
+ * 2026-07-20 — see `docs/runbooks/evidence/2026-07-20_ip-diagnostic-probe_prod.md`
+ * for the measurements, including that `X-Envoy-External-Address` passes through
+ * client-controlled and must never be used here.
+ *
+ * Falls back to `request.ip` when the header is absent (local dev, tests, or a
+ * future non-Railway host). Deliberately **not** a shared constant: a single
+ * fallback key would let one header-less client exhaust the bucket for all of
+ * them.
+ */
+export function clientIpKey(request: {
+  headers: Record<string, string | string[] | undefined>
+  ip: string
+}): string {
+  const header = request.headers["x-real-ip"]
+  // A repeated header may arrive as an array OR, more commonly, Node joins the
+  // copies into one "a, b" string. Either way take the FIRST value, so
+  // "7.7.7.7, 7.7.7.7" shares a bucket with the single-value "7.7.7.7" instead
+  // of keying on the joined string.
+  const raw = Array.isArray(header) ? header[0] : header
+  const value = typeof raw === "string" ? raw.split(",")[0]?.trim() : undefined
+  if (value) return value
+  return request.ip
+}
+
+/**
+ * Global rate limiter (GAPS #3). Keys on the real client IP via `clientIpKey`.
  * Routes opt out with `config.rateLimit: false` (health/ready) or tighten via a
  * per-route `config.rateLimit` override (the HitPay webhook).
  *
- * Store: when REDIS_URL is set (prod), a **shared Redis store** so the limit is
- * enforced across all Railway instances — a per-instance in-memory store lets a
- * client bypass the cap by being load-balanced across instances (found by the
- * PR #90 prod smoke). Without REDIS_URL (local/test) it falls back to in-memory.
+ * Store: when REDIS_URL is set (prod), a **shared Redis store**. A per-instance
+ * in-memory store would only track one process's view of a key, so it can't
+ * survive a rolling deploy (old + new container briefly overlapping) or any
+ * future horizontal scaling — Redis makes the bucket authoritative regardless
+ * of which process serves a request. (The PR #90 prod smoke that motivated this
+ * was actually the rotating-edge-IP bug fixed by `clientIpKey` above, not
+ * confirmed multiple app replicas — see GAPS.md #3/#9 — but Redis remains the
+ * right store for deploy overlap and future scaling.) Without REDIS_URL
+ * (local/test) it falls back to in-memory.
  *
  * `skipOnError: true` fails **open**: if Redis is unreachable the limiter is
  * skipped rather than 500-ing every request — a Redis blip degrades limiting,
@@ -67,6 +105,7 @@ export const rateLimitPlugin = fp(async (app: FastifyInstance) => {
     max: API_RATE_LIMIT_MAX,
     timeWindow: API_RATE_LIMIT_TIME_WINDOW,
     skipOnError: true,
+    keyGenerator: clientIpKey,
     ...(redis ? { redis } : {}),
   })
 

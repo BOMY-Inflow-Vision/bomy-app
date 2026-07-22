@@ -14,10 +14,9 @@ When a staff member executes a runbook, they capture evidence under [`evidence/`
 
 ## Current runbooks
 
-| Runbook                                                  | Environments                          | Trigger                                                                                                                       |
-| -------------------------------------------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| [`checkout-enabled-flip.md`](./checkout-enabled-flip.md) | local, staging (template), prod (TBD) | First-time enable of buyer checkout on a target env, or rollback to disable.                                                  |
-| [`ip-diagnostic-probe.md`](./ip-diagnostic-probe.md)     | prod only                             | Prove which proxy header carries the real client IP, to fix rate-limit keying (GAPS #3). **Temporary — delete with the fix.** |
+| Runbook                                                  | Environments                          | Trigger                                                                      |
+| -------------------------------------------------------- | ------------------------------------- | ---------------------------------------------------------------------------- |
+| [`checkout-enabled-flip.md`](./checkout-enabled-flip.md) | local, staging (template), prod (TBD) | First-time enable of buyer checkout on a target env, or rollback to disable. |
 
 ## Completed runbooks (reference / templates)
 

@@ -51,6 +51,15 @@
 
 ## 3. No rate limiting on any public endpoint · SECURITY, MEDIUM
 
+- **Status (2026-07-21): `apps/api` keying FIXED IN CODE — prod re-smoke pending.** The limiter now
+  keys on `X-Real-IP` via `clientIpKey` (`apps/api/src/plugins/rate-limit.ts`), falling back to
+  `request.ip` when absent (dev/tests) — never a shared constant, which would let one header-less
+  client exhaust every other's bucket. Unit tests cover the rotating-edge-IP regression, spoofed-XFF
+  precedence, the fallback, and a duplicated-header case. The temporary `/internal/ip-debug` endpoint
+  and its runbook were **removed** in the same change (evidence file retained). **Not fully closed:**
+  (a) the prod re-smoke — fresh connections must 429 past ~30 — is **pending Charlie's approval**
+  (it fires ~35 bad-signature webhook POSTs at prod); (b) **web server-action throttling is still
+  open** (see the `What` note below). Close this gap only when both land.
 - **Status (2026-07-15, SUPERSEDED — the causal explanation here was wrong):** `apps/api` addressed.
   PR #90 added `@fastify/rate-limit` (global 100/min/IP, `/webhooks/hitpay` 30/min, `/health`+`/ready`
   exempt, `trustProxy: 1`). The prod smoke showed the cap not binding across fresh connections, which
@@ -66,10 +75,9 @@
   connection** (DataPacket SG, `152.233.x.x`) — not the client. Every connection gets a new key, so
   the cap never accumulates. The Redis store is necessary but cannot help while the **key** is
   wrong. Railway's edge HTTP log (`railway logs -s @bomy/api --http --json`) carries the real client
-  in `srcIp`. **The correct hop must be proved, not guessed** — `GET /internal/ip-debug`
-  (`ENABLE_IP_DIAGNOSTIC=1` + `INTERNAL_API_SECRET`) exists to run that probe; procedure in
-  [`docs/runbooks/ip-diagnostic-probe.md`](docs/runbooks/ip-diagnostic-probe.md). The keying fix and
-  the removal of that endpoint close this gap.
+  in `srcIp`. **The correct hop must be proved, not guessed** — a temporary `GET /internal/ip-debug`
+  endpoint (since removed) ran that probe; procedure and result are preserved in the retained
+  evidence file linked in the 2026-07-20 status below.
 - **Status (2026-07-20): PROBED — answer is `X-Real-IP`.** Evidence:
   [`docs/runbooks/evidence/2026-07-20_ip-diagnostic-probe_prod.md`](docs/runbooks/evidence/2026-07-20_ip-diagnostic-probe_prod.md).
   `request.ip` returned **4 distinct edge IPs across 6 requests**, confirming the rotating-key cause
@@ -89,8 +97,8 @@
   server actions under `apps/web/src/app/**/actions.ts`.
 - **Why it matters:** Griefing vector (junk load on Railway/Neon) and brute-force surface. Vercel
   and Cloudflare absorb some of this for web, but the Railway API is directly reachable.
-- **Fix (remaining):** Run the probe runbook, then set a `keyGenerator` on the proved header and
-  re-smoke. Web actions can wait.
+- **Fix (remaining):** `apps/api` keying is done in code; run the prod re-smoke to confirm, then the
+  API side is closed. Web server-action throttling is the remaining open item.
 
 ## 4. Non-constant-time secret comparisons · SECURITY, LOW-MEDIUM
 
