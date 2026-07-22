@@ -1,5 +1,10 @@
 # Admin → Vercel migration — move apps/admin off Railway
 
+> ✅ **COMPLETED — cutover 2026-07-21, Railway service decommissioned 2026-07-22.** This is a
+> finished one-time procedure, **not an active runbook** — it is retained as a reference/template for
+> future project migrations (see the agency model: each client project eventually migrates/transfers).
+> Execution evidence: [`evidence/2026-07-21_admin-vercel-migration_prod.md`](./evidence/2026-07-21_admin-vercel-migration_prod.md).
+
 |                      |                                                                                                                                                    |
 | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Audience**         | Charlie (project owner). Requires Vercel team admin, Cloudflare DNS edit, and Google Cloud Console access — no role below owner can complete this. |
@@ -315,8 +320,8 @@ until §11, so this restores service in one DNS edit.
 - ⚠️ **`railway status` links `@bomy/admin` as the default service.** Once it is gone, re-link the
   project or pass `--service @bomy/api` explicitly on **every** Railway CLI command. Several
   procedures in `.andy/handoff.md` §1A depend on this.
-- `apps/admin/Dockerfile` deletion is a **follow-up PR**, not part of the migration — the rollback
-  path stays in git until the move is proven.
+- `apps/admin/Dockerfile` was removed in a follow-up PR (#99) once decommission was verified — it
+  was the Railway rollback path and is dead code now that admin runs on Vercel.
 
 ## 12. Evidence template
 
