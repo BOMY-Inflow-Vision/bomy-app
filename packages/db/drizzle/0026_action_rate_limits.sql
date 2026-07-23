@@ -16,11 +16,15 @@
 -- also needed at the plain GRANT level, separately, because the SET clause
 -- reads the existing row's count to increment it.
 --
--- self_delete + the DELETE grant exist for withAdmin-run cleanup (tests,
+-- admin_delete + the DELETE grant exist for withAdmin-run cleanup (tests,
 -- and a future row-pruning job) — app code (checkActionRateLimit) itself
 -- never deletes. RLS bypass (app.bypass_rls) skips POLICY checks but NOT
 -- table-level GRANTs, since bomy_app is a real role, not a superuser — so
 -- withAdmin-run DELETEs need both the grant and a policy admitting them.
+-- The DELETE policy is admin-bypass ONLY (unlike self_select/insert/update,
+-- which also allow the owning user) — mirrors body_image_upload_log's
+-- admin_delete (migration 0021). A user should never be able to clear their
+-- own throttle counter via a withTenant-scoped path.
 
 -- ─── 1. action_rate_limits table ────────────────────────────────────
 CREATE TABLE IF NOT EXISTS "action_rate_limits" (
@@ -69,16 +73,17 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 --> statement-breakpoint
 
 DO $$ BEGIN
-  CREATE POLICY action_rate_limits_self_delete ON action_rate_limits
+  CREATE POLICY action_rate_limits_admin_delete ON action_rate_limits
     FOR DELETE
-    USING (user_id = app.current_user_id() OR app.is_admin_bypass());
+    USING (app.is_admin_bypass());
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 --> statement-breakpoint
 
 -- ─── 4. bomy_app role grants ────────────────────────────────────────
 -- SELECT + INSERT + UPDATE + DELETE: ON CONFLICT DO UPDATE's SET clause
 -- reads the existing row (see note above), so SELECT is required despite no
--- plain SELECT ever being issued; DELETE is for withAdmin-run cleanup only.
+-- plain SELECT ever being issued; DELETE is for withAdmin-run cleanup only
+-- (the admin_delete policy above restricts it to admin-bypass callers).
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'bomy_app') THEN

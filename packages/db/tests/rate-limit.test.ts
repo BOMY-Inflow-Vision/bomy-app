@@ -9,7 +9,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest"
 
 import { checkActionRateLimit } from "../src/rate-limit.js"
 import { actionRateLimits, users } from "../src/schema/index.js"
-import { withAdmin } from "../src/tenant.js"
+import { withAdmin, withTenant } from "../src/tenant.js"
 import { makeDb, type Db } from "../src/client.js"
 
 const DATABASE_URL = process.env["DATABASE_APP_URL"] ?? process.env["DATABASE_URL"]
@@ -151,5 +151,24 @@ describe.skipIf(!shouldRun)("checkActionRateLimit", () => {
     // Two calls, same window boundary → one row, count 2.
     expect(currentWindowRows).toHaveLength(1)
     expect(currentWindowRows[0]?.count).toBe(2)
+  })
+
+  it("a normal withTenant-scoped caller cannot delete its own rate-limit row", async () => {
+    await seedUser()
+    await checkActionRateLimit(handle.db, { userId, userRole: "buyer" }, "t5", {
+      max: 5,
+      windowMs: 60_000,
+    })
+
+    // admin_delete is admin-bypass ONLY — a tenant-scoped DELETE for the
+    // owning user must match zero rows, not just be denied outright.
+    await withTenant(handle.db, { userId, userRole: "buyer" }, (tx) =>
+      tx.delete(actionRateLimits).where(eq(actionRateLimits.userId, userId)),
+    )
+
+    const stillThere = await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "test" }, (tx) =>
+      tx.select().from(actionRateLimits).where(eq(actionRateLimits.userId, userId)),
+    )
+    expect(stillThere).toHaveLength(1)
   })
 })

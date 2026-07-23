@@ -74,13 +74,33 @@ describe.skipIf(!shouldRun)("address book actions", () => {
   })
 
   it("enforces the 20-address cap", async () => {
-    for (let i = 0; i < 20; i++) {
-      expect(await addAddress({ ...base, label: `A${i}`, line1: `${i} Jalan` })).toEqual({
-        ok: true,
-      })
-    }
+    // Seed the 20 existing rows directly via withAdmin rather than 20
+    // addAddress calls — the rate limit and MAX_ADDRESSES are coincidentally
+    // both 20, so 20 real addAddress calls would leave zero rate-limit
+    // budget and the 21st call could fail for either reason. Seeding
+    // bypasses the limiter entirely, so the one addAddress call below starts
+    // from a fresh bucket and can only fail on the address-count branch.
+    await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "seed 20 addresses" }, async (tx) => {
+      await tx.insert(schema.userAddresses).values(
+        Array.from({ length: 20 }, (_, i) => ({
+          userId: alice,
+          label: `A${i}`,
+          recipientName: base.name,
+          phone: base.phone,
+          line1: `${i} Jalan`,
+          city: base.city,
+          postcode: base.postcode,
+          state: base.state,
+          country: base.country,
+          isDefault: i === 0,
+        })),
+      )
+    })
     const over = await addAddress({ ...base, label: "Too many", line1: "21 Jalan" })
-    expect(over.ok).toBe(false)
+    expect(over).toEqual({
+      ok: false,
+      errors: { form: "You can save up to 20 addresses." },
+    })
   })
 
   it("setDefault on a nonexistent/other-user id does NOT clear the caller's default", async () => {

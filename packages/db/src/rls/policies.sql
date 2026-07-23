@@ -1071,3 +1071,39 @@ CREATE POLICY store_category_assignments_seller_delete ON store_category_assignm
     )
     OR app.is_admin_bypass()
   );
+
+-- ── action_rate_limits (GAPS #3, web server-action throttling; migration 0026) ──
+-- Fixed-window per-user counter for apps/web server actions (no shared Redis
+-- reachable there, unlike apps/api's own limiter). self_select is required
+-- despite the app never issuing a plain SELECT: Postgres's row-matching for
+-- UPDATE — including the UPDATE arm of INSERT ... ON CONFLICT DO UPDATE —
+-- needs a policy applicable to SELECT to see the existing row, even when the
+-- FOR UPDATE policy's own USING clause covers the identical condition; a
+-- FOR UPDATE-only policy silently matched zero rows (empirically confirmed).
+-- admin_delete is admin-bypass ONLY, mirroring body_image_upload_log
+-- (migration 0021) — a user must never be able to clear their own throttle
+-- counter via a withTenant-scoped path.
+
+ALTER TABLE action_rate_limits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE action_rate_limits FORCE  ROW LEVEL SECURITY;
+
+CREATE POLICY action_rate_limits_default_deny ON action_rate_limits
+  AS RESTRICTIVE
+  USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
+
+CREATE POLICY action_rate_limits_self_select ON action_rate_limits
+  FOR SELECT
+  USING (user_id = app.current_user_id() OR app.is_admin_bypass());
+
+CREATE POLICY action_rate_limits_self_insert ON action_rate_limits
+  FOR INSERT
+  WITH CHECK (user_id = app.current_user_id() OR app.is_admin_bypass());
+
+CREATE POLICY action_rate_limits_self_update ON action_rate_limits
+  FOR UPDATE
+  USING  (user_id = app.current_user_id() OR app.is_admin_bypass())
+  WITH CHECK (user_id = app.current_user_id() OR app.is_admin_bypass());
+
+CREATE POLICY action_rate_limits_admin_delete ON action_rate_limits
+  FOR DELETE
+  USING (app.is_admin_bypass());
