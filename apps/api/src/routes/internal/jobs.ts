@@ -1,3 +1,5 @@
+import { timingSafeEqual } from "node:crypto"
+
 import { Queue } from "bullmq"
 import type { FastifyInstance } from "fastify"
 import { Redis } from "ioredis"
@@ -19,7 +21,9 @@ export async function internalJobRoutes(app: FastifyInstance) {
     }
 
     const auth = request.headers["authorization"]
-    if (!auth || auth !== `Bearer ${secret}`) {
+    const expected = Buffer.from(`Bearer ${secret}`)
+    const provided = Buffer.from(auth ?? "")
+    if (expected.length !== provided.length || !timingSafeEqual(expected, provided)) {
       return reply.status(401).send({ error: "Unauthorized" })
     }
 
