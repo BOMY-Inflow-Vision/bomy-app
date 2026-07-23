@@ -67,11 +67,10 @@ jobs:
         ports:
           - 5432:5432
 
-      # Unauthenticated — GitHub Actions service containers don't support a
-      # command override (no way to pass --requirepass to redis-server, and
-      # the plain `redis` image has no POSTGRES_PASSWORD-style env var), so
-      # this matches GitHub's own official Redis service example. Safe here:
-      # ephemeral, torn down after the job, reachable only within the runner.
+      # Unauthenticated Redis mirrors GitHub's official runner-mode Redis
+      # service example. Safe here because the service is ephemeral,
+      # job-scoped, and mapped only to the GitHub-hosted runner for this
+      # test job.
       redis:
         image: redis:7-alpine
         options: >-
