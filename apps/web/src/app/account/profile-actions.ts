@@ -3,9 +3,10 @@
 import { eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 
-import { makeDb, schema, withTenant } from "@bomy/db"
+import { checkActionRateLimit, makeDb, schema, withTenant } from "@bomy/db"
 
 import { auth } from "@/auth"
+import { ACTION_RATE_LIMITS, RATE_LIMIT_USER_MESSAGE } from "@/lib/rate-limits"
 
 import { validateDisplayName } from "./profile-schema"
 
@@ -20,11 +21,19 @@ export async function updateDisplayName(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const session = await auth()
   if (!session?.user?.id) throw new Error("Unauthorized")
+  const userId = session.user.id
+
+  const limit = await checkActionRateLimit(
+    getDb(),
+    { userId, userRole: session.user.role },
+    "profile_edit",
+    ACTION_RATE_LIMITS.profileEdit,
+  )
+  if (!limit.allowed) return { ok: false, error: RATE_LIMIT_USER_MESSAGE }
 
   const parsed = validateDisplayName(rawName)
   if (!parsed.ok) return { ok: false, error: parsed.error }
 
-  const userId = session.user.id
   await withTenant(getDb(), { userId, userRole: session.user.role }, (tx) =>
     // Only `name` is ever written here — never role/email — so a user can't
     // self-escalate through the users_self_update RLS policy.

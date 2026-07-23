@@ -20,6 +20,7 @@ export type CheckoutErrorCode =
   | "VOUCHER_RACE"
   | "TOTAL_NOT_PAYABLE"
   | "PAYMENT_INIT_FAILED"
+  | "RATE_LIMITED"
 
 export class CheckoutError extends Error {
   readonly code: CheckoutErrorCode
@@ -46,4 +47,5 @@ export const CHECKOUT_USER_COPY: Record<CheckoutErrorCode, string> = {
   TOTAL_NOT_PAYABLE:
     "Voucher covers the full order; please remove it or add shipping/another item.",
   PAYMENT_INIT_FAILED: "Payment provider unavailable — please try again.",
+  RATE_LIMITED: "Too many requests — please wait a moment and try again.",
 }

@@ -16,6 +16,7 @@ import {
   setDefault,
   updateAddress,
 } from "../../src/app/account/addresses/actions"
+import { ACTION_RATE_LIMITS, RATE_LIMIT_USER_MESSAGE } from "../../src/lib/rate-limits"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
 const DB = process.env["DATABASE_APP_URL"] ?? process.env["DATABASE_URL"]
@@ -167,5 +168,26 @@ describe.skipIf(!shouldRun)("address book actions", () => {
         .where(eq(schema.userAddresses.id, bobAddr)),
     )
     expect(bobRow!.line1).toBe("9 Jalan") // bob's row untouched
+  })
+
+  it("rate-limits repeated writes past ACTION_RATE_LIMITS.addressWrite.max", async () => {
+    // setDefault never touches MAX_ADDRESSES, so this isolates the rate
+    // limit itself rather than the (coincidentally equal) address cap.
+    await addAddress({ ...base, label: "Home" })
+    const { id: addressId } = (
+      await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "read" }, (tx) =>
+        tx
+          .select({ id: schema.userAddresses.id })
+          .from(schema.userAddresses)
+          .where(eq(schema.userAddresses.userId, alice)),
+      )
+    )[0]!
+
+    for (let i = 0; i < ACTION_RATE_LIMITS.addressWrite.max - 1; i++) {
+      const res = await setDefault(addressId)
+      expect(res.ok).toBe(true)
+    }
+    const over = await setDefault(addressId)
+    expect(over).toEqual({ ok: false, errors: { form: RATE_LIMIT_USER_MESSAGE } })
   })
 })

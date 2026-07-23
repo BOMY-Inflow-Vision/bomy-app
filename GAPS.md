@@ -49,9 +49,27 @@
   evidence under `docs/runbooks/evidence/`. The live smoke waits on either HitPay approval or the
   Stripe path.
 
-## 3. No rate limiting on any public endpoint · SECURITY, MEDIUM — `apps/api` half CLOSED
+## 3. ~~No rate limiting on any public endpoint~~ · CLOSED (PRs #90–#93, #98, #100, this PR)
 
-- **Status (2026-07-22): `apps/api` keying CLOSED — prod re-smoke PASSED.** PR #98 (merged `a491fdd`,
+- **Status (2026-07-23): web server-action throttling CLOSED.** `checkActionRateLimit`
+  (`packages/db/src/rate-limit.ts`) — a fixed-window per-user counter backed by Postgres, since
+  `apps/web` has no shared Redis (unlike `apps/api`, whose own limiter can't reach these calls: they
+  never go through Fastify). New table `action_rate_limits` (migration 0026 — table + RLS + grants
+  in one file, matching the 0014/0015 pattern), keyed on `(user_id, action, window_start)`, one
+  atomic `INSERT ... ON CONFLICT DO UPDATE` per call. Wired into the four named surfaces:
+  `priceCheckoutPreview` (30/min), `initiateCheckout` (5/min), the four address-book writes sharing
+  one `address_write` bucket (20/min), `updateDisplayName` (10/min) — limits in
+  `apps/web/src/lib/rate-limits.ts`, a starting point not tuned against real traffic. Gate runs
+  first in each action, before any other DB work, matching the existing Turnstile-first idiom.
+  **Two non-obvious RLS findings from building this** (both empirically confirmed, not assumed —
+  see migration 0026's comments): (a) Postgres's row-matching for `UPDATE` — including the `UPDATE`
+  arm of `ON CONFLICT DO UPDATE` — needs a policy applicable to `SELECT`, not just the `FOR UPDATE`
+  policy's own `USING` clause; a `FOR UPDATE`-only policy silently matched zero rows. (b)
+  `app.bypass_rls` skips RLS **policy** checks but not table-level `GRANT`s, since `bomy_app` is a
+  real role, not a superuser — `withAdmin`-run cleanup (tests, and any future pruning job) still
+  needs an explicit `DELETE` grant + policy. This gap is now **fully closed** — both the `apps/api`
+  keying half and the web-throttling half.
+- **Status (2026-07-22, apps/api half): keying CLOSED — prod re-smoke PASSED.** PR #98 (merged `a491fdd`,
   deployed `a67a2153`) ships `clientIpKey` in `apps/api/src/plugins/rate-limit.ts`, keying on
   `X-Real-IP` with a `request.ip` fallback for dev/tests (never a shared constant — that would let
   one header-less client exhaust every other's bucket). Re-smoke evidence:
@@ -60,9 +78,6 @@
   exactly matching the 30 cap. Compare the 2026-07-19 status below: the identical fresh-connection
   method previously produced **0× 429** across 90 requests. The temporary `/internal/ip-debug`
   endpoint and its runbook were removed in the same PR (probe evidence retained).
-- **Still open: web server-action throttling** (see the `What` note below) — checkout preview,
-  address CRUD, and profile edit have no per-user throttle. This gap stays open overall until that
-  lands; only the `apps/api` half is closed.
 - **Status (2026-07-15, SUPERSEDED — the causal explanation here was wrong):** `apps/api` addressed.
   PR #90 added `@fastify/rate-limit` (global 100/min/IP, `/webhooks/hitpay` 30/min, `/health`+`/ready`
   exempt, `trustProxy: 1`). The prod smoke showed the cap not binding across fresh connections, which
@@ -91,17 +106,17 @@
   `X-Real-IP` is preferred. **`X-Envoy-External-Address` passes through client-controlled — never
   key or trust it.** Remaining work: `keyGenerator` on `X-Real-IP`, delete the diagnostic endpoint +
   runbook, re-smoke fresh connections for a 429 past ~30.
-- **What:** `apps/api` rate limiting now works end-to-end — the plugin (#90/#91) plus the `X-Real-IP`
+- **What:** `apps/api` rate limiting works end-to-end — the plugin (#90/#91) plus the `X-Real-IP`
   keying fix (#98) means `/webhooks/hitpay` (HMAC before any DB work, good, but HMAC on unbounded
   bodies is still CPU) and `/me` caps actually bind, with `/health` + `/ready` exempt. On web,
-  server actions (checkout preview, address CRUD, profile edit) still have no per-user throttle;
-  only magic-link (cooldown) and seller-apply (Turnstile) are protected.
-- **Where:** `apps/api/src/plugins/rate-limit.ts` + `trustProxy` in `apps/api/src/server.ts`; web
-  server actions under `apps/web/src/app/**/actions.ts`.
+  the four named server actions now throttle per user via Postgres (above); only magic-link
+  (cooldown) and seller-apply (Turnstile) had protection before this.
+- **Where:** `apps/api/src/plugins/rate-limit.ts` + `trustProxy` in `apps/api/src/server.ts`;
+  `packages/db/src/rate-limit.ts` + `apps/web/src/lib/rate-limits.ts` + the three action files under
+  `apps/web/src/app/{checkout,account}/**`.
 - **Why it matters:** Griefing vector (junk load on Railway/Neon) and brute-force surface. Vercel
   and Cloudflare absorb some of this for web, but the Railway API is directly reachable.
-- **Fix (remaining):** `apps/api` side closed 2026-07-22. Web server-action throttling is the only
-  remaining open item.
+- **Fix:** Done. Both halves closed 2026-07-22/23.
 
 ## 4. Non-constant-time secret comparisons · SECURITY, LOW-MEDIUM
 
