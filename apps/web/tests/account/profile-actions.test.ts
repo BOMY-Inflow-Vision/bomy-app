@@ -10,6 +10,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 
 import { auth } from "@/auth"
 import { updateDisplayName } from "../../src/app/account/profile-actions"
+import { ACTION_RATE_LIMITS, RATE_LIMIT_USER_MESSAGE } from "../../src/lib/rate-limits"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
 const DB = process.env["DATABASE_APP_URL"] ?? process.env["DATABASE_URL"]
@@ -73,5 +74,14 @@ describe.skipIf(!shouldRun)("updateDisplayName", () => {
     const res = await updateDisplayName("x".repeat(81))
     expect(res.ok).toBe(false)
     expect((await read())?.name).toBe("Old")
+  })
+
+  it("rate-limits repeated calls past ACTION_RATE_LIMITS.profileEdit.max", async () => {
+    for (let i = 0; i < ACTION_RATE_LIMITS.profileEdit.max; i++) {
+      expect((await updateDisplayName("Name")).ok).toBe(true)
+    }
+    const over = await updateDisplayName("Name")
+    expect(over.ok).toBe(false)
+    if (!over.ok) expect(over.error).toBe(RATE_LIMIT_USER_MESSAGE)
   })
 })

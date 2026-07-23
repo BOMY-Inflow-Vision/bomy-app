@@ -4,12 +4,20 @@ import { randomUUID } from "node:crypto"
 
 import { and, eq, gt, isNull, sql } from "drizzle-orm"
 
-import { makeDb, schema, withAdmin, withTenant, type CheckoutSessionStatus } from "@bomy/db"
+import {
+  checkActionRateLimit,
+  makeDb,
+  schema,
+  withAdmin,
+  withTenant,
+  type CheckoutSessionStatus,
+} from "@bomy/db"
 import { HitPayClient, HitPayError, type PaymentRequestResponse } from "@bomy/hitpay"
 
 import { auth } from "@/auth"
 import { CheckoutError, type CheckoutErrorCode } from "@/lib/checkout-errors"
 import { senToMyr } from "@/lib/money"
+import { ACTION_RATE_LIMITS } from "@/lib/rate-limits"
 import { validateShippingAddress } from "@/lib/shipping-address-schema"
 
 import { compensateInitiation } from "./compensate"
@@ -114,7 +122,7 @@ export type PreviewResult =
       invalidLines: Array<{ variantId: string; reason: InvalidLineReason }>
       availableVouchers: AvailableVoucher[]
     }
-  | { ok: false; error: "UNAUTHENTICATED" | "EMPTY_CART" }
+  | { ok: false; error: "UNAUTHENTICATED" | "EMPTY_CART" | "RATE_LIMITED" }
 
 export async function priceCheckoutPreview(input: {
   items: Array<{ variantId: string; quantity: number }>
@@ -122,9 +130,18 @@ export async function priceCheckoutPreview(input: {
 }): Promise<PreviewResult> {
   const session = await auth()
   if (!session?.user?.id) return { ok: false, error: "UNAUTHENTICATED" }
-  if (input.items.length === 0) return { ok: false, error: "EMPTY_CART" }
 
   const db = getDb()
+  const limit = await checkActionRateLimit(
+    db,
+    { userId: session.user.id, userRole: session.user.role },
+    "checkout_preview",
+    ACTION_RATE_LIMITS.checkoutPreview,
+  )
+  if (!limit.allowed) return { ok: false, error: "RATE_LIMITED" }
+
+  if (input.items.length === 0) return { ok: false, error: "EMPTY_CART" }
+
   const ctx = await fetchCheckoutContext({
     db,
     buyerId: session.user.id,
@@ -239,6 +256,14 @@ export async function initiateCheckout(input: {
   const session = await auth()
   if (!session?.user?.id) return { ok: false, error: "UNAUTHENTICATED" }
   const buyerId = session.user.id
+
+  const limit = await checkActionRateLimit(
+    getDb(),
+    { userId: buyerId, userRole: session.user.role },
+    "checkout_initiate",
+    ACTION_RATE_LIMITS.checkoutInitiate,
+  )
+  if (!limit.allowed) return { ok: false, error: "RATE_LIMITED" }
 
   if (!(await readCheckoutEnabled(buyerId))) {
     return { ok: false, error: "CHECKOUT_DISABLED" }

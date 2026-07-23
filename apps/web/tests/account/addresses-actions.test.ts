@@ -16,6 +16,7 @@ import {
   setDefault,
   updateAddress,
 } from "../../src/app/account/addresses/actions"
+import { ACTION_RATE_LIMITS, RATE_LIMIT_USER_MESSAGE } from "../../src/lib/rate-limits"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
 const DB = process.env["DATABASE_APP_URL"] ?? process.env["DATABASE_URL"]
@@ -73,13 +74,33 @@ describe.skipIf(!shouldRun)("address book actions", () => {
   })
 
   it("enforces the 20-address cap", async () => {
-    for (let i = 0; i < 20; i++) {
-      expect(await addAddress({ ...base, label: `A${i}`, line1: `${i} Jalan` })).toEqual({
-        ok: true,
-      })
-    }
+    // Seed the 20 existing rows directly via withAdmin rather than 20
+    // addAddress calls — the rate limit and MAX_ADDRESSES are coincidentally
+    // both 20, so 20 real addAddress calls would leave zero rate-limit
+    // budget and the 21st call could fail for either reason. Seeding
+    // bypasses the limiter entirely, so the one addAddress call below starts
+    // from a fresh bucket and can only fail on the address-count branch.
+    await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "seed 20 addresses" }, async (tx) => {
+      await tx.insert(schema.userAddresses).values(
+        Array.from({ length: 20 }, (_, i) => ({
+          userId: alice,
+          label: `A${i}`,
+          recipientName: base.name,
+          phone: base.phone,
+          line1: `${i} Jalan`,
+          city: base.city,
+          postcode: base.postcode,
+          state: base.state,
+          country: base.country,
+          isDefault: i === 0,
+        })),
+      )
+    })
     const over = await addAddress({ ...base, label: "Too many", line1: "21 Jalan" })
-    expect(over.ok).toBe(false)
+    expect(over).toEqual({
+      ok: false,
+      errors: { form: "You can save up to 20 addresses." },
+    })
   })
 
   it("setDefault on a nonexistent/other-user id does NOT clear the caller's default", async () => {
@@ -167,5 +188,26 @@ describe.skipIf(!shouldRun)("address book actions", () => {
         .where(eq(schema.userAddresses.id, bobAddr)),
     )
     expect(bobRow!.line1).toBe("9 Jalan") // bob's row untouched
+  })
+
+  it("rate-limits repeated writes past ACTION_RATE_LIMITS.addressWrite.max", async () => {
+    // setDefault never touches MAX_ADDRESSES, so this isolates the rate
+    // limit itself rather than the (coincidentally equal) address cap.
+    await addAddress({ ...base, label: "Home" })
+    const { id: addressId } = (
+      await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "read" }, (tx) =>
+        tx
+          .select({ id: schema.userAddresses.id })
+          .from(schema.userAddresses)
+          .where(eq(schema.userAddresses.userId, alice)),
+      )
+    )[0]!
+
+    for (let i = 0; i < ACTION_RATE_LIMITS.addressWrite.max - 1; i++) {
+      const res = await setDefault(addressId)
+      expect(res.ok).toBe(true)
+    }
+    const over = await setDefault(addressId)
+    expect(over).toEqual({ ok: false, errors: { form: RATE_LIMIT_USER_MESSAGE } })
   })
 })

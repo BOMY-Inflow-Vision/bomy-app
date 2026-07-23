@@ -10,7 +10,7 @@
 import { randomUUID } from "node:crypto"
 
 import { makeDb, schema, withAdmin } from "@bomy/db"
-import { eq } from "drizzle-orm"
+import { eq, inArray } from "drizzle-orm"
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi, type Mock } from "vitest"
 
 vi.mock("@/auth", () => ({ auth: vi.fn() }))
@@ -18,6 +18,7 @@ vi.mock("@/auth", () => ({ auth: vi.fn() }))
 import { auth } from "@/auth"
 
 import { priceCheckoutPreview } from "../../src/app/checkout/actions"
+import { ACTION_RATE_LIMITS } from "../../src/lib/rate-limits"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
 
@@ -129,6 +130,11 @@ describe.skipIf(!shouldRun)("priceCheckoutPreview", () => {
         await tx
           .delete(schema.brandSubscriptions)
           .where(eq(schema.brandSubscriptions.userId, buyerAId))
+        // priceCheckoutPreview is rate-limited (GAPS #3); this file calls it
+        // many times per test against fixed buyer ids across many tests.
+        await tx
+          .delete(schema.actionRateLimits)
+          .where(inArray(schema.actionRateLimits.userId, [buyerAId, buyerBId]))
         // Restore variant stock
         await tx
           .update(schema.productVariants)
@@ -469,5 +475,18 @@ describe.skipIf(!shouldRun)("priceCheckoutPreview", () => {
       expect(r.voucherDiscountSen).toBe("0")
       expect(r.availableVouchers).toHaveLength(0) // buyerA has none
     }
+  })
+
+  it("rate-limits repeated calls past ACTION_RATE_LIMITS.checkoutPreview.max", async () => {
+    asBuyerA()
+    for (let i = 0; i < ACTION_RATE_LIMITS.checkoutPreview.max; i++) {
+      const r = await priceCheckoutPreview({ items: [{ variantId, quantity: 1 }], voucherId: null })
+      expect(r.ok).toBe(true)
+    }
+    const over = await priceCheckoutPreview({
+      items: [{ variantId, quantity: 1 }],
+      voucherId: null,
+    })
+    expect(over).toEqual({ ok: false, error: "RATE_LIMITED" })
   })
 })

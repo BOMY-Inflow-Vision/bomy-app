@@ -30,6 +30,7 @@ import type * as HitPayModule from "@bomy/hitpay"
 
 import { initiateCheckout } from "../../src/app/checkout/actions"
 import { compensateInitiation } from "../../src/app/checkout/compensate"
+import { ACTION_RATE_LIMITS } from "../../src/lib/rate-limits"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
 
@@ -165,6 +166,12 @@ describe.skipIf(!shouldRun)("initiateCheckout", () => {
         await tx.delete(schema.vouchers).where(eq(schema.vouchers.userId, buyerBId))
         await tx.delete(schema.checkoutSessions).where(eq(schema.checkoutSessions.userId, buyerAId))
         await tx.delete(schema.checkoutSessions).where(eq(schema.checkoutSessions.userId, buyerBId))
+        // initiateCheckout is now rate-limited (GAPS #3); this file calls it
+        // many times per test against the same fixed buyer ids, which would
+        // otherwise trip the throttle by the 6th or so call in one run.
+        await tx
+          .delete(schema.actionRateLimits)
+          .where(inArray(schema.actionRateLimits.userId, [buyerAId, buyerBId]))
         // Restore variant stock + active flags so previous tests don't leak state
         await tx
           .update(schema.productVariants)
@@ -1167,5 +1174,37 @@ describe.skipIf(!shouldRun)("initiateCheckout", () => {
           ),
     )
     expect(zeroRowsCompRows).toHaveLength(1)
+  })
+
+  it("rate-limits repeated calls past ACTION_RATE_LIMITS.checkoutInitiate.max", async () => {
+    asBuyer(buyerAId)
+    // One real success leaves a pending session, so every further call this
+    // test makes would otherwise return PENDING_CHECKOUT_EXISTS — the rate
+    // limit is checked first, so it still counts those attempts and
+    // eventually overrides that response once the cap is exceeded.
+    const first = await initiateCheckout({
+      items: [{ variantId, quantity: 1 }],
+      voucherId: null,
+      shippingAddress: VALID_ADDRESS,
+    })
+    expect(first.ok).toBe(true)
+
+    for (let i = 1; i < ACTION_RATE_LIMITS.checkoutInitiate.max; i++) {
+      const r = await initiateCheckout({
+        items: [{ variantId, quantity: 1 }],
+        voucherId: null,
+        shippingAddress: VALID_ADDRESS,
+      })
+      expect(r.ok).toBe(false)
+      if (!r.ok) expect(r.error).toBe("PENDING_CHECKOUT_EXISTS")
+    }
+
+    const over = await initiateCheckout({
+      items: [{ variantId, quantity: 1 }],
+      voucherId: null,
+      shippingAddress: VALID_ADDRESS,
+    })
+    expect(over.ok).toBe(false)
+    if (!over.ok) expect(over.error).toBe("RATE_LIMITED")
   })
 })
