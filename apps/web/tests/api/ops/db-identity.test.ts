@@ -49,6 +49,18 @@ describe("/api/ops/db-identity", () => {
     expect(makeDb).not.toHaveBeenCalled()
   })
 
+  it("(c2) returns 404 for a same-length wrong token — exercises timingSafeEqual, not just the length check", async () => {
+    process.env["BOMY_OPS_DIAGNOSTIC_TOKEN"] = TOKEN
+    const wrongSameLength = "x".repeat(TOKEN.length)
+    const req = new Request("http://localhost/api/ops/db-identity", {
+      headers: { "x-bomy-ops-token": wrongSameLength },
+    })
+    const res = await GET(req as unknown as Parameters<typeof GET>[0])
+    expect(res.status).toBe(404)
+    expect(await res.text()).toBe("")
+    expect(makeDb).not.toHaveBeenCalled()
+  })
+
   it("(d) returns 200 with { currentUser } when token matches", async () => {
     process.env["BOMY_OPS_DIAGNOSTIC_TOKEN"] = TOKEN
     // postgres-js execute() returns a RowList that is iterable as rows directly

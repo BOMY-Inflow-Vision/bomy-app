@@ -1,3 +1,5 @@
+import { timingSafeEqual } from "node:crypto"
+
 import { sql } from "drizzle-orm"
 import type { NextRequest } from "next/server"
 
@@ -23,7 +25,11 @@ export async function GET(req: NextRequest): Promise<Response> {
 
   // (2) header-match BEFORE any DB work
   const provided = req.headers.get("x-bomy-ops-token")
-  if (!provided || provided !== expected) return new Response(null, { status: 404 })
+  const expectedBuf = Buffer.from(expected)
+  const providedBuf = Buffer.from(provided ?? "")
+  if (expectedBuf.length !== providedBuf.length || !timingSafeEqual(expectedBuf, providedBuf)) {
+    return new Response(null, { status: 404 })
+  }
 
   // (3) ONLY AFTER auth — lazy DB + identity query.
   // postgres-js execute() returns a RowList that is iterable as the rows

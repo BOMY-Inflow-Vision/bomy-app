@@ -118,16 +118,27 @@
   and Cloudflare absorb some of this for web, but the Railway API is directly reachable.
 - **Fix:** Done. Both halves closed 2026-07-22/23.
 
-## 4. Non-constant-time secret comparisons · SECURITY, LOW-MEDIUM
+## 4. ~~Non-constant-time secret comparisons~~ · CLOSED · SECURITY, LOW-MEDIUM
 
-- **What:** Two bearer-style secrets are compared with `!==` instead of `timingSafeEqual`:
-  - `apps/api/src/routes/internal/jobs.ts:23` — `INTERNAL_API_SECRET`
-  - `apps/web/src/app/api/ops/db-identity/route.ts:26` — `BOMY_OPS_DIAGNOSTIC_TOKEN`
-- **Why it matters:** Timing side-channels over the public internet are hard but not impossible;
-  the codebase already uses `timingSafeEqual` everywhere else (`packages/hitpay/src/webhook.ts`,
-  `apps/web/src/lib/s3.ts`), so this is also an internal inconsistency.
-- **Fix (single task):** Extract the length-checked `timingSafeEqual` pattern from
-  `packages/hitpay/src/webhook.ts` into a tiny helper (or inline it) at both sites. ~10 lines.
+- **Status (2026-07-23): CLOSED.** Both sites now use a length-checked `timingSafeEqual`, inlined
+  at each call site rather than extracted to a shared helper — matches the existing convention
+  (`packages/hitpay/src/webhook.ts` and `apps/web/src/lib/s3.ts` each already inline their own
+  copy of this exact pattern rather than sharing one).
+  - `apps/api/src/routes/internal/jobs.ts` — `INTERNAL_API_SECRET`. New test coverage:
+    `apps/api/tests/routes/internal/jobs.test.ts` (503 unconfigured, 401 missing/wrong-length/
+    same-length-wrong/wrong-scheme).
+  - `apps/web/src/app/api/ops/db-identity/route.ts` — `BOMY_OPS_DIAGNOSTIC_TOKEN`. Added a
+    same-length-wrong-token case to the existing `db-identity.test.ts`.
+  - **Honest limitation:** timing-safety is a non-functional property — every test above passes
+    identically whether the code uses `timingSafeEqual` or the old `!==` (confirmed by temporarily
+    reverting and re-running). The tests guard against a behavioural regression (still correctly
+    rejects bad secrets); the constant-time guarantee itself is only verifiable by reading the diff.
+- **What (original):** Two bearer-style secrets were compared with `!==` instead of
+  `timingSafeEqual` — `apps/api/src/routes/internal/jobs.ts` (`INTERNAL_API_SECRET`) and
+  `apps/web/src/app/api/ops/db-identity/route.ts` (`BOMY_OPS_DIAGNOSTIC_TOKEN`).
+- **Why it mattered:** Timing side-channels over the public internet are hard but not impossible;
+  the codebase already used `timingSafeEqual` everywhere else, so this was also an internal
+  inconsistency.
 
 ## 5. `parseSen` duplicated — abandoned "Task 11" consolidation · TECH DEBT, MEDIUM
 
