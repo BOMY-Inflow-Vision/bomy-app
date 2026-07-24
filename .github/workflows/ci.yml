@@ -67,6 +67,20 @@ jobs:
         ports:
           - 5432:5432
 
+      # Unauthenticated Redis mirrors GitHub's official runner-mode Redis
+      # service example. Safe here because the service is ephemeral,
+      # job-scoped, and mapped only to the GitHub-hosted runner for this
+      # test job.
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 6379:6379
+
     env:
       DATABASE_URL: postgresql://bomy:ci_password@localhost:5432/bomy_test
 
@@ -104,3 +118,4 @@ jobs:
         env:
           BOMY_RLS_READY: "1"
           DATABASE_APP_URL: postgresql://bomy_app:ci_password@localhost:5432/bomy_test
+          REDIS_URL: redis://localhost:6379
