@@ -177,18 +177,24 @@
   `DATABASE_APP_URL`/`BOMY_RLS_READY` are unset, and/or a vitest `globalSetup` that prints a
   RED "N integration suites SKIPPED" banner when the guard trips.
 
-## 8. `makeDb()` silently falls back to the RLS-exempt owner role · FRAGILE, MEDIUM
+## 8. ~~`makeDb()` silently falls back to the RLS-exempt owner role~~ · CLOSED · FRAGILE, MEDIUM
 
-- **What:** `packages/db/src/client.ts:45` — `url = DATABASE_APP_URL ?? DATABASE_URL`. The owner
-  role (`bomy` / Neon owner) owns the tables, and table owners bypass RLS policies. Forget to set
-  `DATABASE_APP_URL` and everything works — with tenant isolation quietly OFF.
-- **Why it matters:** This exact class of misconfiguration is invisible in dev and catastrophic in
-  prod. Prod currently sets `DATABASE_URL` to the `bomy_app` role (handoff §3) — i.e. safety
-  currently depends on an env-naming convention, not code.
-- **Fix (single task):** In `makeDb()`, when falling back to `DATABASE_URL`, log a one-line
-  `console.warn("makeDb: DATABASE_APP_URL unset — RLS may not be enforced under the owner role")`.
-  Optionally add a startup identity check (the `/api/ops/db-identity` route already proves
-  `current_user` — reuse that query).
+- **Status (2026-07-25): CLOSED.** `makeDb()` (`packages/db/src/client.ts`) now emits
+  `console.warn("makeDb: DATABASE_APP_URL unset — RLS may not be enforced under the owner role")`
+  whenever it resolves to `DATABASE_URL` because `opts.url` and `DATABASE_APP_URL` are both
+  absent. No warning when `opts.url` is passed explicitly (an intentional override) or when
+  `DATABASE_APP_URL` is set. Covered by 3 new cases in
+  `packages/db/tests/client-url-resolution.unit.test.ts` (warns on fallback; silent when
+  `DATABASE_APP_URL` set; silent when `opts.url` passed).
+- **Scope note:** shipped the required warning only. The GAPS-listed optional extra (a startup
+  identity check reusing `/api/ops/db-identity`'s `current_user` query) was left undone — no
+  caller currently needs it, and it'd add a live DB round-trip to every cold start for a case the
+  warning already surfaces at the log line that matters (right when the URL resolves).
+- **What (original):** `packages/db/src/client.ts:45` — `url = DATABASE_APP_URL ?? DATABASE_URL`.
+  The owner role (`bomy` / Neon owner) owns the tables, and table owners bypass RLS policies.
+  Forget to set `DATABASE_APP_URL` and everything works — with tenant isolation quietly OFF. Prod
+  currently sets `DATABASE_URL` to the `bomy_app` role (handoff §3) — i.e. safety previously
+  depended on an env-naming convention, not code.
 
 ## 9. Per-instance `setInterval` jobs double-run under horizontal scale · FRAGILE, LOW-MEDIUM
 

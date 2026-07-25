@@ -84,6 +84,56 @@ describe("makeDb — URL resolution", () => {
   })
 })
 
+describe("makeDb — owner-role fallback warning", () => {
+  let savedAppUrl: string | undefined
+  let savedUrl: string | undefined
+  let warnSpy: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    savedAppUrl = process.env["DATABASE_APP_URL"]
+    savedUrl = process.env["DATABASE_URL"]
+    delete process.env["DATABASE_APP_URL"]
+    delete process.env["DATABASE_URL"]
+    capturedUrls.length = 0
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined)
+  })
+
+  afterEach(() => {
+    if (savedAppUrl !== undefined) {
+      process.env["DATABASE_APP_URL"] = savedAppUrl
+    } else {
+      delete process.env["DATABASE_APP_URL"]
+    }
+    if (savedUrl !== undefined) {
+      process.env["DATABASE_URL"] = savedUrl
+    } else {
+      delete process.env["DATABASE_URL"]
+    }
+    warnSpy.mockRestore()
+  })
+
+  it("warns when falling back to DATABASE_URL (owner role)", () => {
+    process.env["DATABASE_URL"] = "postgres://owner-env/db"
+    makeDb()
+    expect(warnSpy).toHaveBeenCalledWith(
+      "makeDb: DATABASE_APP_URL unset — RLS may not be enforced under the owner role",
+    )
+  })
+
+  it("does not warn when DATABASE_APP_URL is set", () => {
+    process.env["DATABASE_APP_URL"] = "postgres://app-env/db"
+    process.env["DATABASE_URL"] = "postgres://owner-env/db"
+    makeDb()
+    expect(warnSpy).not.toHaveBeenCalled()
+  })
+
+  it("does not warn when opts.url is passed explicitly", () => {
+    process.env["DATABASE_URL"] = "postgres://owner-env/db"
+    makeDb({ url: "postgres://explicit/db" })
+    expect(warnSpy).not.toHaveBeenCalled()
+  })
+})
+
 describe("makeAuthDb — URL resolution", () => {
   let savedAppUrl: string | undefined
   let savedUrl: string | undefined
