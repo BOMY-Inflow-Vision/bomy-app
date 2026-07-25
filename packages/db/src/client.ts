@@ -48,6 +48,9 @@ export function makeDb(opts: MakeDbOptions = {}): Db {
       "makeDb: a database URL is required. Pass opts.url or set DATABASE_APP_URL or DATABASE_URL.",
     )
   }
+  if (!opts.url && !process.env["DATABASE_APP_URL"] && process.env["DATABASE_URL"]) {
+    console.warn("makeDb: DATABASE_APP_URL unset — RLS may not be enforced under the owner role")
+  }
 
   const sql = postgres(url, {
     max: opts.max ?? 10,
