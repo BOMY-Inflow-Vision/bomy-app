@@ -303,3 +303,50 @@ hitpay_payment_id/hitpay_refund_id`), and the runtime is HitPay-only: `packages/
 - **Why it matters:** An agent copying `.env.example` into a new environment would configure a
   sender domain that no longer has SPF/DKIM.
 - **Fix:** covered by gap #6's `.env.example` sync.
+
+## 16. `bomy_app`'s entire privilege baseline is unreproducible from migrations · FRAGILE, MEDIUM
+
+- **What:** `packages/db/src/rls/policies.sql` §6 grants `bomy_app` six things in one blanket
+  block: `USAGE` on schema `public`, `USAGE` on schema `app`, full CRUD on `ALL TABLES IN SCHEMA
+public`, `USAGE, SELECT` on `ALL SEQUENCES IN SCHEMA public`, and `EXECUTE` on `ALL FUNCTIONS`
+  in both `app` and `public`. **None of this is in any numbered migration** — `migrate.mjs` only
+  replays `packages/db/drizzle/*.sql`, and never touches `policies.sql`. Two places currently
+  paper over the gap by hand-duplicating the identical SQL instead of running a tracked migration:
+  `.github/workflows/ci.yml:101-114` (inline `psql` steps every CI run) and
+  `docs/runbooks/public-deployment-cutover.md:60-67` (a manual step in the prod go-live runbook —
+  almost certainly how Neon prod actually got its grants, PR #39 era). Local Docker's grants trace
+  to the same undocumented origin. Concretely, `users`, `stores`, `ledger_entries`,
+  `platform_config`, `platform_config_audit` (migration `0000`) and `accounts`, `sessions`,
+  `verification_tokens` (migration `0001`) have zero `GRANT ... TO bomy_app` in any migration —
+  every later migration (`0002`+) self-grants its own new table, but that convention didn't exist
+  yet for the first 8. The `app` schema's helper functions (`app.current_user_id()` etc., called
+  inside every RLS policy) rely on the same untracked `EXECUTE`/`USAGE` grants.
+- **Why it matters:** rebuilding either environment strictly from the documented path
+  (`pnpm --filter @bomy/db migrate` + `infra/docker/postgres-init/01_app_role.sql`) leaves
+  `bomy_app` with zero privileges on `users` and friends — hard `permission denied` on login, not
+  a silent bypass, but a real disaster-recovery/new-environment gap. Fresh Neon branch, restore
+  from backup, or a contributor's clean Docker volume would all hit this.
+- **Related, narrower issue:** the blanket grant is also **wider** than three tables' own
+  migrations intend, so literally re-running it (as `tests/rls.test.ts`'s own documented recovery
+  procedure instructs) would silently widen privileges:
+  | Table | Migration grants | Wildcard adds |
+  |---|---|---|
+  | `user_consents` (0014) | `SELECT, INSERT` | `UPDATE`, `DELETE` (2 excess) |
+  | `body_image_upload_log` (0021) | `SELECT, INSERT, DELETE` | `UPDATE` only (1 excess) |
+  | `store_category_assignments` (0025) | `SELECT, INSERT, DELETE` | `UPDATE` only (1 excess) |
+
+  RLS backstops all three today (no permissive UPDATE/DELETE policy exists where excluded) — not
+  exploitable now, but a latent inconsistency baked into the "canonical" reference file.
+
+- **Fix (scoped by Charlie, 2026-07-27):**
+  1. Replace wildcard grant usage in CI, the deployment runbook, and `policies.sql` §6 itself with
+     least-privilege, per-table grants that match what each table's own migration intends.
+  2. Add a new migration that reproducibly grants `bomy_app` everything the original `0000`/`0001`
+     surfaces need — table grants on the 8 tables above, plus the schema/function/sequence access
+     currently only expressed as ad hoc wildcard SQL.
+  3. Add a fresh-DB verification path (script or CI job) proving `pnpm --filter @bomy/db migrate`
+     plus role setup (`01_app_role.sql`) alone is sufficient — no manual blanket grant step — so
+     this can't silently regress again.
+- **Found during:** the `policies.sql` completeness scope pass (2026-07-26/27), which itself
+  turned up only one real gap — see gap resolution history / `user_addresses` PR. Not bundled into
+  that PR; tracked here as the next RLS-bootstrap follow-up.

@@ -907,6 +907,36 @@ CREATE POLICY processed_webhook_events_admin_insert ON processed_webhook_events
   FOR INSERT WITH CHECK (app.is_admin_bypass());
 -- No UPDATE / DELETE policies — append-only by omission + RLS.
 
+-- ── user_addresses (saved shipping address book; migration 0015) ──────────────
+-- Owner-scoped, operation-specific policies. Full self-service CRUD — a buyer
+-- manages their own address book end to end, including delete. No admin-only
+-- precedent applies here (contrast body_image_upload_log / action_rate_limits,
+-- where delete is admin-bypass only).
+
+ALTER TABLE user_addresses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_addresses FORCE  ROW LEVEL SECURITY;
+
+CREATE POLICY user_addresses_default_deny ON user_addresses
+  AS RESTRICTIVE
+  USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
+
+CREATE POLICY user_addresses_self_select ON user_addresses
+  FOR SELECT
+  USING (user_id = app.current_user_id() OR app.is_admin_bypass());
+
+CREATE POLICY user_addresses_self_insert ON user_addresses
+  FOR INSERT
+  WITH CHECK (user_id = app.current_user_id() OR app.is_admin_bypass());
+
+CREATE POLICY user_addresses_self_update ON user_addresses
+  FOR UPDATE
+  USING  (user_id = app.current_user_id() OR app.is_admin_bypass())
+  WITH CHECK (user_id = app.current_user_id() OR app.is_admin_bypass());
+
+CREATE POLICY user_addresses_self_delete ON user_addresses
+  FOR DELETE
+  USING (user_id = app.current_user_id() OR app.is_admin_bypass());
+
 -- ── duplicate_charges (Launch-prep: double-charge refund & reconciliation) ──
 -- Inserted by webhook handler under withAdmin when a duplicate subscription
 -- payment is detected. Updated by the admin refund flow. No DELETE policy —
