@@ -140,15 +140,19 @@
   the codebase already used `timingSafeEqual` everywhere else, so this was also an internal
   inconsistency.
 
-## 5. `parseSen` duplicated — abandoned "Task 11" consolidation · TECH DEBT, MEDIUM
+## 5. ~~`parseSen` duplicated — abandoned "Task 11" consolidation~~ · CLOSED · TECH DEBT, MEDIUM
 
-- **What:** Two identical strict `"N.NN"` → bigint parsers exist:
-  `apps/api/src/webhooks/hitpay/parse-sen.ts` (whose doc comment says "Task 11 will consolidate
-  those") and a private copy in `apps/api/src/routes/webhooks/hitpay.ts:21`. Task 11 never happened.
-- **Why it matters:** It's money parsing. If one copy is ever fixed/tightened and the other isn't,
-  the membership path and the order path will disagree on what a valid amount is.
-- **Fix (single task):** Delete the local `parseSen` in `routes/webhooks/hitpay.ts` and import from
-  `../../webhooks/hitpay/parse-sen.js`. Run `pnpm --filter @bomy/api test --run`.
+- **Status (2026-07-25): CLOSED.** `apps/api/src/routes/webhooks/hitpay.ts` now imports `parseSen`
+  from `../../webhooks/hitpay/parse-sen.js` instead of keeping a private copy. The membership,
+  brand-subscription, and refund branches (and the order-webhook path, already on the shared
+  import) all resolve amounts through one function. Doc comment in `parse-sen.ts` updated to drop
+  the stale "Task 11" reference. Full api suite 291/291, run twice back-to-back with real
+  Postgres/Redis (`BOMY_RLS_READY=1`) — deterministic, no skips.
+- **What (original):** Two identical strict `"N.NN"` → bigint parsers existed:
+  `apps/api/src/webhooks/hitpay/parse-sen.ts` (whose doc comment said "Task 11 will consolidate
+  those") and a private copy in `apps/api/src/routes/webhooks/hitpay.ts:21`. Task 11 never
+  happened. Risk: if one copy were ever fixed/tightened and the other wasn't, the membership path
+  and the order path would disagree on what a valid amount is.
 
 ## 6. Documentation drift in load-bearing files · TECH DEBT, MEDIUM
 

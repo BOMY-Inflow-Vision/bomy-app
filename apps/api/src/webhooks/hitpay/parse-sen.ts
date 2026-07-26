@@ -6,9 +6,9 @@
  * can park the session for review rather than silently producing the
  * wrong bigint.
  *
- * Single source of truth for parsing across the order webhook (Task 10
- * order-fanout.ts) and the existing route plugin's membership / brand-
- * subscription / refund branches (Task 11 will consolidate those).
+ * Single source of truth for parsing across the order webhook
+ * (order-fanout.ts) and the route plugin's membership / brand-
+ * subscription / refund branches (routes/webhooks/hitpay.ts).
  */
 export function parseSen(amount: string): bigint {
   if (!/^\d+\.\d{2}$/.test(amount)) {

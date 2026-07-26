@@ -12,25 +12,13 @@ import {
 } from "../../plugins/rate-limit.js"
 import { deriveEventIdentity } from "../../webhooks/hitpay/idempotency.js"
 import { handleOrderPayment } from "../../webhooks/hitpay/order-fanout.js"
+import { parseSen } from "../../webhooks/hitpay/parse-sen.js"
 import { dispatchOrderNotifications } from "../../notifications/order.js"
 
 // Sentinel UUID identifying the HitPay webhook system as the audit actor
 // for all withAdmin writes. No user session exists for inbound webhooks.
 // Future: define system principals in a dedicated table (ADR-08).
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001" as const
-
-// Strict decimal-to-sen conversion. HitPay sends amounts as "N.NN" strings.
-// parseFloat is explicitly avoided — a malformed string throws rather than
-// silently producing a wrong bigint value.
-function parseSen(amount: string): bigint {
-  if (!/^\d+\.\d{2}$/.test(amount)) {
-    throw new Error(`parseSen: invalid amount format "${amount}" — expected "N.NN"`)
-  }
-  const dotIdx = amount.indexOf(".")
-  const whole = amount.slice(0, dotIdx)
-  const cents = amount.slice(dotIdx + 1)
-  return BigInt(whole) * 100n + BigInt(cents)
-}
 
 // Records a duplicate subscription charge (a payment we will not honour) and
 // books the inflow to a liability account. Idempotent: ON CONFLICT on the unique
