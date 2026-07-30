@@ -56,8 +56,8 @@ Expected: all migrations apply cleanly. If migration `0002` fails on `GRANT ... 
 ### Step 4 — Post-migration grants verification
 
 > **Updated 2026-07-29 (GAPS #16):** `bomy_app` grants are now applied by migration `0027`
-> (`packages/db/drizzle/0027_bomy_app_least_privilege_grants.sql`) as part of step 3's `pnpm
---filter @bomy/db migrate` — there is no separate manual grant step anymore. The wildcard block
+> (`packages/db/drizzle/0027_bomy_app_least_privilege_grants.sql`) as part of step 3's
+> `pnpm --filter @bomy/db migrate` — there is no separate manual grant step anymore. The wildcard block
 > that used to live here (`GRANT ... ON ALL TABLES IN SCHEMA public TO bomy_app`, etc.) is a
 > **regression** if re-run: it silently re-widens several tables past what their own migrations
 > and RLS policies intend (`users` gains a DELETE grant no policy permits, `ledger_entries` and
