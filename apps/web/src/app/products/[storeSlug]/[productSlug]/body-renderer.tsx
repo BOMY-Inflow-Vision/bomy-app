@@ -3,7 +3,7 @@ import type { ReactNode } from "react"
 import { parse, NodeType, type Node, type HTMLElement } from "node-html-parser"
 
 import { YOUTUBE_VIDEO_ID_RE } from "@bomy/shared/youtube"
-import { VideoEmbed } from "./video-embed"
+import { VideoEmbed } from "@/components/video-embed"
 
 const HTTPS_RE = /^https:\/\//
 
