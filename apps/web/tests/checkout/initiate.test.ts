@@ -134,9 +134,6 @@ describe.skipIf(!shouldRun)("initiateCheckout", () => {
         await tx.delete(schema.productVariants).where(eq(schema.productVariants.id, variantId))
         await tx.delete(schema.products).where(eq(schema.products.id, productId))
         await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
-        await tx.delete(schema.users).where(eq(schema.users.id, buyerAId))
-        await tx.delete(schema.users).where(eq(schema.users.id, buyerBId))
-        await tx.delete(schema.users).where(eq(schema.users.id, sellerId))
         await tx
           .update(schema.platformConfig)
           .set({ value: false })

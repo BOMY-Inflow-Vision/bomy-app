@@ -75,7 +75,6 @@ describe.skipIf(!shouldRun)("issueMonthlyVouchers", () => {
           .set({ value, updatedAt: new Date() })
           .where(eq(schema.platformConfig.key, key))
       }
-      await tx.delete(schema.users).where(eq(schema.users.id, adminId))
     })
     await testDb.close()
   })
@@ -136,7 +135,6 @@ describe.skipIf(!shouldRun)("issueMonthlyVouchers", () => {
     await withAdmin(testDb.db, { userId: adminId, reason: "test cleanup" }, async (tx) => {
       await tx.delete(schema.vouchers).where(eq(schema.vouchers.userId, userId))
       await tx.delete(schema.memberSubscriptions).where(eq(schema.memberSubscriptions.id, subId))
-      await tx.delete(schema.users).where(eq(schema.users.id, userId))
     })
     void issuedMonth // used in description only
   }
@@ -296,8 +294,6 @@ describe.skipIf(!shouldRun)("issueMonthlyVouchers", () => {
       await tx.delete(schema.vouchers).where(eq(schema.vouchers.userId, u2))
       await tx.delete(schema.memberSubscriptions).where(eq(schema.memberSubscriptions.userId, u1))
       await tx.delete(schema.memberSubscriptions).where(eq(schema.memberSubscriptions.userId, u2))
-      await tx.delete(schema.users).where(eq(schema.users.id, u1))
-      await tx.delete(schema.users).where(eq(schema.users.id, u2))
     })
   })
 
@@ -334,7 +330,6 @@ describe.skipIf(!shouldRun)("issueMonthlyVouchers", () => {
     await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
       await tx.delete(schema.vouchers).where(eq(schema.vouchers.userId, u3))
       await tx.delete(schema.memberSubscriptions).where(eq(schema.memberSubscriptions.userId, u3))
-      await tx.delete(schema.users).where(eq(schema.users.id, u3))
     })
   })
 })

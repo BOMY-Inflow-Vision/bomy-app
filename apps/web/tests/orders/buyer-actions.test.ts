@@ -147,9 +147,6 @@ describe.skipIf(!shouldRun)("confirmDelivery", () => {
         await tx.delete(schema.orders).where(inArray(schema.orders.id, [...trackedOrderIds]))
       }
       await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
-      await tx.delete(schema.users).where(eq(schema.users.id, buyerAId))
-      await tx.delete(schema.users).where(eq(schema.users.id, buyerBId))
-      await tx.delete(schema.users).where(eq(schema.users.id, sellerId))
     })
     await testDb.close()
   })

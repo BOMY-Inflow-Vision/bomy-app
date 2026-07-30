@@ -218,7 +218,6 @@ describe.skipIf(!shouldRun)("park-review (integration)", () => {
   afterAll(async () => {
     await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "pr teardown" }, async (tx) => {
       // ledger_entries reference order_id via reference_id (uuid). Clean orders first.
-      await tx.delete(schema.ledgerEntries)
       await tx.delete(schema.orderPayouts)
       await tx.delete(schema.orders)
       await tx.delete(schema.vouchers).where(eq(schema.vouchers.userId, buyerId))
@@ -226,8 +225,6 @@ describe.skipIf(!shouldRun)("park-review (integration)", () => {
       await tx.delete(schema.productVariants).where(eq(schema.productVariants.id, variantId))
       await tx.delete(schema.products).where(eq(schema.products.id, productId))
       await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
-      await tx.delete(schema.users).where(eq(schema.users.id, buyerId))
-      await tx.delete(schema.users).where(eq(schema.users.id, sellerId))
     })
     await handle.close()
   })
@@ -235,7 +232,6 @@ describe.skipIf(!shouldRun)("park-review (integration)", () => {
   beforeEach(async () => {
     logCalls = []
     await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "pr reset" }, async (tx) => {
-      await tx.delete(schema.ledgerEntries)
       await tx.delete(schema.orderPayouts)
       await tx.delete(schema.orders)
       await tx.delete(schema.vouchers).where(eq(schema.vouchers.userId, buyerId))

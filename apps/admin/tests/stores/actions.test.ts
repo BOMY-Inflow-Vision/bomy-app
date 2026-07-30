@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto"
 
-import { eq, inArray } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi, type Mock } from "vitest"
 
 import { makeDb, schema, withAdmin } from "@bomy/db"
@@ -43,11 +43,7 @@ describe.skipIf(!shouldRun)("createStore one-store guard", () => {
 
   afterEach(async () => {
     await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
-      await tx
-        .delete(schema.adminBypassAudit)
-        .where(eq(schema.adminBypassAudit.actorUserId, adminId))
       await tx.delete(schema.stores).where(eq(schema.stores.ownerId, ownerId))
-      await tx.delete(schema.users).where(inArray(schema.users.id, [adminId, ownerId]))
     })
   })
 

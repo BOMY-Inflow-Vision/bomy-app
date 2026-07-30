@@ -151,7 +151,6 @@ describe.skipIf(!shouldRun)("PR #32 order webhook schema & RLS", () => {
         // so wipe payouts first.
         await tx.delete(orderPayouts)
         await tx.delete(orders)
-        await tx.delete(processedWebhookEvents)
         await tx.delete(checkoutSessions).where(eq(checkoutSessions.userId, buyerAId))
         await tx.delete(checkoutSessions).where(eq(checkoutSessions.userId, buyerBId))
         await tx.delete(productVariants).where(eq(productVariants.id, variantV1Id))
@@ -160,9 +159,6 @@ describe.skipIf(!shouldRun)("PR #32 order webhook schema & RLS", () => {
         await tx.delete(products).where(eq(products.id, productP2Id))
         await tx.delete(stores).where(eq(stores.id, storeS1Id))
         await tx.delete(stores).where(eq(stores.id, storeS2Id))
-        for (const id of [buyerAId, buyerBId, ownerUId, ownerOtherId, opsId, adminId, financeId]) {
-          await tx.delete(users).where(eq(users.id, id))
-        }
       },
     )
     await handle.close()
@@ -175,7 +171,6 @@ describe.skipIf(!shouldRun)("PR #32 order webhook schema & RLS", () => {
       async (tx) => {
         await tx.delete(orderPayouts)
         await tx.delete(orders)
-        await tx.delete(processedWebhookEvents)
         await tx.delete(checkoutSessions).where(eq(checkoutSessions.userId, buyerAId))
         await tx.delete(checkoutSessions).where(eq(checkoutSessions.userId, buyerBId))
       },
@@ -579,25 +574,27 @@ describe.skipIf(!shouldRun)("PR #32 order webhook schema & RLS", () => {
           ),
         ).toHaveLength(0)
 
-        // processed_webhook_events — append-only by RLS (no UPDATE/DELETE
-        // policies at all). Every role's attempts must silently no-op.
-        expect(
-          await withTenant(handle.db, { userId, userRole: role }, async (tx) =>
+        // processed_webhook_events — append-only. Migration 0027 (GAPS #16)
+        // dropped the UPDATE/DELETE grant entirely (no RLS policy ever
+        // permitted either), so every role's attempts are now a hard
+        // permission-denied rather than a silent no-op.
+        await expect(
+          withTenant(handle.db, { userId, userRole: role }, async (tx) =>
             tx
               .update(processedWebhookEvents)
               .set({ eventType: "tampered" })
               .where(eq(processedWebhookEvents.id, eventId))
               .returning({ id: processedWebhookEvents.id }),
           ),
-        ).toHaveLength(0)
-        expect(
-          await withTenant(handle.db, { userId, userRole: role }, async (tx) =>
+        ).rejects.toThrow(/permission denied/)
+        await expect(
+          withTenant(handle.db, { userId, userRole: role }, async (tx) =>
             tx
               .delete(processedWebhookEvents)
               .where(eq(processedWebhookEvents.id, eventId))
               .returning({ id: processedWebhookEvents.id }),
           ),
-        ).toHaveLength(0)
+        ).rejects.toThrow(/permission denied/)
       }
 
       // Verify every seeded row survived intact and unchanged.

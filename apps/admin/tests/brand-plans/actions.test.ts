@@ -61,12 +61,7 @@ describe.skipIf(!shouldRun)("togglePlanActive", () => {
 
   afterAll(async () => {
     await withAdmin(testDb.db, { userId: adminId, reason: "test cleanup" }, async (tx) => {
-      await tx
-        .delete(schema.brandSubscriptionPlans)
-        .where(eq(schema.brandSubscriptionPlans.id, planId))
       await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
-      await tx.delete(schema.users).where(eq(schema.users.id, ownerId))
-      await tx.delete(schema.users).where(eq(schema.users.id, adminId))
     })
     await testDb.close()
   })

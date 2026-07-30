@@ -38,12 +38,6 @@ describe.skipIf(!shouldRun)("category actions", () => {
     mockAuth.mockResolvedValue({ user: { id: adminId, role: "bomy_admin" } })
   })
 
-  afterEach(async () => {
-    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, (tx) =>
-      tx.delete(schema.users).where(eq(schema.users.id, adminId)),
-    )
-  })
-
   // ─── updateCategory ───────────────────────────────────────────────────────
 
   describe("updateCategory", () => {
@@ -169,7 +163,6 @@ describe.skipIf(!shouldRun)("category actions", () => {
       await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
         await tx.delete(schema.products).where(eq(schema.products.id, productId))
         await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
-        await tx.delete(schema.users).where(eq(schema.users.id, ownerId))
         await tx.delete(schema.categories).where(eq(schema.categories.id, catId))
       })
     })

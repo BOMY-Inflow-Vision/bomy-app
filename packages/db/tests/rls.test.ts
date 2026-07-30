@@ -12,7 +12,15 @@
  * fresh Docker volumes. For existing volumes apply it manually:
  *   docker exec -i bomy_postgres psql -U bomy -d bomy \
  *     < infra/docker/postgres-init/01_app_role.sql
- * Then re-run policies.sql to grant bomy_app table access.
+ *
+ * bomy_app grants are applied by migration 0027 as part of
+ * `pnpm --filter @bomy/db migrate` — there is no manual grant step. Never
+ * hand-run `GRANT ... ON ALL TABLES IN SCHEMA public TO bomy_app`; it
+ * re-widens tables that are deliberately narrow (see migration 0027 for
+ * the matrix). If grants look wrong on an existing volume, converge them
+ * by re-running `psql ... < packages/db/src/rls/policies.sql` (§6 mirrors
+ * 0027, including its revokes), then confirm with
+ * packages/db/tests/grants.test.ts.
  */
 import { randomUUID } from "node:crypto"
 

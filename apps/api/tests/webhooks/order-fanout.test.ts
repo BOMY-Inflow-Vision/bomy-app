@@ -148,11 +148,9 @@ describe.skipIf(!shouldRun)("handleOrderPayment + fanOutPaid (integration)", () 
 
   afterAll(async () => {
     await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "fanout teardown" }, async (tx) => {
-      await tx.delete(schema.ledgerEntries)
       await tx.delete(schema.orderPayouts)
       await tx.delete(schema.orderItems)
       await tx.delete(schema.orders)
-      await tx.delete(schema.processedWebhookEvents)
       await tx.delete(schema.vouchers).where(eq(schema.vouchers.userId, buyerId))
       await tx.delete(schema.checkoutSessions).where(eq(schema.checkoutSessions.userId, buyerId))
       await tx.delete(schema.productVariants).where(eq(schema.productVariants.id, variantId))
@@ -163,8 +161,6 @@ describe.skipIf(!shouldRun)("handleOrderPayment + fanOutPaid (integration)", () 
         await tx.delete(schema.products).where(eq(schema.products.id, id))
       await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
       for (const id of extraStoreIds) await tx.delete(schema.stores).where(eq(schema.stores.id, id))
-      await tx.delete(schema.users).where(eq(schema.users.id, buyerId))
-      await tx.delete(schema.users).where(eq(schema.users.id, sellerId))
     })
     await handle.close()
   })
@@ -172,11 +168,9 @@ describe.skipIf(!shouldRun)("handleOrderPayment + fanOutPaid (integration)", () 
   beforeEach(async () => {
     logCalls = []
     await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "fanout reset" }, async (tx) => {
-      await tx.delete(schema.ledgerEntries)
       await tx.delete(schema.orderPayouts)
       await tx.delete(schema.orderItems)
       await tx.delete(schema.orders)
-      await tx.delete(schema.processedWebhookEvents)
       await tx.delete(schema.vouchers).where(eq(schema.vouchers.userId, buyerId))
       await tx.delete(schema.checkoutSessions).where(eq(schema.checkoutSessions.userId, buyerId))
       // Restore commission pct to 25. Use upsert because the

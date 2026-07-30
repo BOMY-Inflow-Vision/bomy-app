@@ -186,11 +186,9 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay — order-payment integration
       setupDb.db,
       { userId: SYSTEM_ACTOR, reason: "hitpay-order teardown" },
       async (tx) => {
-        await tx.delete(schema.ledgerEntries)
         await tx.delete(schema.orderPayouts)
         await tx.delete(schema.orderItems)
         await tx.delete(schema.orders)
-        await tx.delete(schema.processedWebhookEvents)
         await tx.delete(schema.inventoryReservations)
         await tx.delete(schema.checkoutSessionItems)
         await tx.delete(schema.checkoutSessionStores)
@@ -210,9 +208,6 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay — order-payment integration
         await tx.delete(schema.products).where(eq(schema.products.id, buyerSellerProductId))
         for (const id of storeIds) await tx.delete(schema.stores).where(eq(schema.stores.id, id))
         await tx.delete(schema.stores).where(eq(schema.stores.id, buyerSellerStoreId))
-        await tx.delete(schema.users).where(eq(schema.users.id, buyerId))
-        await tx.delete(schema.users).where(eq(schema.users.id, buyerSellerId))
-        await tx.delete(schema.users).where(eq(schema.users.id, sellerId))
       },
     )
     await app.close()
@@ -226,11 +221,9 @@ describe.skipIf(!shouldRun)("POST /webhooks/hitpay — order-payment integration
       setupDb.db,
       { userId: SYSTEM_ACTOR, reason: "hitpay-order reset" },
       async (tx) => {
-        await tx.delete(schema.ledgerEntries)
         await tx.delete(schema.orderPayouts)
         await tx.delete(schema.orderItems)
         await tx.delete(schema.orders)
-        await tx.delete(schema.processedWebhookEvents)
         await tx.delete(schema.vouchers).where(eq(schema.vouchers.userId, buyerId))
         await tx.delete(schema.vouchers).where(eq(schema.vouchers.userId, buyerSellerId))
         await tx.delete(schema.checkoutSessions).where(eq(schema.checkoutSessions.userId, buyerId))

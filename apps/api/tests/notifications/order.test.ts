@@ -253,8 +253,6 @@ describe.skipIf(!shouldRun)("dispatchOrderNotifications — no-body logging (int
         await tx.delete(schema.orders).where(eq(schema.orders.id, orderId))
         await tx.delete(schema.checkoutSessions).where(eq(schema.checkoutSessions.id, sessionId))
         await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
-        await tx.delete(schema.users).where(eq(schema.users.id, sellerId))
-        await tx.delete(schema.users).where(eq(schema.users.id, buyerId))
       },
     )
 

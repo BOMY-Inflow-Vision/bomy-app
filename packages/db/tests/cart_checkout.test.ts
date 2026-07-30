@@ -100,10 +100,6 @@ describe.skipIf(!shouldRun)("PR #31 cart + checkout schema & RLS", () => {
         await tx.delete(productVariants).where(eq(productVariants.id, variantId))
         await tx.delete(products).where(eq(products.id, productId))
         await tx.delete(stores).where(eq(stores.id, storeId))
-        await tx.delete(users).where(eq(users.id, buyerAId))
-        await tx.delete(users).where(eq(users.id, buyerBId))
-        await tx.delete(users).where(eq(users.id, staffId))
-        await tx.delete(users).where(eq(users.id, sellerId))
       },
     )
     await handle.close()

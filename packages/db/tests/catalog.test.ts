@@ -98,8 +98,6 @@ describe.skipIf(!shouldRun)("catalog RLS", () => {
         await tx.delete(stores).where(eq(stores.id, storeBId))
         await tx.delete(categories).where(eq(categories.id, categoryId))
         await tx.delete(categories).where(eq(categories.id, inactiveCategoryId))
-        await tx.delete(users).where(eq(users.id, sellerAId))
-        await tx.delete(users).where(eq(users.id, sellerBId))
       },
     )
     await handle.close()

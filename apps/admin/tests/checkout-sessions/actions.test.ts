@@ -109,12 +109,6 @@ describe.skipIf(!shouldRun)("resolvePaymentReview", () => {
   })
 
   afterAll(async () => {
-    await adminTx("cleanup", async (tx) => {
-      await tx.delete(schema.users).where(eq(schema.users.id, adminId))
-      await tx.delete(schema.users).where(eq(schema.users.id, opsId))
-      await tx.delete(schema.users).where(eq(schema.users.id, financeId))
-      await tx.delete(schema.users).where(eq(schema.users.id, buyerId))
-    })
     await testDb.close()
   })
 

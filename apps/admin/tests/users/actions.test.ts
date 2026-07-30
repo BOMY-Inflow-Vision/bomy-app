@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto"
 
-import { and, eq, inArray } from "drizzle-orm"
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi, type Mock } from "vitest"
+import { and, eq } from "drizzle-orm"
+import { beforeAll, beforeEach, describe, expect, it, vi, type Mock } from "vitest"
 
 import { makeDb, schema, withAdmin } from "@bomy/db"
 
@@ -47,15 +47,6 @@ describe.skipIf(!shouldRun)("admin user actions", () => {
         },
         { id: dupId, email: `Dup-${dupId}@Example.com`, role: "buyer" },
       ])
-    })
-  })
-
-  afterEach(async () => {
-    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
-      await tx
-        .delete(schema.adminBypassAudit)
-        .where(eq(schema.adminBypassAudit.actorUserId, adminId))
-      await tx.delete(schema.users).where(inArray(schema.users.id, [adminId, targetId, dupId]))
     })
   })
 

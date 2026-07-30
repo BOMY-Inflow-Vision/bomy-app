@@ -43,8 +43,6 @@ describe.skipIf(!shouldRun)("createVoucher", () => {
   afterAll(async () => {
     await withAdmin(testDb.db, { userId: adminId, reason: "test cleanup" }, async (tx) => {
       await tx.delete(schema.vouchers).where(eq(schema.vouchers.userId, userId))
-      await tx.delete(schema.users).where(eq(schema.users.id, userId))
-      await tx.delete(schema.users).where(eq(schema.users.id, adminId))
     })
     await testDb.close()
   })

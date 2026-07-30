@@ -304,9 +304,42 @@ hitpay_payment_id/hitpay_refund_id`), and the runtime is HitPay-only: `packages/
   sender domain that no longer has SPF/DKIM.
 - **Fix:** covered by gap #6's `.env.example` sync.
 
-## 16. `bomy_app`'s entire privilege baseline is unreproducible from migrations · FRAGILE, MEDIUM
+## 16. ~~`bomy_app`'s entire privilege baseline is unreproducible from migrations~~ · CLOSED · FRAGILE, MEDIUM
 
-- **What:** `packages/db/src/rls/policies.sql` §6 grants `bomy_app` six things in one blanket
+- **Status (2026-07-29): CLOSED.** Migration `packages/db/drizzle/0027_bomy_app_least_privilege_grants.sql`
+  is now the single source of truth for `bomy_app`'s entire privilege baseline — schema `USAGE`
+  (`public`, `app`), all 34 table grants, and 5 named `app.*` function `EXECUTE` grants, applied as
+  one atomic `DO $$ ... $$` block via `pnpm --filter @bomy/db migrate`. `policies.sql` §6 rewritten
+  to mirror it exactly (including its `REVOKE ALL` declarative reset). CI's wildcard grant step
+  deleted — the CI job now proves role setup + `migrate` alone is sufficient, every run. Prod
+  runbook step 4 replaced with a note + `has_table_privilege` verification snippet.
+  `packages/db/tests/grants.test.ts` (new, 146 assertions) checks every table × verb combination
+  exactly, schema/function/sequence access, and one end-to-end `withTenant` chain proof — gated
+  like `rls.test.ts`, currently fails on any environment still carrying old wildcard-granted state
+  (by design; that's the test detecting real drift).
+- **Least-privilege matrix went further than the original ask:** re-deriving each table's target
+  grant from its actual RLS policy verbs (not just "reproduce the wildcard") surfaced that the
+  wildcard was itself overgranting past what any policy permits on 7 more tables: `users` (had
+  DELETE with no DELETE policy), `ledger_entries`/`platform_config_audit`/`admin_bypass_audit`/
+  `processed_webhook_events` (had UPDATE+DELETE on append-only/evidence-trail/idempotency-guard
+  tables), `brand_subscription_plans`/`duplicate_charges` (had DELETE with no DELETE policy). All
+  now revoked — 17 excess privileges dropped total, across the original 3 (`user_consents`,
+  `body_image_upload_log`, `store_category_assignments`) plus these 7 plus `accounts`/
+  `verification_tokens` (narrowed to the actual `@auth/drizzle-adapter` contract, which has no
+  `updateAccount`/`updateVerificationToken` method — read the vendored adapter source directly to
+  confirm, not assumed).
+- **Real bug found along the way:** the `users` overgrant was hiding a live test-hygiene bug —
+  under FORCE RLS, a grant present with no matching permissive policy makes DELETE silently affect
+  0 rows instead of erroring. Every test file's `tx.delete(users)` teardown had been silently
+  failing; **13,480 total users / 11,435 matching `%@test.bomy`** had accumulated on the local dev
+  DB. `apps/web/tests/auth/consent/actions.test.ts` had already independently discovered and
+  documented this exact class of drift for `user_consents` rather than fixing it. Fixed both:
+  stripped ~140 now-provably-dead teardown deletes across ~45 test files (behavior-preserving —
+  they deleted 0 rows before, removing them still deletes 0 rows), and converted 4 tests that
+  asserted "silent no-op" into deterministic `permission denied` assertions
+  (`admin-bypass-audit.test.ts` UPDATE+DELETE, `order_webhook.test.ts` `processed_webhook_events`
+  UPDATE+DELETE, `auth/consent/actions.test.ts` `user_consents` DELETE).
+- **What (original):** `packages/db/src/rls/policies.sql` §6 grants `bomy_app` six things in one blanket
   block: `USAGE` on schema `public`, `USAGE` on schema `app`, full CRUD on `ALL TABLES IN SCHEMA
 public`, `USAGE, SELECT` on `ALL SEQUENCES IN SCHEMA public`, and `EXECUTE` on `ALL FUNCTIONS`
   in both `app` and `public`. **None of this is in any numbered migration** — `migrate.mjs` only
@@ -337,16 +370,3 @@ public`, `USAGE, SELECT` on `ALL SEQUENCES IN SCHEMA public`, and `EXECUTE` on `
 
   RLS backstops all three today (no permissive UPDATE/DELETE policy exists where excluded) — not
   exploitable now, but a latent inconsistency baked into the "canonical" reference file.
-
-- **Fix (scoped by Charlie, 2026-07-27):**
-  1. Replace wildcard grant usage in CI, the deployment runbook, and `policies.sql` §6 itself with
-     least-privilege, per-table grants that match what each table's own migration intends.
-  2. Add a new migration that reproducibly grants `bomy_app` everything the original `0000`/`0001`
-     surfaces need — table grants on the 8 tables above, plus the schema/function/sequence access
-     currently only expressed as ad hoc wildcard SQL.
-  3. Add a fresh-DB verification path (script or CI job) proving `pnpm --filter @bomy/db migrate`
-     plus role setup (`01_app_role.sql`) alone is sufficient — no manual blanket grant step — so
-     this can't silently regress again.
-- **Found during:** the `policies.sql` completeness scope pass (2026-07-26/27), which itself
-  turned up only one real gap — see gap resolution history / `user_addresses` PR. Not bundled into
-  that PR; tracked here as the next RLS-bootstrap follow-up.

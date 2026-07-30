@@ -144,8 +144,6 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
       await tx.delete(schema.stores).where(eq(schema.stores.id, otherStoreId))
       await tx.delete(schema.categories).where(eq(schema.categories.id, categoryId))
-      await tx.delete(schema.users).where(eq(schema.users.id, sellerId))
-      await tx.delete(schema.users).where(eq(schema.users.id, otherSellerId))
     })
     await testDb.close()
   })
@@ -879,7 +877,6 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
     afterAll(async () => {
       await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
         await tx.delete(schema.stores).where(eq(schema.stores.id, suspendedStoreId))
-        await tx.delete(schema.users).where(eq(schema.users.id, suspendedUserId))
       })
     })
 
@@ -1343,7 +1340,6 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
         await tx.delete(schema.products).where(eq(schema.products.id, productId))
         await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
-        await tx.delete(schema.users).where(eq(schema.users.id, sellerId))
       })
       await db.close()
     })
@@ -1400,7 +1396,6 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
           { userId: SYSTEM_ACTOR, reason: "test cleanup seller B" },
           async (tx) => {
             await tx.delete(schema.stores).where(eq(schema.stores.id, storeBId))
-            await tx.delete(schema.users).where(eq(schema.users.id, sellerBId))
           },
         )
       }
@@ -1619,8 +1614,6 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
         await tx.delete(schema.products).where(eq(schema.products.id, product2Id))
         await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
         await tx.delete(schema.stores).where(eq(schema.stores.id, store2Id))
-        await tx.delete(schema.users).where(eq(schema.users.id, sellerId))
-        await tx.delete(schema.users).where(eq(schema.users.id, seller2Id))
       })
       await db.close()
     })

@@ -202,7 +202,7 @@ describe.skipIf(!shouldRun)("admin_bypass_audit — withAdmin behavior", () => {
     ).rejects.toThrow()
   })
 
-  it("UPDATE on admin_bypass_audit is a no-op (append-only enforcement, even under bypass)", async () => {
+  it("UPDATE on admin_bypass_audit is rejected with permission denied (append-only enforcement, even under bypass)", async () => {
     const seedReason = `update-denial ${randomUUID()}`
 
     // Seed one row via withAdmin and confirm it's there from a staff view.
@@ -222,17 +222,17 @@ describe.skipIf(!shouldRun)("admin_bypass_audit — withAdmin behavior", () => {
     expect(beforeRows).toHaveLength(1)
     const seededId = beforeRows[0]?.id
 
-    // Attempt UPDATE under bypass. With no FOR UPDATE policy, this is a no-op
-    // (zero rows match the visibility predicate for UPDATE) — append-only.
-    await withAdmin(
-      handle.db,
-      { userId: SYSTEM_ACTOR, reason: "test: attempt update" },
-      async (tx) =>
+    // Migration 0027 (GAPS #16) dropped the UPDATE grant entirely — no policy
+    // ever permitted it either, but the grant used to make this a silent
+    // no-op. Now it's a hard permission-denied, deterministic either way.
+    await expect(
+      withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "test: attempt update" }, async (tx) =>
         tx
           .update(adminBypassAudit)
           .set({ reason: "TAMPERED" })
           .where(sql`id = ${seededId}::uuid`),
-    )
+      ),
+    ).rejects.toThrow(/permission denied/)
 
     // The reason must be unchanged.
     const afterRows = await withAdmin(
@@ -248,7 +248,7 @@ describe.skipIf(!shouldRun)("admin_bypass_audit — withAdmin behavior", () => {
     expect(afterRows[0]?.reason).toBe(seedReason)
   })
 
-  it("DELETE on admin_bypass_audit is a no-op (append-only enforcement, even under bypass)", async () => {
+  it("DELETE on admin_bypass_audit is rejected with permission denied (append-only enforcement, even under bypass)", async () => {
     const seedReason = `delete-denial ${randomUUID()}`
 
     await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: seedReason }, () =>
@@ -267,12 +267,13 @@ describe.skipIf(!shouldRun)("admin_bypass_audit — withAdmin behavior", () => {
     expect(beforeRows).toHaveLength(1)
     const seededId = beforeRows[0]?.id
 
-    // Attempt DELETE under bypass. With no FOR DELETE policy, this is a no-op.
-    await withAdmin(
-      handle.db,
-      { userId: SYSTEM_ACTOR, reason: "test: attempt delete" },
-      async (tx) => tx.delete(adminBypassAudit).where(sql`id = ${seededId}::uuid`),
-    )
+    // Migration 0027 (GAPS #16) dropped the DELETE grant entirely — same
+    // deterministic-rejection reasoning as the UPDATE case above.
+    await expect(
+      withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "test: attempt delete" }, async (tx) =>
+        tx.delete(adminBypassAudit).where(sql`id = ${seededId}::uuid`),
+      ),
+    ).rejects.toThrow(/permission denied/)
 
     // The row must still exist.
     const afterRows = await withAdmin(

@@ -49,15 +49,11 @@ describe.skipIf(!shouldRun)("seller-inquiry review actions", () => {
 
   afterEach(async () => {
     await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
-      await tx
-        .delete(schema.adminBypassAudit)
-        .where(eq(schema.adminBypassAudit.actorUserId, adminId))
       await tx.delete(schema.sellerInquiries).where(eq(schema.sellerInquiries.id, inquiryId))
       if (createdStoreIds.length > 0) {
         await tx.delete(schema.stores).where(inArray(schema.stores.id, createdStoreIds))
       }
       await tx.delete(schema.stores).where(eq(schema.stores.ownerId, ownerId))
-      await tx.delete(schema.users).where(inArray(schema.users.id, [adminId, ownerId]))
     })
   })
 
@@ -210,7 +206,6 @@ describe.skipIf(!shouldRun)("seller-inquiry review actions", () => {
       async (tx) => {
         // Delete the store before the user — stores.owner_id has ON DELETE RESTRICT
         await tx.delete(schema.stores).where(eq(schema.stores.ownerId, otherOwner))
-        await tx.delete(schema.users).where(eq(schema.users.id, otherOwner))
       },
     )
   })

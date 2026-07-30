@@ -102,7 +102,6 @@ describe.skipIf(!shouldRun)("storefront queries", () => {
         await tx.delete(schema.products).where(eq(schema.products.id, productId))
         await tx.delete(schema.categories).where(eq(schema.categories.id, categoryId))
         await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
-        await tx.delete(schema.users).where(eq(schema.users.id, userId))
       },
     )
     await testDb.close()
@@ -317,7 +316,6 @@ describe.skipIf(!shouldRun)("getBrands queries", () => {
         await tx.delete(schema.categories).where(eq(schema.categories.id, categoryId))
         await tx.delete(schema.stores).where(eq(schema.stores.id, activeStoreId))
         await tx.delete(schema.stores).where(eq(schema.stores.id, suspendedStoreId))
-        await tx.delete(schema.users).where(eq(schema.users.id, userId))
       },
     )
     await testDb.close()
@@ -492,7 +490,6 @@ describe.skipIf(!shouldRun)("getBrands store category pills", () => {
         await tx.delete(schema.storeCategories).where(eq(schema.storeCategories.id, catBId))
         await tx.delete(schema.storeCategories).where(eq(schema.storeCategories.id, inactiveCatId))
         await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
-        await tx.delete(schema.users).where(eq(schema.users.id, userId))
       },
     )
     await testDb.close()
@@ -626,7 +623,6 @@ describe.skipIf(!shouldRun)("getBrands category filter", () => {
         await tx.delete(schema.storeCategories).where(eq(schema.storeCategories.id, storeCatId))
         await tx.delete(schema.stores).where(eq(schema.stores.id, filteredStoreId))
         await tx.delete(schema.stores).where(eq(schema.stores.id, unfilteredStoreId))
-        await tx.delete(schema.users).where(eq(schema.users.id, userId))
       },
     )
     await testDb.close()
@@ -726,7 +722,6 @@ describe.skipIf(!shouldRun)("updateStoreCategories action", () => {
         await tx.delete(schema.storeCategories).where(eq(schema.storeCategories.id, catId))
         await tx.delete(schema.storeCategories).where(eq(schema.storeCategories.id, inactiveCatId))
         await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
-        await tx.delete(schema.users).where(eq(schema.users.id, sellerId))
       },
     )
     await testDb.close()
@@ -879,7 +874,6 @@ describe.skipIf(!shouldRun)("store_category_assignments RLS isolation", () => {
         await tx.delete(schema.storeCategories).where(eq(schema.storeCategories.id, activeCatId))
         await tx.delete(schema.storeCategories).where(eq(schema.storeCategories.id, inactiveCatId))
         await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
-        await tx.delete(schema.users).where(eq(schema.users.id, sellerId))
       },
     )
     await testDb.close()

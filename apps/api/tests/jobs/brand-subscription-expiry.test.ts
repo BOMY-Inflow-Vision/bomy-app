@@ -63,11 +63,7 @@ describe.skipIf(!shouldRun)("expireSubscriptions", () => {
       await tx
         .delete(schema.memberSubscriptions)
         .where(eq(schema.memberSubscriptions.userId, adminUserId))
-      await tx
-        .delete(schema.brandSubscriptionPlans)
-        .where(eq(schema.brandSubscriptionPlans.id, planId))
       await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
-      await tx.delete(schema.users).where(eq(schema.users.id, adminUserId))
     })
     await testDb.close()
   })
@@ -114,7 +110,6 @@ describe.skipIf(!shouldRun)("expireSubscriptions", () => {
 
       await withAdmin(testDb.db, { userId: adminUserId, reason: "test cleanup" }, async (tx) => {
         await tx.delete(schema.brandSubscriptions).where(eq(schema.brandSubscriptions.id, subId))
-        await tx.delete(schema.users).where(eq(schema.users.id, buyerId))
       })
     })
 
@@ -158,7 +153,6 @@ describe.skipIf(!shouldRun)("expireSubscriptions", () => {
 
       await withAdmin(testDb.db, { userId: adminUserId, reason: "test cleanup" }, async (tx) => {
         await tx.delete(schema.brandSubscriptions).where(eq(schema.brandSubscriptions.id, subId))
-        await tx.delete(schema.users).where(eq(schema.users.id, buyerId))
       })
     })
   })
@@ -200,7 +194,6 @@ describe.skipIf(!shouldRun)("expireSubscriptions", () => {
 
       await withAdmin(testDb.db, { userId: adminUserId, reason: "test cleanup" }, async (tx) => {
         await tx.delete(schema.memberSubscriptions).where(eq(schema.memberSubscriptions.id, subId))
-        await tx.delete(schema.users).where(eq(schema.users.id, memberId))
       })
     })
 
@@ -240,7 +233,6 @@ describe.skipIf(!shouldRun)("expireSubscriptions", () => {
 
       await withAdmin(testDb.db, { userId: adminUserId, reason: "test cleanup" }, async (tx) => {
         await tx.delete(schema.memberSubscriptions).where(eq(schema.memberSubscriptions.id, subId))
-        await tx.delete(schema.users).where(eq(schema.users.id, memberId))
       })
     })
   })

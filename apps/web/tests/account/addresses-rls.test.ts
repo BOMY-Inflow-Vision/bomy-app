@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto"
 
-import { eq } from "drizzle-orm"
-import { afterEach, beforeAll, describe, expect, it } from "vitest"
+import { beforeAll, describe, expect, it } from "vitest"
 
 import { makeDb, schema, withAdmin, withTenant } from "@bomy/db"
 
@@ -17,13 +16,6 @@ describe.skipIf(!shouldRun)("user_addresses RLS", () => {
   beforeAll(() => {
     process.env["DATABASE_URL"] = DB as string
     db = makeDb({ url: DB as string })
-  })
-
-  afterEach(async () => {
-    await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "cleanup" }, async (tx) => {
-      await tx.delete(schema.users).where(eq(schema.users.id, alice))
-      await tx.delete(schema.users).where(eq(schema.users.id, bob))
-    })
   })
 
   it("a user can only read their own addresses", async () => {

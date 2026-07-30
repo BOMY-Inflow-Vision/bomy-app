@@ -66,8 +66,6 @@ describe.skipIf(!shouldRun)("migration 0013 — resolved_at", () => {
   afterAll(async () => {
     await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
       await tx.delete(schema.checkoutSessions).where(eq(schema.checkoutSessions.id, sessionId))
-      await tx.delete(schema.users).where(eq(schema.users.id, buyerId))
-      await tx.delete(schema.users).where(eq(schema.users.id, sellerId))
     })
     await testDb.close()
   })
@@ -127,14 +125,6 @@ describe.skipIf(!shouldRun)("migration 0013 — resolved_at", () => {
     expect(row!.resolvedBy).toBe(adminId)
     expect(row!.resolutionNote).toBe("manually reconciled")
     expect(row!.resolvedAt?.toISOString()).toBe(resolvedAt.toISOString())
-
-    await withAdmin(
-      testDb.db,
-      { userId: SYSTEM_ACTOR, reason: "test cleanup admin" },
-      async (tx) => {
-        await tx.delete(schema.users).where(eq(schema.users.id, adminId))
-      },
-    )
   })
 
   // Test 3

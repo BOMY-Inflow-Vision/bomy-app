@@ -429,16 +429,104 @@ CREATE POLICY user_consents_self_insert ON user_consents
 -- tests. It is subject to RLS (no BYPASSRLS). The POSTGRES_USER (bomy)
 -- is a superuser used only for migrations and schema setup.
 -- Role creation lives in infra/docker/postgres-init/01_app_role.sql.
+--
+-- Mirror of migration 0027. policies.sql is a reference document; 0027 is
+-- the executable source of truth. Keep in sync when adding a table: any
+-- migration that creates a table or changes its grant must, in the same
+-- PR, update (1) the table's own GRANT in its migration file, (2) this
+-- block, and (3) packages/db/tests/grants.test.ts's asserted matrix. This
+-- block's own REVOKE ALL ON ALL TABLES means a stale copy would strip a
+-- new table's grant — including on prod — the next time anyone follows
+-- packages/db/tests/rls.test.ts's documented recovery procedure and
+-- hand-runs this file. See docs/superpowers/specs/2026-07-27-rls-grant-
+-- bootstrap-design.md for full per-table rationale.
 
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'bomy_app') THEN
+
+    -- Schema usage
     EXECUTE 'GRANT USAGE ON SCHEMA public TO bomy_app';
     EXECUTE 'GRANT USAGE ON SCHEMA app TO bomy_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO bomy_app';
-    EXECUTE 'GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO bomy_app';
-    EXECUTE 'GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA app TO bomy_app';
-    EXECUTE 'GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO bomy_app';
+
+    -- Declarative reset — every table below is re-granted in this same block.
+    EXECUTE 'REVOKE ALL ON ALL TABLES IN SCHEMA public FROM bomy_app';
+    -- No sequence grants needed: every table PK is gen_random_uuid(). Any
+    -- future migration adding a serial/bigserial column must grant
+    -- USAGE, SELECT on its own sequence in that same migration.
+    EXECUTE 'REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM bomy_app';
+
+    -- Per-table grants (matrix order, grouped by origin migration)
+
+    -- origin: 0000
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON "users" TO bomy_app'; -- no DELETE policy
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON "stores" TO bomy_app';
+    EXECUTE 'GRANT SELECT, INSERT ON "ledger_entries" TO bomy_app'; -- append-only ledger
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON "platform_config" TO bomy_app';
+    EXECUTE 'GRANT SELECT, INSERT ON "platform_config_audit" TO bomy_app'; -- append-only audit trail
+
+    -- origin: 0001 (no RLS; grants follow the Auth.js adapter contract, not policy verbs)
+    EXECUTE 'GRANT SELECT, INSERT, DELETE ON "accounts" TO bomy_app'; -- adapter has no updateAccount
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON "sessions" TO bomy_app'; -- full adapter contract, unused today under session.strategy="jwt"
+    EXECUTE 'GRANT SELECT, INSERT, DELETE ON "verification_tokens" TO bomy_app'; -- SELECT required for DELETE...WHERE, independent of RETURNING
+
+    -- origin: 0002
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON "seller_inquiries" TO bomy_app';
+
+    -- origin: 0003
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON "member_subscriptions" TO bomy_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON "brand_subscription_plans" TO bomy_app'; -- no DELETE policy
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON "brand_subscriptions" TO bomy_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON "vouchers" TO bomy_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON "goodie_box_dispatches" TO bomy_app';
+
+    -- origin: 0008
+    EXECUTE 'GRANT SELECT, INSERT ON "admin_bypass_audit" TO bomy_app'; -- privilege-escalation evidence trail; append-only
+
+    -- origin: 0009
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON "categories" TO bomy_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON "products" TO bomy_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON "product_variants" TO bomy_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON "product_images" TO bomy_app';
+
+    -- origin: 0011
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON "checkout_sessions" TO bomy_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON "checkout_session_items" TO bomy_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON "checkout_session_stores" TO bomy_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON "inventory_reservations" TO bomy_app';
+
+    -- origin: 0012
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON "orders" TO bomy_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON "order_items" TO bomy_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON "order_payouts" TO bomy_app';
+    EXECUTE 'GRANT SELECT, INSERT ON "processed_webhook_events" TO bomy_app'; -- payment idempotency guard; append-only
+
+    -- origin: 0014
+    EXECUTE 'GRANT SELECT, INSERT ON "user_consents" TO bomy_app'; -- append-only
+
+    -- origin: 0015
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON "user_addresses" TO bomy_app';
+
+    -- origin: 0016
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON "duplicate_charges" TO bomy_app'; -- no DELETE policy
+
+    -- origin: 0021
+    EXECUTE 'GRANT SELECT, INSERT, DELETE ON "body_image_upload_log" TO bomy_app'; -- no UPDATE policy
+
+    -- origin: 0025
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON "store_categories" TO bomy_app';
+    EXECUTE 'GRANT SELECT, INSERT, DELETE ON "store_category_assignments" TO bomy_app'; -- no UPDATE on the junction table
+
+    -- origin: 0026
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON "action_rate_limits" TO bomy_app';
+
+    -- app.* function execute (named individually, not ON ALL FUNCTIONS)
+    EXECUTE 'GRANT EXECUTE ON FUNCTION app.assert_tenant_context() TO bomy_app';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION app.current_user_id() TO bomy_app';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION app.current_user_role() TO bomy_app';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION app.is_admin_bypass() TO bomy_app';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION app.is_bomy_staff() TO bomy_app';
+
   END IF;
 END
 $$;
