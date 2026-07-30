@@ -1,7 +1,5 @@
 import { Node, mergeAttributes } from "@tiptap/core"
 
-import type { getBodyImageUploadUrl } from "../../actions"
-
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
     imageUpload: {
@@ -11,8 +9,13 @@ declare module "@tiptap/core" {
 }
 
 interface ImageUploadOptions {
-  productId: string
-  getUploadUrl: typeof getBodyImageUploadUrl
+  getUploadUrl: (
+    contentType: string,
+    contentLength: number,
+  ) => Promise<
+    | { ok: true; uploadUrl: string; key: string; publicUrl: string; expiresAt: Date }
+    | { ok: false; error: string }
+  >
   onUploadStart: () => void
   onUploadProgress: (pct: number) => void
   onUploadComplete: () => void
@@ -64,7 +67,7 @@ export const ImageUploadExtension = Node.create<ImageUploadOptions>({
           options.onUploadStart()
 
           options
-            .getUploadUrl(options.productId, file.type, file.size)
+            .getUploadUrl(file.type, file.size)
             .then((result) => {
               if (!result.ok) {
                 options.onUploadError()

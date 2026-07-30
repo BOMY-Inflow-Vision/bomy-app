@@ -42,24 +42,36 @@ import {
   Youtube,
 } from "lucide-react"
 
+import { extractYoutubeVideoId } from "@bomy/shared/youtube"
+
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { getBodyImageUploadUrl, saveProductBody } from "../../actions"
 import { YoutubeEmbedExtension } from "./youtube-embed-extension"
 import { ImageUploadExtension } from "./image-upload-extension"
 
 interface Props {
-  productId: string
   initialHtml: string | null
   initialRevision: number
+  saveBody: (
+    html: string,
+    revision: number,
+  ) => Promise<{ ok: true; revision: number; html: string | null } | { ok: false; error: string }>
+  getUploadUrl: (
+    contentType: string,
+    contentLength: number,
+  ) => Promise<
+    | { ok: true; uploadUrl: string; key: string; publicUrl: string; expiresAt: Date }
+    | { ok: false; error: string }
+  >
   onDirtyChange?: (dirty: boolean) => void
   onUploadStateChange?: (uploading: boolean) => void
 }
 
-export function ProductBodyEditor({
-  productId,
+export function BodyEditor({
   initialHtml,
   initialRevision,
+  saveBody,
+  getUploadUrl,
   onDirtyChange,
   onUploadStateChange,
 }: Props) {
@@ -88,7 +100,6 @@ export function ProductBodyEditor({
       TableKit.configure({ table: false }),
       BorderedTable,
       ImageUploadExtension.configure({
-        productId,
         onUploadStart: () => {
           setActiveUploadCount((c) => c + 1)
           setUploadError(false)
@@ -111,7 +122,7 @@ export function ProductBodyEditor({
             return next
           })
         },
-        getUploadUrl: getBodyImageUploadUrl,
+        getUploadUrl,
       }),
       YoutubeEmbedExtension,
     ],
@@ -148,9 +159,9 @@ export function ProductBodyEditor({
     setSaveStatus("saving")
     setSaveError(null)
     const html = editor.getHTML()
-    let result: Awaited<ReturnType<typeof saveProductBody>>
+    let result: Awaited<ReturnType<typeof saveBody>>
     try {
-      result = await saveProductBody(productId, html, revision)
+      result = await saveBody(html, revision)
     } catch {
       setConflictDetected(false)
       setSaveError("Save failed: network error. Please try again.")
@@ -567,7 +578,7 @@ function UploadImageButton({ editor }: { editor: Editor | null }) {
           const file = e.target.files?.[0]
           if (!file) return
           // The actual upload is handled by ImageUploadExtension via the uploadBodyImage command.
-          // productId is baked into the extension options at editor init time.
+          // The scope (product or store) is baked into the extension options at editor init time.
           editor?.commands.uploadBodyImage(file)
           e.target.value = ""
         }}
@@ -695,10 +706,7 @@ function EmbedYouTubeButton({ editor }: { editor: Editor | null }) {
         const input = prompt("YouTube video URL or ID:")
         if (!input) return
         // Handles: ?v=ID, youtu.be/ID, /embed/ID, /shorts/ID, /live/ID, bare ID
-        const idMatch =
-          input.match(/(?:v=|youtu\.be\/|\/embed\/|\/shorts\/|\/live\/)([a-zA-Z0-9_-]{11})/) ??
-          input.match(/^([a-zA-Z0-9_-]{11})$/)
-        const videoId = idMatch?.[1]
+        const videoId = extractYoutubeVideoId(input)
         if (!videoId) {
           alert("Could not extract a valid YouTube video ID.")
           return
