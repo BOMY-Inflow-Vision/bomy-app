@@ -2,9 +2,9 @@ import React from "react"
 import type { ReactNode } from "react"
 import { parse, NodeType, type Node, type HTMLElement } from "node-html-parser"
 
+import { YOUTUBE_VIDEO_ID_RE } from "@bomy/shared/youtube"
 import { VideoEmbed } from "./video-embed"
 
-const VIDEO_ID_RE = /^[a-zA-Z0-9_-]{1,11}$/
 const HTTPS_RE = /^https:\/\//
 
 const BLOCK_TAGS = new Set([
@@ -93,7 +93,7 @@ function renderNode(node: Node, key: string): ReactNode {
       const provider = el.getAttribute("data-video-provider")
       const videoId = el.getAttribute("data-video-id") ?? ""
       const title = el.getAttribute("data-video-title") ?? null
-      if (provider !== "youtube" || !VIDEO_ID_RE.test(videoId)) return null
+      if (provider !== "youtube" || !YOUTUBE_VIDEO_ID_RE.test(videoId)) return null
       return <VideoEmbed key={key} videoId={videoId} title={title} />
     }
 
