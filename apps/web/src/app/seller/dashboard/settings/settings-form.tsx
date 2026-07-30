@@ -2,12 +2,15 @@
 
 import { useState, useActionState, useTransition } from "react"
 
+import { BodyEditor } from "@/components/body-editor"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 
-import { updateStoreCategories, updateStoreSettings } from "./actions"
+import { updateStoreCategories, updateStoreSettings, updateStoreVideo } from "./actions"
+import { getStoreBodyImageUploadUrl, saveStoreBody } from "./body-actions"
 
 type State = { ok: true } | { ok: false; error: string } | null
 
@@ -19,14 +22,24 @@ function formAction(_prev: State, formData: FormData): Promise<State> {
 
 export function SettingsForm({
   currentExcerpt,
+  currentBodyHtml,
+  currentBodyRevision,
+  currentVideoId,
   allCategories,
   assignedCategoryIds,
 }: {
   currentExcerpt: string
+  currentBodyHtml: string | null
+  currentBodyRevision: number
+  currentVideoId: string | null
   allCategories: { id: string; name: string }[]
   assignedCategoryIds: string[]
 }) {
   const [excerptState, excerptAction, excerptPending] = useActionState(formAction, null)
+  const [videoState, videoAction, videoPending] = useActionState(
+    (_prev: State, formData: FormData) => updateStoreVideo(formData),
+    null,
+  )
   const [selected, setSelected] = useState<Set<string>>(() => new Set(assignedCategoryIds))
   const [catState, setCatState] = useState<State>(null)
   const [catPending, startCatTransition] = useTransition()
@@ -149,6 +162,67 @@ export function SettingsForm({
           >
             {catPending ? "Saving…" : "Save Categories"}
           </Button>
+        </CardContent>
+      </Card>
+
+      {/* Video */}
+      <Card>
+        <CardContent className="p-6">
+          <h2 className="mb-4 text-sm font-semibold text-foreground">Storefront Video</h2>
+          <form action={videoAction} className="space-y-4">
+            {videoState && !videoState.ok && (
+              <div
+                role="alert"
+                aria-live="assertive"
+                className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive"
+              >
+                {videoState.error}
+              </div>
+            )}
+            {videoState?.ok && (
+              <div
+                role="status"
+                aria-live="polite"
+                className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700"
+              >
+                Video saved.
+              </div>
+            )}
+            <div>
+              <Label htmlFor="videoUrl" className="mb-1 block text-sm font-medium">
+                YouTube video URL{" "}
+                <span className="font-normal text-muted-foreground">
+                  (shown on your storefront page — leave blank to remove)
+                </span>
+              </Label>
+              <Input
+                id="videoUrl"
+                name="videoUrl"
+                type="url"
+                defaultValue={currentVideoId ? `https://youtu.be/${currentVideoId}` : ""}
+                placeholder="https://www.youtube.com/watch?v=..."
+              />
+            </div>
+            <Button type="submit" disabled={videoPending}>
+              {videoPending ? "Saving…" : "Save"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Brand Story */}
+      <Card>
+        <CardContent className="p-6">
+          <h2 className="mb-4 text-sm font-semibold text-foreground">Brand Story</h2>
+          <p className="mb-4 text-xs text-muted-foreground">
+            Shown on your storefront page. Supports formatting and inline images.
+          </p>
+          <BodyEditor
+            initialHtml={currentBodyHtml}
+            initialRevision={currentBodyRevision}
+            saveBody={saveStoreBody}
+            getUploadUrl={getStoreBodyImageUploadUrl}
+          />
         </CardContent>
       </Card>
     </div>

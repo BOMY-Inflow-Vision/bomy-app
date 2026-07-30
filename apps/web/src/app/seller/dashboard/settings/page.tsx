@@ -17,7 +17,13 @@ export default async function SellerSettingsPage() {
   const [storeRow, allCategories] = await Promise.all([
     withTenant(getDb(), { userId: session.user.id, userRole: session.user.role }, async (tx) => {
       const [store] = await tx
-        .select({ id: schema.stores.id, excerpt: schema.stores.excerpt })
+        .select({
+          id: schema.stores.id,
+          excerpt: schema.stores.excerpt,
+          bodyHtml: schema.stores.bodyHtml,
+          bodyRevision: schema.stores.bodyRevision,
+          videoId: schema.stores.videoId,
+        })
         .from(schema.stores)
         .where(and(eq(schema.stores.ownerId, session.user.id), eq(schema.stores.status, "active")))
         .limit(1)
@@ -52,6 +58,9 @@ export default async function SellerSettingsPage() {
       <h1 className="mb-6 text-xl font-semibold text-foreground">Store Settings</h1>
       <SettingsForm
         currentExcerpt={storeRow.excerpt ?? ""}
+        currentBodyHtml={storeRow.bodyHtml}
+        currentBodyRevision={storeRow.bodyRevision}
+        currentVideoId={storeRow.videoId}
         allCategories={allCategories}
         assignedCategoryIds={[...assignedIds]}
       />
