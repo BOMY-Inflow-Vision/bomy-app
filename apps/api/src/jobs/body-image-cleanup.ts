@@ -11,7 +11,9 @@ const FORTY_EIGHT_HOURS = 48 * 60 * 60 * 1000
 const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000
 const SEVENTY_TWO_HOURS_S = 72 * 60 * 60 // seconds — used as Redis TTL for quarantine markers
 const QUARANTINE_TTL_SECONDS = SEVENTY_TWO_HOURS_S
-const KEY_RE = /^body\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\//i
+// Group 1 is the optional "stores/" marker (present for store-scoped keys); group 2 is the
+// owning entity's id. Mirrors packages/shared/src/body-image-keys.ts's own KEY_RE exactly.
+const KEY_RE = /^body\/(stores\/)?([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\//i
 
 interface Logger {
   info: (msg: string) => void
@@ -46,7 +48,7 @@ function getS3(): S3Client {
 async function buildReferenceSet(db: Database): Promise<Set<string> | null> {
   const publicOrigin = process.env["S3_PUBLIC_URL"] ?? ""
   const referenced = new Set<string>()
-  let lastSeenId: string | null = null
+  let lastSeenProductId: string | null = null
 
   while (true) {
     let rows: Array<{ id: string; bodyHtml: string | null }>
@@ -59,7 +61,7 @@ async function buildReferenceSet(db: Database): Promise<Set<string> | null> {
           .where(
             and(
               isNotNull(schema.products.bodyHtml),
-              lastSeenId ? gt(schema.products.id, lastSeenId) : undefined,
+              lastSeenProductId ? gt(schema.products.id, lastSeenProductId) : undefined,
             ),
           )
           .orderBy(schema.products.id)
@@ -83,7 +85,51 @@ async function buildReferenceSet(db: Database): Promise<Set<string> | null> {
     }
 
     if (rows.length < PAGE_SIZE) break
-    lastSeenId = rows[rows.length - 1]!.id
+    lastSeenProductId = rows[rows.length - 1]!.id
+  }
+
+  // Stores — mirrors the products pagination loop exactly. Store body-images
+  // (body/stores/<storeId>/<uuid>.<ext>) started being written once the seller
+  // settings Brand Story editor shipped; without this loop every store body-image
+  // would be (incorrectly) treated as an orphan and deleted ~72h after upload.
+  let lastSeenStoreId: string | null = null
+
+  while (true) {
+    let rows: Array<{ id: string; bodyHtml: string | null }>
+
+    try {
+      rows = await withAdmin(db, { userId: SYSTEM_ACTOR, reason: "body-image-cleanup" }, (tx) =>
+        tx
+          .select({ id: schema.stores.id, bodyHtml: schema.stores.bodyHtml })
+          .from(schema.stores)
+          .where(
+            and(
+              isNotNull(schema.stores.bodyHtml),
+              lastSeenStoreId ? gt(schema.stores.id, lastSeenStoreId) : undefined,
+            ),
+          )
+          .orderBy(schema.stores.id)
+          .limit(PAGE_SIZE),
+      )
+    } catch {
+      return null
+    }
+
+    for (const row of rows) {
+      try {
+        const keys = extractManagedBodyImageKeys(
+          row.bodyHtml ?? "",
+          { kind: "store", id: row.id },
+          publicOrigin,
+        )
+        for (const key of keys) referenced.add(key)
+      } catch {
+        return null
+      }
+    }
+
+    if (rows.length < PAGE_SIZE) break
+    lastSeenStoreId = rows[rows.length - 1]!.id
   }
 
   return referenced
@@ -236,26 +282,33 @@ export async function runBodyImageCleanup(
     }
 
     // Quarantine has elapsed — do a final DB re-check before deleting
-    const productIdMatch = KEY_RE.exec(key)
-    if (productIdMatch) {
-      const pid = productIdMatch[1]!
+    const entityIdMatch = KEY_RE.exec(key)
+    if (entityIdMatch) {
+      const isStoreShaped = Boolean(entityIdMatch[1])
+      const entityId = entityIdMatch[2]!
       try {
         const rows = await withAdmin(
           db,
           { userId: SYSTEM_ACTOR, reason: "body-image-cleanup-final-check" },
           (tx) =>
-            tx
-              .select({ bodyHtml: schema.products.bodyHtml })
-              .from(schema.products)
-              .where(eq(schema.products.id, pid))
-              .limit(1),
+            isStoreShaped
+              ? tx
+                  .select({ bodyHtml: schema.stores.bodyHtml })
+                  .from(schema.stores)
+                  .where(eq(schema.stores.id, entityId))
+                  .limit(1)
+              : tx
+                  .select({ bodyHtml: schema.products.bodyHtml })
+                  .from(schema.products)
+                  .where(eq(schema.products.id, entityId))
+                  .limit(1),
         )
         const html = rows[0]?.bodyHtml
         if (html) {
           const publicOrigin = process.env["S3_PUBLIC_URL"] ?? ""
           const liveKeys = extractManagedBodyImageKeys(
             html,
-            { kind: "product", id: pid },
+            { kind: isStoreShaped ? "store" : "product", id: entityId },
             publicOrigin,
           )
           if (liveKeys.has(key)) {
