@@ -4,6 +4,8 @@ import sanitizeHtml from "sanitize-html"
 import { parse } from "node-html-parser"
 
 import { classifyImageUrl } from "@bomy/shared"
+import type { BodyImageScope } from "@bomy/shared"
+import { YOUTUBE_VIDEO_ID_RE } from "@bomy/shared/youtube"
 
 // sanitize-html is the security boundary — it uses a spec-compliant HTML parser
 // (parse5) so its tree matches what browsers build. node-html-parser is used
@@ -57,8 +59,6 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
   },
 }
 
-const VIDEO_ID_RE = /^[a-zA-Z0-9_-]{1,11}$/
-
 function hasMeaningfulContent(html: string): boolean {
   // Only count <img> tags that retained a src after sanitization (src-less imgs are noise)
   if (/<img[^>]*\bsrc=/i.test(html)) return true
@@ -68,7 +68,7 @@ function hasMeaningfulContent(html: string): boolean {
 
 export function normalizeBodyHtml(
   raw: string,
-  productId: string,
+  scope: BodyImageScope,
   publicOrigin: string,
 ): { ok: true; canonicalHtml: string | null } | { ok: false; error: string } {
   if (typeof raw !== "string") {
@@ -97,7 +97,7 @@ export function normalizeBodyHtml(
     const src = img.getAttribute("src") ?? ""
     if (!src) continue // src stripped by sanitizer (e.g., data: URI) — not a real image
     srcImgCount++
-    const cls = classifyImageUrl(src, productId, publicOrigin)
+    const cls = classifyImageUrl(src, scope, publicOrigin)
     if (cls === "invalid") return { ok: false, error: "invalid_image_url" }
   }
   if (srcImgCount > 10) return { ok: false, error: "too_many_images" }
@@ -106,7 +106,7 @@ export function normalizeBodyHtml(
     const provider = fig.getAttribute("data-video-provider")
     const videoId = fig.getAttribute("data-video-id")
     if (provider !== "youtube") return { ok: false, error: "invalid_video" }
-    if (!videoId || !VIDEO_ID_RE.test(videoId)) return { ok: false, error: "invalid_video" }
+    if (!videoId || !YOUTUBE_VIDEO_ID_RE.test(videoId)) return { ok: false, error: "invalid_video" }
   }
 
   return { ok: true, canonicalHtml }

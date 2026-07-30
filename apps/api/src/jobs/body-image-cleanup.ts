@@ -71,7 +71,11 @@ async function buildReferenceSet(db: Database): Promise<Set<string> | null> {
 
     for (const row of rows) {
       try {
-        const keys = extractManagedBodyImageKeys(row.bodyHtml ?? "", row.id, publicOrigin)
+        const keys = extractManagedBodyImageKeys(
+          row.bodyHtml ?? "",
+          { kind: "product", id: row.id },
+          publicOrigin,
+        )
         for (const key of keys) referenced.add(key)
       } catch {
         return null
@@ -249,7 +253,11 @@ export async function runBodyImageCleanup(
         const html = rows[0]?.bodyHtml
         if (html) {
           const publicOrigin = process.env["S3_PUBLIC_URL"] ?? ""
-          const liveKeys = extractManagedBodyImageKeys(html, pid, publicOrigin)
+          const liveKeys = extractManagedBodyImageKeys(
+            html,
+            { kind: "product", id: pid },
+            publicOrigin,
+          )
           if (liveKeys.has(key)) {
             try {
               await redis.del(markerKey)
