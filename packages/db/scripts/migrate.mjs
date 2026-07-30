@@ -148,6 +148,10 @@ const MIGRATIONS = [
     name: "0027_bomy_app_least_privilege_grants",
     file: join(__dirname, "../drizzle/0027_bomy_app_least_privilege_grants.sql"),
   },
+  {
+    name: "0028_store_body_video",
+    file: join(__dirname, "../drizzle/0028_store_body_video.sql"),
+  },
 ]
 
 try {
