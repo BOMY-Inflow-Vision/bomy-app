@@ -166,9 +166,6 @@ describe.skipIf(!shouldRun)("seller order actions", () => {
       }
       await tx.delete(schema.stores).where(eq(schema.stores.id, storeAId))
       await tx.delete(schema.stores).where(eq(schema.stores.id, storeBId))
-      await tx.delete(schema.users).where(eq(schema.users.id, buyerId))
-      await tx.delete(schema.users).where(eq(schema.users.id, sellerAId))
-      await tx.delete(schema.users).where(eq(schema.users.id, sellerBId))
     })
     await testDb.close()
   })

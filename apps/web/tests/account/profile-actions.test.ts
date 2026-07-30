@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto"
 
 import { eq } from "drizzle-orm"
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi, type Mock } from "vitest"
+import { beforeAll, beforeEach, describe, expect, it, vi, type Mock } from "vitest"
 
 import { makeDb, schema, withAdmin } from "@bomy/db"
 
@@ -35,12 +35,6 @@ describe.skipIf(!shouldRun)("updateDisplayName", () => {
       tx.insert(schema.users).values({ id: userId, email, name: "Old", role: "buyer" }),
     )
     mockAuth.mockResolvedValue({ user: { id: userId, role: "buyer" } })
-  })
-
-  afterEach(async () => {
-    await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "cleanup" }, (tx) =>
-      tx.delete(schema.users).where(eq(schema.users.id, userId)),
-    )
   })
 
   function read() {

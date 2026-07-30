@@ -48,7 +48,6 @@ describe.skipIf(!shouldRun)("expireAbandonedPendingMemberships", () => {
   async function cleanupUser(userId: string, subId: string) {
     await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
       await tx.delete(schema.memberSubscriptions).where(eq(schema.memberSubscriptions.id, subId))
-      await tx.delete(schema.users).where(eq(schema.users.id, userId))
     })
   }
 

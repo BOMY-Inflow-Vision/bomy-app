@@ -103,7 +103,6 @@ describe.skipIf(!shouldRun)("membership actions", () => {
       await tx
         .delete(schema.memberSubscriptions)
         .where(eq(schema.memberSubscriptions.userId, userId))
-      await tx.delete(schema.users).where(eq(schema.users.id, userId))
     })
     await testDb.close()
   })

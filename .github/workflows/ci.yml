@@ -104,15 +104,6 @@ jobs:
       - name: Apply schema + RLS policies
         run: pnpm --filter @bomy/db migrate
 
-      - name: Grant bomy_app table access
-        run: |
-          psql "$DATABASE_URL" -c "GRANT USAGE ON SCHEMA public TO bomy_app;"
-          psql "$DATABASE_URL" -c "GRANT USAGE ON SCHEMA app TO bomy_app;"
-          psql "$DATABASE_URL" -c "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO bomy_app;"
-          psql "$DATABASE_URL" -c "GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO bomy_app;"
-          psql "$DATABASE_URL" -c "GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA app TO bomy_app;"
-          psql "$DATABASE_URL" -c "GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO bomy_app;"
-
       - name: Run tests
         run: pnpm test
         env:

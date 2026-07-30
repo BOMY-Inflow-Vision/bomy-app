@@ -88,8 +88,6 @@ describe.skipIf(!shouldRun)("updateStoreSettings action", () => {
       async (tx) => {
         await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
         await tx.delete(schema.stores).where(eq(schema.stores.id, suspendedStoreId))
-        await tx.delete(schema.users).where(eq(schema.users.id, sellerId))
-        await tx.delete(schema.users).where(eq(schema.users.id, buyerId))
       },
     )
     await testDb.close()

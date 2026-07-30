@@ -109,12 +109,7 @@ describe.skipIf(!shouldRun)("subscribeToBrand", () => {
       await tx
         .delete(schema.brandSubscriptions)
         .where(eq(schema.brandSubscriptions.storeId, storeId))
-      await tx
-        .delete(schema.brandSubscriptionPlans)
-        .where(eq(schema.brandSubscriptionPlans.storeId, storeId))
       await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
-      await tx.delete(schema.users).where(eq(schema.users.id, userId))
-      await tx.delete(schema.users).where(eq(schema.users.id, ownerId))
     })
     await testDb.close()
   })
@@ -497,11 +492,7 @@ describe.skipIf(!shouldRun)("getStorePlans", () => {
 
   afterAll(async () => {
     await withAdmin(testDb2.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
-      await tx
-        .delete(schema.brandSubscriptionPlans)
-        .where(eq(schema.brandSubscriptionPlans.storeId, storeId2))
       await tx.delete(schema.stores).where(eq(schema.stores.id, storeId2))
-      await tx.delete(schema.users).where(eq(schema.users.id, ownerId2))
     })
     await testDb2.close()
   })

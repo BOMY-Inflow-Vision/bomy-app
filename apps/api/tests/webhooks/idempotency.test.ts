@@ -15,7 +15,7 @@ import { createHash, randomUUID } from "node:crypto"
 
 import { makeDb, schema, withAdmin } from "@bomy/db"
 import { and, eq } from "drizzle-orm"
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
+import { afterAll, beforeAll, describe, expect, it } from "vitest"
 
 import {
   claimEvent,
@@ -96,17 +96,6 @@ describe.skipIf(!shouldRun)("claimEvent (integration)", () => {
 
   afterAll(async () => {
     await handle.close()
-  })
-
-  beforeEach(async () => {
-    // Clear the table between tests so each test owns its own rows.
-    await withAdmin(
-      handle.db,
-      { userId: SYSTEM_ACTOR, reason: "claimEvent test reset" },
-      async (tx) => {
-        await tx.delete(schema.processedWebhookEvents)
-      },
-    )
   })
 
   function identity(eventId: string, body = "body"): EventIdentity {
@@ -226,7 +215,10 @@ describe.skipIf(!shouldRun)("claimEvent (integration)", () => {
   it("derived: prefix coexists with header-based event ids on the same unique index", async () => {
     // A real event_id and a derived one based on the same body must not
     // collide — they should be treated as distinct identities.
-    const realId = identity(`evt-${randomUUID()}`)
+    // Randomized body: processed_webhook_events is append-only (no DELETE
+    // grant, migration 0027) so rows persist across test runs — a fixed
+    // body would make derivedId.pspEventId collide with a prior run's row.
+    const realId = identity(`evt-${randomUUID()}`, `body-${randomUUID()}`)
     const derivedId: EventIdentity = {
       ...realId,
       pspEventId: `derived:${realId.payloadHash}`,

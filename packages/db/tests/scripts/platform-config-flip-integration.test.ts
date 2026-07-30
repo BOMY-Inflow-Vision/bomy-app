@@ -68,7 +68,6 @@ describe.skipIf(!shouldRun)("runPlatformConfigFlip — integration", () => {
       { userId: "00000000-0000-0000-0000-000000000001", reason: "cleanup integration test" },
       async (tx) => {
         await tx.delete(schema.platformConfig).where(eq(schema.platformConfig.key, testKey))
-        await tx.delete(schema.users).where(eq(schema.users.id, testActorId))
       },
     )
   })

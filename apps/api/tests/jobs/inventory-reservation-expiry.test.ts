@@ -291,7 +291,6 @@ describe.skipIf(!shouldRun)("runInventoryReservationExpiryJob", () => {
         await tx
           .delete(schema.checkoutSessions)
           .where(inArray(schema.checkoutSessions.userId, buyers))
-        await tx.delete(schema.users).where(inArray(schema.users.id, buyers))
       }
       if (trackedVariantIds.size > 0) {
         await tx
@@ -300,7 +299,6 @@ describe.skipIf(!shouldRun)("runInventoryReservationExpiryJob", () => {
       }
       await tx.delete(schema.products).where(eq(schema.products.id, productId))
       await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
-      await tx.delete(schema.users).where(eq(schema.users.id, sellerId))
     })
     await testDb.close()
   })

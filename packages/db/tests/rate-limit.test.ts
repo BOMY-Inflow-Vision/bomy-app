@@ -32,7 +32,6 @@ describe.skipIf(!shouldRun)("checkActionRateLimit", () => {
   afterEach(async () => {
     await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
       await tx.delete(actionRateLimits).where(eq(actionRateLimits.userId, userId))
-      await tx.delete(users).where(eq(users.id, userId))
     })
   })
 
@@ -117,7 +116,6 @@ describe.skipIf(!shouldRun)("checkActionRateLimit", () => {
 
     await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "test cleanup 2" }, async (tx) => {
       await tx.delete(actionRateLimits).where(eq(actionRateLimits.userId, otherUserId))
-      await tx.delete(users).where(eq(users.id, otherUserId))
     })
   })
 

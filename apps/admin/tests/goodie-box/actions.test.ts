@@ -55,8 +55,6 @@ describe.skipIf(!shouldRun)("markDispatched", () => {
       await tx
         .delete(schema.goodieBoxDispatches)
         .where(eq(schema.goodieBoxDispatches.id, dispatchId))
-      await tx.delete(schema.users).where(eq(schema.users.id, userId))
-      await tx.delete(schema.users).where(eq(schema.users.id, adminId))
     })
     await testDb.close()
   })

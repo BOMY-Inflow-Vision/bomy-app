@@ -149,8 +149,6 @@ describe.skipIf(!shouldRun)("runFailureRelease (integration)", () => {
         await tx.delete(schema.productVariants).where(eq(schema.productVariants.id, variantId))
         await tx.delete(schema.products).where(eq(schema.products.id, productId))
         await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
-        await tx.delete(schema.users).where(eq(schema.users.id, buyerId))
-        await tx.delete(schema.users).where(eq(schema.users.id, sellerId))
       },
     )
     await handle.close()

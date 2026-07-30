@@ -53,18 +53,38 @@ DATABASE_URL=<owner-direct-unpooled-from-step-1> \
 
 Expected: all migrations apply cleanly. If migration `0002` fails on `GRANT ... TO bomy_app`, abort — step 2 didn't complete; create the role and retry.
 
-### Step 4 — Post-migration grants safety pass
+### Step 4 — Post-migration grants verification
 
-Run via Neon SQL console (mirrors `.github/workflows/ci.yml` test job):
+> **Updated 2026-07-29 (GAPS #16):** `bomy_app` grants are now applied by migration `0027`
+> (`packages/db/drizzle/0027_bomy_app_least_privilege_grants.sql`) as part of step 3's
+> `pnpm --filter @bomy/db migrate` — there is no separate manual grant step anymore. The wildcard block
+> that used to live here (`GRANT ... ON ALL TABLES IN SCHEMA public TO bomy_app`, etc.) is a
+> **regression** if re-run: it silently re-widens several tables past what their own migrations
+> and RLS policies intend (`users` gains a DELETE grant no policy permits, `ledger_entries` and
+> `processed_webhook_events` gain UPDATE/DELETE on append-only/idempotency-guard tables, and
+> others — see `docs/superpowers/specs/2026-07-27-rls-grant-bootstrap-design.md` for the full
+> matrix). **Do not run the old six-line `GRANT` block against Neon.** If this runbook is being
+> used as a template for a similar future cutover (a new client project's own Postgres), step 3's
+> `migrate` alone is sufficient — do not add a manual grant step for that project either; follow
+> this project's `0027`-style pattern (a single migration, not an out-of-band script) instead.
+
+Run via Neon SQL console to confirm `migrate` alone produced the correct grants — this is a
+verification step, not a grant step:
 
 ```sql
-GRANT USAGE ON SCHEMA public TO bomy_app;
-GRANT USAGE ON SCHEMA app TO bomy_app;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO bomy_app;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO bomy_app;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA app TO bomy_app;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO bomy_app;
+-- Expect: false, false, true (all three)
+SELECT has_table_privilege('bomy_app', 'users', 'DELETE');              -- no DELETE policy on users
+SELECT has_table_privilege('bomy_app', 'ledger_entries', 'UPDATE');     -- append-only ledger
+SELECT has_table_privilege('bomy_app', 'user_consents', 'SELECT');      -- confirms grants applied at all
 ```
+
+If any of these don't match, `migration 0027` did not apply — check step 3's output for errors
+before proceeding; do not paper over it by hand-running grants.
+
+> **One-time note for the original PR #39 cutover specifically:** deploying migration `0027` to an
+> environment that was bootstrapped via the old wildcard block (as this Neon prod database was)
+> will **revoke** privileges that were previously present. Confirm the app is healthy (`/health`,
+> `/ready`, a real sign-in) immediately after deploying `0027` to prod.
 
 ### Step 5 — Construct bomy_app direct/unpooled connection string
 

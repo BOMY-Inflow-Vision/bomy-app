@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto"
 
 import { eq } from "drizzle-orm"
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi, type Mock } from "vitest"
+import { beforeAll, beforeEach, describe, expect, it, vi, type Mock } from "vitest"
 
 import { makeDb, schema, withAdmin } from "@bomy/db"
 
@@ -55,13 +55,6 @@ describe.skipIf(!shouldRun)("address book actions", () => {
       ])
     })
     mockAuth.mockResolvedValue({ user: { id: alice, role: "buyer" } })
-  })
-
-  afterEach(async () => {
-    await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "cleanup" }, async (tx) => {
-      await tx.delete(schema.users).where(eq(schema.users.id, alice))
-      await tx.delete(schema.users).where(eq(schema.users.id, bob))
-    })
   })
 
   it("first address auto-becomes default; second does not", async () => {

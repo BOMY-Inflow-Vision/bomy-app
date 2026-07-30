@@ -182,8 +182,6 @@ describe.skipIf(!shouldRun)("runOrderAutoCompleteJob", () => {
           .where(inArray(schema.checkoutSessions.id, [...trackedSessionIds]))
       }
       await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
-      await tx.delete(schema.users).where(eq(schema.users.id, buyerId))
-      await tx.delete(schema.users).where(eq(schema.users.id, sellerId))
     })
     await restoreConfigs()
     await lockDb.close()

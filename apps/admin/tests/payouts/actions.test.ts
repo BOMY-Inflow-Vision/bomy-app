@@ -173,11 +173,6 @@ describe.skipIf(!shouldRun)("payout lifecycle actions", () => {
           .where(inArray(schema.checkoutSessions.id, [...trackedSessionIds]))
       }
       await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
-      await tx.delete(schema.users).where(eq(schema.users.id, adminId))
-      await tx.delete(schema.users).where(eq(schema.users.id, financeId))
-      await tx.delete(schema.users).where(eq(schema.users.id, opsId))
-      await tx.delete(schema.users).where(eq(schema.users.id, buyerId))
-      await tx.delete(schema.users).where(eq(schema.users.id, sellerId))
     })
     await testDb.close()
   })
