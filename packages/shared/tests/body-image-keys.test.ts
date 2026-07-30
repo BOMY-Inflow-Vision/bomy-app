@@ -18,6 +18,28 @@ describe("classifyImageUrl — scoped", () => {
     expect(classifyImageUrl(url, { kind: "store", id: STORE_ID }, ORIGIN)).toBe("managed")
   })
 
+  it("classifies a .webp key as managed", () => {
+    const url = `${ORIGIN}/body/${PRODUCT_ID}/${IMG_UUID}.webp`
+    expect(classifyImageUrl(url, { kind: "product", id: PRODUCT_ID }, ORIGIN)).toBe("managed")
+  })
+
+  it("rejects a managed-origin URL with a nested subpath", () => {
+    const url = `${ORIGIN}/body/${PRODUCT_ID}/sub/${IMG_UUID}.jpg`
+    expect(classifyImageUrl(url, { kind: "product", id: PRODUCT_ID }, ORIGIN)).toBe("invalid")
+  })
+
+  it("classifies a data: URI as invalid", () => {
+    expect(
+      classifyImageUrl("data:image/png;base64,abc", { kind: "product", id: PRODUCT_ID }, ORIGIN),
+    ).toBe("invalid")
+  })
+
+  it("classifies a parseable non-https http: URL as invalid", () => {
+    expect(
+      classifyImageUrl("http://example.com/photo.jpg", { kind: "product", id: PRODUCT_ID }, ORIGIN),
+    ).toBe("invalid")
+  })
+
   it("rejects a product-shaped key when checked against a store scope with the same id (Bob R1)", () => {
     const url = `${ORIGIN}/body/${STORE_ID}/${IMG_UUID}.jpg`
     expect(classifyImageUrl(url, { kind: "store", id: STORE_ID }, ORIGIN)).toBe("invalid")
@@ -80,5 +102,15 @@ describe("extractManagedBodyImageKeys — scoped", () => {
     expect(extractManagedBodyImageKeys("", { kind: "product", id: PRODUCT_ID }, ORIGIN).size).toBe(
       0,
     )
+  })
+
+  it("does not throw on a malformed img src", () => {
+    const html = `<img src="not a url">`
+    expect(() =>
+      extractManagedBodyImageKeys(html, { kind: "product", id: PRODUCT_ID }, ORIGIN),
+    ).not.toThrow()
+    expect(
+      extractManagedBodyImageKeys(html, { kind: "product", id: PRODUCT_ID }, ORIGIN).size,
+    ).toBe(0)
   })
 })
