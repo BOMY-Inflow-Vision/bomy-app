@@ -1,9 +1,9 @@
 import { notFound, redirect } from "next/navigation"
 
 import { auth } from "@/auth"
-import { getProductForEdit } from "../../actions"
+import { BodyEditor } from "@/components/body-editor"
+import { getBodyImageUploadUrl, getProductForEdit, saveProductBody } from "../../actions"
 import { ImageManager } from "./image-manager"
-import { ProductBodyEditor } from "./product-body-editor"
 import { ProductEditForm } from "./product-edit-form"
 
 export default async function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
@@ -38,10 +38,13 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
           <h2 id="body-editor-heading" className="mb-3 text-lg font-semibold text-foreground">
             Product Details
           </h2>
-          <ProductBodyEditor
-            productId={product.id}
+          <BodyEditor
             initialHtml={product.bodyHtml ?? null}
             initialRevision={product.bodyRevision}
+            saveBody={(html, revision) => saveProductBody(product.id, html, revision)}
+            getUploadUrl={(contentType, contentLength) =>
+              getBodyImageUploadUrl(product.id, contentType, contentLength)
+            }
           />
         </section>
       </div>

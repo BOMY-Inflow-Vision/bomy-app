@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto"
 
-import { and, eq } from "drizzle-orm"
+import { and, asc, eq } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi, type Mock } from "vitest"
 
 import { makeDb, schema, withAdmin, withPublicRead, withTenant } from "@bomy/db"
@@ -172,11 +172,12 @@ describe.skipIf(!shouldRun)("storefront queries", () => {
     )
   })
 
-  it("getStorePage returns store with active products", async () => {
+  it("getStorePage returns store with active products grouped by category", async () => {
     const data = await getStorePage(storeSlug)
     expect(data).not.toBeNull()
     expect(data?.store.name).toBe("Test Store")
-    expect(data?.products.some((p) => p.id === productId)).toBe(true)
+    const section = data?.categorySections.find((s) => s.category.name === "Test Category")
+    expect(section?.products.some((p) => p.id === productId)).toBe(true)
   })
 
   it("getStorePage returns null for unknown slug", async () => {
@@ -922,3 +923,405 @@ describe.skipIf(!shouldRun)("store_category_assignments RLS isolation", () => {
     )
   })
 })
+
+describe.skipIf(!shouldRun)("getStorePage — category grouping", () => {
+  let testDb: ReturnType<typeof makeDb>
+  let ownerId: string
+  let storeId: string
+  let storeSlug: string
+  let catAId: string
+  let catBId: string
+  let catTieId: string
+  let catCreatedAtTieId: string
+  let catDeactivatedId: string
+  let tieSmallerId: string
+  let tieLargerId: string
+
+  beforeAll(async () => {
+    process.env["DATABASE_URL"] = DATABASE_URL as string
+    testDb = makeDb({ url: DATABASE_URL as string })
+    ownerId = randomUUID()
+    storeSlug = `grouping-test-${randomUUID().slice(0, 8)}`
+
+    await withAdmin(
+      testDb.db,
+      { userId: SYSTEM_ACTOR, reason: "category grouping test seed" },
+      async (tx) => {
+        await tx.insert(schema.users).values({
+          id: ownerId,
+          email: `${ownerId}@test.bomy`,
+          role: "seller_owner",
+          name: "Grouping Test Seller",
+        })
+        const [store] = await tx
+          .insert(schema.stores)
+          .values({
+            ownerId,
+            name: "Grouping Test Store",
+            slug: storeSlug,
+            status: "active",
+            bodyHtml: "<p>Our story</p>",
+            videoId: "dQw4w9WgXcQ",
+          })
+          .returning({ id: schema.stores.id })
+        storeId = store!.id
+
+        // "Alpha" and "Beta" share sort_order=5 — the tie must resolve by name ASC.
+        const [catA] = await tx
+          .insert(schema.categories)
+          .values({ name: "Alpha", slug: `alpha-${randomUUID().slice(0, 6)}`, sortOrder: 5 })
+          .returning({ id: schema.categories.id })
+        catAId = catA!.id
+        const [catB] = await tx
+          .insert(schema.categories)
+          .values({ name: "Beta", slug: `beta-${randomUUID().slice(0, 6)}`, sortOrder: 5 })
+          .returning({ id: schema.categories.id })
+        catBId = catB!.id
+        // "Zeta" sorts after both by sort_order, proving sort_order wins over name overall.
+        const [catTie] = await tx
+          .insert(schema.categories)
+          .values({ name: "Zeta", slug: `zeta-${randomUUID().slice(0, 6)}`, sortOrder: 20 })
+          .returning({ id: schema.categories.id })
+        catTieId = catTie!.id
+        // A dedicated category for a genuine product-level tie: two products sharing an
+        // identical created_at, so ordering can only be decided by the id ASC tiebreak.
+        const [catCreatedAtTie] = await tx
+          .insert(schema.categories)
+          .values({
+            name: "Created At Tie Category",
+            slug: `created-at-tie-${randomUUID().slice(0, 6)}`,
+            sortOrder: 10,
+          })
+          .returning({ id: schema.categories.id })
+        catCreatedAtTieId = catCreatedAtTie!.id
+
+        // A category deactivated by an admin (toggleCategory has no cascade to
+        // products.category_id) with one of this store's active products still pointing at it —
+        // proves the product keeps its category section instead of vanishing or being misfiled
+        // into uncategorized.
+        const [catDeactivated] = await tx
+          .insert(schema.categories)
+          .values({
+            name: "Deactivated Category",
+            slug: `deactivated-${randomUUID().slice(0, 6)}`,
+            sortOrder: 15,
+            isActive: false,
+          })
+          .returning({ id: schema.categories.id })
+        catDeactivatedId = catDeactivated!.id
+
+        // 9 active products in catTie (cap is 8) to prove hasMore + the cap itself.
+        // 1 active product in catA, 1 in catB, 1 uncategorized, 1 inactive in catA (excluded).
+        const now = Date.now()
+        const rows = [
+          ...Array.from({ length: 9 }, (_, i) => ({
+            name: `Zeta Product ${i}`,
+            categoryId: catTieId,
+            status: "active" as const,
+            createdAt: new Date(now + i * 1000),
+          })),
+          {
+            name: "Alpha Product",
+            categoryId: catAId,
+            status: "active" as const,
+            createdAt: new Date(now),
+          },
+          {
+            name: "Beta Product",
+            categoryId: catBId,
+            status: "active" as const,
+            createdAt: new Date(now),
+          },
+          {
+            name: "No Category Item",
+            categoryId: null,
+            status: "active" as const,
+            createdAt: new Date(now),
+          },
+          {
+            name: "Draft Alpha",
+            categoryId: catAId,
+            status: "draft" as const,
+            createdAt: new Date(now),
+          },
+          {
+            name: "Deactivated Category Product",
+            categoryId: catDeactivatedId,
+            status: "active" as const,
+            createdAt: new Date(now),
+          },
+        ]
+        for (const r of rows) {
+          await tx.insert(schema.products).values({
+            storeId,
+            categoryId: r.categoryId,
+            name: r.name,
+            slug: `${r.name.toLowerCase().replace(/\s+/g, "-")}-${randomUUID().slice(0, 6)}`,
+            status: r.status,
+            createdAt: r.createdAt,
+          })
+        }
+
+        // Two products in catCreatedAtTie with an explicit, identical created_at — the only
+        // way they can be ordered deterministically is the query's secondary sort key,
+        // product id ASC. Ids are generated up front and sorted here so the test doesn't
+        // guess: whichever UUID sorts first lexicographically must come first in the result.
+        const sortedTieIds = [randomUUID(), randomUUID()].sort()
+        tieSmallerId = sortedTieIds[0]!
+        tieLargerId = sortedTieIds[1]!
+        const tieCreatedAt = new Date(now)
+        await tx.insert(schema.products).values([
+          {
+            id: tieLargerId,
+            storeId,
+            categoryId: catCreatedAtTieId,
+            name: "Tie Product Larger Id",
+            slug: `tie-product-larger-${randomUUID().slice(0, 6)}`,
+            status: "active",
+            createdAt: tieCreatedAt,
+          },
+          {
+            id: tieSmallerId,
+            storeId,
+            categoryId: catCreatedAtTieId,
+            name: "Tie Product Smaller Id",
+            slug: `tie-product-smaller-${randomUUID().slice(0, 6)}`,
+            status: "active",
+            createdAt: tieCreatedAt,
+          },
+        ])
+      },
+    )
+  })
+
+  afterAll(async () => {
+    await withAdmin(
+      testDb.db,
+      { userId: SYSTEM_ACTOR, reason: "category grouping test cleanup" },
+      async (tx) => {
+        await tx.delete(schema.products).where(eq(schema.products.storeId, storeId))
+        await tx.delete(schema.categories).where(eq(schema.categories.id, catAId))
+        await tx.delete(schema.categories).where(eq(schema.categories.id, catBId))
+        await tx.delete(schema.categories).where(eq(schema.categories.id, catTieId))
+        await tx.delete(schema.categories).where(eq(schema.categories.id, catCreatedAtTieId))
+        await tx.delete(schema.categories).where(eq(schema.categories.id, catDeactivatedId))
+        await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
+      },
+    )
+    await testDb.close()
+  })
+
+  it("returns store body and video fields", async () => {
+    const page = await getStorePage(storeSlug)
+    expect(page?.store.bodyHtml).toBe("<p>Our story</p>")
+    expect(page?.store.videoId).toBe("dQw4w9WgXcQ")
+  })
+
+  it("excludes draft products from their category section", async () => {
+    const page = await getStorePage(storeSlug)
+    const alpha = page?.categorySections.find((s) => s.category.name === "Alpha")
+    expect(alpha?.products.map((p) => p.name)).not.toContain("Draft Alpha")
+  })
+
+  it("breaks equal sort_order ties by category name ASC (Alpha before Beta)", async () => {
+    const page = await getStorePage(storeSlug)
+    const names = page?.categorySections.map((s) => s.category.name)
+    const alphaIdx = names?.indexOf("Alpha") ?? -1
+    const betaIdx = names?.indexOf("Beta") ?? -1
+    expect(alphaIdx).toBeGreaterThanOrEqual(0)
+    expect(alphaIdx).toBeLessThan(betaIdx)
+  })
+
+  it("orders categories by sort_order overall (Zeta, sort_order=20, comes last)", async () => {
+    const page = await getStorePage(storeSlug)
+    const names = page?.categorySections.map((s) => s.category.name) ?? []
+    expect(names.indexOf("Zeta")).toBe(names.length - 1)
+  })
+
+  it("caps a category's preview at 8 products and reports hasMore", async () => {
+    const page = await getStorePage(storeSlug)
+    const zeta = page?.categorySections.find((s) => s.category.name === "Zeta")
+    expect(zeta?.products).toHaveLength(8)
+    expect(zeta?.hasMore).toBe(true)
+  })
+
+  it("orders products within a category by created_at ASC (oldest first)", async () => {
+    const page = await getStorePage(storeSlug)
+    const zeta = page?.categorySections.find((s) => s.category.name === "Zeta")
+    expect(zeta?.products[0]?.name).toBe("Zeta Product 0")
+  })
+
+  it("breaks equal created_at ties within a category by product id ASC", async () => {
+    const page = await getStorePage(storeSlug)
+    const tieSection = page?.categorySections.find(
+      (s) => s.category.name === "Created At Tie Category",
+    )
+    expect(tieSection?.products.map((p) => p.id)).toEqual([tieSmallerId, tieLargerId])
+  })
+
+  it("a category with only draft products (or no products) does not appear as a section", async () => {
+    const page = await getStorePage(storeSlug)
+    // Alpha has exactly one active product (seeded above) so it does appear; this asserts
+    // the inverse never happens — no section exists with zero products.
+    const empty = page?.categorySections.filter((s) => s.products.length === 0)
+    expect(empty).toHaveLength(0)
+  })
+
+  it("includes an uncategorized bucket for products with no category", async () => {
+    const page = await getStorePage(storeSlug)
+    expect(page?.uncategorized.products.map((p) => p.name)).toContain("No Category Item")
+  })
+
+  it("still shows a product whose category was later deactivated, in a category section (not dropped, not uncategorized)", async () => {
+    const page = await getStorePage(storeSlug)
+    const deactivated = page?.categorySections.find(
+      (s) => s.category.name === "Deactivated Category",
+    )
+    expect(deactivated?.products.map((p) => p.name)).toContain("Deactivated Category Product")
+    expect(page?.uncategorized.products.map((p) => p.name)).not.toContain(
+      "Deactivated Category Product",
+    )
+  })
+
+  it("returns null for an unknown slug", async () => {
+    expect(await getStorePage("does-not-exist-slug")).toBeNull()
+  })
+})
+
+describe.skipIf(!shouldRun)(
+  "getStorePage — per-category cap is independent of store-wide product volume (Bob PR #108 review fix)",
+  () => {
+    let testDb: ReturnType<typeof makeDb>
+    let ownerId: string
+    let storeId: string
+    let storeSlug: string
+    let crowdedCatId: string
+    let lateCatId: string
+
+    // A cheap stand-in for the bug this test guards against: the old getStorePage ran ONE query
+    // — `ORDER BY created_at ASC, id ASC LIMIT STORE_PRODUCTS_SAFETY_CAP (500)` — across the
+    // WHOLE store, then grouped by category in memory. A store with more than 500 active
+    // products could lose entire categories past the truncation point. Reproducing that at the
+    // real N=500 isn't necessary (and is slow to seed) — the failure mode is scale-invariant: ANY
+    // single global ORDER BY + LIMIT, however large, can be defeated by putting enough rows in
+    // one category ahead of another. OLD_STYLE_GLOBAL_CAP stands in for that cap at a
+    // cheap-to-seed size, to prove the *mechanism* (a global cap vs. a per-category window) is
+    // what changed, not just the specific historical number 500.
+    const OLD_STYLE_GLOBAL_CAP = 12
+
+    beforeAll(async () => {
+      process.env["DATABASE_URL"] = DATABASE_URL as string
+      testDb = makeDb({ url: DATABASE_URL as string })
+      ownerId = randomUUID()
+      storeSlug = `cap-independence-${randomUUID().slice(0, 8)}`
+
+      await withAdmin(
+        testDb.db,
+        { userId: SYSTEM_ACTOR, reason: "cap independence test seed" },
+        async (tx) => {
+          await tx.insert(schema.users).values({
+            id: ownerId,
+            email: `${ownerId}@test.bomy`,
+            role: "seller_owner",
+            name: "Cap Independence Seller",
+          })
+          const [store] = await tx
+            .insert(schema.stores)
+            .values({ ownerId, name: "Cap Independence Store", slug: storeSlug, status: "active" })
+            .returning({ id: schema.stores.id })
+          storeId = store!.id
+
+          const [crowded] = await tx
+            .insert(schema.categories)
+            .values({ name: "Crowded", slug: `crowded-${randomUUID().slice(0, 6)}`, sortOrder: 1 })
+            .returning({ id: schema.categories.id })
+          crowdedCatId = crowded!.id
+
+          const [late] = await tx
+            .insert(schema.categories)
+            .values({ name: "Late", slug: `late-${randomUUID().slice(0, 6)}`, sortOrder: 2 })
+            .returning({ id: schema.categories.id })
+          lateCatId = late!.id
+
+          const now = Date.now()
+          // Crowded gets exactly OLD_STYLE_GLOBAL_CAP products, all created strictly before
+          // Late's — enough to fully consume a naive global LIMIT on its own.
+          for (let i = 0; i < OLD_STYLE_GLOBAL_CAP; i++) {
+            await tx.insert(schema.products).values({
+              storeId,
+              categoryId: crowdedCatId,
+              name: `Crowded Product ${i}`,
+              slug: `crowded-product-${i}-${randomUUID().slice(0, 6)}`,
+              status: "active",
+              createdAt: new Date(now + i * 1000),
+            })
+          }
+          // Late gets 3 products, all created strictly after every Crowded product.
+          for (let i = 0; i < 3; i++) {
+            await tx.insert(schema.products).values({
+              storeId,
+              categoryId: lateCatId,
+              name: `Late Product ${i}`,
+              slug: `late-product-${i}-${randomUUID().slice(0, 6)}`,
+              status: "active",
+              createdAt: new Date(now + (OLD_STYLE_GLOBAL_CAP + i) * 1000),
+            })
+          }
+        },
+      )
+    })
+
+    afterAll(async () => {
+      await withAdmin(
+        testDb.db,
+        { userId: SYSTEM_ACTOR, reason: "cap independence test cleanup" },
+        async (tx) => {
+          await tx.delete(schema.products).where(eq(schema.products.storeId, storeId))
+          await tx.delete(schema.categories).where(eq(schema.categories.id, crowdedCatId))
+          await tx.delete(schema.categories).where(eq(schema.categories.id, lateCatId))
+          await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
+        },
+      )
+      await testDb.close()
+    })
+
+    it("a naive single global ORDER BY + LIMIT query would have dropped the later category entirely", async () => {
+      // Mirrors the OLD getStorePage query shape exactly (one store-scoped SELECT, ordered by
+      // created_at ASC, id ASC, capped by a single global LIMIT) to prove the bug this fix
+      // targets is real: with Crowded's rows occupying the entire limit, none of Late's rows
+      // make it into the result set at all.
+      const oldStyleRows = await withAdmin(
+        testDb.db,
+        { userId: SYSTEM_ACTOR, reason: "old-style query reproduction" },
+        (tx) =>
+          tx
+            .select({ id: schema.products.id, categoryId: schema.products.categoryId })
+            .from(schema.products)
+            .where(and(eq(schema.products.storeId, storeId), eq(schema.products.status, "active")))
+            .orderBy(asc(schema.products.createdAt), asc(schema.products.id))
+            .limit(OLD_STYLE_GLOBAL_CAP),
+      )
+      expect(oldStyleRows.some((r) => r.categoryId === lateCatId)).toBe(false)
+    })
+
+    it("getStorePage (per-category window function) still returns the later category's products in full", async () => {
+      const page = await getStorePage(storeSlug)
+      const late = page?.categorySections.find((s) => s.category.name === "Late")
+      expect(late).toBeDefined()
+      expect(late?.products.map((p) => p.name)).toEqual([
+        "Late Product 0",
+        "Late Product 1",
+        "Late Product 2",
+      ])
+      expect(late?.hasMore).toBe(false)
+    })
+
+    it("getStorePage still correctly caps and reports hasMore for the crowded category, unaffected by Late's existence", async () => {
+      const page = await getStorePage(storeSlug)
+      const crowded = page?.categorySections.find((s) => s.category.name === "Crowded")
+      expect(crowded).toBeDefined()
+      expect(crowded?.products).toHaveLength(8)
+      expect(crowded?.hasMore).toBe(true)
+    })
+  },
+)

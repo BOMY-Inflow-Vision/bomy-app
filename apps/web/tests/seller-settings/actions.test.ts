@@ -13,8 +13,13 @@ vi.mock("next/navigation", () => ({
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 vi.mock("@/auth", () => ({ auth: vi.fn() }))
 
+import { revalidatePath } from "next/cache"
+
 import { auth } from "@/auth"
-import { updateStoreSettings } from "../../src/app/seller/dashboard/settings/actions"
+import {
+  updateStoreSettings,
+  updateStoreVideo,
+} from "../../src/app/seller/dashboard/settings/actions"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
 const DATABASE_URL = process.env["DATABASE_APP_URL"] ?? process.env["DATABASE_URL"]
@@ -22,6 +27,7 @@ const RLS_READY = process.env["BOMY_RLS_READY"] === "1"
 const shouldRun = Boolean(DATABASE_URL) && RLS_READY
 
 const mockAuth = auth as unknown as Mock
+const mockRevalidatePath = revalidatePath as unknown as Mock
 
 function fd(fields: Record<string, string>): FormData {
   const f = new FormData()
@@ -171,5 +177,110 @@ describe.skipIf(!shouldRun)("updateStoreSettings action", () => {
           .where(eq(schema.stores.id, storeId)),
       ),
     ).rejects.toThrow()
+  })
+})
+
+describe.skipIf(!shouldRun)("updateStoreVideo action", () => {
+  let testDb: ReturnType<typeof makeDb>
+  let sellerId: string
+  let storeId: string
+  let storeSlug: string
+
+  beforeAll(async () => {
+    process.env["DATABASE_URL"] = DATABASE_URL as string
+    testDb = makeDb({ url: DATABASE_URL as string })
+    sellerId = randomUUID()
+    storeSlug = `video-settings-${randomUUID().slice(0, 8)}`
+
+    await withAdmin(
+      testDb.db,
+      { userId: SYSTEM_ACTOR, reason: "video settings test seed" },
+      async (tx) => {
+        await tx.insert(schema.users).values({
+          id: sellerId,
+          email: `${sellerId}@test.bomy`,
+          role: "seller_owner",
+          name: "Video Settings Seller",
+        })
+        const [store] = await tx
+          .insert(schema.stores)
+          .values({
+            ownerId: sellerId,
+            name: "Video Settings Test Store",
+            slug: storeSlug,
+            status: "active",
+          })
+          .returning({ id: schema.stores.id })
+        storeId = store!.id
+      },
+    )
+  })
+
+  afterAll(async () => {
+    await withAdmin(
+      testDb.db,
+      { userId: SYSTEM_ACTOR, reason: "video settings test cleanup" },
+      async (tx) => {
+        await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
+      },
+    )
+    await testDb.close()
+  })
+
+  it("extracts and saves a valid YouTube URL as a bare video ID", async () => {
+    mockAuth.mockResolvedValueOnce({ user: { id: sellerId, role: "seller_owner" } })
+    const result = await updateStoreVideo(
+      fd({ videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" }),
+    )
+    expect(result).toEqual({ ok: true })
+
+    const [row] = await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "verify" }, (tx) =>
+      tx
+        .select({ videoId: schema.stores.videoId })
+        .from(schema.stores)
+        .where(eq(schema.stores.id, storeId)),
+    )
+    expect(row?.videoId).toBe("dQw4w9WgXcQ")
+  })
+
+  it("revalidates both the settings page and the public storefront on success", async () => {
+    mockRevalidatePath.mockClear()
+    mockAuth.mockResolvedValueOnce({ user: { id: sellerId, role: "seller_owner" } })
+    const result = await updateStoreVideo(
+      fd({ videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" }),
+    )
+    expect(result).toEqual({ ok: true })
+    expect(mockRevalidatePath).toHaveBeenCalledWith("/seller/dashboard/settings")
+    expect(mockRevalidatePath).toHaveBeenCalledWith(`/brands/${storeSlug}`)
+  })
+
+  it("rejects an unparseable video URL without writing anything", async () => {
+    mockAuth.mockResolvedValueOnce({ user: { id: sellerId, role: "seller_owner" } })
+    const result = await updateStoreVideo(fd({ videoUrl: "not a video url" }))
+    expect(result.ok).toBe(false)
+  })
+
+  it("normalizes an empty submission to NULL (clearing a previously-set video)", async () => {
+    mockAuth.mockResolvedValueOnce({ user: { id: sellerId, role: "seller_owner" } })
+    await updateStoreVideo(fd({ videoUrl: "https://youtu.be/dQw4w9WgXcQ" }))
+
+    mockAuth.mockResolvedValueOnce({ user: { id: sellerId, role: "seller_owner" } })
+    const result = await updateStoreVideo(fd({ videoUrl: "" }))
+    expect(result).toEqual({ ok: true })
+
+    const [row] = await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "verify" }, (tx) =>
+      tx
+        .select({ videoId: schema.stores.videoId })
+        .from(schema.stores)
+        .where(eq(schema.stores.id, storeId)),
+    )
+    expect(row?.videoId).toBeNull()
+  })
+
+  it("rejects unauthenticated request", async () => {
+    mockAuth.mockResolvedValueOnce(null)
+    const result = await updateStoreVideo(fd({ videoUrl: "https://youtu.be/dQw4w9WgXcQ" }))
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toBe("Unauthorized")
   })
 })

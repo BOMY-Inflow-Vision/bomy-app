@@ -771,8 +771,8 @@ export async function saveProductBody(
   } catch {
     return { ok: false, error: "misconfigured" }
   }
-  const { normalizeBodyHtml } = await import("./body-sanitizer")
-  const normalized = normalizeBodyHtml(bodyHtml, productId, S3_PUBLIC_URL)
+  const { normalizeBodyHtml } = await import("@/lib/body-sanitizer")
+  const normalized = normalizeBodyHtml(bodyHtml, { kind: "product", id: productId }, S3_PUBLIC_URL)
   if (!normalized.ok) return normalized
   const { canonicalHtml } = normalized
 
@@ -825,8 +825,16 @@ export async function saveProductBody(
       try {
         const { extractManagedBodyImageKeys } = await import("@bomy/shared")
         const { deleteObject } = await import("@/lib/s3")
-        const oldKeys = extractManagedBodyImageKeys(oldHtml, productId, S3_PUBLIC_URL)
-        const newKeys = extractManagedBodyImageKeys(canonicalHtml ?? "", productId, S3_PUBLIC_URL)
+        const oldKeys = extractManagedBodyImageKeys(
+          oldHtml,
+          { kind: "product", id: productId },
+          S3_PUBLIC_URL,
+        )
+        const newKeys = extractManagedBodyImageKeys(
+          canonicalHtml ?? "",
+          { kind: "product", id: productId },
+          S3_PUBLIC_URL,
+        )
         // Re-read the live body to guard against a concurrent save re-referencing a key
         // between our commit and this task running.
         const [current] = await withAdmin(
@@ -841,7 +849,7 @@ export async function saveProductBody(
         )
         const currentKeys = extractManagedBodyImageKeys(
           current?.bodyHtml ?? "",
-          productId,
+          { kind: "product", id: productId },
           S3_PUBLIC_URL,
         )
         for (const key of oldKeys) {

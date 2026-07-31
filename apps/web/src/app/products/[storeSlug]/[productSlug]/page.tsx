@@ -2,7 +2,7 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 
 import { getProductBySlug } from "../../queries"
-import { BodyRenderer } from "./body-renderer"
+import { BodyRenderer } from "@/components/body-renderer"
 import { ProductImageGallery } from "./product-image-gallery"
 import { VariantPicker } from "./variant-picker"
 

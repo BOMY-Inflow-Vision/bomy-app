@@ -1,11 +1,24 @@
 import { parse } from "node-html-parser"
 
+export type BodyImageScope = { kind: "product"; id: string } | { kind: "store"; id: string }
+
+// Matches body/<uuid>/<uuid>.<ext> (product) or body/stores/<uuid>/<uuid>.<ext> (store).
+// Group 1 is the optional "stores/" marker; group 2 is the owning entity's id.
 const KEY_RE =
-  /^body\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|jpeg|png|webp|gif|avif)$/i
+  /^body\/(stores\/)?([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|jpeg|png|webp|gif|avif)$/i
+
+function matchesScope(path: string, scope: BodyImageScope): boolean {
+  const match = KEY_RE.exec(path)
+  if (!match) return false
+  const isStoreShaped = Boolean(match[1])
+  const scopeIsStore = scope.kind === "store"
+  if (isStoreShaped !== scopeIsStore) return false
+  return match[2]!.toLowerCase() === scope.id.toLowerCase()
+}
 
 export function classifyImageUrl(
   url: string,
-  productId: string,
+  scope: BodyImageScope,
   publicOrigin: string,
 ): "managed" | "external" | "invalid" {
   try {
@@ -13,8 +26,7 @@ export function classifyImageUrl(
     const r2Origin = new URL(publicOrigin).origin
     if (u.origin === r2Origin) {
       const path = decodeURIComponent(u.pathname).replace(/^\//, "")
-      const match = KEY_RE.exec(path)
-      return match && match[1]!.toLowerCase() === productId.toLowerCase() ? "managed" : "invalid"
+      return matchesScope(path, scope) ? "managed" : "invalid"
     }
     return u.protocol === "https:" ? "external" : "invalid"
   } catch {
@@ -24,7 +36,7 @@ export function classifyImageUrl(
 
 export function extractManagedBodyImageKeys(
   html: string,
-  productId: string,
+  scope: BodyImageScope,
   publicOrigin: string,
 ): Set<string> {
   if (!html) return new Set()
@@ -37,10 +49,7 @@ export function extractManagedBodyImageKeys(
       const u = new URL(src)
       if (u.origin !== r2Origin) continue
       const path = decodeURIComponent(u.pathname).replace(/^\//, "")
-      const match = KEY_RE.exec(path)
-      if (match && match[1]!.toLowerCase() === productId.toLowerCase()) {
-        keys.add(path)
-      }
+      if (matchesScope(path, scope)) keys.add(path)
     } catch {
       // skip unparseable URLs
     }

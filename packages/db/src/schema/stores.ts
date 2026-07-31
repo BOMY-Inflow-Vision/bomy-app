@@ -3,6 +3,7 @@ import {
   bigint,
   check,
   index,
+  integer,
   pgTable,
   text,
   timestamp,
@@ -30,6 +31,12 @@ export const stores = pgTable(
     // and copied to orders.shipping_fee_sen at webhook fan-out (PR #32).
     // No commission on shipping. Seller-edit UI ships in PR #33.
     flatShippingFeeSen: bigint("flat_shipping_fee_sen", { mode: "bigint" }).notNull().default(0n),
+    // Brand-story body content + revision tracking (migration 0028), mirroring
+    // products.body_html/body_revision — see packages/db/src/schema/products.ts.
+    bodyHtml: text("body_html"),
+    bodyRevision: integer("body_revision").notNull().default(0),
+    // YouTube video ID shown on the storefront page (migration 0028).
+    videoId: text("video_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -39,6 +46,10 @@ export const stores = pgTable(
     excerptLengthChk: check(
       "stores_excerpt_length_chk",
       sql`${t.excerpt} IS NULL OR length(${t.excerpt}) <= 160`,
+    ),
+    videoIdChk: check(
+      "stores_video_id_chk",
+      sql`${t.videoId} IS NULL OR ${t.videoId} ~ '^[A-Za-z0-9_-]{11}$'`,
     ),
   }),
 )

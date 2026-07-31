@@ -42,26 +42,50 @@ import {
   Youtube,
 } from "lucide-react"
 
+import { extractYoutubeVideoId } from "@bomy/shared/youtube"
+
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { getBodyImageUploadUrl, saveProductBody } from "../../actions"
 import { YoutubeEmbedExtension } from "./youtube-embed-extension"
 import { ImageUploadExtension } from "./image-upload-extension"
 
 interface Props {
-  productId: string
   initialHtml: string | null
   initialRevision: number
+  saveBody: (
+    html: string,
+    revision: number,
+  ) => Promise<{ ok: true; revision: number; html: string | null } | { ok: false; error: string }>
+  getUploadUrl: (
+    contentType: string,
+    contentLength: number,
+  ) => Promise<
+    | { ok: true; uploadUrl: string; key: string; publicUrl: string; expiresAt: Date }
+    | { ok: false; error: string }
+  >
   onDirtyChange?: (dirty: boolean) => void
   onUploadStateChange?: (uploading: boolean) => void
+  /** Text shown on the submit button. Defaults to the product-editing copy. */
+  saveLabel?: string
+  /** Noun used in the optimistic-concurrency conflict message (e.g. "product", "store"). */
+  conflictNoun?: string
+  /** aria-label on the editor's textbox, announced by screen readers. */
+  ariaLabel?: string
+  /** Noun used in the image extension's max-images alert (e.g. "product body", "brand story"). */
+  contentLabel?: string
 }
 
-export function ProductBodyEditor({
-  productId,
+export function BodyEditor({
   initialHtml,
   initialRevision,
+  saveBody,
+  getUploadUrl,
   onDirtyChange,
   onUploadStateChange,
+  saveLabel = "Save Product Details",
+  conflictNoun = "product",
+  ariaLabel = "Product body editor",
+  contentLabel = "product body",
 }: Props) {
   const [revision, setRevision] = useState(initialRevision)
   const [dirty, setDirty] = useState(false)
@@ -88,7 +112,6 @@ export function ProductBodyEditor({
       TableKit.configure({ table: false }),
       BorderedTable,
       ImageUploadExtension.configure({
-        productId,
         onUploadStart: () => {
           setActiveUploadCount((c) => c + 1)
           setUploadError(false)
@@ -111,7 +134,8 @@ export function ProductBodyEditor({
             return next
           })
         },
-        getUploadUrl: getBodyImageUploadUrl,
+        getUploadUrl,
+        contentLabel,
       }),
       YoutubeEmbedExtension,
     ],
@@ -119,7 +143,7 @@ export function ProductBodyEditor({
     immediatelyRender: false,
     editorProps: {
       attributes: {
-        "aria-label": "Product body editor",
+        "aria-label": ariaLabel,
         "aria-multiline": "true",
         role: "textbox",
       },
@@ -148,9 +172,9 @@ export function ProductBodyEditor({
     setSaveStatus("saving")
     setSaveError(null)
     const html = editor.getHTML()
-    let result: Awaited<ReturnType<typeof saveProductBody>>
+    let result: Awaited<ReturnType<typeof saveBody>>
     try {
-      result = await saveProductBody(productId, html, revision)
+      result = await saveBody(html, revision)
     } catch {
       setConflictDetected(false)
       setSaveError("Save failed: network error. Please try again.")
@@ -169,7 +193,7 @@ export function ProductBodyEditor({
     } else if (result.error === "conflict") {
       setConflictDetected(true)
       setSaveError(
-        "Another tab or device saved this product. Copy your changes, then reload to get the latest version.",
+        `Another tab or device saved this ${conflictNoun}. Copy your changes, then reload to get the latest version.`,
       )
       setSaveStatus("idle")
     } else {
@@ -433,7 +457,7 @@ export function ProductBodyEditor({
           disabled={saveStatus === "saving" || isUploading || !dirty}
           className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
         >
-          {saveStatus === "saving" ? "Saving…" : "Save Product Details"}
+          {saveStatus === "saving" ? "Saving…" : saveLabel}
         </button>
       </form>
     </div>
@@ -567,7 +591,7 @@ function UploadImageButton({ editor }: { editor: Editor | null }) {
           const file = e.target.files?.[0]
           if (!file) return
           // The actual upload is handled by ImageUploadExtension via the uploadBodyImage command.
-          // productId is baked into the extension options at editor init time.
+          // The scope (product or store) is baked into the extension options at editor init time.
           editor?.commands.uploadBodyImage(file)
           e.target.value = ""
         }}
@@ -695,10 +719,7 @@ function EmbedYouTubeButton({ editor }: { editor: Editor | null }) {
         const input = prompt("YouTube video URL or ID:")
         if (!input) return
         // Handles: ?v=ID, youtu.be/ID, /embed/ID, /shorts/ID, /live/ID, bare ID
-        const idMatch =
-          input.match(/(?:v=|youtu\.be\/|\/embed\/|\/shorts\/|\/live\/)([a-zA-Z0-9_-]{11})/) ??
-          input.match(/^([a-zA-Z0-9_-]{11})$/)
-        const videoId = idMatch?.[1]
+        const videoId = extractYoutubeVideoId(input)
         if (!videoId) {
           alert("Could not extract a valid YouTube video ID.")
           return

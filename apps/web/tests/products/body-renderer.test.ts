@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server"
 
 // renderBodyHtml is a pure function extracted from BodyRenderer for unit-testing.
 // It accepts HTML string and returns a React node.
-import { renderBodyHtml } from "../../src/app/products/[storeSlug]/[productSlug]/body-renderer"
+import { renderBodyHtml } from "../../src/components/body-renderer"
 
 describe("renderBodyHtml", () => {
   it("renders allowlisted elements", () => {
@@ -77,5 +77,22 @@ describe("renderBodyHtml", () => {
     const output = renderToStaticMarkup(renderBodyHtml(html) as React.ReactElement)
     expect(output).toContain("A &amp; B &lt;em&gt;")
     expect(output).not.toContain("&amp;amp;")
+  })
+})
+
+describe("body-renderer figure video-ID validation", () => {
+  it("does not render a figure whose data-video-id is fewer than 11 characters", () => {
+    // A pre-existing bug: the old loose regex (1-10 chars) would have accepted this.
+    const html =
+      '<figure data-video-provider="youtube" data-video-id="short" data-video-title="x"></figure>'
+    const markup = renderToStaticMarkup(renderBodyHtml(html) as React.ReactElement)
+    expect(markup).not.toContain("short")
+  })
+
+  it("renders a figure with a valid 11-character data-video-id", () => {
+    const html =
+      '<figure data-video-provider="youtube" data-video-id="dQw4w9WgXcQ" data-video-title="x"></figure>'
+    const markup = renderToStaticMarkup(renderBodyHtml(html) as React.ReactElement)
+    expect(markup).toContain("dQw4w9WgXcQ")
   })
 })

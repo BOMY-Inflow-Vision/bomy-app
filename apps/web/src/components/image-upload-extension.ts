@@ -1,7 +1,5 @@
 import { Node, mergeAttributes } from "@tiptap/core"
 
-import type { getBodyImageUploadUrl } from "../../actions"
-
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
     imageUpload: {
@@ -11,12 +9,20 @@ declare module "@tiptap/core" {
 }
 
 interface ImageUploadOptions {
-  productId: string
-  getUploadUrl: typeof getBodyImageUploadUrl
+  getUploadUrl: (
+    contentType: string,
+    contentLength: number,
+  ) => Promise<
+    | { ok: true; uploadUrl: string; key: string; publicUrl: string; expiresAt: Date }
+    | { ok: false; error: string }
+  >
   onUploadStart: () => void
   onUploadProgress: (pct: number) => void
   onUploadComplete: () => void
   onUploadError: () => void
+  /** Noun used in the max-images alert (e.g. "product body", "brand story"). Defaults to
+   * "product body" so the product editor's existing copy is unchanged. */
+  contentLabel?: string
 }
 
 export const ImageUploadExtension = Node.create<ImageUploadOptions>({
@@ -49,7 +55,8 @@ export const ImageUploadExtension = Node.create<ImageUploadOptions>({
             if (node.type.name === "imageUpload" || node.type.name === "image") imageCount++
           })
           if (imageCount >= MAX_IMAGES) {
-            alert("Maximum 10 images per product body.")
+            const contentLabel = this.options.contentLabel ?? "product body"
+            alert(`Maximum 10 images per ${contentLabel}.`)
             return false
           }
 
@@ -64,7 +71,7 @@ export const ImageUploadExtension = Node.create<ImageUploadOptions>({
           options.onUploadStart()
 
           options
-            .getUploadUrl(options.productId, file.type, file.size)
+            .getUploadUrl(file.type, file.size)
             .then((result) => {
               if (!result.ok) {
                 options.onUploadError()

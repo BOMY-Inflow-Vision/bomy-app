@@ -1,6 +1,6 @@
 import { Node, mergeAttributes } from "@tiptap/core"
 
-const VIDEO_ID_RE = /^[a-zA-Z0-9_-]{1,11}$/
+import { YOUTUBE_VIDEO_ID_RE } from "@bomy/shared/youtube"
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
@@ -67,7 +67,7 @@ export const YoutubeEmbedExtension = Node.create({
       insertYoutubeEmbed:
         ({ videoId, title }) =>
         ({ commands }) => {
-          if (!VIDEO_ID_RE.test(videoId)) return false
+          if (!YOUTUBE_VIDEO_ID_RE.test(videoId)) return false
           return commands.insertContent({
             type: "youtubeEmbed",
             attrs: {

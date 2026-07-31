@@ -86,6 +86,9 @@ const RECENT_DATE = new Date(Date.now() - 24 * 60 * 60 * 1000) // 24h ago (too r
 const PID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
 const UUID_KEY = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 const MANAGED_KEY = `body/${PID}/${UUID_KEY}.jpg`
+const SID = "bbbbbbbb-cccc-dddd-eeee-ffffffffffff"
+const STORE_UUID_KEY = "a1b2c3d4-1234-5678-9abc-def012345678"
+const STORE_MANAGED_KEY = `body/stores/${SID}/${STORE_UUID_KEY}.jpg`
 
 // Set a fake S3_BUCKET so the function doesn't bail out early.
 // Inject the mock S3 client via the exported test hook.
@@ -315,11 +318,13 @@ describe("runBodyImageCleanup (unit — mocked S3 + Redis)", () => {
     process.env["S3_PUBLIC_URL"] = S3_PUBLIC_URL
     const bodyHtml = `<img src="${S3_PUBLIC_URL}/${MANAGED_KEY}" alt="x" />`
 
-    // Phase 1 pagination returns empty (key not in referenced set initially)
-    // Final-check DB query returns bodyHtml that references the key
+    // Phase 1 pagination returns empty for both products and stores (key not in
+    // referenced set initially). Final-check DB query returns bodyHtml that
+    // references the key.
     const limitMock = vi
       .fn()
-      .mockResolvedValueOnce([]) // phase 1 pagination: empty page → reference set is empty
+      .mockResolvedValueOnce([]) // phase 1 products pagination: empty page → reference set is empty
+      .mockResolvedValueOnce([]) // phase 1 stores pagination: empty page → reference set is empty
       .mockResolvedValueOnce([{ bodyHtml }]) // final-check query for the product
     const stub = {
       select: vi.fn().mockReturnValue({
@@ -342,6 +347,120 @@ describe("runBodyImageCleanup (unit — mocked S3 + Redis)", () => {
     const refDb = stub as unknown as Parameters<typeof runBodyImageCleanup>[0]
 
     const s3 = makeS3Mock([[{ Key: MANAGED_KEY, LastModified: OLD_DATE }]])
+    _setS3ForTesting(s3 as unknown as S3Client)
+
+    const { _mocks: redisMocks, ...redis } = makeRedisMock({ getResult: firstSeenAt })
+    const { _mocks: logMocks, ...logger } = makeLogger()
+
+    await runBodyImageCleanup(refDb, redis as unknown as Redis, logger)
+
+    // Key should NOT be deleted — final check rescued it
+    const deleteCalls = s3.send.mock.calls.filter(
+      (c) => (c[0] as { constructor: { name: string } }).constructor.name === "DeleteObjectCommand",
+    )
+    expect(deleteCalls).toHaveLength(0)
+    // No errors expected
+    expect(logMocks.error).not.toHaveBeenCalled()
+    void redisMocks // referenced to avoid unused-var lint
+
+    delete process.env["S3_PUBLIC_URL"]
+  })
+
+  // ── 4f: Store-scoped keys — buildReferenceSet + final-check rescue ────────
+
+  it("survives buildReferenceSet as a store-scoped referenced key (Phase 1b)", async () => {
+    // DB returns a store whose body_html references STORE_MANAGED_KEY
+    const S3_PUBLIC_URL = "https://r2.test"
+    process.env["S3_PUBLIC_URL"] = S3_PUBLIC_URL
+    const bodyHtml = `<img src="${S3_PUBLIC_URL}/${STORE_MANAGED_KEY}" alt="x" />`
+    const rowWithRef = [{ id: SID, bodyHtml }]
+
+    // Phase 1 products pagination returns an empty page (ends immediately).
+    // Phase 1 stores pagination returns one store referencing STORE_MANAGED_KEY
+    // (1 row < PAGE_SIZE, so that loop also ends after this one call).
+    const limitMock = vi
+      .fn()
+      .mockResolvedValueOnce([]) // phase 1 products pagination: empty
+      .mockResolvedValueOnce(rowWithRef) // phase 1 stores pagination: one referencing store
+    const stub = {
+      select: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            orderBy: vi.fn().mockReturnValue({ limit: limitMock }),
+            limit: limitMock,
+          }),
+        }),
+      }),
+      transaction: vi.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+        return fn(stub)
+      }),
+      execute: vi.fn().mockResolvedValue(undefined),
+      insert: vi.fn().mockReturnValue({ values: vi.fn().mockResolvedValue(undefined) }),
+      delete: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([]) }),
+      }),
+    }
+    const refDb = stub as unknown as Parameters<typeof runBodyImageCleanup>[0]
+
+    // S3 returns STORE_MANAGED_KEY as old enough
+    const s3 = makeS3Mock([[{ Key: STORE_MANAGED_KEY, LastModified: OLD_DATE }]])
+    _setS3ForTesting(s3 as unknown as S3Client)
+
+    // Redis already has a marker for STORE_MANAGED_KEY
+    const { _mocks: redisMocks, ...redis } = makeRedisMock({
+      getResult: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString(),
+    })
+    const logger = makeLogger()
+
+    await runBodyImageCleanup(refDb, redis as unknown as Redis, logger)
+
+    // Phase 1b: should DEL the marker for the referenced key
+    expect(redisMocks.del).toHaveBeenCalledWith(`body-img-candidate:${STORE_MANAGED_KEY}`)
+    // Key is referenced → should NOT be deleted
+    const deleteCalls = s3.send.mock.calls.filter(
+      (c) => (c[0] as { constructor: { name: string } }).constructor.name === "DeleteObjectCommand",
+    )
+    expect(deleteCalls).toHaveLength(0)
+
+    delete process.env["S3_PUBLIC_URL"]
+  })
+
+  it("rescues a store-shaped key from deletion when final DB check shows still referenced", async () => {
+    const firstSeenAt = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString()
+    const S3_PUBLIC_URL = "https://r2.test"
+    process.env["S3_PUBLIC_URL"] = S3_PUBLIC_URL
+    const bodyHtml = `<img src="${S3_PUBLIC_URL}/${STORE_MANAGED_KEY}" alt="x" />`
+
+    // Phase 1 pagination returns empty for both products and stores (key not in
+    // referenced set initially). Final-check DB query — routed to schema.stores
+    // because the key is store-shaped (KEY_RE group 1 present) — returns
+    // bodyHtml that still references the key.
+    const limitMock = vi
+      .fn()
+      .mockResolvedValueOnce([]) // phase 1 products pagination: empty
+      .mockResolvedValueOnce([]) // phase 1 stores pagination: empty
+      .mockResolvedValueOnce([{ bodyHtml }]) // final-check query for the store
+    const stub = {
+      select: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            orderBy: vi.fn().mockReturnValue({ limit: limitMock }),
+            limit: limitMock,
+          }),
+        }),
+      }),
+      transaction: vi.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+        return fn(stub)
+      }),
+      execute: vi.fn().mockResolvedValue(undefined),
+      insert: vi.fn().mockReturnValue({ values: vi.fn().mockResolvedValue(undefined) }),
+      delete: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([]) }),
+      }),
+    }
+    const refDb = stub as unknown as Parameters<typeof runBodyImageCleanup>[0]
+
+    const s3 = makeS3Mock([[{ Key: STORE_MANAGED_KEY, LastModified: OLD_DATE }]])
     _setS3ForTesting(s3 as unknown as S3Client)
 
     const { _mocks: redisMocks, ...redis } = makeRedisMock({ getResult: firstSeenAt })

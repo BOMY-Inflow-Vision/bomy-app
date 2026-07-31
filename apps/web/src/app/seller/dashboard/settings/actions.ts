@@ -1,8 +1,10 @@
 "use server"
 
 import { and, eq, inArray } from "drizzle-orm"
+import { revalidatePath } from "next/cache"
 
 import { schema, withTenant } from "@bomy/db"
+import { extractYoutubeVideoId } from "@bomy/shared/youtube"
 
 import { auth } from "@/auth"
 import { getDb } from "@/lib/db"
@@ -143,5 +145,77 @@ export async function updateStoreCategories(
   }
 
   if (updateError) return { ok: false, error: updateError }
+  return { ok: true }
+}
+
+export async function updateStoreVideo(
+  formData: FormData,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const session = await auth()
+  if (!session || session.user.role !== "seller_owner") {
+    return { ok: false, error: "Unauthorized" }
+  }
+
+  const rawUrl = formData.get("videoUrl")
+  if (typeof rawUrl !== "string") {
+    return { ok: false, error: "Invalid input." }
+  }
+  const trimmed = rawUrl.trim()
+
+  let videoId: string | null = null
+  if (trimmed.length > 0) {
+    videoId = extractYoutubeVideoId(trimmed)
+    if (!videoId) {
+      return { ok: false, error: "Could not find a valid YouTube video in that URL." }
+    }
+  }
+
+  let result: { ok: true; storeSlug: string } | { ok: false; error: string }
+
+  try {
+    result = await withTenant(
+      getDb(),
+      { userId: session.user.id, userRole: session.user.role },
+      async (tx) => {
+        const [store] = await tx
+          .select({ id: schema.stores.id, slug: schema.stores.slug })
+          .from(schema.stores)
+          .where(
+            and(eq(schema.stores.ownerId, session.user.id), eq(schema.stores.status, "active")),
+          )
+          .limit(1)
+
+        if (!store) {
+          return { ok: false as const, error: "No active store found." }
+        }
+
+        const updated = await tx
+          .update(schema.stores)
+          .set({ videoId, updatedAt: new Date() })
+          .where(
+            and(
+              eq(schema.stores.id, store.id),
+              eq(schema.stores.ownerId, session.user.id),
+              eq(schema.stores.status, "active"),
+            ),
+          )
+          .returning({ id: schema.stores.id })
+
+        if (updated.length === 0) {
+          return { ok: false as const, error: "Update failed." }
+        }
+
+        return { ok: true as const, storeSlug: store.slug }
+      },
+    )
+  } catch {
+    return { ok: false, error: "Failed to save video URL." }
+  }
+
+  if (!result.ok) return result
+
+  revalidatePath("/seller/dashboard/settings")
+  revalidatePath(`/brands/${result.storeSlug}`)
+
   return { ok: true }
 }

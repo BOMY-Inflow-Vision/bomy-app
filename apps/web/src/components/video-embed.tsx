@@ -2,12 +2,12 @@
 
 import React, { useState } from "react"
 
-const VIDEO_ID_RE = /^[a-zA-Z0-9_-]{1,11}$/
+import { YOUTUBE_VIDEO_ID_RE } from "@bomy/shared/youtube"
 
 export function VideoEmbed({ videoId, title }: { videoId: string; title?: string | null }) {
   const [active, setActive] = useState(false)
 
-  if (!VIDEO_ID_RE.test(videoId)) return null
+  if (!YOUTUBE_VIDEO_ID_RE.test(videoId)) return null
 
   const displayTitle = title ?? "YouTube video"
 
