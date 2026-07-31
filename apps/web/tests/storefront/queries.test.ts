@@ -932,6 +932,9 @@ describe.skipIf(!shouldRun)("getStorePage — category grouping", () => {
   let catAId: string
   let catBId: string
   let catTieId: string
+  let catCreatedAtTieId: string
+  let tieSmallerId: string
+  let tieLargerId: string
 
   beforeAll(async () => {
     process.env["DATABASE_URL"] = DATABASE_URL as string
@@ -979,6 +982,17 @@ describe.skipIf(!shouldRun)("getStorePage — category grouping", () => {
           .values({ name: "Zeta", slug: `zeta-${randomUUID().slice(0, 6)}`, sortOrder: 20 })
           .returning({ id: schema.categories.id })
         catTieId = catTie!.id
+        // A dedicated category for a genuine product-level tie: two products sharing an
+        // identical created_at, so ordering can only be decided by the id ASC tiebreak.
+        const [catCreatedAtTie] = await tx
+          .insert(schema.categories)
+          .values({
+            name: "Created At Tie Category",
+            slug: `created-at-tie-${randomUUID().slice(0, 6)}`,
+            sortOrder: 10,
+          })
+          .returning({ id: schema.categories.id })
+        catCreatedAtTieId = catCreatedAtTie!.id
 
         // 9 active products in catTie (cap is 8) to prove hasMore + the cap itself.
         // 1 active product in catA, 1 in catB, 1 uncategorized, 1 inactive in catA (excluded).
@@ -1025,6 +1039,35 @@ describe.skipIf(!shouldRun)("getStorePage — category grouping", () => {
             createdAt: r.createdAt,
           })
         }
+
+        // Two products in catCreatedAtTie with an explicit, identical created_at — the only
+        // way they can be ordered deterministically is the query's secondary sort key,
+        // product id ASC. Ids are generated up front and sorted here so the test doesn't
+        // guess: whichever UUID sorts first lexicographically must come first in the result.
+        const sortedTieIds = [randomUUID(), randomUUID()].sort()
+        tieSmallerId = sortedTieIds[0]!
+        tieLargerId = sortedTieIds[1]!
+        const tieCreatedAt = new Date(now)
+        await tx.insert(schema.products).values([
+          {
+            id: tieLargerId,
+            storeId,
+            categoryId: catCreatedAtTieId,
+            name: "Tie Product Larger Id",
+            slug: `tie-product-larger-${randomUUID().slice(0, 6)}`,
+            status: "active",
+            createdAt: tieCreatedAt,
+          },
+          {
+            id: tieSmallerId,
+            storeId,
+            categoryId: catCreatedAtTieId,
+            name: "Tie Product Smaller Id",
+            slug: `tie-product-smaller-${randomUUID().slice(0, 6)}`,
+            status: "active",
+            createdAt: tieCreatedAt,
+          },
+        ])
       },
     )
   })
@@ -1038,6 +1081,7 @@ describe.skipIf(!shouldRun)("getStorePage — category grouping", () => {
         await tx.delete(schema.categories).where(eq(schema.categories.id, catAId))
         await tx.delete(schema.categories).where(eq(schema.categories.id, catBId))
         await tx.delete(schema.categories).where(eq(schema.categories.id, catTieId))
+        await tx.delete(schema.categories).where(eq(schema.categories.id, catCreatedAtTieId))
         await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
       },
     )
@@ -1082,6 +1126,14 @@ describe.skipIf(!shouldRun)("getStorePage — category grouping", () => {
     const page = await getStorePage(storeSlug)
     const zeta = page?.categorySections.find((s) => s.category.name === "Zeta")
     expect(zeta?.products[0]?.name).toBe("Zeta Product 0")
+  })
+
+  it("breaks equal created_at ties within a category by product id ASC", async () => {
+    const page = await getStorePage(storeSlug)
+    const tieSection = page?.categorySections.find(
+      (s) => s.category.name === "Created At Tie Category",
+    )
+    expect(tieSection?.products.map((p) => p.id)).toEqual([tieSmallerId, tieLargerId])
   })
 
   it("a category with only draft products (or no products) does not appear as a section", async () => {
