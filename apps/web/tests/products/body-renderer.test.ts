@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server"
 
 // renderBodyHtml is a pure function extracted from BodyRenderer for unit-testing.
 // It accepts HTML string and returns a React node.
-import { renderBodyHtml } from "../../src/app/products/[storeSlug]/[productSlug]/body-renderer"
+import { renderBodyHtml } from "../../src/components/body-renderer"
 
 describe("renderBodyHtml", () => {
   it("renders allowlisted elements", () => {

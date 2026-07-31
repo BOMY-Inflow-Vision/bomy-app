@@ -222,6 +222,9 @@ export function SettingsForm({
             initialRevision={currentBodyRevision}
             saveBody={saveStoreBody}
             getUploadUrl={getStoreBodyImageUploadUrl}
+            saveLabel="Save Brand Story"
+            conflictNoun="store"
+            ariaLabel="Brand story editor"
           />
         </CardContent>
       </Card>

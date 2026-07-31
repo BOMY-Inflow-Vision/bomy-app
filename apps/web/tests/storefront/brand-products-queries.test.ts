@@ -17,6 +17,8 @@ describe.skipIf(!shouldRun)("getStoreProducts", () => {
   let storeId: string
   let categoryId: string
   let categorySlug: string
+  let deactivatedCategoryId: string
+  let deactivatedCategorySlug: string
 
   beforeAll(async () => {
     process.env["DATABASE_URL"] = DATABASE_URL as string
@@ -24,6 +26,7 @@ describe.skipIf(!shouldRun)("getStoreProducts", () => {
     ownerId = randomUUID()
     storeSlug = `products-route-test-${randomUUID().slice(0, 8)}`
     categorySlug = `route-cat-${randomUUID().slice(0, 8)}`
+    deactivatedCategorySlug = `route-cat-deactivated-${randomUUID().slice(0, 8)}`
 
     await withAdmin(
       testDb.db,
@@ -52,6 +55,16 @@ describe.skipIf(!shouldRun)("getStoreProducts", () => {
           .returning({ id: schema.categories.id })
         categoryId = category!.id
 
+        // Deactivated by an admin after being assigned (toggleCategory has no cascade to
+        // products.category_id) — a public read must still be able to resolve this slug so the
+        // filtered listing keeps working (RLS: categories_public_active_product_ref, migration
+        // 0029).
+        const [deactivatedCategory] = await tx
+          .insert(schema.categories)
+          .values({ name: "Route Cat Deactivated", slug: deactivatedCategorySlug, isActive: false })
+          .returning({ id: schema.categories.id })
+        deactivatedCategoryId = deactivatedCategory!.id
+
         await tx.insert(schema.products).values([
           {
             storeId,
@@ -67,6 +80,13 @@ describe.skipIf(!shouldRun)("getStoreProducts", () => {
             slug: `no-category-item-${randomUUID().slice(0, 6)}`,
             status: "active",
           },
+          {
+            storeId,
+            categoryId: deactivatedCategoryId,
+            name: "Deactivated Category Item",
+            slug: `deactivated-category-item-${randomUUID().slice(0, 6)}`,
+            status: "active",
+          },
         ])
       },
     )
@@ -79,6 +99,7 @@ describe.skipIf(!shouldRun)("getStoreProducts", () => {
       async (tx) => {
         await tx.delete(schema.products).where(eq(schema.products.storeId, storeId))
         await tx.delete(schema.categories).where(eq(schema.categories.id, categoryId))
+        await tx.delete(schema.categories).where(eq(schema.categories.id, deactivatedCategoryId))
         await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
       },
     )
@@ -93,6 +114,7 @@ describe.skipIf(!shouldRun)("getStoreProducts", () => {
     const result = await getStoreProducts(storeSlug, undefined)
     expect(result?.products.map((p) => p.name).sort()).toEqual([
       "Categorized Item",
+      "Deactivated Category Item",
       "No Category Item",
     ])
   })
@@ -100,6 +122,11 @@ describe.skipIf(!shouldRun)("getStoreProducts", () => {
   it("filters to a real category slug", async () => {
     const result = await getStoreProducts(storeSlug, categorySlug)
     expect(result?.products.map((p) => p.name)).toEqual(["Categorized Item"])
+  })
+
+  it("filters to a category slug whose category was later deactivated", async () => {
+    const result = await getStoreProducts(storeSlug, deactivatedCategorySlug)
+    expect(result?.products.map((p) => p.name)).toEqual(["Deactivated Category Item"])
   })
 
   it("filters to uncategorized via the __uncategorized sentinel", async () => {

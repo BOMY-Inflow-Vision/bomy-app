@@ -152,6 +152,10 @@ const MIGRATIONS = [
     name: "0028_store_body_video",
     file: join(__dirname, "../drizzle/0028_store_body_video.sql"),
   },
+  {
+    name: "0029_categories_public_active_product_ref",
+    file: join(__dirname, "../drizzle/0029_categories_public_active_product_ref.sql"),
+  },
 ]
 
 try {

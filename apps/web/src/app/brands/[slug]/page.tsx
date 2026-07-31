@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
 
+import { BodyRenderer } from "@/components/body-renderer"
 import { Button } from "@/components/ui/button"
 import { VideoEmbed } from "@/components/video-embed"
 
@@ -60,11 +61,9 @@ export default async function StorePage({ params }: Props) {
       <div className="mb-12 grid grid-cols-1 gap-8 md:grid-cols-2">
         <div>
           {store.bodyHtml && (
-            <div
-              className="prose prose-sm max-w-none text-foreground"
-              // Sanitized server-side by normalizeBodyHtml before storage — never raw user input.
-              dangerouslySetInnerHTML={{ __html: store.bodyHtml }}
-            />
+            <div className="prose prose-sm max-w-none text-foreground">
+              <BodyRenderer html={store.bodyHtml} />
+            </div>
           )}
         </div>
         <div className="flex flex-col gap-4">

@@ -39,6 +39,12 @@ export async function getStorePage(slug: string) {
 
     if (!store) return null
 
+    // Deliberately NOT filtered on isActive: a category can be deactivated after a store's
+    // products already reference it (admin toggleCategory has no cascade to products.category_id),
+    // and this store's active products in that category must still get a section — matching the
+    // platform-wide convention (getProducts on /products never filters category isActive either).
+    // The only gate on whether a category renders a section is "does this store have any active
+    // products in it" (the length check below), independent of the category's own isActive state.
     const categories = await db
       .select({
         id: schema.categories.id,
@@ -46,7 +52,6 @@ export async function getStorePage(slug: string) {
         slug: schema.categories.slug,
       })
       .from(schema.categories)
-      .where(eq(schema.categories.isActive, true))
       .orderBy(asc(schema.categories.sortOrder), asc(schema.categories.name))
 
     // One bounded, store-scoped query for every active product (instead of one query per

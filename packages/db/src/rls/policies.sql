@@ -592,6 +592,24 @@ CREATE POLICY categories_seller_owned_product_ref ON categories
     )
   );
 
+-- Public/buyer reads (getStorePage's withPublicRead) must also see a deactivated category if
+-- it's still referenced by at least one active product of an active store — otherwise the
+-- storefront's category grouping silently drops that product (migration 0029). Mirrors
+-- products_read's "active product of an active store is publicly visible" rule; categories has
+-- no sensitive columns so widening read visibility here is safe.
+CREATE POLICY categories_public_active_product_ref ON categories
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM   products p
+      JOIN   stores   s ON s.id = p.store_id
+      WHERE  p.category_id = categories.id
+        AND  p.status      = 'active'
+        AND  s.status      = 'active'
+    )
+  );
+
 -- products: active = publicly visible. Seller owns via store FK.
 CREATE POLICY products_default_deny ON products
   AS RESTRICTIVE

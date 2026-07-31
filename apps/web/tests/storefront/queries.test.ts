@@ -933,6 +933,7 @@ describe.skipIf(!shouldRun)("getStorePage — category grouping", () => {
   let catBId: string
   let catTieId: string
   let catCreatedAtTieId: string
+  let catDeactivatedId: string
   let tieSmallerId: string
   let tieLargerId: string
 
@@ -994,6 +995,21 @@ describe.skipIf(!shouldRun)("getStorePage — category grouping", () => {
           .returning({ id: schema.categories.id })
         catCreatedAtTieId = catCreatedAtTie!.id
 
+        // A category deactivated by an admin (toggleCategory has no cascade to
+        // products.category_id) with one of this store's active products still pointing at it —
+        // proves the product keeps its category section instead of vanishing or being misfiled
+        // into uncategorized.
+        const [catDeactivated] = await tx
+          .insert(schema.categories)
+          .values({
+            name: "Deactivated Category",
+            slug: `deactivated-${randomUUID().slice(0, 6)}`,
+            sortOrder: 15,
+            isActive: false,
+          })
+          .returning({ id: schema.categories.id })
+        catDeactivatedId = catDeactivated!.id
+
         // 9 active products in catTie (cap is 8) to prove hasMore + the cap itself.
         // 1 active product in catA, 1 in catB, 1 uncategorized, 1 inactive in catA (excluded).
         const now = Date.now()
@@ -1026,6 +1042,12 @@ describe.skipIf(!shouldRun)("getStorePage — category grouping", () => {
             name: "Draft Alpha",
             categoryId: catAId,
             status: "draft" as const,
+            createdAt: new Date(now),
+          },
+          {
+            name: "Deactivated Category Product",
+            categoryId: catDeactivatedId,
+            status: "active" as const,
             createdAt: new Date(now),
           },
         ]
@@ -1082,6 +1104,7 @@ describe.skipIf(!shouldRun)("getStorePage — category grouping", () => {
         await tx.delete(schema.categories).where(eq(schema.categories.id, catBId))
         await tx.delete(schema.categories).where(eq(schema.categories.id, catTieId))
         await tx.delete(schema.categories).where(eq(schema.categories.id, catCreatedAtTieId))
+        await tx.delete(schema.categories).where(eq(schema.categories.id, catDeactivatedId))
         await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
       },
     )
@@ -1147,6 +1170,17 @@ describe.skipIf(!shouldRun)("getStorePage — category grouping", () => {
   it("includes an uncategorized bucket for products with no category", async () => {
     const page = await getStorePage(storeSlug)
     expect(page?.uncategorized.products.map((p) => p.name)).toContain("No Category Item")
+  })
+
+  it("still shows a product whose category was later deactivated, in a category section (not dropped, not uncategorized)", async () => {
+    const page = await getStorePage(storeSlug)
+    const deactivated = page?.categorySections.find(
+      (s) => s.category.name === "Deactivated Category",
+    )
+    expect(deactivated?.products.map((p) => p.name)).toContain("Deactivated Category Product")
+    expect(page?.uncategorized.products.map((p) => p.name)).not.toContain(
+      "Deactivated Category Product",
+    )
   })
 
   it("returns null for an unknown slug", async () => {

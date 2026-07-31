@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import {
-  extractYoutubeVideoId,
-  isValidYoutubeVideoId,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  YOUTUBE_VIDEO_ID_RE,
-} from "../src/youtube.js"
+import { extractYoutubeVideoId, isValidYoutubeVideoId } from "../src/youtube.js"
 
 describe("YOUTUBE_VIDEO_ID_RE / isValidYoutubeVideoId", () => {
   it("accepts exactly 11 chars of the allowed alphabet", () => {

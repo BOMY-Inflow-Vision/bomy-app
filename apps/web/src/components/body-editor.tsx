@@ -65,6 +65,12 @@ interface Props {
   >
   onDirtyChange?: (dirty: boolean) => void
   onUploadStateChange?: (uploading: boolean) => void
+  /** Text shown on the submit button. Defaults to the product-editing copy. */
+  saveLabel?: string
+  /** Noun used in the optimistic-concurrency conflict message (e.g. "product", "store"). */
+  conflictNoun?: string
+  /** aria-label on the editor's textbox, announced by screen readers. */
+  ariaLabel?: string
 }
 
 export function BodyEditor({
@@ -74,6 +80,9 @@ export function BodyEditor({
   getUploadUrl,
   onDirtyChange,
   onUploadStateChange,
+  saveLabel = "Save Product Details",
+  conflictNoun = "product",
+  ariaLabel = "Product body editor",
 }: Props) {
   const [revision, setRevision] = useState(initialRevision)
   const [dirty, setDirty] = useState(false)
@@ -130,7 +139,7 @@ export function BodyEditor({
     immediatelyRender: false,
     editorProps: {
       attributes: {
-        "aria-label": "Product body editor",
+        "aria-label": ariaLabel,
         "aria-multiline": "true",
         role: "textbox",
       },
@@ -180,7 +189,7 @@ export function BodyEditor({
     } else if (result.error === "conflict") {
       setConflictDetected(true)
       setSaveError(
-        "Another tab or device saved this product. Copy your changes, then reload to get the latest version.",
+        `Another tab or device saved this ${conflictNoun}. Copy your changes, then reload to get the latest version.`,
       )
       setSaveStatus("idle")
     } else {
@@ -444,7 +453,7 @@ export function BodyEditor({
           disabled={saveStatus === "saving" || isUploading || !dirty}
           className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
         >
-          {saveStatus === "saving" ? "Saving…" : "Save Product Details"}
+          {saveStatus === "saving" ? "Saving…" : saveLabel}
         </button>
       </form>
     </div>
