@@ -172,11 +172,12 @@ describe.skipIf(!shouldRun)("storefront queries", () => {
     )
   })
 
-  it("getStorePage returns store with active products", async () => {
+  it("getStorePage returns store with active products grouped by category", async () => {
     const data = await getStorePage(storeSlug)
     expect(data).not.toBeNull()
     expect(data?.store.name).toBe("Test Store")
-    expect(data?.products.some((p) => p.id === productId)).toBe(true)
+    const section = data?.categorySections.find((s) => s.category.name === "Test Category")
+    expect(section?.products.some((p) => p.id === productId)).toBe(true)
   })
 
   it("getStorePage returns null for unknown slug", async () => {
@@ -920,5 +921,183 @@ describe.skipIf(!shouldRun)("store_category_assignments RLS isolation", () => {
         .values({ storeId, storeCategoryId: inactiveCatId })
         .onConflictDoNothing(),
     )
+  })
+})
+
+describe.skipIf(!shouldRun)("getStorePage — category grouping", () => {
+  let testDb: ReturnType<typeof makeDb>
+  let ownerId: string
+  let storeId: string
+  let storeSlug: string
+  let catAId: string
+  let catBId: string
+  let catTieId: string
+
+  beforeAll(async () => {
+    process.env["DATABASE_URL"] = DATABASE_URL as string
+    testDb = makeDb({ url: DATABASE_URL as string })
+    ownerId = randomUUID()
+    storeSlug = `grouping-test-${randomUUID().slice(0, 8)}`
+
+    await withAdmin(
+      testDb.db,
+      { userId: SYSTEM_ACTOR, reason: "category grouping test seed" },
+      async (tx) => {
+        await tx.insert(schema.users).values({
+          id: ownerId,
+          email: `${ownerId}@test.bomy`,
+          role: "seller_owner",
+          name: "Grouping Test Seller",
+        })
+        const [store] = await tx
+          .insert(schema.stores)
+          .values({
+            ownerId,
+            name: "Grouping Test Store",
+            slug: storeSlug,
+            status: "active",
+            bodyHtml: "<p>Our story</p>",
+            videoId: "dQw4w9WgXcQ",
+          })
+          .returning({ id: schema.stores.id })
+        storeId = store!.id
+
+        // "Alpha" and "Beta" share sort_order=5 — the tie must resolve by name ASC.
+        const [catA] = await tx
+          .insert(schema.categories)
+          .values({ name: "Alpha", slug: `alpha-${randomUUID().slice(0, 6)}`, sortOrder: 5 })
+          .returning({ id: schema.categories.id })
+        catAId = catA!.id
+        const [catB] = await tx
+          .insert(schema.categories)
+          .values({ name: "Beta", slug: `beta-${randomUUID().slice(0, 6)}`, sortOrder: 5 })
+          .returning({ id: schema.categories.id })
+        catBId = catB!.id
+        // "Zeta" sorts after both by sort_order, proving sort_order wins over name overall.
+        const [catTie] = await tx
+          .insert(schema.categories)
+          .values({ name: "Zeta", slug: `zeta-${randomUUID().slice(0, 6)}`, sortOrder: 20 })
+          .returning({ id: schema.categories.id })
+        catTieId = catTie!.id
+
+        // 9 active products in catTie (cap is 8) to prove hasMore + the cap itself.
+        // 1 active product in catA, 1 in catB, 1 uncategorized, 1 inactive in catA (excluded).
+        const now = Date.now()
+        const rows = [
+          ...Array.from({ length: 9 }, (_, i) => ({
+            name: `Zeta Product ${i}`,
+            categoryId: catTieId,
+            status: "active" as const,
+            createdAt: new Date(now + i * 1000),
+          })),
+          {
+            name: "Alpha Product",
+            categoryId: catAId,
+            status: "active" as const,
+            createdAt: new Date(now),
+          },
+          {
+            name: "Beta Product",
+            categoryId: catBId,
+            status: "active" as const,
+            createdAt: new Date(now),
+          },
+          {
+            name: "No Category Item",
+            categoryId: null,
+            status: "active" as const,
+            createdAt: new Date(now),
+          },
+          {
+            name: "Draft Alpha",
+            categoryId: catAId,
+            status: "draft" as const,
+            createdAt: new Date(now),
+          },
+        ]
+        for (const r of rows) {
+          await tx.insert(schema.products).values({
+            storeId,
+            categoryId: r.categoryId,
+            name: r.name,
+            slug: `${r.name.toLowerCase().replace(/\s+/g, "-")}-${randomUUID().slice(0, 6)}`,
+            status: r.status,
+            createdAt: r.createdAt,
+          })
+        }
+      },
+    )
+  })
+
+  afterAll(async () => {
+    await withAdmin(
+      testDb.db,
+      { userId: SYSTEM_ACTOR, reason: "category grouping test cleanup" },
+      async (tx) => {
+        await tx.delete(schema.products).where(eq(schema.products.storeId, storeId))
+        await tx.delete(schema.categories).where(eq(schema.categories.id, catAId))
+        await tx.delete(schema.categories).where(eq(schema.categories.id, catBId))
+        await tx.delete(schema.categories).where(eq(schema.categories.id, catTieId))
+        await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
+      },
+    )
+    await testDb.close()
+  })
+
+  it("returns store body and video fields", async () => {
+    const page = await getStorePage(storeSlug)
+    expect(page?.store.bodyHtml).toBe("<p>Our story</p>")
+    expect(page?.store.videoId).toBe("dQw4w9WgXcQ")
+  })
+
+  it("excludes draft products from their category section", async () => {
+    const page = await getStorePage(storeSlug)
+    const alpha = page?.categorySections.find((s) => s.category.name === "Alpha")
+    expect(alpha?.products.map((p) => p.name)).not.toContain("Draft Alpha")
+  })
+
+  it("breaks equal sort_order ties by category name ASC (Alpha before Beta)", async () => {
+    const page = await getStorePage(storeSlug)
+    const names = page?.categorySections.map((s) => s.category.name)
+    const alphaIdx = names?.indexOf("Alpha") ?? -1
+    const betaIdx = names?.indexOf("Beta") ?? -1
+    expect(alphaIdx).toBeGreaterThanOrEqual(0)
+    expect(alphaIdx).toBeLessThan(betaIdx)
+  })
+
+  it("orders categories by sort_order overall (Zeta, sort_order=20, comes last)", async () => {
+    const page = await getStorePage(storeSlug)
+    const names = page?.categorySections.map((s) => s.category.name) ?? []
+    expect(names.indexOf("Zeta")).toBe(names.length - 1)
+  })
+
+  it("caps a category's preview at 8 products and reports hasMore", async () => {
+    const page = await getStorePage(storeSlug)
+    const zeta = page?.categorySections.find((s) => s.category.name === "Zeta")
+    expect(zeta?.products).toHaveLength(8)
+    expect(zeta?.hasMore).toBe(true)
+  })
+
+  it("orders products within a category by created_at ASC (oldest first)", async () => {
+    const page = await getStorePage(storeSlug)
+    const zeta = page?.categorySections.find((s) => s.category.name === "Zeta")
+    expect(zeta?.products[0]?.name).toBe("Zeta Product 0")
+  })
+
+  it("a category with only draft products (or no products) does not appear as a section", async () => {
+    const page = await getStorePage(storeSlug)
+    // Alpha has exactly one active product (seeded above) so it does appear; this asserts
+    // the inverse never happens — no section exists with zero products.
+    const empty = page?.categorySections.filter((s) => s.products.length === 0)
+    expect(empty).toHaveLength(0)
+  })
+
+  it("includes an uncategorized bucket for products with no category", async () => {
+    const page = await getStorePage(storeSlug)
+    expect(page?.uncategorized.products.map((p) => p.name)).toContain("No Category Item")
+  })
+
+  it("returns null for an unknown slug", async () => {
+    expect(await getStorePage("does-not-exist-slug")).toBeNull()
   })
 })
