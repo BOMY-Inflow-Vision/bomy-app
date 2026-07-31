@@ -20,6 +20,9 @@ interface ImageUploadOptions {
   onUploadProgress: (pct: number) => void
   onUploadComplete: () => void
   onUploadError: () => void
+  /** Noun used in the max-images alert (e.g. "product body", "brand story"). Defaults to
+   * "product body" so the product editor's existing copy is unchanged. */
+  contentLabel?: string
 }
 
 export const ImageUploadExtension = Node.create<ImageUploadOptions>({
@@ -52,7 +55,8 @@ export const ImageUploadExtension = Node.create<ImageUploadOptions>({
             if (node.type.name === "imageUpload" || node.type.name === "image") imageCount++
           })
           if (imageCount >= MAX_IMAGES) {
-            alert("Maximum 10 images per product body.")
+            const contentLabel = this.options.contentLabel ?? "product body"
+            alert(`Maximum 10 images per ${contentLabel}.`)
             return false
           }
 

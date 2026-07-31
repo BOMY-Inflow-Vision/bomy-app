@@ -225,6 +225,7 @@ export function SettingsForm({
             saveLabel="Save Brand Story"
             conflictNoun="store"
             ariaLabel="Brand story editor"
+            contentLabel="brand story"
           />
         </CardContent>
       </Card>

@@ -1,6 +1,7 @@
 "use server"
 
 import { and, eq, inArray } from "drizzle-orm"
+import { revalidatePath } from "next/cache"
 
 import { schema, withTenant } from "@bomy/db"
 import { extractYoutubeVideoId } from "@bomy/shared/youtube"
@@ -169,15 +170,15 @@ export async function updateStoreVideo(
     }
   }
 
-  let updateError: string | null = null
+  let result: { ok: true; storeSlug: string } | { ok: false; error: string }
 
   try {
-    await withTenant(
+    result = await withTenant(
       getDb(),
       { userId: session.user.id, userRole: session.user.role },
       async (tx) => {
         const [store] = await tx
-          .select({ id: schema.stores.id })
+          .select({ id: schema.stores.id, slug: schema.stores.slug })
           .from(schema.stores)
           .where(
             and(eq(schema.stores.ownerId, session.user.id), eq(schema.stores.status, "active")),
@@ -185,11 +186,10 @@ export async function updateStoreVideo(
           .limit(1)
 
         if (!store) {
-          updateError = "No active store found."
-          return
+          return { ok: false as const, error: "No active store found." }
         }
 
-        await tx
+        const updated = await tx
           .update(schema.stores)
           .set({ videoId, updatedAt: new Date() })
           .where(
@@ -199,12 +199,23 @@ export async function updateStoreVideo(
               eq(schema.stores.status, "active"),
             ),
           )
+          .returning({ id: schema.stores.id })
+
+        if (updated.length === 0) {
+          return { ok: false as const, error: "Update failed." }
+        }
+
+        return { ok: true as const, storeSlug: store.slug }
       },
     )
   } catch {
-    updateError = "Failed to save video URL."
+    return { ok: false, error: "Failed to save video URL." }
   }
 
-  if (updateError) return { ok: false, error: updateError }
+  if (!result.ok) return result
+
+  revalidatePath("/seller/dashboard/settings")
+  revalidatePath(`/brands/${result.storeSlug}`)
+
   return { ok: true }
 }

@@ -13,6 +13,8 @@ vi.mock("next/navigation", () => ({
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 vi.mock("@/auth", () => ({ auth: vi.fn() }))
 
+import { revalidatePath } from "next/cache"
+
 import { auth } from "@/auth"
 import {
   updateStoreSettings,
@@ -25,6 +27,7 @@ const RLS_READY = process.env["BOMY_RLS_READY"] === "1"
 const shouldRun = Boolean(DATABASE_URL) && RLS_READY
 
 const mockAuth = auth as unknown as Mock
+const mockRevalidatePath = revalidatePath as unknown as Mock
 
 function fd(fields: Record<string, string>): FormData {
   const f = new FormData()
@@ -181,11 +184,13 @@ describe.skipIf(!shouldRun)("updateStoreVideo action", () => {
   let testDb: ReturnType<typeof makeDb>
   let sellerId: string
   let storeId: string
+  let storeSlug: string
 
   beforeAll(async () => {
     process.env["DATABASE_URL"] = DATABASE_URL as string
     testDb = makeDb({ url: DATABASE_URL as string })
     sellerId = randomUUID()
+    storeSlug = `video-settings-${randomUUID().slice(0, 8)}`
 
     await withAdmin(
       testDb.db,
@@ -202,7 +207,7 @@ describe.skipIf(!shouldRun)("updateStoreVideo action", () => {
           .values({
             ownerId: sellerId,
             name: "Video Settings Test Store",
-            slug: `video-settings-${randomUUID().slice(0, 8)}`,
+            slug: storeSlug,
             status: "active",
           })
           .returning({ id: schema.stores.id })
@@ -236,6 +241,17 @@ describe.skipIf(!shouldRun)("updateStoreVideo action", () => {
         .where(eq(schema.stores.id, storeId)),
     )
     expect(row?.videoId).toBe("dQw4w9WgXcQ")
+  })
+
+  it("revalidates both the settings page and the public storefront on success", async () => {
+    mockRevalidatePath.mockClear()
+    mockAuth.mockResolvedValueOnce({ user: { id: sellerId, role: "seller_owner" } })
+    const result = await updateStoreVideo(
+      fd({ videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" }),
+    )
+    expect(result).toEqual({ ok: true })
+    expect(mockRevalidatePath).toHaveBeenCalledWith("/seller/dashboard/settings")
+    expect(mockRevalidatePath).toHaveBeenCalledWith(`/brands/${storeSlug}`)
   })
 
   it("rejects an unparseable video URL without writing anything", async () => {

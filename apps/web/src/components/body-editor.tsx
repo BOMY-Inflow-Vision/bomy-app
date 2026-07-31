@@ -71,6 +71,8 @@ interface Props {
   conflictNoun?: string
   /** aria-label on the editor's textbox, announced by screen readers. */
   ariaLabel?: string
+  /** Noun used in the image extension's max-images alert (e.g. "product body", "brand story"). */
+  contentLabel?: string
 }
 
 export function BodyEditor({
@@ -83,6 +85,7 @@ export function BodyEditor({
   saveLabel = "Save Product Details",
   conflictNoun = "product",
   ariaLabel = "Product body editor",
+  contentLabel = "product body",
 }: Props) {
   const [revision, setRevision] = useState(initialRevision)
   const [dirty, setDirty] = useState(false)
@@ -132,6 +135,7 @@ export function BodyEditor({
           })
         },
         getUploadUrl,
+        contentLabel,
       }),
       YoutubeEmbedExtension,
     ],

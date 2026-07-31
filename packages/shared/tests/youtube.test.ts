@@ -64,4 +64,20 @@ describe("extractYoutubeVideoId", () => {
   it("returns null for empty input", () => {
     expect(extractYoutubeVideoId("")).toBeNull()
   })
+
+  it("returns null for a non-YouTube host with a YouTube-shaped ?v= query param", () => {
+    expect(extractYoutubeVideoId("https://example.com/watch?v=dQw4w9WgXcQ")).toBeNull()
+  })
+
+  it("returns null for a non-YouTube host with a YouTube-shaped /embed/ path", () => {
+    expect(extractYoutubeVideoId("https://evil.com/embed/dQw4w9WgXcQ")).toBeNull()
+  })
+
+  it("returns null for a subdomain-suffix attack (youtube.com.evil.com)", () => {
+    expect(extractYoutubeVideoId("https://youtube.com.evil.com/watch?v=dQw4w9WgXcQ")).toBeNull()
+  })
+
+  it("returns null for a path-injection attempt (youtu.be as a path segment on another host)", () => {
+    expect(extractYoutubeVideoId("https://not-youtube.com/youtu.be/dQw4w9WgXcQ")).toBeNull()
+  })
 })

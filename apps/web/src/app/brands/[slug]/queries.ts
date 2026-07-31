@@ -1,13 +1,8 @@
-import { and, asc, eq } from "drizzle-orm"
+import { and, asc, eq, lte, sql } from "drizzle-orm"
 
 import { makeDb, schema, withPublicRead } from "@bomy/db"
 
 const CATEGORY_PREVIEW_CAP = 8
-// Safety cap on the single store-scoped products query, not a per-category cap (that's
-// CATEGORY_PREVIEW_CAP, applied in memory below). Bounds one pathological outlier store
-// (thousands of active products) from blowing up the query; any normal store's full active
-// catalog fits comfortably under this.
-const STORE_PRODUCTS_SAFETY_CAP = 500
 
 let _client: ReturnType<typeof makeDb> | null = null
 function getDb() {
@@ -54,23 +49,48 @@ export async function getStorePage(slug: string) {
       .from(schema.categories)
       .orderBy(asc(schema.categories.sortOrder), asc(schema.categories.name))
 
-    // One bounded, store-scoped query for every active product (instead of one query per
-    // active platform category — that pattern doesn't scale with the platform's total
-    // category count, only this store's actual products). Ordering matches the per-category
-    // guarantee we need (created_at ASC, id ASC), and because we only ever push onto each
-    // group's array in that same order, every group stays sorted without re-sorting.
+    // Rank each of the store's active products within its own category via row_number() OVER
+    // (PARTITION BY category_id ...), then keep only the top CATEGORY_PREVIEW_CAP + 1 rows per
+    // category. This replaces a single globally-capped query (STORE_PRODUCTS_SAFETY_CAP): a
+    // store with more than that many active products could previously lose entire categories
+    // past the truncation point, and hasMore could be wrong for any category whose products
+    // landed partly or fully beyond the cutoff. Postgres partitions category_id IS NULL values
+    // into their own group under PARTITION BY, so the uncategorized bucket is correctly ranked
+    // and capped too — no special-casing needed. Every category's visibility is now independent
+    // of every other category's product count, with no global row cap at all.
+    const ranked = db.$with("ranked").as(
+      db
+        .select({
+          id: schema.products.id,
+          name: schema.products.name,
+          slug: schema.products.slug,
+          coverImageUrl: schema.products.coverImageUrl,
+          categoryId: schema.products.categoryId,
+          rn: sql<number>`row_number() over (partition by ${schema.products.categoryId} order by ${schema.products.createdAt} asc, ${schema.products.id} asc)`.as(
+            "rn",
+          ),
+        })
+        .from(schema.products)
+        .where(and(eq(schema.products.storeId, store.id), eq(schema.products.status, "active"))),
+    )
+
+    // Ordering matches the per-category guarantee we need (rn ASC, which itself encodes
+    // created_at ASC, id ASC within each category): rn increases monotonically within a given
+    // category regardless of how other categories' rows interleave in the result set, so
+    // pushing onto each group's array in this order keeps every group sorted without
+    // re-sorting downstream.
     const allProducts = await db
+      .with(ranked)
       .select({
-        id: schema.products.id,
-        name: schema.products.name,
-        slug: schema.products.slug,
-        coverImageUrl: schema.products.coverImageUrl,
-        categoryId: schema.products.categoryId,
+        id: ranked.id,
+        name: ranked.name,
+        slug: ranked.slug,
+        coverImageUrl: ranked.coverImageUrl,
+        categoryId: ranked.categoryId,
       })
-      .from(schema.products)
-      .where(and(eq(schema.products.storeId, store.id), eq(schema.products.status, "active")))
-      .orderBy(asc(schema.products.createdAt), asc(schema.products.id))
-      .limit(STORE_PRODUCTS_SAFETY_CAP)
+      .from(ranked)
+      .where(lte(ranked.rn, CATEGORY_PREVIEW_CAP + 1))
+      .orderBy(asc(ranked.rn))
 
     const byCategoryId = new Map<string, ProductCard[]>()
     const uncategorizedProducts: ProductCard[] = []

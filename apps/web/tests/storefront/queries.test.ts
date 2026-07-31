@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto"
 
-import { and, eq } from "drizzle-orm"
+import { and, asc, eq } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi, type Mock } from "vitest"
 
 import { makeDb, schema, withAdmin, withPublicRead, withTenant } from "@bomy/db"
@@ -1187,3 +1187,141 @@ describe.skipIf(!shouldRun)("getStorePage — category grouping", () => {
     expect(await getStorePage("does-not-exist-slug")).toBeNull()
   })
 })
+
+describe.skipIf(!shouldRun)(
+  "getStorePage — per-category cap is independent of store-wide product volume (Bob PR #108 review fix)",
+  () => {
+    let testDb: ReturnType<typeof makeDb>
+    let ownerId: string
+    let storeId: string
+    let storeSlug: string
+    let crowdedCatId: string
+    let lateCatId: string
+
+    // A cheap stand-in for the bug this test guards against: the old getStorePage ran ONE query
+    // — `ORDER BY created_at ASC, id ASC LIMIT STORE_PRODUCTS_SAFETY_CAP (500)` — across the
+    // WHOLE store, then grouped by category in memory. A store with more than 500 active
+    // products could lose entire categories past the truncation point. Reproducing that at the
+    // real N=500 isn't necessary (and is slow to seed) — the failure mode is scale-invariant: ANY
+    // single global ORDER BY + LIMIT, however large, can be defeated by putting enough rows in
+    // one category ahead of another. OLD_STYLE_GLOBAL_CAP stands in for that cap at a
+    // cheap-to-seed size, to prove the *mechanism* (a global cap vs. a per-category window) is
+    // what changed, not just the specific historical number 500.
+    const OLD_STYLE_GLOBAL_CAP = 12
+
+    beforeAll(async () => {
+      process.env["DATABASE_URL"] = DATABASE_URL as string
+      testDb = makeDb({ url: DATABASE_URL as string })
+      ownerId = randomUUID()
+      storeSlug = `cap-independence-${randomUUID().slice(0, 8)}`
+
+      await withAdmin(
+        testDb.db,
+        { userId: SYSTEM_ACTOR, reason: "cap independence test seed" },
+        async (tx) => {
+          await tx.insert(schema.users).values({
+            id: ownerId,
+            email: `${ownerId}@test.bomy`,
+            role: "seller_owner",
+            name: "Cap Independence Seller",
+          })
+          const [store] = await tx
+            .insert(schema.stores)
+            .values({ ownerId, name: "Cap Independence Store", slug: storeSlug, status: "active" })
+            .returning({ id: schema.stores.id })
+          storeId = store!.id
+
+          const [crowded] = await tx
+            .insert(schema.categories)
+            .values({ name: "Crowded", slug: `crowded-${randomUUID().slice(0, 6)}`, sortOrder: 1 })
+            .returning({ id: schema.categories.id })
+          crowdedCatId = crowded!.id
+
+          const [late] = await tx
+            .insert(schema.categories)
+            .values({ name: "Late", slug: `late-${randomUUID().slice(0, 6)}`, sortOrder: 2 })
+            .returning({ id: schema.categories.id })
+          lateCatId = late!.id
+
+          const now = Date.now()
+          // Crowded gets exactly OLD_STYLE_GLOBAL_CAP products, all created strictly before
+          // Late's — enough to fully consume a naive global LIMIT on its own.
+          for (let i = 0; i < OLD_STYLE_GLOBAL_CAP; i++) {
+            await tx.insert(schema.products).values({
+              storeId,
+              categoryId: crowdedCatId,
+              name: `Crowded Product ${i}`,
+              slug: `crowded-product-${i}-${randomUUID().slice(0, 6)}`,
+              status: "active",
+              createdAt: new Date(now + i * 1000),
+            })
+          }
+          // Late gets 3 products, all created strictly after every Crowded product.
+          for (let i = 0; i < 3; i++) {
+            await tx.insert(schema.products).values({
+              storeId,
+              categoryId: lateCatId,
+              name: `Late Product ${i}`,
+              slug: `late-product-${i}-${randomUUID().slice(0, 6)}`,
+              status: "active",
+              createdAt: new Date(now + (OLD_STYLE_GLOBAL_CAP + i) * 1000),
+            })
+          }
+        },
+      )
+    })
+
+    afterAll(async () => {
+      await withAdmin(
+        testDb.db,
+        { userId: SYSTEM_ACTOR, reason: "cap independence test cleanup" },
+        async (tx) => {
+          await tx.delete(schema.products).where(eq(schema.products.storeId, storeId))
+          await tx.delete(schema.categories).where(eq(schema.categories.id, crowdedCatId))
+          await tx.delete(schema.categories).where(eq(schema.categories.id, lateCatId))
+          await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
+        },
+      )
+      await testDb.close()
+    })
+
+    it("a naive single global ORDER BY + LIMIT query would have dropped the later category entirely", async () => {
+      // Mirrors the OLD getStorePage query shape exactly (one store-scoped SELECT, ordered by
+      // created_at ASC, id ASC, capped by a single global LIMIT) to prove the bug this fix
+      // targets is real: with Crowded's rows occupying the entire limit, none of Late's rows
+      // make it into the result set at all.
+      const oldStyleRows = await withAdmin(
+        testDb.db,
+        { userId: SYSTEM_ACTOR, reason: "old-style query reproduction" },
+        (tx) =>
+          tx
+            .select({ id: schema.products.id, categoryId: schema.products.categoryId })
+            .from(schema.products)
+            .where(and(eq(schema.products.storeId, storeId), eq(schema.products.status, "active")))
+            .orderBy(asc(schema.products.createdAt), asc(schema.products.id))
+            .limit(OLD_STYLE_GLOBAL_CAP),
+      )
+      expect(oldStyleRows.some((r) => r.categoryId === lateCatId)).toBe(false)
+    })
+
+    it("getStorePage (per-category window function) still returns the later category's products in full", async () => {
+      const page = await getStorePage(storeSlug)
+      const late = page?.categorySections.find((s) => s.category.name === "Late")
+      expect(late).toBeDefined()
+      expect(late?.products.map((p) => p.name)).toEqual([
+        "Late Product 0",
+        "Late Product 1",
+        "Late Product 2",
+      ])
+      expect(late?.hasMore).toBe(false)
+    })
+
+    it("getStorePage still correctly caps and reports hasMore for the crowded category, unaffected by Late's existence", async () => {
+      const page = await getStorePage(storeSlug)
+      const crowded = page?.categorySections.find((s) => s.category.name === "Crowded")
+      expect(crowded).toBeDefined()
+      expect(crowded?.products).toHaveLength(8)
+      expect(crowded?.hasMore).toBe(true)
+    })
+  },
+)
