@@ -1,6 +1,10 @@
-import { describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it } from "vitest"
 
-import { BRAND_STORY_MIN_CHARS, extractPlainText } from "../../src/lib/brand-story-validation"
+import {
+  BRAND_STORY_MIN_CHARS,
+  extractPlainText,
+  validateStoreProvisioning,
+} from "../../src/lib/brand-story-validation"
 
 describe("extractPlainText", () => {
   it("returns plain text unchanged (minus surrounding whitespace)", () => {
@@ -60,5 +64,52 @@ describe("BRAND_STORY_MIN_CHARS gate (as used by callers)", () => {
   it("a short greeting does not clear the bar", () => {
     const text = extractPlainText("<p>Hi there!</p>")
     expect(text.length).toBeLessThan(BRAND_STORY_MIN_CHARS)
+  })
+})
+
+describe("validateStoreProvisioning", () => {
+  const STORE_ID = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+  const VALID_BODY_HTML =
+    "<p>We started making handcrafted candles in a small Penang kitchen in 2019.</p>"
+  const VALID_VIDEO_URL = "https://youtu.be/dQw4w9WgXcQ"
+
+  beforeEach(() => {
+    process.env["S3_PUBLIC_URL"] = "https://cdn.example.com"
+  })
+
+  it("happy path: returns sanitized bodyHtml and videoId", async () => {
+    const result = await validateStoreProvisioning(VALID_BODY_HTML, VALID_VIDEO_URL, STORE_ID)
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.videoId).toBe("dQw4w9WgXcQ")
+      expect(result.bodyHtml).toContain("handcrafted candles")
+    }
+  })
+
+  it("non-string videoUrl (e.g. null from a missing FormData field) is rejected, not thrown", async () => {
+    const result = await validateStoreProvisioning(VALID_BODY_HTML, null, STORE_ID)
+    expect(result).toEqual({ ok: false, error: "A valid YouTube video URL is required." })
+  })
+
+  it("undefined videoUrl is rejected, not thrown", async () => {
+    const result = await validateStoreProvisioning(VALID_BODY_HTML, undefined, STORE_ID)
+    expect(result).toEqual({ ok: false, error: "A valid YouTube video URL is required." })
+  })
+
+  it("non-string bodyHtml (e.g. null from a missing FormData field) is rejected, not thrown", async () => {
+    const result = await validateStoreProvisioning(null, VALID_VIDEO_URL, STORE_ID)
+    expect(result).toEqual({ ok: false, error: "Brand Story is required." })
+  })
+
+  it("Brand Story under the 20-char text floor is rejected", async () => {
+    const result = await validateStoreProvisioning("<p>Hi!</p>", VALID_VIDEO_URL, STORE_ID)
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toMatch(/at least 20 characters/)
+  })
+
+  it("misconfigured S3_PUBLIC_URL is rejected", async () => {
+    process.env["S3_PUBLIC_URL"] = ""
+    const result = await validateStoreProvisioning(VALID_BODY_HTML, VALID_VIDEO_URL, STORE_ID)
+    expect(result).toEqual({ ok: false, error: "Server misconfigured: S3_PUBLIC_URL." })
   })
 })

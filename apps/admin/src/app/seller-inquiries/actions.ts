@@ -6,12 +6,11 @@ import { eq, sql } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 
 import { schema, withAdmin } from "@bomy/db"
-import { extractYoutubeVideoId } from "@bomy/shared/youtube"
 
 import { requireAdminId } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { getMailer } from "@/lib/mailer"
-import { BRAND_STORY_MIN_CHARS, extractPlainText } from "@/lib/brand-story-validation"
+import { validateStoreProvisioning } from "@/lib/brand-story-validation"
 import { sendApprovalEmail } from "@/notifications/seller-inquiry"
 
 type ReviewResult = { ok: true } | { ok: false; error: string }
@@ -48,38 +47,10 @@ export async function approveInquiry(
 ): Promise<ReviewResult> {
   const adminId = await requireAdminId()
 
-  // Pure validation first — no DB, no transaction, fails fast on bad input.
-  // withAdmin only rolls back on a THROWN error, not a returned { ok: false } — so
-  // everything that can reject this request must happen before any INSERT, never after.
-  const videoId = extractYoutubeVideoId(videoUrl.trim())
-  if (!videoId) {
-    return { ok: false, error: "A valid YouTube video URL is required." }
-  }
-
-  const S3_PUBLIC_URL = process.env["S3_PUBLIC_URL"] ?? ""
-  try {
-    const u = new URL(S3_PUBLIC_URL)
-    if (u.protocol !== "https:") throw new Error()
-  } catch {
-    return { ok: false, error: "Server misconfigured: S3_PUBLIC_URL." }
-  }
-
   const storeId = randomUUID()
-  const { normalizeBodyHtml } = await import("@bomy/shared/body-sanitizer")
-  const sanitized = normalizeBodyHtml(bodyHtml, { kind: "store", id: storeId }, S3_PUBLIC_URL)
-  if (!sanitized.ok) {
-    return { ok: false, error: `Brand Story: ${sanitized.error}` }
-  }
-  if (sanitized.canonicalHtml === null) {
-    return { ok: false, error: "Brand Story is required." }
-  }
-  if (extractPlainText(sanitized.canonicalHtml).length < BRAND_STORY_MIN_CHARS) {
-    return {
-      ok: false,
-      error: `Brand Story needs at least ${BRAND_STORY_MIN_CHARS} characters of actual text.`,
-    }
-  }
-  const finalBodyHtml = sanitized.canonicalHtml
+  const validated = await validateStoreProvisioning(bodyHtml, videoUrl, storeId)
+  if (!validated.ok) return { ok: false, error: validated.error }
+  const { bodyHtml: finalBodyHtml, videoId } = validated
 
   let result: ReviewResult | ApprovePayload
   try {
