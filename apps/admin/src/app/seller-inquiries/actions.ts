@@ -1,5 +1,7 @@
 "use server"
 
+import { randomUUID } from "node:crypto"
+
 import { eq, sql } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 
@@ -8,6 +10,7 @@ import { schema, withAdmin } from "@bomy/db"
 import { requireAdminId } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { getMailer } from "@/lib/mailer"
+import { validateStoreProvisioning } from "@/lib/brand-story-validation"
 import { sendApprovalEmail } from "@/notifications/seller-inquiry"
 
 type ReviewResult = { ok: true } | { ok: false; error: string }
@@ -36,8 +39,18 @@ export async function deleteInquiry(inquiryId: string) {
 
 type ApprovePayload = { email: string; name: string | null; storeName: string; finalSlug: string }
 
-export async function approveInquiry(inquiryId: string, slug: string): Promise<ReviewResult> {
+export async function approveInquiry(
+  inquiryId: string,
+  slug: string,
+  bodyHtml: string,
+  videoUrl: string,
+): Promise<ReviewResult> {
   const adminId = await requireAdminId()
+
+  const storeId = randomUUID()
+  const validated = await validateStoreProvisioning(bodyHtml, videoUrl, storeId)
+  if (!validated.ok) return { ok: false, error: validated.error }
+  const { bodyHtml: finalBodyHtml, videoId } = validated
 
   let result: ReviewResult | ApprovePayload
   try {
@@ -107,13 +120,19 @@ export async function approveInquiry(inquiryId: string, slug: string): Promise<R
         const finalSlug = candidate
 
         // 5. Insert store (status=pending; no role flip here — that happens at /stores approveStore).
+        // id/bodyHtml/videoId supplied together in one INSERT — never insert first and update
+        // after, since a bad partial store would otherwise commit if this transaction returned
+        // early instead of throwing.
         const [newStore] = await tx
           .insert(schema.stores)
           .values({
+            id: storeId,
             ownerId: owner.id,
             name: inquiry.storeName,
             slug: finalSlug,
             status: "pending",
+            bodyHtml: finalBodyHtml,
+            videoId,
           })
           .returning({ id: schema.stores.id })
 

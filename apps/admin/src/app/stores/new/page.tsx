@@ -1,12 +1,11 @@
-import Link from "next/link"
 import { redirect } from "next/navigation"
 
 import { requireAdmin } from "@/lib/auth"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { createStore } from "../actions"
+import { StoreProvisioningFields } from "./store-provisioning-fields"
 
 export default async function NewStorePage() {
   await requireAdmin()
@@ -68,12 +67,7 @@ export default async function NewStorePage() {
             placeholder="Brief description of the store"
           />
         </div>
-        <div className="flex gap-3">
-          <Button type="submit">Create Store</Button>
-          <Button variant="outline" asChild>
-            <Link href="/stores">Cancel</Link>
-          </Button>
-        </div>
+        <StoreProvisioningFields />
       </form>
     </div>
   )

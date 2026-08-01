@@ -18,6 +18,9 @@ const DATABASE_URL = process.env["DATABASE_APP_URL"] ?? process.env["DATABASE_UR
 const shouldRun = Boolean(DATABASE_URL) && process.env["BOMY_RLS_READY"] === "1"
 const mockAuth = auth as unknown as Mock
 const mockSendApprovalEmail = sendApprovalEmail as unknown as Mock
+const VALID_BODY_HTML =
+  "<p>We started making handcrafted candles in a small Penang kitchen in 2019, and today we still hand-pour every single batch ourselves.</p>"
+const VALID_VIDEO_URL = "https://youtu.be/dQw4w9WgXcQ"
 
 describe.skipIf(!shouldRun)("seller-inquiry review actions", () => {
   let testDb: ReturnType<typeof makeDb>
@@ -37,6 +40,10 @@ describe.skipIf(!shouldRun)("seller-inquiry review actions", () => {
     ownerId = randomUUID()
     inquiryId = randomUUID()
     createdStoreIds = []
+    // approveInquiry requires a valid https S3_PUBLIC_URL before it will proceed
+    // (misconfigured guard, mirroring apps/web's saveStoreBody) — set it here per the
+    // established convention in apps/web/tests/seller-settings/body-actions.test.ts.
+    process.env["S3_PUBLIC_URL"] = "https://cdn.example.com"
     mockAuth.mockResolvedValue({ user: { id: adminId, role: "bomy_admin" } })
     await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test seed" }, async (tx) => {
       await tx.insert(schema.users).values({
@@ -115,6 +122,8 @@ describe.skipIf(!shouldRun)("seller-inquiry review actions", () => {
             slug: schema.stores.slug,
             status: schema.stores.status,
             ownerId: schema.stores.ownerId,
+            bodyHtml: schema.stores.bodyHtml,
+            videoId: schema.stores.videoId,
           })
           .from(schema.stores)
           .where(eq(schema.stores.ownerId, ownerId))
@@ -139,13 +148,15 @@ describe.skipIf(!shouldRun)("seller-inquiry review actions", () => {
     await seedOwner(email)
     await seedInquiry(email, "Acme Goods")
 
-    const res = await approveInquiry(inquiryId, "acme-goods")
+    const res = await approveInquiry(inquiryId, "acme-goods", VALID_BODY_HTML, VALID_VIDEO_URL)
     expect(res).toEqual({ ok: true })
 
     const stores = await readStoresByOwner()
     expect(stores).toHaveLength(1)
     expect(stores[0]!.status).toBe("pending")
     expect(stores[0]!.slug).toBe("acme-goods")
+    expect(stores[0]!.bodyHtml).toContain("handcrafted candles")
+    expect(stores[0]!.videoId).toBe("dQw4w9WgXcQ")
 
     expect(await readOwnerRole()).toBe("buyer")
 
@@ -194,7 +205,7 @@ describe.skipIf(!shouldRun)("seller-inquiry review actions", () => {
       },
     )
 
-    const res = await approveInquiry(inquiryId, "dup-store")
+    const res = await approveInquiry(inquiryId, "dup-store", VALID_BODY_HTML, VALID_VIDEO_URL)
     expect(res).toEqual({ ok: true })
 
     const stores = await readStoresByOwner()
@@ -212,7 +223,7 @@ describe.skipIf(!shouldRun)("seller-inquiry review actions", () => {
 
   it("no matching user: returns error, creates no store, inquiry stays pending", async () => {
     await seedInquiry(`ghost-${randomUUID()}@test.bomy`, "Ghost Store")
-    const res = await approveInquiry(inquiryId, "ghost-store")
+    const res = await approveInquiry(inquiryId, "ghost-store", VALID_BODY_HTML, VALID_VIDEO_URL)
     expect(res.ok).toBe(false)
     if (!res.ok) expect(res.error).toMatch(/must sign in once/i)
     expect(await readStoresByOwner()).toHaveLength(0)
@@ -235,7 +246,7 @@ describe.skipIf(!shouldRun)("seller-inquiry review actions", () => {
       },
     )
 
-    const res = await approveInquiry(inquiryId, "second-store")
+    const res = await approveInquiry(inquiryId, "second-store", VALID_BODY_HTML, VALID_VIDEO_URL)
     expect(res).toEqual({ ok: false, error: "Applicant already owns a store" })
     expect(await readStoresByOwner()).toHaveLength(1)
     expect((await readInquiry())?.status).toBe("pending")
@@ -245,7 +256,7 @@ describe.skipIf(!shouldRun)("seller-inquiry review actions", () => {
     const email = `seller-${ownerId}@test.bomy`
     await seedOwner(email)
     await seedInquiry(email, "Once Store", "approved")
-    const res = await approveInquiry(inquiryId, "once-store")
+    const res = await approveInquiry(inquiryId, "once-store", VALID_BODY_HTML, VALID_VIDEO_URL)
     expect(res).toEqual({ ok: false, error: "Already reviewed" })
     expect(await readStoresByOwner()).toHaveLength(0)
   })
@@ -254,13 +265,13 @@ describe.skipIf(!shouldRun)("seller-inquiry review actions", () => {
     const email = `seller-${ownerId}@test.bomy`
     await seedOwner(email)
     await seedInquiry(email, "Rejected Store", "rejected")
-    const res = await approveInquiry(inquiryId, "rejected-store")
+    const res = await approveInquiry(inquiryId, "rejected-store", VALID_BODY_HTML, VALID_VIDEO_URL)
     expect(res).toEqual({ ok: false, error: "Already reviewed" })
     expect(await readStoresByOwner()).toHaveLength(0)
   })
 
   it("not found: random id returns error", async () => {
-    const res = await approveInquiry(randomUUID(), "whatever")
+    const res = await approveInquiry(randomUUID(), "whatever", VALID_BODY_HTML, VALID_VIDEO_URL)
     expect(res).toEqual({ ok: false, error: "Inquiry not found" })
   })
 
@@ -296,5 +307,53 @@ describe.skipIf(!shouldRun)("seller-inquiry review actions", () => {
   it("reject not found: random id returns error", async () => {
     const res = await rejectInquiry(randomUUID())
     expect(res).toEqual({ ok: false, error: "Inquiry not found" })
+  })
+
+  it("empty Brand Story: rejected before any DB write, no store created", async () => {
+    const email = `seller-${ownerId}@test.bomy`
+    await seedOwner(email)
+    await seedInquiry(email, "Empty Story Co")
+    const res = await approveInquiry(inquiryId, "empty-story-co", "<p></p>", VALID_VIDEO_URL)
+    expect(res.ok).toBe(false)
+    if (!res.ok) expect(res.error).toBe("Brand Story is required.")
+    expect(await readStoresByOwner()).toHaveLength(0)
+    expect((await readInquiry())?.status).toBe("pending")
+  })
+
+  it("Brand Story under the 20-char text floor (image-only): rejected, no store created", async () => {
+    const email = `seller-${ownerId}@test.bomy`
+    await seedOwner(email)
+    await seedInquiry(email, "Image Only Co")
+    const imageOnlyHtml = `<img src="https://pub.r2.example.com/body/stores/${randomUUID()}/${randomUUID()}.jpg" alt="a photo" />`
+    const res = await approveInquiry(inquiryId, "image-only-co", imageOnlyHtml, VALID_VIDEO_URL)
+    expect(res.ok).toBe(false)
+    if (!res.ok) expect(res.error).toMatch(/at least 20 characters/)
+    expect(await readStoresByOwner()).toHaveLength(0)
+    expect((await readInquiry())?.status).toBe("pending")
+  })
+
+  it("missing Video URL: rejected before any DB write, no store created", async () => {
+    const email = `seller-${ownerId}@test.bomy`
+    await seedOwner(email)
+    await seedInquiry(email, "No Video Co")
+    const res = await approveInquiry(inquiryId, "no-video-co", VALID_BODY_HTML, "")
+    expect(res).toEqual({ ok: false, error: "A valid YouTube video URL is required." })
+    expect(await readStoresByOwner()).toHaveLength(0)
+    expect((await readInquiry())?.status).toBe("pending")
+  })
+
+  it("invalid Video URL (non-YouTube host): rejected, no store created", async () => {
+    const email = `seller-${ownerId}@test.bomy`
+    await seedOwner(email)
+    await seedInquiry(email, "Bad Video Co")
+    const res = await approveInquiry(
+      inquiryId,
+      "bad-video-co",
+      VALID_BODY_HTML,
+      "https://example.com/watch?v=dQw4w9WgXcQ",
+    )
+    expect(res).toEqual({ ok: false, error: "A valid YouTube video URL is required." })
+    expect(await readStoresByOwner()).toHaveLength(0)
+    expect((await readInquiry())?.status).toBe("pending")
   })
 })

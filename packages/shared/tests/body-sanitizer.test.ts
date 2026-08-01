@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { normalizeBodyHtml } from "../../src/lib/body-sanitizer"
+import { normalizeBodyHtml } from "../src/body-sanitizer.js"
 
 const R2 = "https://pub.r2.example.com"
 const PID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"

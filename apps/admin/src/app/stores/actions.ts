@@ -1,5 +1,7 @@
 "use server"
 
+import { randomUUID } from "node:crypto"
+
 import { eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 
@@ -7,6 +9,7 @@ import { schema, withAdmin } from "@bomy/db"
 
 import { requireAdminId } from "@/lib/auth"
 import { getDb } from "@/lib/db"
+import { validateStoreProvisioning } from "@/lib/brand-story-validation"
 
 export async function approveStore(storeId: string) {
   const adminId = await requireAdminId()
@@ -46,8 +49,15 @@ export async function createStore(formData: FormData) {
   const name = formData.get("name") as string
   const slug = formData.get("slug") as string
   const description = (formData.get("description") as string) || null
+  const bodyHtml = formData.get("bodyHtml")
+  const videoUrl = formData.get("videoUrl")
 
   if (!ownerEmail || !name || !slug) throw new Error("Missing required fields")
+
+  const storeId = randomUUID()
+  const validated = await validateStoreProvisioning(bodyHtml, videoUrl, storeId)
+  if (!validated.ok) throw new Error(validated.error)
+  const { bodyHtml: finalBodyHtml, videoId } = validated
 
   await withAdmin(getDb(), { userId: adminId, reason: "admin create store" }, async (tx) => {
     const [owner] = await tx
@@ -65,12 +75,17 @@ export async function createStore(formData: FormData) {
       .limit(1)
     if (existingStore.length > 0) throw new Error("Owner already has a store")
 
+    // id/bodyHtml/videoId supplied together in one INSERT — never insert first and update
+    // after (same partial-commit hazard as approveInquiry).
     await tx.insert(schema.stores).values({
+      id: storeId,
       ownerId: owner.id,
       name,
       slug,
       description,
       status: "active",
+      bodyHtml: finalBodyHtml,
+      videoId,
     })
     await tx
       .update(schema.users)
