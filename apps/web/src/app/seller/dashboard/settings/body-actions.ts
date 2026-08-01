@@ -75,7 +75,7 @@ export async function saveStoreBody(
     if (!store) return { ok: false as const, error: "not_found" }
     if (store.bodyRevision !== revision) return { ok: false as const, error: "conflict" }
 
-    const { normalizeBodyHtml } = await import("@/lib/body-sanitizer")
+    const { normalizeBodyHtml } = await import("@bomy/shared/body-sanitizer")
     const normalized = normalizeBodyHtml(bodyHtml, { kind: "store", id: store.id }, S3_PUBLIC_URL)
     if (!normalized.ok) return normalized
     const { canonicalHtml } = normalized

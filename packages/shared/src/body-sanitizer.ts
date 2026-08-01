@@ -3,9 +3,9 @@ import "server-only"
 import sanitizeHtml from "sanitize-html"
 import { parse } from "node-html-parser"
 
-import { classifyImageUrl } from "@bomy/shared"
-import type { BodyImageScope } from "@bomy/shared"
-import { YOUTUBE_VIDEO_ID_RE } from "@bomy/shared/youtube"
+import { classifyImageUrl } from "./body-image-keys.js"
+import type { BodyImageScope } from "./body-image-keys.js"
+import { YOUTUBE_VIDEO_ID_RE } from "./youtube.js"
 
 // sanitize-html is the security boundary — it uses a spec-compliant HTML parser
 // (parse5) so its tree matches what browsers build. node-html-parser is used

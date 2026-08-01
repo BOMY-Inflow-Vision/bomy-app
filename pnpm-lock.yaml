@@ -428,6 +428,12 @@ importers:
       node-html-parser:
         specifier: ^6.1.13
         version: 6.1.13
+      sanitize-html:
+        specifier: ^2.17.5
+        version: 2.17.5
+      server-only:
+        specifier: ^0.0.1
+        version: 0.0.1
     devDependencies:
       '@bomy/config':
         specifier: workspace:*
@@ -435,6 +441,9 @@ importers:
       '@types/node':
         specifier: ^20.17.0
         version: 20.19.39
+      '@types/sanitize-html':
+        specifier: ^2.16.1
+        version: 2.16.1
       typescript:
         specifier: ^5.8.3
         version: 5.9.3

@@ -771,7 +771,7 @@ export async function saveProductBody(
   } catch {
     return { ok: false, error: "misconfigured" }
   }
-  const { normalizeBodyHtml } = await import("@/lib/body-sanitizer")
+  const { normalizeBodyHtml } = await import("@bomy/shared/body-sanitizer")
   const normalized = normalizeBodyHtml(bodyHtml, { kind: "product", id: productId }, S3_PUBLIC_URL)
   if (!normalized.ok) return normalized
   const { canonicalHtml } = normalized

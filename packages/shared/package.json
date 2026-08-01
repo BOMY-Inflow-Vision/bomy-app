@@ -5,14 +5,18 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./youtube": "./src/youtube.ts"
+    "./youtube": "./src/youtube.ts",
+    "./body-sanitizer": "./src/body-sanitizer.ts"
   },
   "dependencies": {
-    "node-html-parser": "^6.1.13"
+    "node-html-parser": "^6.1.13",
+    "sanitize-html": "^2.17.5",
+    "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@bomy/config": "workspace:*",
     "@types/node": "^20.17.0",
+    "@types/sanitize-html": "^2.16.1",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.32.1",
     "vitest": "^2.1.9"
