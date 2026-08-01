@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { createStore } from "../actions"
+import { StoreBodyField } from "./store-body-field"
 
 export default async function NewStorePage() {
   await requireAdmin()
@@ -66,6 +67,22 @@ export default async function NewStorePage() {
             name="description"
             rows={3}
             placeholder="Brief description of the store"
+          />
+        </div>
+        <div>
+          <Label className="mb-1 block">Brand Story *</Label>
+          <StoreBodyField />
+        </div>
+        <div>
+          <Label htmlFor="videoUrl" className="mb-1 block">
+            Video URL *
+          </Label>
+          <Input
+            id="videoUrl"
+            name="videoUrl"
+            type="url"
+            required
+            placeholder="https://www.youtube.com/watch?v=..."
           />
         </div>
         <div className="flex gap-3">
