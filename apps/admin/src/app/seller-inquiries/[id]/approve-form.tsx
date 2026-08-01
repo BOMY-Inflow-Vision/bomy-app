@@ -5,6 +5,7 @@ import { useState, useTransition } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { BrandStoryField } from "@/components/brand-story-field"
 import { approveInquiry, rejectInquiry } from "../actions"
 
 function slugify(name: string): string {
@@ -25,8 +26,13 @@ export function ApproveForm({
   defaultSlug: string
 }) {
   const [slug, setSlug] = useState(slugify(defaultSlug))
+  const [bodyHtml, setBodyHtml] = useState("")
+  const [videoUrl, setVideoUrl] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
+
+  // Client-side gate is UX only — approveInquiry re-validates authoritatively.
+  const canApprove = bodyHtml.trim().length > 0 && videoUrl.trim().length > 0 && !pending
 
   return (
     <div className="space-y-3 rounded-lg border border-border bg-background p-4">
@@ -42,14 +48,30 @@ export function ApproveForm({
           className="font-mono"
         />
       </div>
+      <div>
+        <Label className="mb-1 block">Brand Story *</Label>
+        <BrandStoryField value={bodyHtml} onChange={setBodyHtml} ariaLabel="Brand story editor" />
+      </div>
+      <div>
+        <Label htmlFor="video-url" className="mb-1 block">
+          Video URL *
+        </Label>
+        <Input
+          id="video-url"
+          type="url"
+          value={videoUrl}
+          onChange={(e) => setVideoUrl(e.target.value)}
+          placeholder="https://www.youtube.com/watch?v=..."
+        />
+      </div>
       <div className="flex gap-2">
         <Button
           type="button"
-          disabled={pending}
+          disabled={!canApprove}
           onClick={() =>
             startTransition(async () => {
               setError(null)
-              const res = await approveInquiry(inquiryId, slug)
+              const res = await approveInquiry(inquiryId, slug, bodyHtml, videoUrl)
               if (!res.ok) setError(res.error)
             })
           }
