@@ -53,12 +53,27 @@ importers:
       '@bomy/mailer':
         specifier: workspace:*
         version: link:../../packages/mailer
+      '@bomy/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@radix-ui/react-label':
         specifier: ^2.1.0
         version: 2.1.11(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       '@radix-ui/react-slot':
         specifier: ^1.1.0
         version: 1.3.0(@types/react@19.2.14)(react@19.2.5)
+      '@tiptap/core':
+        specifier: 3.27.1
+        version: 3.27.1(@tiptap/pm@3.27.1)
+      '@tiptap/extension-table':
+        specifier: 3.27.1
+        version: 3.27.1(@tiptap/core@3.27.1(@tiptap/pm@3.27.1))(@tiptap/pm@3.27.1)
+      '@tiptap/react':
+        specifier: 3.27.1
+        version: 3.27.1(@floating-ui/dom@1.7.6)(@tiptap/core@3.27.1(@tiptap/pm@3.27.1))(@tiptap/pm@3.27.1)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      '@tiptap/starter-kit':
+        specifier: 3.27.1
+        version: 3.27.1
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -77,6 +92,9 @@ importers:
       next-auth:
         specifier: ^5.0.0-beta.25
         version: 5.0.0-beta.31(next@15.5.15(@opentelemetry/api@1.9.1)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(react@19.2.5)
+      node-html-parser:
+        specifier: ^6.1.13
+        version: 6.1.13
       react:
         specifier: ^19.1.0
         version: 19.2.5
