@@ -108,6 +108,9 @@ importers:
       '@bomy/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@tailwindcss/typography':
+        specifier: ^0.5.20
+        version: 0.5.20(tailwindcss@3.4.19(tsx@4.21.0)(yaml@2.8.3))
       '@types/node':
         specifier: ^20.17.0
         version: 20.19.39
