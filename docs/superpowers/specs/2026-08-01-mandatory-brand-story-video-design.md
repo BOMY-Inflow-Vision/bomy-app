@@ -4,6 +4,17 @@
 partial-commit bug in the original draft (see §3) — folded in below along with every other
 finding from that pass.
 
+> **Post-implementation note:** this document is the pre-implementation design as approved — kept
+> as the accurate historical record, not retroactively rewritten to match the final shipped code.
+> Two known divergences from what actually shipped, called out here so a future reader isn't misled:
+> (1) §5's "no client-side gating on `/stores/new`" was the original decision, but the final
+> whole-branch review (after this spec was approved) added a live client-side character-count/
+> video-validity hint with a disabled submit button — server validation stayed the sole
+> authoritative gate, this was UX-only; (2) the shipped file is
+> `apps/admin/src/app/stores/new/store-provisioning-fields.tsx`, not `store-body-field.tsx` as
+> referenced below — renamed during that same fix wave once it grew beyond "just the body field."
+> Full detail on both: `log/2026-08-02_PR109_mandatory-brand-story-video.md`.
+
 ## Summary
 
 Both admin paths that create a `stores` row — seller-inquiry approval
@@ -22,6 +33,11 @@ migration `0028_store_body_video.sql`, applied locally and in CI. **`.andy/hando
 working again in prod (which needs `body_html` to exist), which is evidence the migration likely ran,
 but the handoff was never updated with that evidence, so this spec treats prod status as
 **unconfirmed** and makes verifying/applying it an explicit pre-flight step (§8) — not an assumption.
+**Post-implementation update:** resolved before this feature branched — both migrations are
+confirmed applied to prod Neon, and `.andy/handoff.md` now reflects that. See §8's own
+post-implementation note and the PR #109 log (`log/2026-08-02_PR109_mandatory-brand-story-video.md`)
+for how. Left the original unconfirmed framing above intact as the accurate pre-implementation
+snapshot — see this document's top-of-file status note.
 
 ## 1. Shared sanitizer relocation
 
@@ -241,7 +257,7 @@ upload signing, but it does need this one var, read-only, for that origin compar
   # Public URL of the R2 bucket (must match apps/web's S3_PUBLIC_URL) — used only to classify
   # pasted image URLs in the Brand Story editor as same-origin vs external. No upload signing
   # happens in admin, so no other S3_* vars are needed here.
-  # S3_PUBLIC_URL=https://media.brandsofmalaysia.com
+  # S3_PUBLIC_URL=https://cdn.brandsofmalaysia.com
   ```
 - Vercel: add `S3_PUBLIC_URL` to the `bomy-app-admin` project's env (Preview + Production) — an ops
   step in the implementation plan, called out explicitly so it isn't missed at deploy time.
@@ -300,6 +316,12 @@ Explicitly **not** in scope, and why:
   seller's own Settings page, none of which this spec addresses.
 
 ## 8. Deployment note
+
+> **Post-implementation update:** resolved. Both migrations were confirmed applied to prod Neon
+> during this same working session, before this feature's implementation branch was even created —
+> `.andy/handoff.md` now records this as closed, not open. The paragraph below is the original
+> pre-implementation deployment gate as written; kept verbatim as the accurate historical record of
+> what this spec required before shipping, not as a currently-open blocker.
 
 This feature **depends on migration `0028`** (`stores.body_html`/`stores.video_id`) being applied to
 prod Neon. `.andy/handoff.md` currently records 0028/0029 as **not applied to prod** — that is the

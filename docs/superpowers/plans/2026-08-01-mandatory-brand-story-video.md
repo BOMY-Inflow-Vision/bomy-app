@@ -2,6 +2,21 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Post-implementation note:** this plan is the pre-implementation task breakdown as executed —
+> kept as the accurate historical record (checkboxes were never retroactively checked off; the SDD
+> ledger and the PR log are the authoritative "what actually happened" record, not this file). Known
+> divergences from final shipped code: (1) Task 7's `/stores/new` shipped with **no** client-side
+> gating originally, matching this plan — the final whole-branch review then added a live
+> character-count/video-validity hint with a disabled submit button as a post-merge fix, which this
+> plan's Task 7 text does not describe; (2) that same fix renamed the shipped file from
+> `store-body-field.tsx` (as written throughout Task 7 below) to `store-provisioning-fields.tsx`;
+> (3) `S3_PUBLIC_URL`'s example default below is `cdn.brandsofmalaysia.com` (corrected — the
+> original draft used a wrong placeholder, `media.brandsofmalaysia.com`, caught and fixed post-merge
+> in PR #110); (4) Task 8's migration/env pre-flight is fully resolved — see that task's own
+> post-implementation note. Full detail on all of the above:
+> `log/2026-08-02_PR109_mandatory-brand-story-video.md` and its same-day follow-up PR logs
+> (`log/2026-08-02_PR110*.md` through `PR114*.md`).
+
 **Goal:** Both admin store-creation paths (seller-inquiry approval, direct manual creation) require a
 real Brand Story and Video before a store can be provisioned, so every seller launches with content
 already on their public storefront and Settings page instead of a blank one.
@@ -796,7 +811,7 @@ Expected: lockfile updates, no errors.
 # Public URL of the R2 bucket (must match apps/web's S3_PUBLIC_URL) — used only to
 # classify pasted image URLs in the Brand Story editor as same-origin vs external.
 # No upload signing happens in admin, so no other S3_* vars are needed here.
-# S3_PUBLIC_URL=https://media.brandsofmalaysia.com
+# S3_PUBLIC_URL=https://cdn.brandsofmalaysia.com
 ```
 
 Root `app/.env.example` — in the `apps/admin` section (starts at the
@@ -813,7 +828,7 @@ block for that section, add:
 # plain http://localhost:9000 MinIO URL for its own S3_PUBLIC_URL — that value would
 # trip this same https-only guard if reused here, so admin needs its own https
 # placeholder rather than copying that one.
-# S3_PUBLIC_URL=https://media.brandsofmalaysia.com
+# S3_PUBLIC_URL=https://cdn.brandsofmalaysia.com
 ```
 
 Kept commented-out (like the app-local `.env.example` entry) rather than given an active default,
@@ -2713,6 +2728,13 @@ Co-Authored-By: Claude <claude-sonnet-5> <noreply@anthropic.com>"
 
 ### Task 8: Pre-flight — verify/apply migration 0028 on prod, set Vercel env
 
+> **Post-implementation update: fully resolved.** Migrations 0028/0029 confirmed applied to prod
+> Neon (resolved before this feature's branch was even created — see the PR #109 log for how).
+> `S3_PUBLIC_URL` set on `bomy-app-admin` in Vercel to the real `cdn.brandsofmalaysia.com` origin,
+> redeployed, and live-verified end-to-end on `admin.brandsofmalaysia.com`. `.andy/handoff.md`
+> updated with real evidence. Steps below are the original operator checklist as written, kept for
+> reference — not an open task.
+
 **This is an operator task, run by Charlie — not code.** Per this project's standing convention
 (`app/.andy/handoff.md`, `docs/runbooks/public-deployment-cutover.md` step 3: "Operator shell only.
 Do NOT run migrations from Vercel build hooks"), prod DB credentials never enter an agent-driven
@@ -2770,7 +2792,7 @@ own `S3_PUBLIC_URL` (tightened from "same value" — the code does an origin com
 two apps' values is harmless, but a _host_ difference would silently change which pasted image URLs
 each app accepts as "managed," and the two apps would disagree with each other about the same
 images). The repo default committed in both `.env.example` files is
-`https://media.brandsofmalaysia.com` — use that exact origin unless the real R2 public URL differs.
+`https://cdn.brandsofmalaysia.com` — use that exact origin unless the real R2 public URL differs.
 
 - [ ] **Step 4: Update `.andy/handoff.md` with real evidence**
 
