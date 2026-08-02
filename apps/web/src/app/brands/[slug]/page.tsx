@@ -60,11 +60,13 @@ export default async function StorePage({ params }: Props) {
 
       <div className="mb-12 grid grid-cols-1 gap-8 md:grid-cols-2">
         <div>
-          <h2 className="mb-4 text-lg font-semibold text-foreground">Our Story</h2>
           {store.bodyHtml && (
-            <div className="prose prose-sm max-w-none text-foreground">
-              <BodyRenderer html={store.bodyHtml} />
-            </div>
+            <>
+              <h2 className="mb-4 text-lg font-semibold text-foreground">Our Story</h2>
+              <div className="prose prose-sm max-w-none text-foreground">
+                <BodyRenderer html={store.bodyHtml} />
+              </div>
+            </>
           )}
         </div>
         <div className="flex flex-col gap-4">
