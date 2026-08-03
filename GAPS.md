@@ -154,9 +154,22 @@
   happened. Risk: if one copy were ever fixed/tightened and the other wasn't, the membership path
   and the order path would disagree on what a valid amount is.
 
-## 6. Documentation drift in load-bearing files · TECH DEBT, MEDIUM
+## 6. ~~Documentation drift in load-bearing files~~ · CLOSED · TECH DEBT, MEDIUM
 
-- **What / where:**
+- **Status (2026-08-03): CLOSED.** `README.md` description/status rewritten to match current
+  state (live in prod, Stages 1–5 complete, `checkout_enabled` gate noted) and now links
+  `PROJECT.md`/`GAPS.md`; quickstart gained the missing `apps/admin` env-copy + migrate steps.
+  Root `.env.example` synced against actual `process.env` reads across `apps`/`packages`: added
+  `MAIL_FROM_NOREPLY`, `BOMY_OPS_DIAGNOSTIC_TOKEN`, `AUTH_URL`, `WEB_BASE_URL`/`API_BASE_URL`
+  (checkout-only); the `apps/admin` section was missing `AUTH_SECRET`/`AUTH_GOOGLE_ID`/
+  `AUTH_GOOGLE_SECRET`/`AUTH_URL`/`HITPAY_API_KEY`/`HITPAY_API_URL`/`NEXT_PUBLIC_API_URL` entirely —
+  added. The disabled Facebook provider's vars were also misnamed (`AUTH_META_ID/SECRET`; the code
+  and `turbo.json` both use `AUTH_FACEBOOK_*`) — corrected, with a note that no provider is
+  registered (GAPS #12). `apps/web/.env.local.example` got the same `MAIL_FROM_NOREPLY`/
+  `WEB_BASE_URL`/`API_BASE_URL`/Facebook-disabled additions directly, not just at the root
+  reference. `CLAUDE.md` was already fixed in the original 2026-07-07 pass. See GAPS #15 (closed
+  alongside this) for the `bomy.my` domain half.
+- **What / where (original):**
   - `README.md` — says "Status: Stage 1 complete… Next: PR #8 (CI)" (reality: PR #87, live in prod)
     and uses the abandoned `bomy.my` domain in examples.
   - `.env.example` — missing `MAIL_FROM_NOREPLY` (used by `apps/web/src/auth.ts`),
@@ -252,8 +265,9 @@
 
 - **`sessions` table** — JWT strategy means it accumulates no rows; still wired into the adapter.
   Harmless, but a future reader will assume DB sessions exist. Fix: comment on the schema file.
-- **Facebook OAuth** — envs (`AUTH_FACEBOOK_*` in `turbo.json`, `AUTH_META_*` in `.env.example`)
-  and no provider; Meta app review parked. Fix: one comment in `.env.example`.
+- **Facebook OAuth** — envs (`AUTH_FACEBOOK_*` in `turbo.json` and, since GAPS #6's fix,
+  `.env.example` too) and no provider; Meta app review parked. Fix: done — GAPS #6 added the
+  disabled-provider note.
 - **Duplicate-charge "dismiss" workflow** — PR #72 deferred it; false positives need manual SQL.
   Fix: add a `dismiss` server action + button on the reconciliation page (pattern exists in
   `apps/admin/src/app/payouts/reconciliation/`).
@@ -296,13 +310,17 @@ hitpay_payment_id/hitpay_refund_id`), and the runtime is HitPay-only: `packages/
   `packages/psp` wrapping `@bomy/hitpay`; (c) replace `paymentsEnabled()`'s env sniff with a
   `platform_config.active_psp` read (the `platform_config` + admin `/config` page pattern already exists).
 
-## 15. Naming inconsistency: `bomy.my` vs `brandsofmalaysia.com` · CONSISTENCY, LOW
+## 15. ~~Naming inconsistency: `bomy.my` vs `brandsofmalaysia.com`~~ · CLOSED · CONSISTENCY, LOW
 
-- **What:** The domain pivoted (PR #46) but `bomy.my` lingers in `.env.example` (`MAIL_FROM`),
-  README, and older comments; `MAIL_FROM` defaults in code now use `contact@brandsofmalaysia.com`.
-- **Why it matters:** An agent copying `.env.example` into a new environment would configure a
+- **Status (2026-08-03): CLOSED**, alongside GAPS #6. All three `MAIL_FROM` examples in root
+  `.env.example` (`apps/api`, `apps/web`, `apps/admin` sections) updated from
+  `noreply@bomy.my` to `noreply@brandsofmalaysia.com`, matching the code defaults and prod. No
+  remaining `bomy.my` references outside this file's own historical description of the gap.
+- **What (original):** The domain pivoted (PR #46) but `bomy.my` lingered in `.env.example`
+  (`MAIL_FROM`), README, and older comments; `MAIL_FROM` defaults in code now use
+  `contact@brandsofmalaysia.com`.
+- **Why it mattered:** An agent copying `.env.example` into a new environment would configure a
   sender domain that no longer has SPF/DKIM.
-- **Fix:** covered by gap #6's `.env.example` sync.
 
 ## 16. ~~`bomy_app`'s entire privilege baseline is unreproducible from migrations~~ · CLOSED · FRAGILE, MEDIUM
 
