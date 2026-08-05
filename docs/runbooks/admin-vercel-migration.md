@@ -84,7 +84,9 @@ every env var in `turbo.json` is then being handled differently than this runboo
       dedicated **Team BOMY** on Pro at go-live).
 - [ ] You can edit **Cloudflare DNS** for `brandsofmalaysia.com`.
 - [ ] You can edit the **admin Google OAuth client** in Google Cloud Console (the one supplying
-      `AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET` to the admin service).
+      `AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET` to the admin service) — this is a **dedicated client,
+      separate from `apps/web`'s** (confirmed PR #116, `c43f45d`), so it will not appear alongside
+      web's redirect URIs/origins in the console.
 - [ ] Admin is currently reachable on Railway: `curl -sI https://admin.brandsofmalaysia.com/` → `307`.
 - [ ] **Record the current DNS state as rollback evidence** — before touching anything.
 

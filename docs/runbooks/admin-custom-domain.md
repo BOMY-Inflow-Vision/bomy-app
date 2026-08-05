@@ -121,12 +121,14 @@ working, independent of the domain:
 1. **`AUTH_GOOGLE_ID` + `AUTH_GOOGLE_SECRET` must be set on the admin Railway
    service.** `auth.config.ts` uses `providers: [Google]` with no explicit
    creds, so NextAuth v5 auto-reads these env vars. If unset, Google returns
-   **`invalid_client` / "OAuth client was not found"** (empty client_id). Fix:
-   reuse the web app's existing Google OAuth client — copy its ID/secret from
-   Vercel (`bomy-web`) into Railway, and add **both** redirect URIs to that one
-   client (`https://brandsofmalaysia.com/...` and
-   `https://admin.brandsofmalaysia.com/api/auth/callback/google`). Admin access
-   is still role-gated separately, so sharing the identity client is safe.
+   **`invalid_client` / "OAuth client was not found"** (empty client_id).
+   **`apps/admin` uses its own dedicated Google OAuth client — a separate
+   `client_id`, with `redirect_uris`/`javascript_origins` scoped only to the
+   admin domain, never shared with `apps/web`** (confirmed by Charlie against
+   the real client JSON in Google Cloud Console; see PR #116, `c43f45d`). Fix:
+   pull the admin client's own ID/secret from Google Cloud Console into
+   Railway — do not reuse `apps/web`'s client. Admin access is separately
+   role-gated regardless of which client backs sign-in.
 
 2. **`DATABASE_URL` must be the UNPOOLED/direct Neon endpoint.** The NextAuth
    adapter connects via `makeAuthDb()`, which sets the `app.bypass_rls` startup
