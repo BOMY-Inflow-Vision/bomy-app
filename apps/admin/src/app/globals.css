@@ -4,24 +4,25 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
+    --background: 40 60% 98%; /* sand-50 */
+    --foreground: 231 49% 15%; /* navy-900 */
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --primary: 243 75% 59%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 226 100% 97%;
-    --accent-foreground: 237 64% 40%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 243 75% 59%;
-    --radius: 0.5rem;
+    --card-foreground: 231 49% 15%;
+    --primary: 4 71% 43%; /* red-600 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 37 45% 94%; /* sand-100 */
+    --secondary-foreground: 231 49% 15%;
+    --muted: 37 45% 94%; /* sand-100 */
+    --muted-foreground: 34 19% 36%; /* sand-600 */
+    --accent: 5 73% 97%; /* red-50 — see apps/web/src/app/globals.css's note on the
+      docs/design-system/README.md typo (5 5% 97% is wrong; this is the corrected value) */
+    --accent-foreground: 4 71% 43%; /* red-600 */
+    --destructive: 4 71% 43%; /* red-600 */
+    --destructive-foreground: 0 0% 100%;
+    --border: 35 30% 81%; /* sand-300 */
+    --input: 35 30% 81%; /* sand-300 */
+    --ring: 4 64% 51%; /* red-500 */
+    --radius: 0.625rem; /* was 0.5rem */
   }
 }
 
