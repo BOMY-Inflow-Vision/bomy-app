@@ -36,7 +36,7 @@ export function MembershipActivationPoller({ initialActive, pendingFresh }: Prop
 
   if (initialActive) {
     return (
-      <Card className="w-full max-w-md rounded-2xl text-center">
+      <Card className="w-full max-w-lg rounded-2xl text-center">
         <CardContent className="p-10">
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-green-50">
             <svg
@@ -70,7 +70,7 @@ export function MembershipActivationPoller({ initialActive, pendingFresh }: Prop
   // received — and give the user a real way out instead of a redirect loop.
   if (timedOut || !pendingFresh) {
     return (
-      <Card className="w-full max-w-md rounded-2xl text-center">
+      <Card className="w-full max-w-lg rounded-2xl text-center">
         <CardContent className="p-10">
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-amber-50">
             <svg
@@ -113,7 +113,7 @@ export function MembershipActivationPoller({ initialActive, pendingFresh }: Prop
   }
 
   return (
-    <Card className="w-full max-w-md rounded-2xl text-center">
+    <Card className="w-full max-w-lg rounded-2xl text-center">
       <CardContent className="p-10">
         <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-amber-50">
           <svg
