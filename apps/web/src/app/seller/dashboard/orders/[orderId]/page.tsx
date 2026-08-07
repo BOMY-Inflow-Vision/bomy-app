@@ -43,7 +43,7 @@ export default async function SellerOrderDetailPage({ params }: Props) {
   if (!order) notFound()
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8">
+    <div className="p-8">
       <a
         href="/seller/dashboard/orders"
         className="mb-6 block text-sm text-primary hover:underline"

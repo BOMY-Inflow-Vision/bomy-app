@@ -57,7 +57,9 @@ export default function SellerDashboardLayout({ children }: { children: React.Re
           })}
         </nav>
       </aside>
-      <main className="flex-1 bg-muted">{children}</main>
+      <main className="flex-1 bg-muted">
+        <div className="mx-auto max-w-6xl">{children}</div>
+      </main>
     </div>
   )
 }
