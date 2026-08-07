@@ -4,49 +4,35 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
+    --background: 40 60% 98%; /* sand-50 */
+    --foreground: 231 49% 15%; /* navy-900 */
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
+    --card-foreground: 231 49% 15%;
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 243 75% 59%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 226 100% 97%;
-    --accent-foreground: 237 64% 40%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 243 75% 59%;
-    --radius: 0.5rem;
+    --popover-foreground: 231 49% 15%;
+    --primary: 4 71% 43%; /* red-600 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 37 45% 94%; /* sand-100 */
+    --secondary-foreground: 231 49% 15%;
+    --muted: 37 45% 94%; /* sand-100 */
+    --muted-foreground: 34 19% 36%; /* sand-600 */
+    --accent: 5 73% 97%; /* red-50 — docs/design-system/README.md's own code block says
+      "5 5% 97%"; recomputed from the source hex (#fdf3f2, tokens/colors.css) and confirmed
+      that's a typo (5% saturation would render near-grey, not a warm red tint). Using the
+      correct value here; flag the doc typo separately, don't fix it in this PR. */
+    --accent-foreground: 4 71% 43%; /* red-600 */
+    --destructive: 4 71% 43%; /* red-600 — brand red doubles as danger color in the source
+      system; see docs/design-system/README.md's flagged open item if this needs revisiting */
+    --destructive-foreground: 0 0% 100%;
+    --border: 35 30% 81%; /* sand-300 */
+    --input: 35 30% 81%; /* sand-300 */
+    --ring: 4 64% 51%; /* red-500 */
+    --radius: 0.625rem; /* was 0.5rem */
   }
 
-  .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
-  }
+  /* Dark mode is not wired up in this app (no next-themes / class toggle exists yet).
+     When it ships, port the `.dark` block from docs/design-system/tokens/colors.css,
+     converting hex to the same H S% L% HSL-triplet format used above. */
 }
 
 @layer base {
