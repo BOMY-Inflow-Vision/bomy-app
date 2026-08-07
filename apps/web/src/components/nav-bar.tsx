@@ -8,6 +8,7 @@ import { useCart } from "@/lib/cart"
 import { cn } from "@/lib/utils"
 
 const NAV_LINKS = [
+  { href: "/brands", label: "Brands" },
   { href: "/products", label: "Products" },
   { href: "/membership", label: "Membership" },
   { href: "/seller/apply", label: "Sell with us" },

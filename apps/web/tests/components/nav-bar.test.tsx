@@ -58,8 +58,9 @@ describe("NavBar responsive structure", () => {
     expect(html).toContain('inert=""') // closed panel removed from a11y tree + tab order
   })
 
-  it("always exposes the public links (Products, Membership, Sell with us)", () => {
+  it("always exposes the public links (Brands, Products, Membership, Sell with us)", () => {
     const html = render(null)
+    expect(html).toContain('href="/brands"')
     expect(html).toContain('href="/products"')
     expect(html).toContain('href="/membership"')
     expect(html).toContain('href="/seller/apply"')
