@@ -22,6 +22,15 @@
     --input: 35 30% 81%; /* sand-300 */
     --ring: 4 64% 51%; /* red-500 */
     --radius: 0.625rem; /* was 0.5rem */
+    --reward: 45 100% 55%; /* gold-400 */
+    --reward-foreground: 45 100% 15%; /* gold-900 */
+
+    /* Semantic radius aliases — --radius-control/--radius-input equal the base --radius above
+       (the design system's --radius-md); --radius-card is deliberately bigger. See
+       docs/design-system/tokens/radius.css. */
+    --radius-control: var(--radius);
+    --radius-input: var(--radius);
+    --radius-card: 0.75rem;
   }
 }
 
