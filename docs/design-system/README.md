@@ -28,7 +28,7 @@ Replace the `:root` block's color variables with BOMY's tokens (converted to sha
   --secondary-foreground: 231 49% 15%;
   --muted: 37 45% 94%;             /* sand-100 */
   --muted-foreground: 34 19% 36%;  /* sand-600 */
-  --accent: 5 5% 97%;              /* red-50 */
+  --accent: 5 73% 97%;             /* red-50 */
   --accent-foreground: 4 71% 43%;  /* red-600 */
   --destructive: 4 71% 43%;        /* red-600 — see note below */
   --destructive-foreground: 0 0% 100%;
