@@ -162,7 +162,7 @@ export default async function ProductsPage({ searchParams }: Props) {
                     aria-label={`Page ${p}`}
                     aria-current={p === page ? "page" : undefined}
                     className={cn(
-                      "flex h-8 w-8 items-center justify-center rounded-md text-sm",
+                      "flex h-8 w-8 items-center justify-center rounded-control text-sm",
                       p === page
                         ? "bg-primary text-primary-foreground"
                         : "border border-border text-muted-foreground hover:bg-muted",

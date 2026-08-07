@@ -241,7 +241,7 @@ export function AddressManager({ initial }: { initial: Row[] }) {
               value={form.state}
               onChange={field("state")}
               className={cn(
-                "mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm",
+                "mt-1 w-full rounded-input border border-input bg-background px-3 py-2 text-sm",
                 "focus:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               )}
             >
