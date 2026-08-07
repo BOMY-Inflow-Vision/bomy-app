@@ -70,9 +70,9 @@ export function NavBar() {
   const desktopLinkClass = "text-sm text-muted-foreground hover:text-foreground"
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-border bg-background shadow-sm">
-      <div className="flex h-14 items-center justify-between px-4">
-        <Link href="/" className="text-lg font-bold tracking-tight text-primary">
+    <nav className="sticky top-0 z-50 border-b border-subtle bg-card shadow-sm">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
+        <Link href="/" className="text-lg font-extrabold tracking-tighter text-primary">
           BOMY
         </Link>
 
@@ -129,7 +129,7 @@ export function NavBar() {
         id="mobile-menu"
         inert={!open}
         className={cn(
-          "absolute inset-x-0 top-full origin-top border-b border-border bg-background shadow-lg transition duration-200 ease-out md:hidden",
+          "absolute inset-x-0 top-full origin-top border-b border-subtle bg-card shadow-lg transition duration-200 ease-out md:hidden",
           open ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-1 opacity-0",
         )}
       >
