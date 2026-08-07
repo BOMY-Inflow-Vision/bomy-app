@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic"
 
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
+import { IBM_Plex_Mono, Plus_Jakarta_Sans } from "next/font/google"
 
 import { Footer } from "@/components/footer"
 import { SessionProvider } from "@/components/session-provider"
@@ -10,7 +10,17 @@ import { NavBar } from "@/components/nav-bar"
 
 import "./globals.css"
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  style: ["normal", "italic"],
+  variable: "--font-sans",
+})
+const ibmPlexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400"],
+  variable: "--font-mono",
+})
 
 export const metadata: Metadata = {
   title: "BOMY",
@@ -20,8 +30,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={inter.variable}>
-      <body className={inter.className}>
+    <html lang="en" className={`${plusJakartaSans.variable} ${ibmPlexMono.variable}`}>
+      <body className={plusJakartaSans.className}>
         <SessionProvider>
           <CartProvider>
             <NavBar />
