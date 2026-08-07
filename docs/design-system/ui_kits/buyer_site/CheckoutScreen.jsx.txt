@@ -1,0 +1,151 @@
+const { Button, Card, Field, Input, Select, Checkbox, RadioGroup, Badge, Icon, Dialog } = window.BOMYDesignSystem_030168
+
+const SHIPPING = [
+  { value: "std", label: "Standard", description: "3–5 working days", meta: "RM8.00", sen: 800 },
+  { value: "exp", label: "Express", description: "Next working day", meta: "RM18.00", sen: 1800 },
+  { value: "pick", label: "Self-pickup", description: "Bayan Lepas warehouse only", meta: "Free", sen: 0 },
+]
+
+const PAYMENT = [
+  { value: "card", label: "Card", description: "Visa, Mastercard" },
+  { value: "fpx", label: "FPX online banking", description: "All Malaysian banks" },
+  { value: "ewallet", label: "E-wallet", description: "Touch 'n Go, GrabPay" },
+]
+
+const fmt = (sen) => "RM" + (sen / 100).toFixed(2)
+
+function Summary({ items, shipSen, member }) {
+  const subtotal = items.reduce((s, i) => s + i.priceSen * i.quantity, 0)
+  const discount = member ? Math.round(subtotal * 0.05) : 0
+  const rows = [
+    ["Subtotal", fmt(subtotal)],
+    ...(member ? [["Member discount (5%)", "−" + fmt(discount)]] : []),
+    ["Shipping", shipSen === 0 ? "Free" : fmt(shipSen)],
+  ]
+  return (
+    <Card style={{ padding: "var(--space-6)", position: "sticky", top: "calc(var(--nav-height) + var(--space-6))" }}>
+      <h2 style={{ font: "var(--type-h3)", marginBottom: "var(--space-4)" }}>Order summary</h2>
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", paddingBottom: "var(--space-4)", borderBottom: "1px solid var(--border-subtle)" }}>
+        {items.map((i) => (
+          <div key={i.id} style={{ display: "flex", gap: "var(--space-3)", alignItems: "center" }}>
+            <span style={{ width: 40, height: 40, flexShrink: 0, borderRadius: "var(--radius-xs)", background: "var(--surface-sunken)", display: "grid", placeItems: "center", color: "var(--sand-400)" }}>
+              <Icon name="photo" size={18} />
+            </span>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: "block", font: "var(--type-label)", color: "var(--text-heading)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{i.name}</span>
+              <span style={{ display: "block", font: "var(--type-caption)", color: "var(--text-muted)" }}>{i.variant} · ×{i.quantity}</span>
+            </span>
+            <span style={{ font: "var(--type-label)", color: "var(--text-heading)" }}>{fmt(i.priceSen * i.quantity)}</span>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)", padding: "var(--space-4) 0", borderBottom: "1px solid var(--border-subtle)" }}>
+        {rows.map(([l, v]) => (
+          <div key={l} style={{ display: "flex", justifyContent: "space-between", font: "var(--type-body)", color: l.startsWith("Member") ? "var(--success-600)" : "var(--text-muted)" }}>
+            <span>{l}</span><span>{v}</span>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", paddingTop: "var(--space-4)" }}>
+        <span style={{ font: "var(--type-label)", color: "var(--text-heading)" }}>Total</span>
+        <span style={{ font: "var(--type-price)", color: "var(--text-heading)" }}>{fmt(subtotal - discount + shipSen)}</span>
+      </div>
+      <p style={{ margin: "var(--space-2) 0 0", font: "var(--type-caption)", color: "var(--text-subtle)" }}>All prices in MYR, inclusive of tax where applicable.</p>
+    </Card>
+  )
+}
+
+function Step({ n, title, children }) {
+  return (
+    <Card style={{ padding: "var(--space-6)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", marginBottom: "var(--space-5)" }}>
+        <span style={{ width: "1.5rem", height: "1.5rem", flexShrink: 0, borderRadius: "50%", background: "var(--surface-accent)", color: "var(--red-700)", display: "grid", placeItems: "center", font: "var(--type-caption)", fontWeight: "var(--weight-bold)" }}>{n}</span>
+        <h2 style={{ font: "var(--type-h3)" }}>{title}</h2>
+      </div>
+      {children}
+    </Card>
+  )
+}
+
+function CheckoutScreen({ items, go }) {
+  const [ship, setShip] = React.useState("std")
+  const [pay, setPay] = React.useState("fpx")
+  const [member, setMember] = React.useState(true)
+  const [placed, setPlaced] = React.useState(false)
+  const shipSen = (SHIPPING.find((s) => s.value === ship) || {}).sen || 0
+
+  return (
+    <main style={{ maxWidth: "var(--container-wide)", margin: "0 auto", padding: "var(--space-8) var(--space-8) var(--space-16)" }}>
+      <h1 style={{ font: "var(--type-h2)", marginBottom: "var(--space-6)" }}>Checkout</h1>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.5fr) minmax(0, 1fr)", gap: "var(--space-8)", alignItems: "start" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+          <Step n="1" title="Contact">
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "var(--space-4)" }}>
+              <Field label="Email" htmlFor="email" required hint="Order updates are sent here."><Input id="email" defaultValue="siti@example.com" /></Field>
+              <Field label="Phone" htmlFor="phone" required><Input id="phone" defaultValue="+60 12-345 6789" /></Field>
+            </div>
+          </Step>
+
+          <Step n="2" title="Delivery address">
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "var(--space-4)" }}>
+                <Field label="Full name" htmlFor="name" required><Input id="name" defaultValue="Siti Nurhaliza" /></Field>
+                <Field label="Country" htmlFor="country" required><Select id="country" options={[{ value: "MY", label: "Malaysia" }, { value: "SG", label: "Singapore" }, { value: "BN", label: "Brunei" }]} /></Field>
+              </div>
+              <Field label="Address" htmlFor="addr1" required><Input id="addr1" defaultValue="19-2, Lorong Mayang Pasir 5" /></Field>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "var(--space-4)" }}>
+                <Field label="City" htmlFor="city" required><Input id="city" defaultValue="Bayan Lepas" /></Field>
+                <Field label="State" htmlFor="state" required><Select id="state" options={[{ value: "png", label: "Pulau Pinang" }, { value: "kl", label: "Kuala Lumpur" }, { value: "sgr", label: "Selangor" }, { value: "jhr", label: "Johor" }]} /></Field>
+                <Field label="Postcode" htmlFor="post" required><Input id="post" defaultValue="11950" /></Field>
+              </div>
+              <Checkbox label="Save this address" description="For faster checkout next time." defaultChecked />
+            </div>
+          </Step>
+
+          <Step n="3" title="Shipping method">
+            <RadioGroup variant="card" options={SHIPPING} value={ship} onChange={setShip} />
+            <p style={{ margin: "var(--space-3) 0 0", font: "var(--type-caption)", color: "var(--text-muted)" }}>
+              Items ship from each brand separately — you may receive more than one parcel at no extra cost.
+            </p>
+          </Step>
+
+          <Step n="4" title="Payment">
+            <RadioGroup variant="card" options={PAYMENT} value={pay} onChange={setPay} />
+            {pay === "card" && (
+              <div style={{ marginTop: "var(--space-4)", display: "grid", gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr)", gap: "var(--space-4)" }}>
+                <Field label="Card number" htmlFor="cc"><Input id="cc" placeholder="4242 4242 4242 4242" /></Field>
+                <Field label="Expiry" htmlFor="exp"><Input id="exp" placeholder="MM/YY" /></Field>
+                <Field label="CVC" htmlFor="cvc"><Input id="cvc" placeholder="123" /></Field>
+              </div>
+            )}
+            <div style={{ marginTop: "var(--space-5)", padding: "var(--space-4)", background: "var(--surface-reward)", borderRadius: "var(--radius-control)", display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+              <Badge variant="reward">Member</Badge>
+              <Checkbox
+                checked={member} onChange={setMember}
+                label="Apply my membership discount"
+                description="5% off this order, included with your RM75/yr membership."
+                style={{ flex: 1, minWidth: 0 }}
+              />
+            </div>
+          </Step>
+
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-4)" }}>
+            <Button variant="ghost" onClick={() => go("/cart")}>Back to cart</Button>
+            <Button size="lg" onClick={() => setPlaced(true)}>Place order</Button>
+          </div>
+        </div>
+
+        <Summary items={items} shipSen={shipSen} member={member} />
+      </div>
+
+      <Dialog
+        open={placed}
+        title="Order placed"
+        description="Thank you — a confirmation is on its way to your email. You can follow each parcel from your account."
+        onClose={() => setPlaced(false)}
+        footer={<React.Fragment><Button variant="ghost" onClick={() => setPlaced(false)}>Keep shopping</Button><Button onClick={() => { setPlaced(false); go("/") }}>View orders</Button></React.Fragment>}
+      />
+    </main>
+  )
+}
+Object.assign(window, { CheckoutScreen })

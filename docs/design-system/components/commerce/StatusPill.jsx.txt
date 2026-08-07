@@ -1,0 +1,27 @@
+import React from "react"
+
+const TONES = {
+  active: ["var(--success-100)", "var(--success-700)"],
+  completed: ["var(--success-100)", "var(--success-700)"],
+  delivered: ["var(--success-100)", "var(--success-700)"],
+  pending: ["var(--warning-100)", "var(--warning-700)"],
+  processing: ["var(--warning-100)", "var(--warning-700)"],
+  shipped: ["var(--info-100)", "var(--info-700)"],
+  draft: ["var(--surface-sunken)", "var(--text-muted)"],
+  archived: ["var(--surface-sunken)", "var(--text-subtle)"],
+  cancelled: ["var(--danger-100)", "var(--danger-700)"],
+  suspended: ["var(--danger-100)", "var(--danger-700)"],
+}
+
+export function StatusPill({ status, children, style }) {
+  const [bg, fg] = TONES[status] || TONES.draft
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", borderRadius: "var(--radius-pill)",
+      padding: "0.125rem 0.625rem", background: bg, color: fg,
+      font: "var(--type-caption)", fontWeight: "var(--weight-semibold)", textTransform: "capitalize", ...style,
+    }}>
+      {children || status}
+    </span>
+  )
+}

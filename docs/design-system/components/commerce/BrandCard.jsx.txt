@@ -1,0 +1,36 @@
+import React from "react"
+import { Badge } from "../core/Badge.jsx"
+
+export function BrandCard({ name, excerpt, categories = [], productCount, href = "#", logoUrl }) {
+  const [hover, setHover] = React.useState(false)
+  return (
+    <a
+      href={href}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        display: "flex", flexDirection: "column", height: "100%", boxSizing: "border-box",
+        padding: "var(--space-5)", background: "var(--surface-card)",
+        border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-card)",
+        boxShadow: hover ? "var(--shadow-md)" : "var(--shadow-sm)",
+        textDecoration: "none", transition: "var(--transition-elevation)",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
+        <div style={{ width: 48, height: 48, flexShrink: 0, display: "grid", placeItems: "center", borderRadius: "var(--radius-circle)", background: "var(--surface-accent)", color: "var(--red-700)", font: "var(--type-h3)", overflow: "hidden" }}>
+          {logoUrl ? <img src={logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : name.charAt(0).toUpperCase()}
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: "var(--space-1)" }}>
+          {categories.map((c) => <Badge key={c}>{c}</Badge>)}
+        </div>
+      </div>
+      <p style={{ margin: 0, font: "var(--type-h3)", color: hover ? "var(--text-brand)" : "var(--text-heading)" }}>{name}</p>
+      {excerpt && <p style={{ margin: "var(--space-1) 0 0", flex: 1, font: "var(--type-body)", color: "var(--text-muted)" }}>{excerpt}</p>}
+      {productCount != null && (
+        <p style={{ margin: "var(--space-3) 0 0", font: "var(--type-caption)", color: "var(--text-subtle)" }}>
+          {productCount} product{productCount === 1 ? "" : "s"}
+        </p>
+      )}
+    </a>
+  )
+}

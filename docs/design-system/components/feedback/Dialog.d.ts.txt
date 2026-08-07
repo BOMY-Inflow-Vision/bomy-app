@@ -1,0 +1,17 @@
+import type { ReactNode } from "react"
+
+/** A modal over a warm scrim — destructive confirmations and short focused forms. */
+export interface DialogProps {
+  open: boolean
+  title?: string
+  description?: string
+  /** Body content. Omit for a pure confirmation. */
+  children?: ReactNode
+  /** Action row, right-aligned — put the cancel button first. */
+  footer?: ReactNode
+  onClose?: () => void
+  /** Max width. Default 28rem; 36rem for forms. */
+  width?: string
+}
+
+export declare function Dialog(props: DialogProps): JSX.Element

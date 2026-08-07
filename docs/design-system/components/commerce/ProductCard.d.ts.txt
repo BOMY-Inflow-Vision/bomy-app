@@ -1,0 +1,17 @@
+/**
+ * A product tile for the catalogue grid.
+ * @startingPoint section="Commerce" subtitle="Catalogue product tile" viewport="700x360"
+ */
+export interface ProductCardProps {
+  name: string
+  /** Brand/store name, shown under the title. */
+  storeName: string
+  category?: string
+  /** Pre-formatted MYR string, e.g. "from RM24.90" — money is bigint sen upstream. */
+  price?: string
+  imageUrl?: string
+  href?: string
+  iconBase?: string
+}
+
+export declare function ProductCard(props: ProductCardProps): JSX.Element

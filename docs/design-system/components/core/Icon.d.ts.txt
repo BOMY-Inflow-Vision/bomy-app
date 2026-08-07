@@ -1,0 +1,20 @@
+import type { CSSProperties } from "react"
+
+/**
+ * Heroicons v2 glyph tinted with `currentColor`. INTENTIONAL ADDITION — bomy-app inlines
+ * Heroicons paths by hand in each component; this wrapper centralises them.
+ */
+export interface IconProps {
+  /** File stem, e.g. "shopping-cart", "gift", "chevron-right". */
+  name: string
+  set?: "outline" | "solid"
+  /** Pixel size — 20 for inline text, 24 for nav, 16 for dense tables. */
+  size?: number
+  /** Unused — glyph markup is embedded. Accepted so call sites can pass it harmlessly. */
+  basePath?: string
+  /** Accessible name. Omit for purely decorative icons. */
+  label?: string
+  style?: CSSProperties
+}
+
+export declare function Icon(props: IconProps): JSX.Element

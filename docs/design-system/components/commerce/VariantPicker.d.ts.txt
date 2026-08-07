@@ -1,0 +1,20 @@
+export interface PickerVariant {
+  id: string
+  name: string
+  /** Pre-formatted MYR string. */
+  price: string
+  stockCount: number
+  fulfillmentMode?: "stock" | "backorder" | "preorder"
+  preorderLeadDays?: number | null
+}
+
+/**
+ * Variant chips + price + availability + add-to-cart — the buy box on a product page.
+ * @startingPoint section="Commerce" subtitle="Product buy box" viewport="700x320"
+ */
+export interface VariantPickerProps {
+  variants: PickerVariant[]
+  onAdd?: (variant: PickerVariant) => void
+}
+
+export declare function VariantPicker(props: VariantPickerProps): JSX.Element

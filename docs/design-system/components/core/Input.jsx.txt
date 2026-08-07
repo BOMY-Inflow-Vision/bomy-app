@@ -1,0 +1,21 @@
+import React from "react"
+
+export function Input({ invalid, style, ...rest }) {
+  const [focus, setFocus] = React.useState(false)
+  return (
+    <input
+      {...rest}
+      onFocus={(e) => { setFocus(true); rest.onFocus && rest.onFocus(e) }}
+      onBlur={(e) => { setFocus(false); rest.onBlur && rest.onBlur(e) }}
+      style={{
+        width: "100%", height: "2.25rem", padding: "0 var(--space-3)", boxSizing: "border-box",
+        background: "var(--surface-card)", color: "var(--text-heading)",
+        border: "1px solid " + (invalid ? "var(--danger-600)" : focus ? "var(--border-focus)" : "var(--border-default)"),
+        borderRadius: "var(--radius-input)", font: "var(--type-body)", outline: "none",
+        boxShadow: focus ? "var(--shadow-focus)" : "var(--shadow-xs)",
+        transition: "var(--transition-color), box-shadow var(--duration-fast) var(--ease-standard)",
+        ...style,
+      }}
+    />
+  )
+}

@@ -1,0 +1,27 @@
+import type { ReactNode } from "react"
+
+export interface DataTableColumn<Row = any> {
+  key: string
+  header: string
+  align?: "left" | "right" | "center"
+  width?: string
+  /** Custom cell — return a StatusPill, a Button, a formatted price. */
+  render?: (row: Row) => ReactNode
+}
+
+/**
+ * The seller and admin list table: sunken header, hairline rows, optional selection.
+ * @startingPoint section="Data" subtitle="Selectable list table" viewport="700x300"
+ */
+export interface DataTableProps<Row = any> {
+  columns: DataTableColumn<Row>[]
+  rows: Row[]
+  /** Property name or getter for each row's key. Default "id". */
+  rowKey?: string | ((row: Row) => string)
+  selectable?: boolean
+  selected?: string[]
+  onSelectionChange?: (keys: string[]) => void
+  emptyMessage?: string
+}
+
+export declare function DataTable<Row>(props: DataTableProps<Row>): JSX.Element

@@ -1,0 +1,12 @@
+html { -webkit-text-size-adjust: 100% }
+body { margin: 0; background: var(--surface-page); color: var(--text-body); font: var(--type-body); -webkit-font-smoothing: antialiased }
+h1, h2, h3, h4, h5, h6 { color: var(--text-heading); margin: 0 }
+h1 { font: var(--type-h1); letter-spacing: var(--tracking-tight) }
+h2 { font: var(--type-h2); letter-spacing: var(--tracking-tight) }
+h3 { font: var(--type-h3) }
+p { margin: 0; text-wrap: pretty }
+a { color: var(--text-link); text-decoration: none; transition: var(--transition-color) }
+a:hover { color: var(--text-link-hover); text-decoration: underline }
+:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px }
+code, kbd, samp { font: var(--type-mono) }
+img { display: block; max-width: 100% }

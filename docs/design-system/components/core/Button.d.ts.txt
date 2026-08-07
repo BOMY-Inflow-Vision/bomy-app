@@ -1,0 +1,26 @@
+import type { ReactNode, CSSProperties, MouseEventHandler } from "react"
+
+/**
+ * The primary action control. Red `primary` for the single most important action on a
+ * view, `reward` (gold) only for membership / rewards moments.
+ *
+ * @startingPoint section="Core" subtitle="Buttons in every BOMY variant and size" viewport="700x220"
+ */
+export interface ButtonProps {
+  /** Visual role. */
+  variant?: "primary" | "secondary" | "reward" | "outline" | "ghost" | "destructive" | "link"
+  size?: "sm" | "md" | "lg" | "icon"
+  disabled?: boolean
+  /** Shows a spinner and blocks interaction — use for server-action submits. */
+  loading?: boolean
+  fullWidth?: boolean
+  /** Render as an anchor when the button navigates. */
+  as?: "button" | "a"
+  href?: string
+  type?: "button" | "submit" | "reset"
+  onClick?: MouseEventHandler
+  style?: CSSProperties
+  children?: ReactNode
+}
+
+export declare function Button(props: ButtonProps): JSX.Element

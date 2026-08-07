@@ -1,0 +1,11 @@
+export interface CategoryItem { value: string; label: string }
+
+/** The left-hand category filter on the products and brands directories. */
+export interface CategoryListProps {
+  title?: string
+  items: CategoryItem[]
+  active?: string
+  onChange?: (value: string) => void
+}
+
+export declare function CategoryList(props: CategoryListProps): JSX.Element

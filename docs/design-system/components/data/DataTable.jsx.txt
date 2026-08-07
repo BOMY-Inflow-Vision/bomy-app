@@ -1,0 +1,60 @@
+import React from "react"
+
+export function DataTable({ columns = [], rows = [], rowKey = "id", selectable, selected = [], onSelectionChange, emptyMessage = "Nothing here yet." }) {
+  const keyOf = (r, i) => (typeof rowKey === "function" ? rowKey(r) : r[rowKey] != null ? r[rowKey] : i)
+  const allKeys = rows.map(keyOf)
+  const allOn = rows.length > 0 && allKeys.every((k) => selected.includes(k))
+
+  function toggleAll() { onSelectionChange && onSelectionChange(allOn ? [] : allKeys) }
+  function toggleRow(k) {
+    if (!onSelectionChange) return
+    onSelectionChange(selected.includes(k) ? selected.filter((x) => x !== k) : [...selected, k])
+  }
+
+  const box = (on, fn) => (
+    <button type="button" role="checkbox" aria-checked={on} onClick={fn} style={{
+      width: "1rem", height: "1rem", padding: 0, display: "grid", placeItems: "center", cursor: "pointer",
+      borderRadius: "var(--radius-xs)", border: "1px solid " + (on ? "var(--action-primary)" : "var(--border-default)"),
+      background: on ? "var(--action-primary)" : "var(--surface-card)", transition: "var(--transition-color)",
+    }}>
+      {on && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m4.5 12.75 6 6 9-13.5" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+    </button>
+  )
+
+  const cell = { padding: "var(--space-3) var(--space-5)", textAlign: "left" }
+
+  return (
+    <div style={{ background: "var(--surface-card)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-card)", boxShadow: "var(--shadow-sm)", overflow: "hidden" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", font: "var(--type-body)" }}>
+        <thead>
+          <tr style={{ background: "var(--surface-sunken)", borderBottom: "1px solid var(--border-subtle)" }}>
+            {selectable && <th style={{ ...cell, width: "1rem" }}>{box(allOn, toggleAll)}</th>}
+            {columns.map((c) => (
+              <th key={c.key} style={{ ...cell, textAlign: c.align || "left", width: c.width, font: "var(--type-eyebrow)", textTransform: "uppercase", letterSpacing: "var(--tracking-wide)", color: "var(--text-muted)" }}>
+                {c.header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 ? (
+            <tr><td colSpan={columns.length + (selectable ? 1 : 0)} style={{ ...cell, padding: "var(--space-12)", textAlign: "center", color: "var(--text-muted)" }}>{emptyMessage}</td></tr>
+          ) : rows.map((r, i) => {
+            const k = keyOf(r, i)
+            const on = selected.includes(k)
+            return (
+              <tr key={k} style={{ borderBottom: "1px solid var(--border-subtle)", background: on ? "var(--surface-accent)" : "transparent", transition: "var(--transition-color)" }}>
+                {selectable && <td style={cell}>{box(on, () => toggleRow(k))}</td>}
+                {columns.map((c) => (
+                  <td key={c.key} style={{ ...cell, textAlign: c.align || "left", color: "var(--text-body)" }}>
+                    {c.render ? c.render(r) : r[c.key]}
+                  </td>
+                ))}
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}

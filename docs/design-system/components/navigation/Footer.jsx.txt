@@ -1,0 +1,46 @@
+import React from "react"
+import { Wordmark } from "./Wordmark.jsx"
+
+const QUICK = [{ href: "/about", label: "About BOMY" }, { href: "/contact", label: "Contact" }]
+const POLICIES = [
+  { href: "/terms", label: "Terms of Service" },
+  { href: "/privacy", label: "Privacy Policy" },
+  { href: "/refund", label: "Refund and Return" },
+  { href: "/shipping", label: "Shipping and Delivery" },
+]
+
+function Column({ title, links }) {
+  return (
+    <div>
+      <p style={{ margin: 0, font: "var(--type-eyebrow)", textTransform: "uppercase", letterSpacing: "var(--tracking-wide)", color: "var(--text-muted)" }}>{title}</p>
+      <ul style={{ margin: "var(--space-3) 0 0", padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+        {links.map((l) => (
+          <li key={l.href}><a href={l.href} style={{ font: "var(--type-body)", color: "var(--text-muted)", textDecoration: "none" }}>{l.label}</a></li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+export function Footer({ email = "contact@brandsofmalaysia.com", address = "19-2, Lorong Mayang Pasir 5, Taman Sri Tunas, 11950 Bayan Lepas, Pulau Pinang." }) {
+  return (
+    <footer style={{ marginTop: "var(--space-16)", borderTop: "1px solid var(--border-subtle)", background: "var(--surface-sunken)" }}>
+      <div style={{ maxWidth: "var(--container-wide)", margin: "0 auto", padding: "var(--space-12) var(--space-4)" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: "var(--space-10)" }}>
+          <div>
+            <Wordmark size={28} as="span" />
+            <p style={{ margin: "var(--space-3) 0 0", font: "var(--type-body)", color: "var(--text-muted)" }}>A curated Malaysian multivendor marketplace.</p>
+            <p style={{ margin: "var(--space-6) 0 0", font: "var(--type-body)", color: "var(--text-muted)" }}>BOMY by Inflo Vision (202503276795)</p>
+            <p style={{ margin: "var(--space-2) 0 0", font: "var(--type-body)", color: "var(--text-muted)" }}>Email: <a href={"mailto:" + email} style={{ color: "var(--text-muted)" }}>{email}</a></p>
+            <p style={{ margin: "var(--space-2) 0 0", font: "var(--type-body)", color: "var(--text-muted)" }}>Address: {address}</p>
+          </div>
+          <Column title="Quick Links" links={QUICK} />
+          <Column title="Policies" links={POLICIES} />
+        </div>
+        <div style={{ marginTop: "var(--space-10)", paddingTop: "var(--space-6)", borderTop: "1px solid var(--border-subtle)" }}>
+          <p style={{ margin: 0, font: "var(--type-caption)", color: "var(--text-subtle)" }}>© 2026 BOMY. All rights reserved.</p>
+        </div>
+      </div>
+    </footer>
+  )
+}

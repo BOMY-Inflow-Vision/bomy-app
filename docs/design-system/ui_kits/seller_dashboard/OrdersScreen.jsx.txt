@@ -1,0 +1,38 @@
+const { Button, Card, FilterPills, StatusPill } = window.BOMYDesignSystem_030168
+
+const ORDERS = [
+  { id: "ord_4d81a2f7", status: "processing", payout: "RM186.75", date: "31/07/2026" },
+  { id: "ord_9c02be14", status: "shipped", payout: "RM64.00", date: "30/07/2026" },
+  { id: "ord_1f77ca20", status: "delivered", payout: "RM248.20", date: "28/07/2026" },
+  { id: "ord_77b3e0a9", status: "completed", payout: "RM52.10", date: "24/07/2026" },
+  { id: "ord_08cd51be", status: "cancelled", payout: "RM0.00", date: "22/07/2026" },
+]
+
+function SellerOrdersScreen() {
+  const [status, setStatus] = React.useState("")
+  const rows = ORDERS.filter((o) => !status || o.status === status)
+  return (
+    <div style={{ padding: "var(--space-8)" }}>
+      <h1 style={{ font: "var(--type-h3)", marginBottom: "var(--space-6)" }}>Orders</h1>
+      <div style={{ marginBottom: "var(--space-6)" }}>
+        <FilterPills items={[{ value: "", label: "All" }, ...["processing", "shipped", "delivered", "completed", "cancelled"].map((s) => ({ value: s, label: s }))]} active={status} onChange={setStatus} />
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+        {rows.map((o) => (
+          <Card key={o.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "var(--space-4) var(--space-6)" }}>
+            <div>
+              <p style={{ margin: 0, font: "var(--type-mono)", color: "var(--text-muted)" }}>{o.id}…</p>
+              <div style={{ marginTop: "var(--space-1)" }}><StatusPill status={o.status} /></div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <p style={{ margin: 0, font: "var(--type-label)", fontWeight: "var(--weight-bold)", color: "var(--text-heading)" }}>{o.payout}</p>
+              <p style={{ margin: 0, font: "var(--type-caption)", color: "var(--text-muted)" }}>{o.date}</p>
+            </div>
+            <Button variant="link" style={{ marginLeft: "var(--space-6)" }}>View</Button>
+          </Card>
+        ))}
+      </div>
+    </div>
+  )
+}
+Object.assign(window, { SellerOrdersScreen })

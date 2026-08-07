@@ -1,0 +1,15 @@
+import React from "react"
+
+export function StockStatus({ mode = "stock", stockCount = 0, preorderLeadDays }) {
+  if (mode === "backorder") {
+    return <span style={{ display: "inline-block", borderRadius: "var(--radius-pill)", background: "var(--gold-100)", color: "var(--gold-800)", padding: "0.125rem 0.625rem", font: "var(--type-caption)", fontWeight: "var(--weight-semibold)" }}>Back-order — ships when available</span>
+  }
+  if (mode === "preorder") {
+    return <span style={{ display: "inline-block", borderRadius: "var(--radius-pill)", background: "var(--info-100)", color: "var(--info-700)", padding: "0.125rem 0.625rem", font: "var(--type-caption)", fontWeight: "var(--weight-semibold)" }}>Pre-order{preorderLeadDays ? " — ships in " + preorderLeadDays + " days" : ""}</span>
+  }
+  return (
+    <p style={{ margin: 0, font: "var(--type-body)", color: stockCount > 0 ? "var(--success-600)" : "var(--danger-600)" }}>
+      {stockCount > 0 ? stockCount + " in stock" : "Out of stock"}
+    </p>
+  )
+}

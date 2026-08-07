@@ -1,0 +1,169 @@
+/* BOMY color system.
+   Base ramps are derived from the Jalur Gemilang: red (#CC0001), navy (#010066),
+   gold (#FFCC00) — warmed and de-saturated for long-form screen use — plus a warm
+   sand neutral that gives the marketplace its "Malaysian warmth" rather than the
+   cool grey of the stock shadcn theme. */
+:root {
+  /* --- Red (primary / Jalur) --- */
+  --red-50: #fdf3f2;
+  --red-100: #fbe3e1;
+  --red-200: #f7c5c1;
+  --red-300: #ef9992;
+  --red-400: #e2635a;
+  --red-500: #d23b30;
+  --red-600: #b92b20;
+  --red-700: #971f17;
+  --red-800: #7a1c16;
+  --red-900: #631b17;
+
+  /* --- Navy (ink / trust) --- */
+  --navy-50: #f2f3fa;
+  --navy-100: #e2e5f3;
+  --navy-200: #c4cae7;
+  --navy-300: #98a2d2;
+  --navy-400: #6a76b5;
+  --navy-500: #47539b;
+  --navy-600: #333e82;
+  --navy-700: #26306a;
+  --navy-800: #1c2450;
+  --navy-900: #141a3a;
+  --navy-950: #0c0f24;
+
+  /* --- Gold (reward / membership) --- */
+  --gold-50: #fff9e6;
+  --gold-100: #fff0bf;
+  --gold-200: #ffe485;
+  --gold-300: #ffd64d;
+  --gold-400: #ffc61a;
+  --gold-500: #ebaf00;
+  --gold-600: #c08d00;
+  --gold-700: #8f6900;
+  --gold-800: #6b4f00;
+  --gold-900: #4a3700;
+
+  /* --- Sand (warm neutral) --- */
+  --sand-50: #fdfbf7;
+  --sand-100: #f7f2ea;
+  --sand-200: #ede5d9;
+  --sand-300: #ddd1c0;
+  --sand-400: #b9a992;
+  --sand-500: #8f7f68;
+  --sand-600: #6e5f4b;
+  --sand-700: #524636;
+  --sand-800: #392f24;
+  --sand-900: #241d16;
+  --sand-950: #16110c;
+
+  /* --- Semantic status ramps --- */
+  --success-50: #eaf6ef;
+  --success-100: #cdead9;
+  --success-600: #1f7a4d;
+  --success-700: #15603b;
+  --warning-50: #fdf4e3;
+  --warning-100: #f9e5bf;
+  --warning-600: #b8730a;
+  --warning-700: #8e5806;
+  --danger-50: var(--red-50);
+  --danger-100: var(--red-100);
+  --danger-600: var(--red-600);
+  --danger-700: var(--red-700);
+  --info-50: var(--navy-50);
+  --info-100: var(--navy-100);
+  --info-600: var(--navy-600);
+  --info-700: var(--navy-700);
+
+  /* --- Semantic aliases: surfaces --- */
+  --surface-page: var(--sand-50);
+  --surface-card: #ffffff;
+  --surface-sunken: var(--sand-100);
+  --surface-raised: #ffffff;
+  --surface-inverse: var(--navy-900);
+  --surface-accent: var(--red-50);
+  --surface-reward: var(--gold-50);
+  --surface-overlay: rgba(36, 29, 22, 0.55);
+
+  /* --- Semantic aliases: text --- */
+  --text-heading: var(--navy-900);
+  --text-body: var(--sand-800);
+  --text-muted: var(--sand-600);
+  --text-subtle: var(--sand-500);
+  --text-inverse: var(--sand-50);
+  --text-brand: var(--red-600);
+  --text-link: var(--red-600);
+  --text-link-hover: var(--red-700);
+  --text-on-brand: #ffffff;
+  --text-on-reward: var(--gold-900);
+
+  /* --- Semantic aliases: lines --- */
+  --border-subtle: var(--sand-200);
+  --border-default: var(--sand-300);
+  --border-strong: var(--sand-400);
+  --border-brand: var(--red-600);
+  --border-focus: var(--red-500);
+
+  /* --- Semantic aliases: interactive --- */
+  --action-primary: var(--red-600);
+  --action-primary-hover: var(--red-700);
+  --action-primary-active: var(--red-800);
+  --action-secondary: var(--navy-800);
+  --action-secondary-hover: var(--navy-900);
+  --action-reward: var(--gold-400);
+  --action-reward-hover: var(--gold-500);
+  --action-ghost-hover: var(--sand-100);
+  --action-disabled-bg: var(--sand-200);
+  --action-disabled-text: var(--sand-500);
+  --focus-ring: var(--red-500);
+}
+
+.dark {
+  --surface-page: var(--sand-950);
+  --surface-card: #1d1811;
+  --surface-sunken: #120e0a;
+  --surface-raised: #262019;
+  --surface-inverse: var(--sand-100);
+  --surface-accent: #33191a;
+  --surface-reward: #322611;
+  --surface-overlay: rgba(12, 9, 6, 0.7);
+
+  --text-heading: var(--sand-50);
+  --text-body: var(--sand-200);
+  --text-muted: var(--sand-400);
+  --text-subtle: var(--sand-500);
+  --text-inverse: var(--sand-950);
+  --text-brand: var(--red-300);
+  --text-link: var(--red-300);
+  --text-link-hover: var(--red-200);
+  --text-on-brand: #ffffff;
+  --text-on-reward: var(--gold-900);
+
+  --border-subtle: #332a20;
+  --border-default: #453a2c;
+  --border-strong: #5c4d3b;
+  --border-brand: var(--red-400);
+  --border-focus: var(--red-400);
+
+  --action-primary: var(--red-500);
+  --action-primary-hover: var(--red-400);
+  --action-primary-active: var(--red-600);
+  --action-secondary: var(--navy-700);
+  --action-secondary-hover: var(--navy-600);
+  --action-reward: var(--gold-400);
+  --action-reward-hover: var(--gold-300);
+  --action-ghost-hover: #2c2519;
+  --action-disabled-bg: #2c2519;
+  --action-disabled-text: var(--sand-600);
+  --focus-ring: var(--red-400);
+
+  --success-50: #10241a;
+  --success-100: #173625;
+  --success-600: #4fbc85;
+  --warning-50: #2b2009;
+  --warning-100: #3d2e0c;
+  --warning-600: #e0a340;
+  --danger-50: #33191a;
+  --danger-100: #4a1f1d;
+  --danger-600: var(--red-400);
+  --info-50: #171b33;
+  --info-100: #22284a;
+  --info-600: var(--navy-300);
+}

@@ -1,0 +1,10 @@
+import React from "react"
+
+export function Label({ required, children, style, ...rest }) {
+  return (
+    <label {...rest} style={{ display: "inline-block", font: "var(--type-label)", color: "var(--text-heading)", ...style }}>
+      {children}
+      {required && <span style={{ color: "var(--danger-600)", marginLeft: "0.15rem" }}>*</span>}
+    </label>
+  )
+}

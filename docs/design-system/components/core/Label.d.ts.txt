@@ -1,0 +1,11 @@
+import type { ReactNode, CSSProperties, LabelHTMLAttributes } from "react"
+
+/** Form field label — 13px medium, navy ink. */
+export interface LabelProps extends LabelHTMLAttributes<HTMLLabelElement> {
+  /** Appends a red asterisk. */
+  required?: boolean
+  style?: CSSProperties
+  children?: ReactNode
+}
+
+export declare function Label(props: LabelProps): JSX.Element

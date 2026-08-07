@@ -1,0 +1,27 @@
+import React from "react"
+
+export function Tabs({ items = [], active, onChange }) {
+  return (
+    <nav style={{ display: "flex", gap: "var(--space-1)", borderBottom: "1px solid var(--border-subtle)" }}>
+      {items.map((it) => {
+        const on = it.value === active
+        return (
+          <button
+            key={it.value}
+            type="button"
+            onClick={() => onChange && onChange(it.value)}
+            style={{
+              padding: "var(--space-2) var(--space-4)", background: "none", cursor: "pointer",
+              border: "none", borderBottom: "2px solid " + (on ? "var(--border-brand)" : "transparent"),
+              marginBottom: -1, font: "var(--type-label)",
+              color: on ? "var(--text-brand)" : "var(--text-muted)",
+              transition: "var(--transition-color)",
+            }}
+          >
+            {it.label}
+          </button>
+        )
+      })}
+    </nav>
+  )
+}

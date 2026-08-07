@@ -1,0 +1,54 @@
+const { Button, Card, FilterPills, StatusPill, Icon } = window.BOMYDesignSystem_030168
+const ICONS = "../../assets/icons"
+
+const ROWS = [
+  { name: "Kopi O Kaw Drip Bags", slug: "kopi-o-kaw-drip-bags", status: "active", created: "12/03/2026" },
+  { name: "Kopi Cham Blend 500g", slug: "kopi-cham-blend-500g", status: "active", created: "02/03/2026" },
+  { name: "White Coffee Sachets", slug: "white-coffee-sachets", status: "draft", created: "28/02/2026" },
+  { name: "Roaster's Gift Tin", slug: "roasters-gift-tin", status: "draft", created: "21/02/2026" },
+  { name: "Kopi Kaw Cold Brew (2025)", slug: "kopi-kaw-cold-brew-2025", status: "archived", created: "04/11/2025" },
+]
+
+function SellerProductsScreen() {
+  const [status, setStatus] = React.useState("")
+  const rows = ROWS.filter((r) => !status || r.status === status)
+  return (
+    <div style={{ padding: "var(--space-8)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-6)" }}>
+        <h1 style={{ font: "var(--type-h3)" }}>Products</h1>
+        <Button><Icon name="plus" size={16} basePath={ICONS} />New Product</Button>
+      </div>
+      <div style={{ marginBottom: "var(--space-4)" }}>
+        <FilterPills items={[{ value: "", label: "All" }, { value: "draft", label: "Draft" }, { value: "active", label: "Active" }, { value: "archived", label: "Archived" }]} active={status} onChange={setStatus} />
+      </div>
+      <Card style={{ overflow: "hidden" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", font: "var(--type-body)" }}>
+          <thead>
+            <tr style={{ background: "var(--surface-sunken)", borderBottom: "1px solid var(--border-subtle)" }}>
+              {["Product", "Slug", "Status", "Created", ""].map((h) => (
+                <th key={h} style={{ textAlign: "left", padding: "var(--space-3) var(--space-5)", font: "var(--type-eyebrow)", textTransform: "uppercase", letterSpacing: "var(--tracking-wide)", color: "var(--text-muted)" }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.slug} style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+                <td style={{ padding: "var(--space-3) var(--space-5)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+                    <span style={{ width: 32, height: 32, borderRadius: "var(--radius-xs)", background: "var(--surface-sunken)", display: "grid", placeItems: "center", color: "var(--sand-400)" }}><Icon name="photo" size={16} basePath={ICONS} /></span>
+                    <span style={{ font: "var(--type-label)", color: "var(--text-heading)" }}>{r.name}</span>
+                  </div>
+                </td>
+                <td style={{ padding: "var(--space-3) var(--space-5)", font: "var(--type-mono)", color: "var(--text-muted)" }}>{r.slug}</td>
+                <td style={{ padding: "var(--space-3) var(--space-5)" }}><StatusPill status={r.status} /></td>
+                <td style={{ padding: "var(--space-3) var(--space-5)", color: "var(--text-muted)" }}>{r.created}</td>
+                <td style={{ padding: "var(--space-3) var(--space-5)" }}><Button variant="link" style={{ fontSize: "var(--text-xs)" }}>Edit</Button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
+    </div>
+  )
+}
+Object.assign(window, { SellerProductsScreen })

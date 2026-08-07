@@ -1,0 +1,30 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>body{margin:0;background:var(--surface-page);font:var(--type-body);color:var(--text-body)}.wrap{padding:20px;display:flex;flex-direction:column;gap:16px}.row{display:flex;flex-wrap:wrap;align-items:center;gap:12px}.lbl{font:var(--type-caption);color:var(--text-subtle);text-transform:uppercase;letter-spacing:var(--tracking-wide)}</style>
+</head><body><div id="root"></div>
+<script type="text/babel">
+const { Button, Badge, Card, CardHeader, CardTitle, CardDescription, CardContent, Input, Textarea, Label, Icon } = window.BOMYDesignSystem_030168;
+function Demo(){return(<div className="wrap">
+<div><div className="lbl">Button variants</div><div className="row" style={{marginTop:8}}>
+<Button>Add to cart</Button><Button variant="secondary">Seller dashboard</Button><Button variant="reward">Join now — RM75/yr</Button><Button variant="outline">Clear</Button><Button variant="ghost">Cancel</Button><Button variant="destructive">Remove</Button><Button variant="link">View all</Button></div></div>
+<div><div className="lbl">Sizes, states, icons</div><div className="row" style={{marginTop:8}}>
+<Button size="sm">Small</Button><Button size="md">Medium</Button><Button size="lg">Large</Button><Button size="icon"><Icon name="plus" size={16} basePath="../../assets/icons"/></Button>
+<Button loading>Saving…</Button><Button disabled>Out of stock</Button>
+<Button variant="outline"><Icon name="magnifying-glass" size={16} basePath="../../assets/icons"/>Search</Button></div></div>
+<div><div className="lbl">Badges</div><div className="row" style={{marginTop:8}}>
+<Badge>Snacks</Badge><Badge variant="brand">New</Badge><Badge variant="neutral">seller_owner</Badge><Badge variant="reward">Member</Badge><Badge variant="success">Paid</Badge><Badge variant="warning">Pending</Badge><Badge variant="danger">Refunded</Badge><Badge variant="outline">Draft</Badge></div></div>
+<div className="row" style={{alignItems:'stretch'}}>
+<Card style={{flex:1}}><CardHeader><CardTitle>A curated marketplace</CardTitle><CardDescription>We don't list everything — we curate.</CardDescription></CardHeader><CardContent><Button variant="outline" size="sm">Read more</Button></CardContent></Card>
+<Card interactive style={{flex:1}}><CardHeader><CardTitle>Membership &amp; community</CardTitle><CardDescription>Interactive card — lifts on hover.</CardDescription></CardHeader><CardContent><Badge variant="reward">RM75/yr</Badge></CardContent></Card>
+</div>
+<div className="row" style={{alignItems:'flex-start'}}>
+<div style={{flex:1,display:'flex',flexDirection:'column',gap:6}}><Label htmlFor="a" required>Email</Label><Input id="a" placeholder="you@example.com"/></div>
+<div style={{flex:1,display:'flex',flexDirection:'column',gap:6}}><Label htmlFor="b">Invalid</Label><Input id="b" invalid defaultValue="not-an-email"/></div>
+<div style={{flex:1,display:'flex',flexDirection:'column',gap:6}}><Label htmlFor="c">Brand story</Label><Textarea id="c" rows={2} placeholder="Tell buyers your story…"/></div>
+</div>
+</div>)}
+ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+</script></body></html>

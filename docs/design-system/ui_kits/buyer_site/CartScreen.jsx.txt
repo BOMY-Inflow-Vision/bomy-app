@@ -1,0 +1,47 @@
+const { Button, Card, CartLineItem } = window.BOMYDesignSystem_030168
+const ICONS = "../../assets/icons"
+
+function CartScreen({ items, setItems, go }) {
+  const subtotal = items.reduce((s, i) => s + i.priceSen * i.quantity, 0)
+  const fmt = (sen) => "RM" + (sen / 100).toFixed(2)
+  return (
+    <main style={{ maxWidth: "var(--container-narrow)", margin: "0 auto", padding: "var(--space-8) var(--space-8) var(--space-16)" }}>
+      <h1 style={{ marginBottom: "var(--space-6)", font: "var(--type-h2)" }}>
+        Your Cart {items.length > 0 && <span style={{ color: "var(--text-muted)" }}>({items.reduce((s, i) => s + i.quantity, 0)})</span>}
+      </h1>
+      {items.length === 0 ? (
+        <div style={{ border: "1px dashed var(--border-default)", borderRadius: "var(--radius-panel)", padding: "var(--space-20) 0", textAlign: "center" }}>
+          <p style={{ font: "var(--type-body)", color: "var(--text-muted)" }}>Your cart is empty.</p>
+          <div style={{ marginTop: "var(--space-4)" }}><Button variant="link" onClick={() => go("/products")}>Browse products</Button></div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+          {items.map((it) => (
+            <CartLineItem
+              key={it.id}
+              productName={it.name}
+              storeName={it.store}
+              variantName={it.variant}
+              price={fmt(it.priceSen)}
+              quantity={it.quantity}
+              iconBase={ICONS}
+              onQuantityChange={(n) => setItems(n <= 0 ? items.filter((x) => x.id !== it.id) : items.map((x) => x.id === it.id ? { ...x, quantity: n } : x))}
+              onRemove={() => setItems(items.filter((x) => x.id !== it.id))}
+            />
+          ))}
+          <Card style={{ padding: "var(--space-4)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ font: "var(--type-label)", color: "var(--text-heading)" }}>Subtotal</span>
+              <span style={{ font: "var(--type-price)", fontSize: "var(--text-xl)", color: "var(--text-heading)" }}>{fmt(subtotal)}</span>
+            </div>
+            <p style={{ margin: "var(--space-1) 0 0", font: "var(--type-caption)", color: "var(--text-muted)" }}>
+              Shipping, vouchers, and any brand-subscription discounts are applied at checkout — the final price you pay will be shown there.
+            </p>
+            <div style={{ marginTop: "var(--space-4)" }}><Button size="lg" fullWidth onClick={() => go("/checkout")}>Continue to checkout</Button></div>
+          </Card>
+        </div>
+      )}
+    </main>
+  )
+}
+Object.assign(window, { CartScreen })

@@ -1,0 +1,38 @@
+const { Button, Badge, Card, CardContent, Icon } = window.BOMYDesignSystem_030168
+const ICONS = "../../assets/icons"
+
+function MembershipScreen() {
+  const perks = [
+    "Welcome Gift (dispatched within 14 days of activation)",
+    "Quarterly Goodie Box from BOMY brand partners",
+    "Early access to new brands and limited drops",
+    "Member-only vouchers and exclusive pricing",
+  ]
+  return (
+    <main style={{ background: "var(--surface-sunken)", minHeight: "100%", padding: "var(--space-16) var(--space-4)", display: "flex", justifyContent: "center" }}>
+      <Card style={{ width: "100%", maxWidth: "32rem", borderRadius: "var(--radius-2xl)", textAlign: "center" }}>
+        <CardContent style={{ padding: "var(--space-10)" }}>
+          <p style={{ margin: 0, font: "var(--type-eyebrow)", textTransform: "uppercase", letterSpacing: "var(--tracking-widest)", color: "var(--gold-600)" }}>#1 Platform Membership</p>
+          <h1 style={{ margin: "var(--space-3) 0 var(--space-2)", font: "var(--type-h1)" }}>Join BOMY</h1>
+          <p style={{ font: "var(--type-body)", color: "var(--text-muted)" }}>
+            Annual membership — shop across all BOMY stores, receive exclusive perks, and unlock a Welcome Gift delivered to your door.
+          </p>
+          <div style={{ margin: "var(--space-8) 0", background: "var(--surface-reward)", borderRadius: "var(--radius-panel)", padding: "var(--space-5) var(--space-6)" }}>
+            <p style={{ margin: 0, font: "var(--type-display)", fontSize: "var(--text-4xl)", color: "var(--gold-700)" }}>RM75/yr</p>
+            <p style={{ margin: "var(--space-1) 0 0", font: "var(--type-caption)", color: "var(--gold-800)" }}>billed annually · cancel anytime</p>
+          </div>
+          <ul style={{ listStyle: "none", padding: 0, margin: "0 0 var(--space-8)", display: "flex", flexDirection: "column", gap: "var(--space-2)", textAlign: "left" }}>
+            {perks.map((p) => (
+              <li key={p} style={{ display: "flex", gap: "var(--space-2)", font: "var(--type-body)", color: "var(--text-muted)" }}>
+                <Icon name="check-circle" set="solid" size={18} basePath={ICONS} style={{ color: "var(--gold-500)", marginTop: 2 }} />{p}
+              </li>
+            ))}
+          </ul>
+          <Button variant="reward" size="lg" fullWidth>Join now — RM75/yr</Button>
+          <p style={{ margin: "var(--space-4) 0 0", font: "var(--type-caption)", color: "var(--text-subtle)" }}>Payment processed securely · MYR</p>
+        </CardContent>
+      </Card>
+    </main>
+  )
+}
+Object.assign(window, { MembershipScreen })

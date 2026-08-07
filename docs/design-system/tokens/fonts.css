@@ -1,0 +1,8 @@
+/* BOMY webfonts.
+   SUBSTITUTION NOTE: the bomy-app repo ships no font binaries — apps/web/src/app/layout.tsx
+   loads Inter from next/font/google. This system replaces Inter with Plus Jakarta Sans
+   (warmer, more humanist, still "modern & neutral" per the brand intake) and adds
+   IBM Plex Mono for identifiers (store IDs, slugs, order refs). Both are served from
+   Google Fonts; swap these @import lines for self-hosted @font-face rules when licensed
+   binaries are available. */
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap");

@@ -1,0 +1,67 @@
+import React from "react"
+import { Button } from "../core/Button.jsx"
+import { StockStatus } from "./StockStatus.jsx"
+
+export function VariantPicker({ variants = [], onAdd }) {
+  const [selectedId, setSelectedId] = React.useState(variants[0] ? variants[0].id : "")
+  const [added, setAdded] = React.useState(false)
+  const selected = variants.find((v) => v.id === selectedId)
+  const special = selected && (selected.fulfillmentMode === "backorder" || selected.fulfillmentMode === "preorder")
+
+  function add() {
+    if (!selected) return
+    onAdd && onAdd(selected)
+    setAdded(true)
+    setTimeout(() => setAdded(false), 2000)
+  }
+
+  if (!variants.length) return <p style={{ font: "var(--type-body)", color: "var(--text-muted)" }}>No variants available.</p>
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+      {variants.length > 1 && (
+        <div>
+          <p style={{ margin: "0 0 var(--space-2)", font: "var(--type-label)", color: "var(--text-heading)" }}>Choose variant</p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)" }}>
+            {variants.map((v) => {
+              const vSpecial = v.fulfillmentMode === "backorder" || v.fulfillmentMode === "preorder"
+              const unavailable = v.stockCount === 0 && !vSpecial
+              const on = v.id === selectedId
+              return (
+                <button
+                  key={v.id}
+                  type="button"
+                  disabled={unavailable}
+                  onClick={() => setSelectedId(v.id)}
+                  style={{
+                    padding: "0.375rem var(--space-3)", borderRadius: "var(--radius-sm)",
+                    border: "1px solid " + (on ? "var(--border-brand)" : "var(--border-default)"),
+                    background: on ? "var(--surface-accent)" : "var(--surface-card)",
+                    color: on ? "var(--red-700)" : "var(--text-heading)",
+                    font: "var(--type-body)", fontWeight: on ? "var(--weight-semibold)" : "var(--weight-regular)",
+                    cursor: unavailable ? "not-allowed" : "pointer",
+                    opacity: unavailable ? 0.5 : 1, textDecoration: unavailable ? "line-through" : "none",
+                    transition: "var(--transition-color)",
+                  }}
+                >
+                  {v.name}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {selected && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
+          <p style={{ margin: 0, font: "var(--type-price)", color: "var(--text-brand)" }}>{selected.price}</p>
+          <StockStatus mode={special ? selected.fulfillmentMode : "stock"} stockCount={selected.stockCount} preorderLeadDays={selected.preorderLeadDays} />
+        </div>
+      )}
+
+      <Button size="lg" fullWidth disabled={!selected || selected.stockCount === 0} onClick={add}>
+        {added ? "Added to cart ✓" : "Add to cart"}
+      </Button>
+    </div>
+  )
+}

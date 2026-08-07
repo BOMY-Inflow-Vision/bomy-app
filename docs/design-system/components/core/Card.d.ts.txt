@@ -1,0 +1,17 @@
+import type { ReactNode, CSSProperties } from "react"
+
+/** The standard surface: white on the sand page, 12px radius, warm hairline border. */
+export interface CardProps {
+  /** Lifts to shadow-md on hover — for cards that are links. */
+  interactive?: boolean
+  style?: CSSProperties
+  children?: ReactNode
+}
+export interface CardSlotProps { style?: CSSProperties; children?: ReactNode }
+
+export declare function Card(props: CardProps): JSX.Element
+export declare function CardHeader(props: CardSlotProps): JSX.Element
+export declare function CardTitle(props: CardSlotProps): JSX.Element
+export declare function CardDescription(props: CardSlotProps): JSX.Element
+export declare function CardContent(props: CardSlotProps): JSX.Element
+export declare function CardFooter(props: CardSlotProps): JSX.Element

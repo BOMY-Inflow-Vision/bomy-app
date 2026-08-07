@@ -1,0 +1,14 @@
+import type { CSSProperties, SelectHTMLAttributes, ReactNode } from "react"
+
+export interface SelectOption { value: string; label: string }
+
+/** Native select with BOMY chrome and a chevron affordance. */
+export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
+  /** Convenience list — omit and pass `<option>` children for groups. */
+  options?: SelectOption[]
+  invalid?: boolean
+  style?: CSSProperties
+  children?: ReactNode
+}
+
+export declare function Select(props: SelectProps): JSX.Element

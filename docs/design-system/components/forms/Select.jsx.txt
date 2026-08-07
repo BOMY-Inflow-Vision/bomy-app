@@ -1,0 +1,28 @@
+import React from "react"
+
+export function Select({ options = [], invalid, style, children, ...rest }) {
+  const [focus, setFocus] = React.useState(false)
+  return (
+    <div style={{ position: "relative", display: "block", ...style }}>
+      <select
+        {...rest}
+        onFocus={(e) => { setFocus(true); rest.onFocus && rest.onFocus(e) }}
+        onBlur={(e) => { setFocus(false); rest.onBlur && rest.onBlur(e) }}
+        style={{
+          width: "100%", height: "2.25rem", padding: "0 2rem 0 var(--space-3)", boxSizing: "border-box",
+          appearance: "none", background: "var(--surface-card)", color: "var(--text-heading)",
+          border: "1px solid " + (invalid ? "var(--danger-600)" : focus ? "var(--border-focus)" : "var(--border-default)"),
+          borderRadius: "var(--radius-input)", font: "var(--type-body)", outline: "none", cursor: "pointer",
+          boxShadow: focus ? "var(--shadow-focus)" : "var(--shadow-xs)",
+          transition: "var(--transition-color), box-shadow var(--duration-fast) var(--ease-standard)",
+        }}
+      >
+        {children || options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"
+        style={{ position: "absolute", right: "var(--space-3)", top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--text-muted)" }}>
+        <path d="m19.5 8.25-7.5 7.5-7.5-7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </div>
+  )
+}

@@ -1,0 +1,60 @@
+import React from "react"
+import { Wordmark } from "./Wordmark.jsx"
+import { Icon } from "../core/Icon.jsx"
+
+const DEFAULT_LINKS = [
+  { href: "/products", label: "Products" },
+  { href: "/brands", label: "Brands" },
+  { href: "/membership", label: "Membership" },
+  { href: "/seller/apply", label: "Sell with us" },
+]
+
+function NavLink({ href, label, active, onClick }) {
+  const [hover, setHover] = React.useState(false)
+  return (
+    <a
+      href={href}
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        font: "var(--type-body)", textDecoration: "none",
+        color: active || hover ? "var(--text-heading)" : "var(--text-muted)",
+        transition: "var(--transition-color)",
+      }}
+    >
+      {label}
+    </a>
+  )
+}
+
+export function NavBar({ links = DEFAULT_LINKS, activeHref, cartCount = 0, signedIn, isSeller, iconBase = "assets/icons", onNavigate }) {
+  const authLinks = signedIn
+    ? [...(isSeller ? [{ href: "/seller/dashboard", label: "Seller" }] : []), { href: "/account", label: "Account" }]
+    : [{ href: "/auth/sign-in", label: "Sign in" }]
+  return (
+    <nav style={{
+      position: "sticky", top: 0, zIndex: 50, background: "var(--surface-card)",
+      borderBottom: "1px solid var(--border-subtle)", boxShadow: "var(--shadow-xs)",
+    }}>
+      <div style={{ height: "var(--nav-height)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 var(--space-4)" }}>
+        <Wordmark size={20} />
+        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-5)" }}>
+          {links.map((l) => <NavLink key={l.href} {...l} active={l.href === activeHref} onClick={onNavigate && ((e) => { e.preventDefault(); onNavigate(l.href) })} />)}
+          <a href="/cart" aria-label="Cart" onClick={onNavigate && ((e) => { e.preventDefault(); onNavigate("/cart") })} style={{ position: "relative", display: "flex", color: "var(--text-muted)" }}>
+            <Icon name="shopping-bag" size={24} basePath={iconBase} />
+            {cartCount > 0 && (
+              <span style={{
+                position: "absolute", top: -6, right: -8, minWidth: 17, height: 17, padding: "0 4px",
+                display: "grid", placeItems: "center", borderRadius: "var(--radius-pill)",
+                background: "var(--action-primary)", color: "var(--text-on-brand)",
+                fontFamily: "var(--font-sans)", fontSize: 10, fontWeight: "var(--weight-bold)",
+              }}>{cartCount > 99 ? "99+" : cartCount}</span>
+            )}
+          </a>
+          {authLinks.map((l) => <NavLink key={l.href} {...l} active={l.href === activeHref} onClick={onNavigate && ((e) => { e.preventDefault(); onNavigate(l.href) })} />)}
+        </div>
+      </div>
+    </nav>
+  )
+}

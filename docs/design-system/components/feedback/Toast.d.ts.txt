@@ -1,0 +1,19 @@
+/**
+ * A transient confirmation pinned to the bottom centre.
+ *
+ * INTENTIONAL ADDITION — bomy-app has no toast system and confirms inline instead.
+ * Prefer inline confirmation; reach for this only when the action's result is off-screen.
+ */
+export interface ToastProps {
+  open?: boolean
+  tone?: "success" | "error" | "info"
+  message: string
+  /** Optional inline action label, e.g. "Undo". */
+  action?: string
+  onAction?: () => void
+  onClose?: () => void
+  /** Auto-dismiss in ms. Pass 0 to keep it up. */
+  duration?: number
+}
+
+export declare function Toast(props: ToastProps): JSX.Element

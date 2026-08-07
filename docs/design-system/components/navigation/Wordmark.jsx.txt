@@ -1,0 +1,21 @@
+import React from "react"
+
+/* BOMY has no logo file — the intake asks for one to be designed. Until a real mark
+   exists, the brand is set in type: the wordmark below. Do not substitute a drawn symbol. */
+export function Wordmark({ size = 20, tone = "brand", href = "/", as = "a" }) {
+  const color = tone === "inverse" ? "var(--text-inverse)" : tone === "ink" ? "var(--text-heading)" : "var(--text-brand)"
+  const Tag = as
+  return (
+    <Tag
+      {...(as === "a" ? { href } : {})}
+      style={{
+        display: "inline-flex", alignItems: "baseline", gap: "0.08em", textDecoration: "none",
+        fontFamily: "var(--font-display)", fontWeight: "var(--weight-extrabold)",
+        fontSize: size, lineHeight: 1, letterSpacing: "var(--tracking-tighter)", color,
+      }}
+    >
+      BOMY
+      <span style={{ width: "0.24em", height: "0.24em", borderRadius: "50%", background: "var(--gold-400)", display: "inline-block" }} />
+    </Tag>
+  )
+}

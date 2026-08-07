@@ -1,0 +1,31 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>body{margin:0;background:var(--surface-page);font:var(--type-body);color:var(--text-body)}.wrap{padding:20px;display:flex;flex-direction:column;gap:16px}.row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:16px}.lbl{font:var(--type-caption);color:var(--text-subtle);text-transform:uppercase;letter-spacing:var(--tracking-wide)}</style>
+</head><body><div id="root"></div>
+<script type="text/babel">
+const { Dialog, Toast, EmptyState, Button } = window.BOMYDesignSystem_030168;
+function Demo(){
+const [open,setOpen]=React.useState(false);
+const [toast,setToast]=React.useState(true);
+return(<div className="wrap">
+<div className="row"><Button variant="outline" onClick={()=>setOpen(true)}>Open dialog</Button><Button variant="outline" onClick={()=>setToast(true)}>Show toast</Button></div>
+<div className="row" style={{alignItems:'stretch'}}>
+<EmptyState style={{flex:1,padding:'32px 24px'}} message="Your cart is empty." action="Browse products"/>
+<EmptyState style={{flex:1,padding:'32px 24px'}} icon="magnifying-glass" message="No products found."/>
+</div>
+<div style={{position:'relative',height:140,border:'1px dashed var(--border-subtle)',borderRadius:'var(--radius-panel)',overflow:'hidden'}}>
+<div style={{position:'absolute',inset:0,background:'var(--surface-overlay)',display:'grid',placeItems:'center'}}>
+<div style={{width:'88%',maxWidth:400,background:'var(--surface-card)',borderRadius:'var(--radius-panel)',boxShadow:'var(--shadow-xl)',padding:'20px'}}>
+<h2 style={{font:'var(--type-h3)'}}>Archive this product?</h2>
+<p style={{margin:'8px 0 0',font:'var(--type-body)',color:'var(--text-muted)'}}>Buyers will no longer see it. You can restore it later.</p>
+<div style={{display:'flex',justifyContent:'flex-end',gap:12,marginTop:16}}><Button variant="ghost" size="sm">Cancel</Button><Button variant="destructive" size="sm">Archive</Button></div>
+</div></div></div>
+<Dialog open={open} title="Archive this product?" description="Buyers will no longer see it. You can restore it later." onClose={()=>setOpen(false)}
+ footer={<React.Fragment><Button variant="ghost" onClick={()=>setOpen(false)}>Cancel</Button><Button variant="destructive" onClick={()=>setOpen(false)}>Archive</Button></React.Fragment>}/>
+<Toast open={toast} message="Product published" action="View" onClose={()=>setToast(false)} duration={0}/>
+</div>)}
+ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+</script></body></html>
