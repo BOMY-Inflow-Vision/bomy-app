@@ -6,7 +6,7 @@ const BUSINESS_ADDRESS =
 
 export function Footer() {
   return (
-    <footer className="mt-16 border-t border-border bg-muted">
+    <footer className="mt-16 border-t border-subtle bg-muted">
       <div className="mx-auto max-w-6xl px-4 py-12">
         <div className="grid grid-cols-1 gap-10 md:grid-cols-4">
           <div className="md:col-span-2">
@@ -26,7 +26,7 @@ export function Footer() {
             <p className="mt-2 text-sm text-muted-foreground">Address: {BUSINESS_ADDRESS}</p>
           </div>
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Quick Links
             </p>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
@@ -43,7 +43,7 @@ export function Footer() {
             </ul>
           </div>
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Policies
             </p>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
@@ -70,7 +70,7 @@ export function Footer() {
             </ul>
           </div>
         </div>
-        <div className="mt-10 border-t border-border pt-6">
+        <div className="mt-10 border-t border-subtle pt-6">
           <p className="text-xs text-muted-foreground">© 2026 BOMY. All rights reserved.</p>
         </div>
       </div>
