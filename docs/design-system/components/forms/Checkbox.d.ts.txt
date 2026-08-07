@@ -1,0 +1,16 @@
+import type { CSSProperties } from "react"
+
+/** A single opt-in — save address, agree to terms, subscribe to brand news. */
+export interface CheckboxProps {
+  label?: string
+  /** Secondary line under the label. */
+  description?: string
+  checked?: boolean
+  defaultChecked?: boolean
+  onChange?: (next: boolean) => void
+  disabled?: boolean
+  id?: string
+  style?: CSSProperties
+}
+
+export declare function Checkbox(props: CheckboxProps): JSX.Element

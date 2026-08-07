@@ -1,0 +1,39 @@
+import React from "react"
+
+export function Checkbox({ label, description, checked, defaultChecked, onChange, disabled, id, style }) {
+  const [inner, setInner] = React.useState(!!defaultChecked)
+  const on = checked === undefined ? inner : checked
+  const uid = id || React.useId()
+  function toggle() {
+    if (disabled) return
+    if (checked === undefined) setInner(!on)
+    onChange && onChange(!on)
+  }
+  return (
+    <div style={{ display: "flex", alignItems: "flex-start", gap: "var(--space-3)", ...style }}>
+      <button
+        type="button" role="checkbox" aria-checked={on} id={uid} disabled={disabled} onClick={toggle}
+        style={{
+          width: "1.125rem", height: "1.125rem", marginTop: "0.15rem", flexShrink: 0, padding: 0,
+          display: "grid", placeItems: "center", borderRadius: "var(--radius-xs)",
+          border: "1px solid " + (on ? "var(--action-primary)" : "var(--border-default)"),
+          background: on ? "var(--action-primary)" : "var(--surface-card)",
+          cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.5 : 1,
+          transition: "var(--transition-color)",
+        }}
+      >
+        {on && (
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="m4.5 12.75 6 6 9-13.5" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
+      </button>
+      {(label || description) && (
+        <label htmlFor={uid} onClick={toggle} style={{ cursor: disabled ? "not-allowed" : "pointer" }}>
+          {label && <span style={{ display: "block", font: "var(--type-label)", color: "var(--text-heading)" }}>{label}</span>}
+          {description && <span style={{ display: "block", marginTop: 2, font: "var(--type-caption)", color: "var(--text-muted)" }}>{description}</span>}
+        </label>
+      )}
+    </div>
+  )
+}

@@ -1,0 +1,28 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>body{margin:0;background:var(--surface-page);font:var(--type-body);color:var(--text-body)}.wrap{padding:20px;display:flex;flex-direction:column;gap:16px}.row{display:flex;flex-wrap:wrap;align-items:center;gap:12px}.lbl{font:var(--type-caption);color:var(--text-subtle);text-transform:uppercase;letter-spacing:var(--tracking-wide)}</style>
+</head><body><div id="root"></div>
+<script type="text/babel">
+const { ProductCard, BrandCard, VariantPicker, StockStatus, StatusPill, CartLineItem } = window.BOMYDesignSystem_030168;
+function Demo(){return(<div className="wrap">
+<div className="row" style={{alignItems:'stretch'}}>
+<div style={{width:170}}><ProductCard name="Kopi O Kaw Drip Bags" storeName="Ah Huat Roasters" category="Beverages" price="from RM24.90" iconBase="../../assets/icons"/></div>
+<div style={{width:170}}><ProductCard name="Pandan Kaya Spread" storeName="Nyonya Pantry" category="Pantry" price="from RM18.00" iconBase="../../assets/icons"/></div>
+<div style={{flex:1,minWidth:220}}><BrandCard name="Ah Huat Roasters" excerpt="Third-generation kopi roasters from Ipoh, still roasting over wood." categories={["Food & Beverage"]} productCount={18}/></div>
+</div>
+<div className="row" style={{alignItems:'flex-start'}}>
+<div style={{width:280}}><div className="lbl">Buy box</div><div style={{marginTop:8}}><VariantPicker variants={[{id:'1',name:'200g',price:'RM24.90',stockCount:12},{id:'2',name:'500g',price:'RM52.00',stockCount:0},{id:'3',name:'Gift tin',price:'RM68.00',stockCount:0,fulfillmentMode:'preorder',preorderLeadDays:14}]}/></div></div>
+<div style={{flex:1,display:'flex',flexDirection:'column',gap:10}}>
+<div className="lbl">Status pills</div>
+<div className="row">{['active','pending','suspended','draft','archived'].map(s=><StatusPill key={s} status={s}/>)}</div>
+<div className="row">{['processing','shipped','delivered','completed','cancelled'].map(s=><StatusPill key={s} status={s}/>)}</div>
+<div className="lbl">Availability</div>
+<div className="row"><StockStatus stockCount={12}/><StockStatus stockCount={0}/><StockStatus mode="preorder" preorderLeadDays={14}/><StockStatus mode="backorder"/></div>
+</div></div>
+<div><div className="lbl">Cart line</div><div style={{marginTop:8}}><CartLineItem productName="Kopi O Kaw Drip Bags" storeName="Ah Huat Roasters" variantName="200g" price="RM24.90" quantity={2} iconBase="../../assets/icons"/></div></div>
+</div>)}
+ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+</script></body></html>

@@ -1,0 +1,20 @@
+import React from "react"
+import { Icon } from "../core/Icon.jsx"
+
+export function EmptyState({ icon, message, action, onAction, style }) {
+  return (
+    <div style={{
+      border: "1px dashed var(--border-default)", borderRadius: "var(--radius-panel)",
+      padding: "var(--space-16) var(--space-6)", textAlign: "center",
+      display: "flex", flexDirection: "column", alignItems: "center", gap: "var(--space-3)", ...style,
+    }}>
+      {icon && <Icon name={icon} size={28} style={{ color: "var(--sand-400)" }} />}
+      <p style={{ margin: 0, font: "var(--type-body)", color: "var(--text-muted)" }}>{message}</p>
+      {action && (
+        <button type="button" onClick={onAction} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", font: "var(--type-body)", color: "var(--text-link)", textDecoration: "underline", textUnderlineOffset: 4 }}>
+          {action}
+        </button>
+      )}
+    </div>
+  )
+}

@@ -1,0 +1,9 @@
+/** Availability line under the price on a product page. */
+export interface StockStatusProps {
+  /** Variant fulfilment mode from the catalogue. */
+  mode?: "stock" | "backorder" | "preorder"
+  stockCount?: number
+  preorderLeadDays?: number | null
+}
+
+export declare function StockStatus(props: StockStatusProps): JSX.Element

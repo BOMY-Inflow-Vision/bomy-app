@@ -1,0 +1,76 @@
+import React from "react"
+
+const base = {
+  display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "var(--space-2)",
+  whiteSpace: "nowrap", fontFamily: "var(--font-sans)", fontWeight: "var(--weight-semibold)",
+  borderRadius: "var(--radius-control)", border: "1px solid transparent", cursor: "pointer",
+  transition: "var(--transition-color), box-shadow var(--duration-fast) var(--ease-standard)",
+  textDecoration: "none",
+}
+
+const sizes = {
+  sm: { height: "2rem", padding: "0 var(--space-3)", fontSize: "var(--text-xs)" },
+  md: { height: "2.25rem", padding: "0 var(--space-4)", fontSize: "var(--text-base)" },
+  lg: { height: "2.75rem", padding: "0 var(--space-6)", fontSize: "var(--text-md)" },
+  icon: { height: "2.25rem", width: "2.25rem", padding: 0, fontSize: "var(--text-base)" },
+}
+
+const variants = {
+  primary: { background: "var(--action-primary)", color: "var(--text-on-brand)", boxShadow: "var(--shadow-xs)" },
+  secondary: { background: "var(--action-secondary)", color: "var(--text-inverse)", boxShadow: "var(--shadow-xs)" },
+  reward: { background: "var(--action-reward)", color: "var(--text-on-reward)", boxShadow: "var(--shadow-xs)" },
+  outline: { background: "var(--surface-card)", color: "var(--text-heading)", borderColor: "var(--border-default)", boxShadow: "var(--shadow-xs)" },
+  ghost: { background: "transparent", color: "var(--text-body)" },
+  destructive: { background: "var(--danger-600)", color: "#fff" },
+  link: { background: "transparent", color: "var(--text-link)", height: "auto", padding: 0, textDecoration: "underline", textUnderlineOffset: "4px" },
+}
+
+const hovers = {
+  primary: { background: "var(--action-primary-hover)" },
+  secondary: { background: "var(--action-secondary-hover)" },
+  reward: { background: "var(--action-reward-hover)" },
+  outline: { background: "var(--action-ghost-hover)", borderColor: "var(--border-strong)" },
+  ghost: { background: "var(--action-ghost-hover)" },
+  destructive: { background: "var(--danger-700)" },
+  link: { color: "var(--text-link-hover)" },
+}
+
+function Spinner() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ animation: "bomy-spin 700ms linear infinite" }}>
+      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" opacity="0.25" />
+      <path fill="currentColor" opacity="0.75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+    </svg>
+  )
+}
+
+export function Button({ variant = "primary", size = "md", disabled, loading, fullWidth, as = "button", children, style, onClick, href, type = "button", ...rest }) {
+  const [hover, setHover] = React.useState(false)
+  const [press, setPress] = React.useState(false)
+  const Tag = as === "a" ? "a" : "button"
+  const isOff = disabled || loading
+  const s = {
+    ...base, ...sizes[size], ...variants[variant],
+    ...(hover && !isOff ? hovers[variant] : null),
+    ...(press && !isOff ? { transform: "scale(var(--press-scale))" } : null),
+    ...(fullWidth ? { width: "100%" } : null),
+    ...(isOff ? { background: variant === "ghost" || variant === "link" ? "transparent" : "var(--action-disabled-bg)", color: "var(--action-disabled-text)", borderColor: "transparent", cursor: "not-allowed", boxShadow: "none" } : null),
+    ...style,
+  }
+  return (
+    <Tag
+      {...rest}
+      {...(Tag === "button" ? { type, disabled: isOff } : { href })}
+      style={s}
+      onClick={isOff ? undefined : onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => { setHover(false); setPress(false) }}
+      onMouseDown={() => setPress(true)}
+      onMouseUp={() => setPress(false)}
+    >
+      <style>{"@keyframes bomy-spin{to{transform:rotate(360deg)}}"}</style>
+      {loading && <Spinner />}
+      {children}
+    </Tag>
+  )
+}

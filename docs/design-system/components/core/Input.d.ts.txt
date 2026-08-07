@@ -1,0 +1,10 @@
+import type { CSSProperties, InputHTMLAttributes } from "react"
+
+/** Single-line text field — search bars, address forms, product forms. */
+export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
+  /** Red border for a failed validator result. */
+  invalid?: boolean
+  style?: CSSProperties
+}
+
+export declare function Input(props: InputProps): JSX.Element

@@ -1,0 +1,59 @@
+const { Button, Card, StatusPill, Icon, Badge } = window.BOMYDesignSystem_030168
+const ICONS = "../../assets/icons"
+
+function Stat({ icon, label, value, hint }) {
+  return (
+    <Card style={{ padding: "var(--space-6)", display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+      <Icon name={icon} size={20} basePath={ICONS} style={{ color: "var(--text-muted)" }} />
+      <span style={{ font: "var(--type-caption)", color: "var(--text-muted)" }}>{label}</span>
+      <span style={{ font: "var(--type-price)", color: "var(--text-heading)" }}>{value}</span>
+      {hint && <span style={{ font: "var(--type-caption)", color: "var(--text-subtle)" }}>{hint}</span>}
+    </Card>
+  )
+}
+
+function OverviewScreen({ go }) {
+  return (
+    <div style={{ padding: "var(--space-8)", display: "flex", flexDirection: "column", gap: "var(--space-6)" }}>
+      <Card style={{ padding: "var(--space-6)" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+          <div>
+            <h1 style={{ font: "var(--type-h3)" }}>Ah Huat Roasters</h1>
+            <p style={{ margin: "2px 0 0", font: "var(--type-mono)", color: "var(--text-muted)" }}>/ah-huat-roasters</p>
+            <p style={{ margin: "var(--space-2) 0 0", font: "var(--type-body)", color: "var(--text-muted)" }}>
+              Store ID <span style={{ font: "var(--type-mono)" }}>str_8f2a1c94…</span>
+            </p>
+          </div>
+          <StatusPill status="active" />
+        </div>
+      </Card>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "var(--grid-gap)" }}>
+        <Stat icon="banknotes" label="Payout this month" value="RM4,182.50" hint="net of 25% commission" />
+        <Stat icon="clipboard-document-list" label="Orders to fulfil" value="7" hint="3 awaiting tracking" />
+        <Stat icon="shopping-bag" label="Live products" value="18" hint="2 drafts" />
+        <Stat icon="sparkles" label="Brand subscribers" value="126" hint="+9 this month" />
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--grid-gap)" }}>
+        <Card style={{ padding: "var(--space-6)", display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+          <h2 style={{ font: "var(--type-h3)" }}>Next steps</h2>
+          {[["Add tracking to 3 shipped orders", "orders"], ["Publish 2 draft products", "products"]].map(([t, r]) => (
+            <div key={t} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-4)" }}>
+              <span style={{ font: "var(--type-body)", color: "var(--text-body)" }}>{t}</span>
+              <Button variant="outline" size="sm" onClick={() => go("/seller/dashboard/" + r)}>Open</Button>
+            </div>
+          ))}
+        </Card>
+        <Card style={{ padding: "var(--space-6)", display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+            <Badge variant="reward">Brand subscriptions</Badge>
+          </div>
+          <p style={{ font: "var(--type-body)", color: "var(--text-muted)" }}>
+            You keep 90% of every brand subscription. Gift avatar items to subscribers to keep renewal rates up.
+          </p>
+          <Button variant="secondary" size="sm" style={{ alignSelf: "flex-start" }} onClick={() => go("/seller/dashboard/subscriptions")}>Manage tiers</Button>
+        </Card>
+      </div>
+    </div>
+  )
+}
+Object.assign(window, { OverviewScreen })

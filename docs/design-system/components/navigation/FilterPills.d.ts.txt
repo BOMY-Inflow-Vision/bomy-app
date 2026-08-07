@@ -1,0 +1,10 @@
+export interface FilterPillItem { value: string; label: string }
+
+/** Status filter pills above a list — seller products, seller orders. */
+export interface FilterPillsProps {
+  items: FilterPillItem[]
+  active: string
+  onChange?: (value: string) => void
+}
+
+export declare function FilterPills(props: FilterPillsProps): JSX.Element

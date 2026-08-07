@@ -1,0 +1,10 @@
+/** The BOMY wordmark — plain type plus a gold dot. Placeholder until a real logo exists. */
+export interface WordmarkProps {
+  /** Font size in px. 20 in the nav, 28+ in the footer and marketing heroes. */
+  size?: number
+  tone?: "brand" | "ink" | "inverse"
+  href?: string
+  as?: "a" | "span" | "div"
+}
+
+export declare function Wordmark(props: WordmarkProps): JSX.Element

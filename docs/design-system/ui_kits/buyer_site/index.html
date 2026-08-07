@@ -1,0 +1,75 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>BOMY — Buyer site</title>
+<link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<script src="data.js"></script>
+<style>body{margin:0;background:var(--surface-page)}#root{min-height:100vh;display:flex;flex-direction:column}</style>
+</head><body><div id="root"></div>
+<script type="text/babel" src="HomeScreen.jsx.txt"></script>
+<script type="text/babel" src="ProductsScreen.jsx.txt"></script>
+<script type="text/babel" src="ProductScreen.jsx.txt"></script>
+<script type="text/babel" src="BrandScreen.jsx.txt"></script>
+<script type="text/babel" src="MembershipScreen.jsx.txt"></script>
+<script type="text/babel" src="CartScreen.jsx.txt"></script>
+<script type="text/babel" src="CheckoutScreen.jsx.txt"></script>
+<script type="text/babel">
+const { NavBar, Footer } = window.BOMYDesignSystem_030168
+
+function App() {
+  const [route, setRoute] = React.useState("/")
+  const [items, setItems] = React.useState([{ id: "c1", name: "Kopi O Kaw Drip Bags", store: "Ah Huat Roasters", variant: "10 bags", priceSen: 2490, quantity: 2 }])
+  const go = (r) => { setRoute(r); window.scrollTo(0, 0) }
+  const addToCart = (v) => setItems((prev) => {
+    const id = "v" + v.id
+    const hit = prev.find((p) => p.id === id)
+    if (hit) return prev.map((p) => p.id === id ? { ...p, quantity: p.quantity + 1 } : p)
+    return [...prev, { id, name: "Kopi O Kaw Drip Bags", store: "Ah Huat Roasters", variant: v.name, priceSen: Math.round(parseFloat(v.price.replace("RM", "")) * 100), quantity: 1 }]
+  })
+  const count = items.reduce((s, i) => s + i.quantity, 0)
+
+  let screen = null
+  if (route === "/") screen = <HomeScreen go={go} />
+  else if (route === "/products") screen = <ProductsScreen go={go} />
+  else if (route === "/product") screen = <ProductScreen go={go} addToCart={addToCart} />
+  else if (route === "/brands" || route === "/brand") screen = route === "/brand" ? <BrandScreen go={go} /> : <BrandsIndex go={go} />
+  else if (route === "/membership") screen = <MembershipScreen />
+  else if (route === "/cart") screen = <CartScreen items={items} setItems={setItems} go={go} />
+  else if (route === "/checkout") screen = <CheckoutScreen items={items} go={go} />
+  else screen = <HomeScreen go={go} />
+
+  return (
+    <React.Fragment>
+      <NavBar activeHref={route} cartCount={count} signedIn isSeller iconBase="../../assets/icons" onNavigate={go} />
+      <div style={{ flex: 1 }}>{screen}</div>
+      <Footer />
+    </React.Fragment>
+  )
+}
+
+function BrandsIndex({ go }) {
+  const { BrandCard, Input, Button, CategoryList } = window.BOMYDesignSystem_030168
+  const d = window.BOMY_DATA
+  const [cat, setCat] = React.useState("")
+  const label = (d.categories.find((c) => c.value === cat) || {}).label
+  const list = d.brands.filter((b) => !cat || b.categories.includes(label))
+  return (
+    <main style={{ maxWidth: "var(--container-wide)", margin: "0 auto", padding: "var(--space-8) var(--space-8) var(--space-16)" }}>
+      <h1 style={{ font: "var(--type-h2)" }}>Brands</h1>
+      <p style={{ marginTop: "var(--space-1)", font: "var(--type-body)", color: "var(--text-muted)" }}>Discover sellers on BOMY</p>
+      <form onSubmit={(e) => e.preventDefault()} style={{ display: "flex", gap: "var(--space-2)", margin: "var(--space-6) 0" }}>
+        <Input placeholder="Search brands…" style={{ flex: 1 }} /><Button type="submit">Search</Button>
+      </form>
+      <div style={{ display: "flex", gap: "var(--space-6)", alignItems: "flex-start" }}>
+        <aside style={{ width: "11rem", flexShrink: 0 }}><CategoryList items={d.categories} active={cat} onChange={setCat} /></aside>
+        <div style={{ flex: 1, display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "var(--grid-gap)" }}>
+          {list.map((b) => <div key={b.slug} onClick={() => go("/brand")} style={{ cursor: "pointer" }}><BrandCard {...b} href="#" /></div>)}
+        </div>
+      </div>
+    </main>
+  )
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />)
+</script></body></html>

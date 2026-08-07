@@ -1,0 +1,15 @@
+/**
+ * A brand tile for the /brands directory.
+ * @startingPoint section="Commerce" subtitle="Brand directory tile" viewport="700x260"
+ */
+export interface BrandCardProps {
+  name: string
+  /** One-line brand story excerpt. */
+  excerpt?: string
+  categories?: string[]
+  productCount?: number
+  href?: string
+  logoUrl?: string
+}
+
+export declare function BrandCard(props: BrandCardProps): JSX.Element

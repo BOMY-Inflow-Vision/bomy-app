@@ -1,0 +1,32 @@
+import React from "react"
+
+export function CategoryList({ title = "Categories", items = [], active, onChange }) {
+  return (
+    <div>
+      <p style={{ margin: "0 0 var(--space-2)", font: "var(--type-eyebrow)", textTransform: "uppercase", letterSpacing: "var(--tracking-wide)", color: "var(--text-muted)" }}>{title}</p>
+      <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
+        {items.map((it) => {
+          const on = it.value === active
+          return (
+            <li key={it.value}>
+              <button
+                type="button"
+                onClick={() => onChange && onChange(it.value)}
+                style={{
+                  width: "100%", textAlign: "left", padding: "0.375rem var(--space-3)", cursor: "pointer",
+                  borderRadius: "var(--radius-sm)", border: "none",
+                  background: on ? "var(--surface-accent)" : "transparent",
+                  color: on ? "var(--red-700)" : "var(--text-body)",
+                  font: "var(--type-body)", fontWeight: on ? "var(--weight-semibold)" : "var(--weight-regular)",
+                  transition: "var(--transition-color)",
+                }}
+              >
+                {it.label}
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+}

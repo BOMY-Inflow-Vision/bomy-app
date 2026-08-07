@@ -1,0 +1,27 @@
+import React from "react"
+
+export function FilterPills({ items = [], active, onChange }) {
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)" }}>
+      {items.map((it) => {
+        const on = it.value === active
+        return (
+          <button
+            key={it.value}
+            type="button"
+            onClick={() => onChange && onChange(it.value)}
+            style={{
+              padding: "0.25rem var(--space-3)", borderRadius: "var(--radius-pill)", border: "none", cursor: "pointer",
+              background: on ? "var(--action-primary)" : "var(--surface-sunken)",
+              color: on ? "var(--text-on-brand)" : "var(--text-muted)",
+              font: "var(--type-caption)", fontWeight: "var(--weight-semibold)", textTransform: "capitalize",
+              transition: "var(--transition-color)",
+            }}
+          >
+            {it.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}

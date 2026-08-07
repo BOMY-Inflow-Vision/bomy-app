@@ -33,6 +33,10 @@ export default tseslint.config(
       // Plain-JS runtime scripts — not part of any TypeScript project
       "packages/*/scripts/**",
       "apps/*/scripts/**",
+      // Design-system handoff bundle — external reference material (tokens,
+      // component mocks, a compiled preview bundle), not part of this repo's
+      // TypeScript project or code style. See docs/design-system/README.md.
+      "docs/design-system/**",
     ],
   },
 )

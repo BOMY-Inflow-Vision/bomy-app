@@ -1,0 +1,57 @@
+const { Button, Badge, VariantPicker, Icon } = window.BOMYDesignSystem_030168
+const ICONS = "../../assets/icons"
+
+function ProductScreen({ go, addToCart }) {
+  const [img, setImg] = React.useState(0)
+  const thumbs = ["var(--sand-200)", "var(--sand-100)", "var(--gold-100)", "var(--red-100)"]
+  return (
+    <main style={{ maxWidth: "var(--container-content)", margin: "0 auto", padding: "var(--space-8) var(--space-8) var(--space-16)" }}>
+      <nav style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-6)", font: "var(--type-body)", color: "var(--text-muted)" }}>
+        <a href="#" onClick={(e) => { e.preventDefault(); go("/products") }}>Products</a><span>/</span>
+        <a href="#" onClick={(e) => { e.preventDefault(); go("/brand") }}>Ah Huat Roasters</a><span>/</span>
+        <span style={{ color: "var(--text-heading)" }}>Kopi O Kaw Drip Bags</span>
+      </nav>
+      <article style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-8)" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+          <div style={{ aspectRatio: "1 / 1", borderRadius: "var(--radius-media)", background: thumbs[img], display: "grid", placeItems: "center", color: "var(--sand-400)", border: "1px solid var(--border-subtle)" }}>
+            <Icon name="photo" size={48} basePath={ICONS} />
+          </div>
+          <div style={{ display: "flex", gap: "var(--space-2)" }}>
+            {thumbs.map((t, i) => (
+              <button key={i} type="button" onClick={() => setImg(i)} style={{ width: 64, height: 64, borderRadius: "var(--radius-sm)", background: t, cursor: "pointer", border: "2px solid " + (i === img ? "var(--border-brand)" : "var(--border-subtle)") }} />
+            ))}
+          </div>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+          <div>
+            <a href="#" onClick={(e) => { e.preventDefault(); go("/brand") }} style={{ font: "var(--type-eyebrow)", textTransform: "uppercase", letterSpacing: "var(--tracking-wide)" }}>Ah Huat Roasters</a>
+            <h1 style={{ marginTop: "var(--space-1)", font: "var(--type-h2)" }}>Kopi O Kaw Drip Bags</h1>
+          </div>
+          <div style={{ display: "flex", gap: "var(--space-2)" }}><Badge>Beverages</Badge><Badge variant="reward">Member price</Badge></div>
+          <p style={{ font: "var(--type-body)", color: "var(--text-muted)" }}>
+            Ten single-serve drip bags of dark-roast Liberica, roasted over wood in Ipoh the same way since 1962. Brews thick, bitter and sweet — kaw exactly as it should be.
+          </p>
+          <VariantPicker
+            variants={[
+              { id: "1", name: "10 bags", price: "RM24.90", stockCount: 42 },
+              { id: "2", name: "30 bags", price: "RM64.00", stockCount: 8 },
+              { id: "3", name: "Gift tin", price: "RM88.00", stockCount: 0, fulfillmentMode: "preorder", preorderLeadDays: 14 },
+            ]}
+            onAdd={addToCart}
+          />
+          <div style={{ display: "flex", gap: "var(--space-4)", paddingTop: "var(--space-2)", borderTop: "1px solid var(--border-subtle)", color: "var(--text-muted)", font: "var(--type-caption)" }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Icon name="truck" size={16} basePath={ICONS} />Ships from Perak</span>
+            <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Icon name="building-storefront" size={16} basePath={ICONS} />Sold by Ah Huat Roasters</span>
+          </div>
+        </div>
+      </article>
+      <section style={{ marginTop: "var(--space-12)", maxWidth: "48rem" }}>
+        <h2 style={{ font: "var(--type-h3)", marginBottom: "var(--space-4)" }}>Product Details</h2>
+        <p style={{ font: "var(--type-body)", color: "var(--text-muted)" }}>
+          Roast: dark. Origin: Liberica, Kampung Kepayang. Each bag holds 12g of coarse-ground beans. Best brewed with 150ml water just off the boil. Store sealed, away from sunlight.
+        </p>
+      </section>
+    </main>
+  )
+}
+Object.assign(window, { ProductScreen })

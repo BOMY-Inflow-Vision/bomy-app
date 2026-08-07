@@ -1,0 +1,42 @@
+import React from "react"
+import { Button } from "../core/Button.jsx"
+
+export function Dialog({ open, title, description, children, footer, onClose, width = "28rem" }) {
+  React.useEffect(() => {
+    if (!open) return
+    const onKey = (e) => { if (e.key === "Escape") onClose && onClose() }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [open, onClose])
+
+  if (!open) return null
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 100, background: "var(--surface-overlay)",
+        backdropFilter: "var(--blur-overlay)", display: "grid", placeItems: "center", padding: "var(--space-6)",
+      }}
+    >
+      <div
+        role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%", maxWidth: width, background: "var(--surface-card)",
+          borderRadius: "var(--radius-panel)", boxShadow: "var(--shadow-xl)", overflow: "hidden",
+        }}
+      >
+        <div style={{ padding: "var(--space-6) var(--space-6) var(--space-4)", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "var(--space-4)" }}>
+          <div>
+            {title && <h2 style={{ font: "var(--type-h3)", color: "var(--text-heading)" }}>{title}</h2>}
+            {description && <p style={{ margin: "var(--space-2) 0 0", font: "var(--type-body)", color: "var(--text-muted)" }}>{description}</p>}
+          </div>
+          <Button variant="ghost" size="icon" aria-label="Close" onClick={onClose} style={{ marginTop: "-0.25rem", marginRight: "-0.5rem" }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 18 18 6M6 6l12 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </Button>
+        </div>
+        {children && <div style={{ padding: "0 var(--space-6)" }}>{children}</div>}
+        {footer && <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--space-3)", padding: "var(--space-6)" }}>{footer}</div>}
+      </div>
+    </div>
+  )
+}

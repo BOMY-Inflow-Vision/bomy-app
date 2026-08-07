@@ -1,0 +1,15 @@
+export interface SellerNavItem { href: string; label: string; icon: string }
+
+/**
+ * The dark navy rail on every seller-dashboard page.
+ * @startingPoint section="Navigation" subtitle="Seller dashboard rail" viewport="700x420"
+ */
+export interface SellerSidebarProps {
+  storeName?: string
+  items?: SellerNavItem[]
+  activeHref?: string
+  iconBase?: string
+  onNavigate?: (href: string) => void
+}
+
+export declare function SellerSidebar(props: SellerSidebarProps): JSX.Element

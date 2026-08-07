@@ -1,0 +1,18 @@
+export interface NavLinkItem { href: string; label: string }
+
+/**
+ * The buyer-site top bar: wordmark, primary links, cart with count, auth links.
+ * @startingPoint section="Navigation" subtitle="Buyer-site top bar" viewport="700x120"
+ */
+export interface NavBarProps {
+  links?: NavLinkItem[]
+  activeHref?: string
+  cartCount?: number
+  signedIn?: boolean
+  /** Adds the "Seller" link for `seller_owner` accounts. */
+  isSeller?: boolean
+  iconBase?: string
+  onNavigate?: (href: string) => void
+}
+
+export declare function NavBar(props: NavBarProps): JSX.Element

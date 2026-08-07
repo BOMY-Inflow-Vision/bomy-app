@@ -1,0 +1,7 @@
+/** Site footer — wordmark + company details, Quick Links, Policies, copyright. */
+export interface FooterProps {
+  email?: string
+  address?: string
+}
+
+export declare function Footer(props: FooterProps): JSX.Element

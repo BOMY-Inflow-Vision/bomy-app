@@ -1,0 +1,10 @@
+import type { ReactNode, CSSProperties } from "react"
+
+/** A small pill label for categories, roles, and counts. */
+export interface BadgeProps {
+  variant?: "accent" | "brand" | "neutral" | "reward" | "success" | "warning" | "danger" | "outline"
+  style?: CSSProperties
+  children?: ReactNode
+}
+
+export declare function Badge(props: BadgeProps): JSX.Element

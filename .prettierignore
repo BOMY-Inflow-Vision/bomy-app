@@ -8,3 +8,5 @@ coverage
 pnpm-lock.yaml
 *.lock
 infra/
+# Design-system handoff bundle — external reference material, not this repo's code style.
+docs/design-system/

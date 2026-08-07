@@ -1,0 +1,29 @@
+import React from "react"
+
+const tones = {
+  accent: { background: "var(--surface-accent)", color: "var(--red-700)" },
+  brand: { background: "var(--action-primary)", color: "var(--text-on-brand)" },
+  neutral: { background: "var(--surface-sunken)", color: "var(--text-muted)" },
+  reward: { background: "var(--gold-100)", color: "var(--gold-800)" },
+  success: { background: "var(--success-100)", color: "var(--success-700)" },
+  warning: { background: "var(--warning-100)", color: "var(--warning-700)" },
+  danger: { background: "var(--danger-100)", color: "var(--danger-700)" },
+  outline: { background: "transparent", color: "var(--text-body)", borderColor: "var(--border-default)" },
+}
+
+export function Badge({ variant = "accent", children, style, ...rest }) {
+  return (
+    <span
+      {...rest}
+      style={{
+        display: "inline-flex", alignItems: "center", gap: "var(--space-1)",
+        borderRadius: "var(--radius-badge)", border: "1px solid transparent",
+        padding: "0.125rem 0.625rem", fontFamily: "var(--font-sans)",
+        fontSize: "var(--text-xs)", fontWeight: "var(--weight-semibold)",
+        lineHeight: "var(--leading-normal)", ...tones[variant], ...style,
+      }}
+    >
+      {children}
+    </span>
+  )
+}

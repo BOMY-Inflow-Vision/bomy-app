@@ -1,0 +1,39 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>body{margin:0;background:var(--surface-page);font:var(--type-body);color:var(--text-body)}.wrap{padding:20px;display:flex;flex-direction:column;gap:16px}.row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:16px}.lbl{font:var(--type-caption);color:var(--text-subtle);text-transform:uppercase;letter-spacing:var(--tracking-wide)}</style>
+</head><body><div id="root"></div>
+<script type="text/babel">
+const { Select, Checkbox, RadioGroup, Switch, Field, Input } = window.BOMYDesignSystem_030168;
+function Demo(){
+const [ship,setShip]=React.useState('exp');
+return(<div className="wrap">
+<div className="row">
+<Field label="Country" htmlFor="c" style={{flex:1,minWidth:0}}><Select id="c" options={[{value:'MY',label:'Malaysia'},{value:'SG',label:'Singapore'}]}/></Field>
+<Field label="Email" htmlFor="e" required hint="We'll send order updates here." style={{flex:1,minWidth:0}}><Input id="e" placeholder="you@example.com"/></Field>
+<Field label="Postcode" htmlFor="p" error="Enter a 5-digit postcode." style={{flex:1,minWidth:0}}><Input id="p" invalid defaultValue="119"/></Field>
+</div>
+<div className="row">
+<div style={{flex:1,minWidth:0,display:'flex',flexDirection:'column',gap:10}}>
+<div className="lbl">Checkbox &amp; switch</div>
+<Checkbox label="Save this address" description="For faster checkout next time." defaultChecked/>
+<Checkbox label="Subscribe to brand news"/>
+<Checkbox label="Unavailable option" disabled/>
+<Switch label="Store is visible" description="Buyers can find your storefront." defaultChecked/>
+<Switch label="Email notifications"/>
+</div>
+<div style={{flex:1,minWidth:0,display:'flex',flexDirection:'column',gap:10}}>
+<div className="lbl">Radio — card variant</div>
+<RadioGroup variant="card" value={ship} onChange={setShip} options={[
+{value:'std',label:'Standard',description:'3–5 working days',meta:'RM8.00'},
+{value:'exp',label:'Express',description:'Next working day',meta:'RM18.00'},
+{value:'pick',label:'Self-pickup',description:'Bayan Lepas only',meta:'Free'}]}/>
+<div className="lbl">Radio — list</div>
+<RadioGroup defaultValue="card" options={[{value:'card',label:'Card'},{value:'fpx',label:'FPX online banking'},{value:'ewallet',label:'E-wallet'}]}/>
+</div>
+</div>
+</div>)}
+ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+</script></body></html>

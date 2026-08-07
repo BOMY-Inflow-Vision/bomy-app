@@ -1,0 +1,16 @@
+import React from "react"
+import { Label } from "../core/Label.jsx"
+
+export function Field({ label, htmlFor, required, hint, error, children, style }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)", ...style }}>
+      {label && <Label htmlFor={htmlFor} required={required}>{label}</Label>}
+      {children}
+      {error ? (
+        <p style={{ margin: 0, font: "var(--type-caption)", color: "var(--danger-600)" }}>{error}</p>
+      ) : hint ? (
+        <p style={{ margin: 0, font: "var(--type-caption)", color: "var(--text-muted)" }}>{hint}</p>
+      ) : null}
+    </div>
+  )
+}

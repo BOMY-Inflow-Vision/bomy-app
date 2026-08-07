@@ -1,0 +1,15 @@
+import type { CSSProperties } from "react"
+
+/** The dashed-outline empty result used by every list in the product. */
+export interface EmptyStateProps {
+  /** Heroicon name. Optional — most of the product's empty states are text only. */
+  icon?: string
+  /** One plain sentence: "No products found." */
+  message: string
+  /** One link, e.g. "Browse products". */
+  action?: string
+  onAction?: () => void
+  style?: CSSProperties
+}
+
+export declare function EmptyState(props: EmptyStateProps): JSX.Element

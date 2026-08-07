@@ -1,0 +1,45 @@
+const { Button, Input, CategoryList, Pagination, ProductCard, Icon } = window.BOMYDesignSystem_030168
+const ICONS = "../../assets/icons"
+
+function ProductsScreen({ go, addToCart }) {
+  const d = window.BOMY_DATA
+  const [cat, setCat] = React.useState("")
+  const [q, setQ] = React.useState("")
+  const [page, setPage] = React.useState(1)
+  const catLabel = (d.categories.find((c) => c.value === cat) || {}).label
+  const list = d.products.filter((p) => (!cat || p.category === catLabel) && p.name.toLowerCase().includes(q.toLowerCase()))
+
+  return (
+    <main style={{ maxWidth: "var(--container-wide)", margin: "0 auto", padding: "var(--space-8) var(--space-8) var(--space-16)" }}>
+      <h1 style={{ marginBottom: "var(--space-6)", font: "var(--type-h2)" }}>Products</h1>
+      <form onSubmit={(e) => e.preventDefault()} style={{ display: "flex", gap: "var(--space-2)", marginBottom: "var(--space-6)" }}>
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search products…" style={{ flex: 1 }} />
+        <Button type="submit"><Icon name="magnifying-glass" size={16} basePath={ICONS} />Search</Button>
+        {q && <Button variant="outline" onClick={() => setQ("")}>Clear</Button>}
+      </form>
+      <div style={{ display: "flex", gap: "var(--space-6)", alignItems: "flex-start" }}>
+        <aside style={{ width: "11rem", flexShrink: 0 }}>
+          <CategoryList items={d.categories} active={cat} onChange={setCat} />
+        </aside>
+        <section style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ marginBottom: "var(--space-4)", font: "var(--type-body)", color: "var(--text-muted)" }}>
+            {list.length} product{list.length === 1 ? "" : "s"}{q ? ` for "${q}"` : ""}
+          </p>
+          {list.length === 0 ? (
+            <div style={{ border: "1px dashed var(--border-default)", borderRadius: "var(--radius-panel)", padding: "var(--space-20) 0", textAlign: "center", color: "var(--text-muted)" }}>No products found.</div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "var(--grid-gap)" }}>
+              {list.map((p) => (
+                <div key={p.id} onClick={() => go("/product")} style={{ cursor: "pointer" }}>
+                  <ProductCard name={p.name} storeName={p.store} category={p.category} price={p.price} iconBase={ICONS} href="#" />
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={{ marginTop: "var(--space-8)" }}><Pagination page={page} totalPages={6} onChange={setPage} /></div>
+        </section>
+      </div>
+    </main>
+  )
+}
+Object.assign(window, { ProductsScreen })

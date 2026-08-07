@@ -1,0 +1,39 @@
+import React from "react"
+
+export function Card({ interactive, children, style, ...rest }) {
+  const [hover, setHover] = React.useState(false)
+  return (
+    <div
+      {...rest}
+      onMouseEnter={interactive ? () => setHover(true) : undefined}
+      onMouseLeave={interactive ? () => setHover(false) : undefined}
+      style={{
+        background: "var(--surface-card)", border: "1px solid var(--border-subtle)",
+        borderRadius: "var(--radius-card)", boxShadow: hover ? "var(--shadow-md)" : "var(--shadow-sm)",
+        color: "var(--text-body)", transition: "var(--transition-elevation)", ...style,
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
+export function CardHeader({ children, style, ...rest }) {
+  return <div {...rest} style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)", padding: "var(--space-6)", ...style }}>{children}</div>
+}
+
+export function CardTitle({ children, style, ...rest }) {
+  return <h3 {...rest} style={{ font: "var(--type-h3)", color: "var(--text-heading)", margin: 0, ...style }}>{children}</h3>
+}
+
+export function CardDescription({ children, style, ...rest }) {
+  return <p {...rest} style={{ font: "var(--type-body)", color: "var(--text-muted)", margin: 0, ...style }}>{children}</p>
+}
+
+export function CardContent({ children, style, ...rest }) {
+  return <div {...rest} style={{ padding: "0 var(--space-6) var(--space-6)", ...style }}>{children}</div>
+}
+
+export function CardFooter({ children, style, ...rest }) {
+  return <div {...rest} style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", padding: "0 var(--space-6) var(--space-6)", ...style }}>{children}</div>
+}

@@ -1,0 +1,10 @@
+/** Lifecycle state for a store, product, or order row. */
+export interface StatusPillProps {
+  status:
+    | "active" | "pending" | "suspended"
+    | "draft" | "archived"
+    | "processing" | "shipped" | "delivered" | "completed" | "cancelled"
+  children?: React.ReactNode
+}
+
+export declare function StatusPill(props: StatusPillProps): JSX.Element

@@ -1,0 +1,9 @@
+import type { CSSProperties, TextareaHTMLAttributes } from "react"
+
+/** Multi-line field — brand story excerpts, product descriptions, seller applications. */
+export interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
+  invalid?: boolean
+  style?: CSSProperties
+}
+
+export declare function Textarea(props: TextareaProps): JSX.Element

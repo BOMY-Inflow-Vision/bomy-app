@@ -1,0 +1,15 @@
+/** One line in the cart: thumbnail, product/brand/variant, price, quantity stepper, remove. */
+export interface CartLineItemProps {
+  productName: string
+  storeName: string
+  variantName: string
+  /** Pre-formatted MYR string. */
+  price: string
+  quantity?: number
+  imageUrl?: string
+  onQuantityChange?: (next: number) => void
+  onRemove?: () => void
+  iconBase?: string
+}
+
+export declare function CartLineItem(props: CartLineItemProps): JSX.Element

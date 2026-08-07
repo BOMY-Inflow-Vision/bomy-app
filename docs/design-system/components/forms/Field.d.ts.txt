@@ -1,0 +1,15 @@
+import type { ReactNode, CSSProperties } from "react"
+
+/** Label + control + hint/error, stacked with the standard 8px gap. */
+export interface FieldProps {
+  label?: string
+  htmlFor?: string
+  required?: boolean
+  /** Helper text — replaced by `error` when validation fails. */
+  hint?: string
+  error?: string
+  children?: ReactNode
+  style?: CSSProperties
+}
+
+export declare function Field(props: FieldProps): JSX.Element

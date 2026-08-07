@@ -1,0 +1,24 @@
+import React from "react"
+import { Button } from "../core/Button.jsx"
+import { Icon } from "../core/Icon.jsx"
+
+export function CartLineItem({ productName, storeName, variantName, price, quantity = 1, imageUrl, onQuantityChange, onRemove, iconBase = "assets/icons" }) {
+  return (
+    <div style={{ display: "flex", alignItems: "flex-start", gap: "var(--space-4)", padding: "var(--space-4)", background: "var(--surface-card)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-card)" }}>
+      <div style={{ width: 64, height: 64, flexShrink: 0, overflow: "hidden", borderRadius: "var(--radius-sm)", background: "var(--surface-sunken)", display: "grid", placeItems: "center", color: "var(--sand-400)" }}>
+        {imageUrl ? <img src={imageUrl} alt={productName} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Icon name="photo" size={24} basePath={iconBase} />}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ margin: 0, font: "var(--type-label)", color: "var(--text-heading)" }}>{productName}</p>
+        <p style={{ margin: "2px 0 0", font: "var(--type-caption)", color: "var(--text-muted)" }}>{storeName} · {variantName}</p>
+        <p style={{ margin: "var(--space-1) 0 0", font: "var(--type-label)", fontWeight: "var(--weight-bold)", color: "var(--text-brand)" }}>{price}</p>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+        <Button variant="outline" size="icon" style={{ height: "1.75rem", width: "1.75rem" }} onClick={() => onQuantityChange && onQuantityChange(quantity - 1)}>−</Button>
+        <span style={{ width: "1.5rem", textAlign: "center", font: "var(--type-body)" }}>{quantity}</span>
+        <Button variant="outline" size="icon" style={{ height: "1.75rem", width: "1.75rem" }} onClick={() => onQuantityChange && onQuantityChange(quantity + 1)}>+</Button>
+        <Button variant="ghost" size="sm" style={{ color: "var(--danger-600)" }} onClick={onRemove}>Remove</Button>
+      </div>
+    </div>
+  )
+}
