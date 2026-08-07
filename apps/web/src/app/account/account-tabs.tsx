@@ -10,7 +10,7 @@ export function AccountTabs({ active }: Props) {
   const base = "px-4 py-2 text-sm font-medium border-b-2 transition-colors"
 
   return (
-    <nav aria-label="Account sections" className="flex border-b border-border mb-6 -mx-8 px-8">
+    <nav aria-label="Account sections" className="flex border-b border-border mb-6">
       <Link
         href="/account"
         aria-current={active === "profile" ? "page" : undefined}
