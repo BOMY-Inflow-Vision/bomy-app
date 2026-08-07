@@ -88,7 +88,7 @@ export default function SellerApplyPage() {
   if (state.success) {
     return (
       <main className="flex min-h-screen items-start justify-center bg-muted pt-16">
-        <div className="w-full max-w-md rounded-2xl bg-background p-8 shadow-sm ring-1 ring-border text-center">
+        <div className="w-full max-w-lg rounded-2xl bg-background p-8 shadow-sm ring-1 ring-border text-center">
           <div className="text-4xl mb-4">🎉</div>
           <h1 className="text-lg font-semibold text-foreground">Application Submitted!</h1>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -110,7 +110,7 @@ export default function SellerApplyPage() {
         onReady={() => setScriptReady(true)}
       />
 
-      <div className="w-full max-w-md rounded-2xl bg-background p-8 shadow-sm ring-1 ring-border">
+      <div className="w-full max-w-lg rounded-2xl bg-background p-8 shadow-sm ring-1 ring-border">
         <h1 className="mb-1 text-xl font-semibold text-foreground">Become a Seller</h1>
         <p className="mb-6 text-sm text-muted-foreground">
           Interested in selling on BOMY? Fill in the form and our team will be in touch.
