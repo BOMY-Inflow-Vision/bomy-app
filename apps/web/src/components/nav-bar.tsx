@@ -71,7 +71,7 @@ export function NavBar() {
 
   return (
     <nav className="sticky top-0 z-50 border-b border-subtle bg-card shadow-sm">
-      <div className="flex h-14 items-center justify-between px-4">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
         <Link href="/" className="text-lg font-extrabold tracking-tighter text-primary">
           BOMY
         </Link>
