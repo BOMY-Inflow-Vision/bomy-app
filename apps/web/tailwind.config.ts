@@ -50,6 +50,7 @@ const config = {
           DEFAULT: "hsl(var(--reward))",
           foreground: "hsl(var(--reward-foreground))",
         },
+        subtle: "hsl(var(--border-subtle))",
       },
       borderRadius: {
         lg: "var(--radius)",
