@@ -15,7 +15,7 @@ export default async function CheckoutPage() {
   const enabled = await readCheckoutEnabled(session.user.id)
   if (!enabled) {
     return (
-      <main className="mx-auto max-w-6xl px-4 py-8">
+      <main className="mx-auto max-w-3xl px-4 py-8">
         <h1 className="mb-4 text-2xl font-bold text-foreground">Checkout</h1>
         <div className="rounded-xl border border-dashed border-input bg-muted p-6 text-center">
           <p className="text-sm text-muted-foreground">
@@ -40,7 +40,7 @@ export default async function CheckoutPage() {
   }))
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8">
+    <main className="mx-auto max-w-3xl px-4 py-8">
       <h1 className="mb-4 text-2xl font-bold text-foreground">Checkout</h1>
       <CheckoutForm savedAddresses={savedAddresses} />
     </main>
