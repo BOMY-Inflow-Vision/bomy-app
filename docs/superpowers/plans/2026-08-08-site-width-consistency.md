@@ -15,6 +15,15 @@ deciding independently.
 
 **Tech Stack:** Tailwind CSS 3.4, Next.js App Router (Server Components).
 
+> **Superseded after final review:** Task 1's checkout widening (`max-w-3xl` → `max-w-6xl`) was
+> **reverted** post-implementation. The `--container-wide`/`max-w-6xl` value from
+> `CheckoutScreen.jsx.txt:78` assumes a two-column form+summary grid; the live checkout form
+> (`checkout/_form.tsx`) is single-column, so at 6xl the fields/CTA stretch unusably wide. The final
+> whole-branch review caught this; checkout was reverted to `max-w-3xl` in commit `b08f126`, and
+> re-widening to 6xl is tracked alongside the future two-column checkout layout, not this plan.
+> Every reference to checkout below describes the plan **as originally written**, not the shipped
+> result — see PR #126 for what actually landed.
+
 ## Global Constraints
 
 - **This is a scoped, confirmed list — do not extend it to other pages found in the earlier audit
@@ -40,7 +49,9 @@ deciding independently.
   - Checkout: `--container-wide` / `max-w-6xl` — per
     `docs/design-system/ui_kits/buyer_site/CheckoutScreen.jsx.txt:78`. Real gap: current code is
     `max-w-3xl`. Fix even though `checkout_enabled` is currently `false` — this is a layout-only
-    value fix, not new checkout functionality.
+    value fix, not new checkout functionality. **Superseded — see the note at the top of this
+    file: reverted to `max-w-3xl` in `b08f126`, the 6xl mockup value assumes a two-column layout
+    the live form doesn't have.**
   - Membership success poller cards: `max-w-lg` — matching `(marketing)/membership/page.tsx` and
     `manage/page.tsx`, both already `max-w-lg`. The poller's 3 render branches are the only drift
     in that family (currently `max-w-md`).
@@ -63,6 +74,11 @@ deciding independently.
 ---
 
 ### Task 1: Checkout — fix the real design-system width gap
+
+> **Superseded — do not apply as written.** See the note at the top of this file: this task's
+> `max-w-6xl` change was reverted in `b08f126` after the final review found the design-system value
+> assumes a two-column layout the live single-column form doesn't have. Left below for historical
+> record of what was implemented and why it was undone, not as a live instruction.
 
 **Files:**
 
