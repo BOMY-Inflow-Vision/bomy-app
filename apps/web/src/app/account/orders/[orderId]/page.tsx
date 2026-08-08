@@ -23,7 +23,7 @@ export default async function BuyerOrderDetailPage({ params }: Props) {
     order.discountedSubtotalSen + order.shippingFeeSen - order.voucherContributionSen
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8">
+    <main className="mx-auto max-w-5xl px-4 py-8">
       <a href="/account/orders" className="mb-6 block text-sm text-primary hover:underline">
         ← Back to orders
       </a>

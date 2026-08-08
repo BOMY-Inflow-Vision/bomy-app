@@ -22,7 +22,7 @@ export default async function BuyerOrdersPage() {
   }
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-8">
+    <main className="mx-auto max-w-5xl px-4 py-8">
       <AccountTabs active="orders" />
       <h1 className="mb-6 text-2xl font-bold text-foreground">My Orders</h1>
 
