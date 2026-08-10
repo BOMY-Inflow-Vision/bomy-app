@@ -64,18 +64,18 @@ export default async function BrandSubscribePage({ params }: Props) {
 
   return (
     <main className="flex min-h-screen flex-col items-center bg-muted px-4 pt-20">
-      <div className="w-full max-w-2xl">
-        <div className="mb-8 text-center">
-          <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-primary">
+      <div className="flex w-full max-w-2xl flex-col gap-8">
+        <div className="flex flex-col gap-2 text-center">
+          <p className="text-sm font-semibold uppercase tracking-widest text-primary">
             #2 Brand Subscription
           </p>
           <h1 className="text-3xl font-bold text-foreground">{store.name}</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             Subscribe to unlock exclusive discounts on every order from this brand.
           </p>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-3">
+        <ul className="grid gap-4 sm:grid-cols-3">
           {plans.map((plan) => {
             const termLabel =
               plan.termMonths === 12 ? "12 months" : plan.termMonths === 6 ? "6 months" : "3 months"
@@ -83,17 +83,19 @@ export default async function BrandSubscribePage({ params }: Props) {
             const action = subscribeToBrand.bind(null, plan.id)
 
             return (
-              <div
+              <li
                 key={plan.id}
-                className="flex flex-col rounded-2xl bg-background p-6 shadow-sm ring-1 ring-border"
+                className="flex flex-col gap-4 rounded-2xl bg-background p-6 shadow-sm ring-1 ring-border"
               >
-                <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-primary">
-                  {termLabel}
-                </p>
-                <p className="mb-1 text-3xl font-bold text-foreground">{priceDisplay}</p>
-                <p className="mb-4 text-xs text-muted-foreground">billed once</p>
+                <div className="flex flex-col gap-1">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-primary">
+                    {termLabel}
+                  </p>
+                  <p className="text-3xl font-bold text-foreground">{priceDisplay}</p>
+                  <p className="text-xs text-muted-foreground">billed once</p>
+                </div>
 
-                <ul className="mb-6 flex-1 space-y-2 text-sm text-muted-foreground">
+                <ul className="flex-1 space-y-2 text-sm text-muted-foreground">
                   <li className="flex items-start gap-2">
                     <span className="mt-0.5 text-primary">✓</span>
                     {plan.discountPct}% off every order
@@ -127,12 +129,12 @@ export default async function BrandSubscribePage({ params }: Props) {
                     Sign in to subscribe
                   </a>
                 )}
-              </div>
+              </li>
             )
           })}
-        </div>
+        </ul>
 
-        <p className="mt-6 text-center text-xs text-muted-foreground">
+        <p className="text-center text-xs text-muted-foreground">
           Payment processed securely · MYR · One-time charge, no automatic renewal
         </p>
       </div>

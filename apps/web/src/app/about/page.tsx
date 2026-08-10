@@ -45,22 +45,22 @@ export default function AboutPage() {
   return (
     <main className="bg-background">
       <section className="border-b border-border bg-muted">
-        <div className="mx-auto max-w-4xl px-4 py-20 text-center">
+        <div className="mx-auto flex max-w-5xl flex-col items-center gap-5 px-4 py-20 text-center">
           <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
             The home of authentic Malaysian brands.
           </h1>
-          <p className="mx-auto mt-5 max-w-2xl text-lg text-muted-foreground">
+          <p className="max-w-2xl text-lg text-muted-foreground">
             We bring Malaysia&rsquo;s best-loved makers together under one trusted roof — for
             shoppers here and around the world.
           </p>
         </div>
       </section>
 
-      <section className="mx-auto max-w-3xl px-4 py-16">
+      <section className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-16">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Our mission
         </h2>
-        <p className="mt-4 text-xl leading-relaxed text-foreground">
+        <p className="text-xl leading-relaxed text-foreground">
           We aggregate, amplify, and accelerate the growth of Malaysia&rsquo;s homegrown brands. Too
           many world-class local makers stay hidden behind the cost and complexity of reaching new
           customers. BOMY brings them together under one trusted name — connecting authentic,
@@ -70,31 +70,33 @@ export default function AboutPage() {
       </section>
 
       <section className="border-t border-border bg-muted">
-        <div className="mx-auto max-w-5xl px-4 py-16">
-          <h2 className="text-2xl font-bold text-foreground">Why BOMY exists</h2>
-          <p className="mt-3 max-w-3xl text-muted-foreground">
-            Malaysia is full of world-class brands, but the people who build them face the same
-            uphill climb. We exist to turn those individual struggles into collective strength.
-          </p>
-          <div className="mt-8 grid grid-cols-1 gap-8 md:grid-cols-3">
+        <div className="mx-auto flex max-w-5xl flex-col gap-8 px-4 py-16">
+          <div className="flex flex-col gap-3">
+            <h2 className="text-2xl font-bold text-foreground">Why BOMY exists</h2>
+            <p className="max-w-3xl text-muted-foreground">
+              Malaysia is full of world-class brands, but the people who build them face the same
+              uphill climb. We exist to turn those individual struggles into collective strength.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
             {reasons.map((r) => (
-              <div key={r.title}>
+              <div key={r.title} className="flex flex-col gap-2">
                 <h3 className="font-semibold text-foreground">{r.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{r.body}</p>
+                <p className="text-sm leading-relaxed text-muted-foreground">{r.body}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-5xl px-4 py-16">
+      <section className="mx-auto flex max-w-5xl flex-col gap-8 px-4 py-16">
         <h2 className="text-2xl font-bold text-foreground">How it works</h2>
-        <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
           {pillars.map((p) => (
             <Card key={p.title}>
-              <CardContent className="p-6">
+              <CardContent className="flex flex-col gap-3 p-6">
                 <h3 className="text-lg font-semibold text-foreground">{p.title}</h3>
-                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{p.body}</p>
+                <p className="text-sm leading-relaxed text-muted-foreground">{p.body}</p>
               </CardContent>
             </Card>
           ))}
@@ -102,30 +104,34 @@ export default function AboutPage() {
       </section>
 
       <section className="border-t border-border bg-muted">
-        <div className="mx-auto max-w-3xl px-4 py-16 text-center">
-          <h2 className="text-2xl font-bold text-foreground">
-            Built for Malaysian brands ready to grow.
-          </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
-            We take the cost and complexity out of growth marketing, giving Malaysian SMEs the
-            exposure, infrastructure, and audience to reach more customers under one powerful
-            umbrella. If you&rsquo;re building something worth discovering, we&rsquo;d love to help
-            the world find it.
-          </p>
-          <Button asChild className="mt-6">
+        <div className="mx-auto flex max-w-5xl flex-col items-center gap-6 px-4 py-16 text-center">
+          <div className="flex flex-col items-center gap-4">
+            <h2 className="text-2xl font-bold text-foreground">
+              Built for Malaysian brands ready to grow.
+            </h2>
+            <p className="max-w-3xl text-muted-foreground">
+              We take the cost and complexity out of growth marketing, giving Malaysian SMEs the
+              exposure, infrastructure, and audience to reach more customers under one powerful
+              umbrella. If you&rsquo;re building something worth discovering, we&rsquo;d love to
+              help the world find it.
+            </p>
+          </div>
+          <Button asChild>
             <Link href="/seller/apply">Become a seller</Link>
           </Button>
         </div>
       </section>
 
-      <section className="mx-auto max-w-3xl px-4 py-20 text-center">
-        <h2 className="text-3xl font-bold tracking-tight text-foreground">
-          Discover what Malaysia makes.
-        </h2>
-        <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
-          Join the community backing local brands — and the makers building them.
-        </p>
-        <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+      <section className="mx-auto flex max-w-5xl flex-col items-center gap-8 px-4 py-20 text-center">
+        <div className="flex flex-col items-center gap-4">
+          <h2 className="text-3xl font-bold tracking-tight text-foreground">
+            Discover what Malaysia makes.
+          </h2>
+          <p className="max-w-xl text-muted-foreground">
+            Join the community backing local brands — and the makers building them.
+          </p>
+        </div>
+        <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Button asChild>
             <Link href="/products">Shop the marketplace</Link>
           </Button>

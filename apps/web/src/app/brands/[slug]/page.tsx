@@ -55,10 +55,10 @@ export default async function StorePage({ params }: Props) {
   const { store, categorySections, uncategorized } = data
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8">
-      <h1 className="mb-8 text-center text-2xl font-bold text-foreground">{store.name}</h1>
+    <main className="mx-auto flex max-w-5xl flex-col gap-10 px-4 py-8">
+      <h1 className="text-center text-2xl font-bold text-foreground">{store.name}</h1>
 
-      <div className="mb-12 grid grid-cols-1 gap-8 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
         <div>
           {store.bodyHtml && (
             <>
@@ -84,8 +84,8 @@ export default async function StorePage({ params }: Props) {
       ) : (
         <>
           {categorySections.map((section) => (
-            <section key={section.category.slug} className="mb-10">
-              <div className="mb-4 flex items-baseline justify-between">
+            <section key={section.category.slug} className="flex flex-col gap-4">
+              <div className="flex items-baseline justify-between">
                 <h2 className="text-lg font-semibold text-foreground">{section.category.name}</h2>
                 {section.hasMore && (
                   <Link
@@ -105,8 +105,8 @@ export default async function StorePage({ params }: Props) {
           ))}
 
           {uncategorized.products.length > 0 && (
-            <section className="mb-10">
-              <div className="mb-4 flex items-baseline justify-between">
+            <section className="flex flex-col gap-4">
+              <div className="flex items-baseline justify-between">
                 <h2 className="text-lg font-semibold text-foreground">Uncategorized</h2>
                 {uncategorized.hasMore && (
                   <Link

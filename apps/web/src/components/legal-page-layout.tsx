@@ -9,13 +9,15 @@ type LegalPageLayoutProps = {
 
 export function LegalPageLayout({ title, intro, lastUpdated, children }: LegalPageLayoutProps) {
   return (
-    <main className="mx-auto max-w-3xl px-4 py-12">
-      <h1 className="mb-3 text-3xl font-bold">{title}</h1>
-      <p className="mb-2 text-lg text-muted-foreground">{intro}</p>
-      {lastUpdated && (
-        <p className="mb-8 text-sm text-muted-foreground">Last updated: {lastUpdated}</p>
-      )}
-      <hr className="mb-8" />
+    <main className="mx-auto flex max-w-3xl flex-col gap-8 px-4 py-12">
+      <div className="flex flex-col gap-2">
+        <h1 className="text-3xl font-bold">{title}</h1>
+        <p className="text-lg text-muted-foreground">{intro}</p>
+        {lastUpdated && (
+          <p className="text-sm text-muted-foreground">Last updated: {lastUpdated}</p>
+        )}
+      </div>
+      <hr />
       <div className="space-y-6 leading-relaxed text-foreground">{children}</div>
     </main>
   )
