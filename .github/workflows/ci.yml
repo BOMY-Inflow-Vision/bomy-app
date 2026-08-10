@@ -139,14 +139,18 @@ jobs:
           NODE_ENV: production
           DATABASE_URL: postgresql://bomy:ci_password@localhost:5432/bomy_build
           DATABASE_APP_URL: postgresql://bomy_app:ci_password@localhost:5432/bomy_build
+          BOMY_RLS_READY: ""
           AUTH_SECRET: ci-dummy-auth-secret-not-real
           NEXTAUTH_URL: http://localhost:3000
           AUTH_URL: http://localhost:3000
           APP_URL: http://localhost:3000
           AUTH_GOOGLE_ID: ci-dummy-google-id
           AUTH_GOOGLE_SECRET: ci-dummy-google-secret
+          AUTH_FACEBOOK_ID: ci-dummy-facebook-id
+          AUTH_FACEBOOK_SECRET: ci-dummy-facebook-secret
           NEXT_PUBLIC_TURNSTILE_SITEKEY: 1x00000000000000000000AA
           TURNSTILE_SECRET_KEY: 1x0000000000000000000000000000000AA
+          BOMY_OPS_DIAGNOSTIC_TOKEN: ci-dummy-ops-diagnostic-token
           NEXT_PUBLIC_DEFAULT_LOCALE: en
           NEXT_PUBLIC_API_URL: http://localhost:3001
           HITPAY_API_KEY: ci-dummy-hitpay-key
@@ -157,7 +161,11 @@ jobs:
           SMTP_HOST: localhost
           SMTP_PORT: "1025"
           SMTP_SECURE: "false"
+          SMTP_USER: ci-dummy-smtp-user
+          SMTP_PASS: ci-dummy-smtp-pass
           MAIL_FROM: "BOMY <noreply@example.com>"
+          MAIL_REPLY_TO: reply@example.com
+          OPS_ALERT_EMAILS: ops@example.com
           ADMIN_URL: http://localhost:3002
           INTERNAL_API_SECRET: ci-dummy-internal-secret
           LOG_LEVEL: silent
