@@ -78,29 +78,31 @@ export default function AboutPage() {
               uphill climb. We exist to turn those individual struggles into collective strength.
             </p>
           </div>
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
+          <ul className="grid grid-cols-1 gap-8 md:grid-cols-3">
             {reasons.map((r) => (
-              <div key={r.title} className="flex flex-col gap-2">
+              <li key={r.title} className="flex flex-col gap-2">
                 <h3 className="font-semibold text-foreground">{r.title}</h3>
                 <p className="text-sm leading-relaxed text-muted-foreground">{r.body}</p>
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       </section>
 
       <section className="mx-auto flex max-w-5xl flex-col gap-8 px-4 py-16">
         <h2 className="text-2xl font-bold text-foreground">How it works</h2>
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+        <ul className="grid grid-cols-1 gap-6 md:grid-cols-3">
           {pillars.map((p) => (
-            <Card key={p.title}>
-              <CardContent className="flex flex-col gap-3 p-6">
-                <h3 className="text-lg font-semibold text-foreground">{p.title}</h3>
-                <p className="text-sm leading-relaxed text-muted-foreground">{p.body}</p>
-              </CardContent>
-            </Card>
+            <li key={p.title}>
+              <Card className="h-full">
+                <CardContent className="flex flex-col gap-3 p-6">
+                  <h3 className="text-lg font-semibold text-foreground">{p.title}</h3>
+                  <p className="text-sm leading-relaxed text-muted-foreground">{p.body}</p>
+                </CardContent>
+              </Card>
+            </li>
           ))}
-        </div>
+        </ul>
       </section>
 
       <section className="border-t border-border bg-muted">
