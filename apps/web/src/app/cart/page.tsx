@@ -48,6 +48,8 @@ export default function CartPage() {
                     <img
                       src={item.coverImageUrl}
                       alt={item.productName}
+                      width={64}
+                      height={64}
                       className="h-full w-full object-cover"
                     />
                   ) : (

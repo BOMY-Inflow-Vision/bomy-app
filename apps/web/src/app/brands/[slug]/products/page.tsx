@@ -42,6 +42,8 @@ export default async function StoreProductsPage({ params, searchParams }: Props)
                     <img
                       src={p.coverImageUrl}
                       alt={p.name}
+                      width={400}
+                      height={400}
                       className="h-full w-full object-cover"
                     />
                   ) : (
