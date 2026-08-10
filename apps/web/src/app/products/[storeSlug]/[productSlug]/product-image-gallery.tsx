@@ -59,6 +59,8 @@ export function ProductImageGallery({
         <img
           src={active.url}
           alt={active.altText ?? productName}
+          width={800}
+          height={800}
           className={cn(
             "absolute inset-0 h-full w-full object-cover transition-opacity duration-100",
             zoom ? "opacity-0" : "opacity-100",
@@ -141,7 +143,13 @@ export function ProductImageGallery({
               )}
               aria-label={`View image ${i + 1}`}
             >
-              <img src={img.url} alt={img.altText ?? ""} className="h-full w-full object-cover" />
+              <img
+                src={img.url}
+                alt={img.altText ?? ""}
+                width={64}
+                height={64}
+                className="h-full w-full object-cover"
+              />
             </button>
           ))}
         </div>

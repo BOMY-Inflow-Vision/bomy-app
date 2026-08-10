@@ -106,6 +106,8 @@ export function ImageManager({
               <img
                 src={img.url}
                 alt={img.altText ?? ""}
+                width={96}
+                height={96}
                 className="h-24 w-24 rounded-lg object-cover ring-1 ring-border"
               />
               <Button
