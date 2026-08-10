@@ -1,7 +1,7 @@
 # Handoff: BOMY Design System → bomy-app (Next.js)
 
 ## Overview
-This bundle applies the BOMY design system to the live `BOMY-Inflow-Vision/bomy-app` monorepo (`apps/web` buyer/seller Next.js app, `apps/admin` ops console). `apps/web` currently ships the default shadcn/ui theme (indigo primary, Inter font) — none of it is BOMY-branded yet. This handoff retheme's that app to the real BOMY tokens and specifies which screens to rebuild.
+This bundle applies the BOMY design system to the live `BOMY-Inflow-Vision/bomy-app` monorepo (`apps/web` buyer/seller Next.js app, `apps/admin` ops console). **Status (2026-08-10): the retheme itself is done** — `globals.css`/fonts (PR #120), the 6 shared UI primitives (PR #124), NavBar/Footer (PR #125), and site-wide content-width consistency (PR #126) are all live. What's left is §3's still-unbuilt components (Select/Checkbox/RadioGroup/Switch/Field/Dialog/EmptyState/DataTable) and §4's screen work (Home is still a placeholder; Checkout has a real, retheme'd single-column form, not the two-column layout this bundle proposes). See §3 for the per-component breakdown.
 
 ## About the files in this bundle
 Everything under `tokens/`, `components/`, `guidelines/`, and `ui_kits/` is a **design reference**, not code to import into the app. It's plain HTML/React with inline styles and CSS custom properties — it does not use Tailwind or the `bomy-app` CVA component pattern. Open `ui_kits/buyer_site/index.html` or `ui_kits/seller_dashboard/index.html` directly in a browser — both are self-contained click-through prototypes. `guidelines/*.card.html` are token/foundation specimens (colors, type, spacing, icons).
@@ -52,17 +52,17 @@ Delete or repurpose the unused `bomy` orange scale in `apps/web/tailwind.config.
 Both are on Google Fonts — swap the `next/font/google` import the same way `Inter` is wired today. See `tokens/typography.css` for the full scale (12/13/14/16/18/20/24/30/36/48/60) and semantic type roles (`--type-h1`, `--type-body`, etc.) to carry over as Tailwind `fontSize`/`lineHeight` utilities or a small set of text-style classes.
 
 ## 3. Component mapping
-| BOMY component | `apps/web/src/components/*` today | What changes |
+| BOMY component | `apps/web/src/components/*` today | Status |
 | --- | --- | --- |
-| Button | `ui/button.tsx` | Add `reward` variant (gold, for membership CTAs); `outline`/`ghost`/`link` keep shape, recolor via retheme. See `components/core/Button.jsx.txt` for hover/press/disabled/loading states. |
-| Card | `ui/card.tsx` | Recolors via retheme only; radius becomes `--radius-card` (0.75rem). |
-| Badge | `ui/badge.tsx` | BOMY has `StatusPill`/`StockStatus` (commerce-specific semantics: in stock / low stock / preorder / order states) layered on top of the generic badge — see `components/commerce/StatusPill.jsx.txt`, `StockStatus.jsx.txt`. |
-| Input, Label, Textarea | `ui/input.tsx`, `ui/label.tsx`, `ui/textarea.tsx` | Recolor + radius only. |
+| Button | `ui/button.tsx` | **Done (PR #124).** `reward` gold variant added (for membership CTAs); `outline`/`ghost`/`link` recolored via retheme, shape unchanged. |
+| Card | `ui/card.tsx` | **Done (PR #124).** Recolored; radius is `--radius-card` (0.75rem, token: `rounded-card`). |
+| Badge | `ui/badge.tsx` | **Done (PR #124) — audited, needed zero changes** (already matched the target shape/color contract). `StatusPill`/`StockStatus` (commerce-specific semantics: in stock / low stock / preorder / order states) layered on top of the generic badge are still **not in repo** — see `components/commerce/StatusPill.jsx.txt`, `StockStatus.jsx.txt`. |
+| Input, Label, Textarea | `ui/input.tsx`, `ui/label.tsx`, `ui/textarea.tsx` | **Done (PR #124).** Recolored; radius is `--radius-input` (0.625rem, token: `rounded-input`). |
 | **Select, Checkbox, RadioGroup, Switch, Field** | *not in repo yet* | New — build on Radix primitives (already a dependency) per `components/forms/*.jsx.txt` + `*.prompt.md`. `Field` is the label+control+help/error wrapper other forms compose from. |
 | **Dialog** | *not in repo yet* | New — core, used for order-placed confirmation, delete confirmations, etc. Build on `@radix-ui/react-dialog`. |
 | **Toast** | *not in repo yet* | Deprioritize — BOMY's system marks toast as discouraged in favor of inline confirmation (a message rendered in-place, not a transient overlay). Only add if a genuinely async/global event needs it (e.g. background job finished). |
 | **EmptyState, DataTable** | *not in repo yet* | New — `DataTable` is for the seller dashboard (orders, products); `EmptyState` for empty cart/orders/products lists. |
-| NavBar, Footer | `nav-bar.tsx`, `footer.tsx` (note: **not** under `ui/` — one level up, at `components/nav-bar.tsx`/`footer.tsx`) | Recolor + restyle per `components/navigation/NavBar.jsx.txt` / `Footer.jsx.txt`; logic (mobile menu, cart badge, auth links) in the current file is solid and can stay — just retheme classNames. |
+| NavBar, Footer | `nav-bar.tsx`, `footer.tsx` (note: **not** under `ui/` — one level up, at `components/nav-bar.tsx`/`footer.tsx`) | **Done (PR #125).** Recolored + restyled (new `--border-subtle` token; nav background moved to `bg-card` so chrome visibly separates from the page); logic (mobile menu, cart badge, auth links) was already solid, untouched. Content max-width consistency (matching the rest of the site) done in PR #126. |
 
 Every component in `components/` has a sibling `.prompt.md` describing intended props, variants, and behavior — read that alongside the `.jsx.txt` before implementing.
 
@@ -73,7 +73,7 @@ Each UI kit README maps every screen to its exact `bomy-app` source file:
 
 Two things called out there worth repeating:
 - **Home** (`app/page.tsx`) is currently a placeholder — `HomeScreen.jsx.txt` composes real marketing copy already in the repo (`about/page.tsx`, `(marketing)/membership/page.tsx`) into the homepage this redesign implies. Confirm that's the intended direction before building it.
-- **Checkout** UI doesn't exist in the repo yet (`app/checkout/_form.tsx` is unstyled/default). `CheckoutScreen.jsx.txt`'s flow (contact → address → shipping → payment, sticky summary, member discount) is a **proposal**, including its business rules (5% member discount, multi-parcel shipping note) — confirm those rules against `app/checkout/actions.ts` / `queries.ts` before shipping; don't assume the mock's math is authoritative.
+- **Checkout** has a real, retheme'd single-column form (`app/checkout/_form.tsx`, 463 lines, built on the retheme'd `Input`/`Label`/`Button`) — not the unstyled placeholder this doc originally described. It does **not** match `CheckoutScreen.jsx.txt`'s two-column layout: PR #126 tried widening the container to match the mock's `max-w-6xl`, then reverted (see that PR's log) because the two-column form+summary grid the mock assumes doesn't exist yet — building it is separate, not-yet-started work. `CheckoutScreen.jsx.txt`'s flow (contact → address → shipping → payment, sticky summary, member discount) remains a **proposal**, including its business rules (5% member discount, multi-parcel shipping note) — confirm those rules against `app/checkout/actions.ts` / `queries.ts` before shipping; don't assume the mock's math is authoritative.
 
 ## 5. Open items / do not guess
 - **No logo file exists.** Ship the wordmark-only lockup in `components/navigation/Wordmark.jsx.txt` until a logo is provided.
