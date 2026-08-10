@@ -280,12 +280,16 @@
 
 ## 13. CI runs twice per PR and never exercises Next.js builds · TECH DEBT, LOW
 
-- **What:** `.github/workflows/ci.yml` triggers on both `push` (all branches) and `pull_request`
-  (main) — every PR commit runs the matrix twice (concurrency groups differ per ref, so no cancel).
-  Also no `pnpm build` job: Next build breakage (like the Turbo env-allowlist incident, fix
-  `e7fc80f`) only surfaces at Vercel/Railway deploy time.
-- **Fix (single task):** Change `push:` to `push: { branches: [main] }`; optionally add a fourth
-  job running `pnpm build` with dummy env values.
+- **Half closed — PR #128 (`7c3dee3`, 2026-08-10):** `push:` scoped to `branches: [main]`, matching
+  `pull_request`'s scope. PR-branch pushes no longer double-fire CI (verified: zero runs from a bare
+  branch push, exactly one `pull_request`-triggered run once a PR opens, and a normal `push`-run
+  still fires on merge to `main`). Diagnosed by Bob during PR #127's review (duplicate concurrent
+  runs on the same commit were contending over shared Postgres/Redis test state, the likely cause of
+  an intermittent `tests/checkout/preview.test.ts` rate-limit flake seen there).
+- **Still open — no `pnpm build` job.** Next build breakage (like the Turbo env-allowlist incident,
+  fix `e7fc80f`) only surfaces at Vercel/Railway deploy time. Deliberately kept out of PR #128's
+  scope (Bob's call — separate concern, not bundled with the trigger fix).
+- **Fix (remaining):** add a job running `pnpm build` with dummy env values.
 
 ## 14. PSP coupling is split-brain: Stage 5 is PSP-agnostic, Stage 4 is HitPay-shaped · DESIGN INPUT, MEDIUM
 
