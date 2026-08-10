@@ -12,6 +12,18 @@ interface WebpackConfigLike {
 
 const config: NextConfig = {
   output: "standalone",
+  images: {
+    // Google OAuth's profile.picture URL (NextAuth's Google provider maps this
+    // straight into users.image) — the only remote image host next/image
+    // currently renders. Keep this narrow; widen only when a real stored
+    // avatar URL proves another host is needed.
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "lh3.googleusercontent.com",
+      },
+    ],
+  },
   // BOMY workspace packages export TS source with NodeNext-style `.js`
   // specifiers inside (e.g. `export * from "./client.js"` resolving to
   // `./client.ts`). Next.js needs both:
