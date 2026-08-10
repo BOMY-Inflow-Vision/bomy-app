@@ -111,3 +111,66 @@ jobs:
           BOMY_RLS_READY: "1"
           DATABASE_APP_URL: postgresql://bomy_app:ci_password@localhost:5432/bomy_test
           REDIS_URL: redis://localhost:6379
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Dummy values only — no live DB/Redis, no real secrets. This job proves the
+      # Next.js/esbuild build graph compiles cleanly (GAPS #13's other half — build
+      # breakage like the Turbo env-allowlist incident, fix e7fc80f, previously only
+      # surfaced at Vercel/Railway deploy time). Server code that actually touches
+      # these values only runs at request time (lazy singletons), never during `next
+      # build`/`pnpm build`, so unreachable URLs and placeholder secrets are safe here.
+      - name: Build
+        run: pnpm build
+        env:
+          NODE_ENV: production
+          DATABASE_URL: postgresql://bomy:ci_password@localhost:5432/bomy_build
+          DATABASE_APP_URL: postgresql://bomy_app:ci_password@localhost:5432/bomy_build
+          BOMY_RLS_READY: ""
+          AUTH_SECRET: ci-dummy-auth-secret-not-real
+          NEXTAUTH_URL: http://localhost:3000
+          AUTH_URL: http://localhost:3000
+          APP_URL: http://localhost:3000
+          AUTH_GOOGLE_ID: ci-dummy-google-id
+          AUTH_GOOGLE_SECRET: ci-dummy-google-secret
+          AUTH_FACEBOOK_ID: ci-dummy-facebook-id
+          AUTH_FACEBOOK_SECRET: ci-dummy-facebook-secret
+          NEXT_PUBLIC_TURNSTILE_SITEKEY: 1x00000000000000000000AA
+          TURNSTILE_SECRET_KEY: 1x0000000000000000000000000000000AA
+          BOMY_OPS_DIAGNOSTIC_TOKEN: ci-dummy-ops-diagnostic-token
+          NEXT_PUBLIC_DEFAULT_LOCALE: en
+          NEXT_PUBLIC_API_URL: http://localhost:3001
+          HITPAY_API_KEY: ci-dummy-hitpay-key
+          HITPAY_API_URL: https://api.sandbox.hit-pay.com
+          HITPAY_SALT: ci-dummy-hitpay-salt
+          HITPAY_WEBHOOK_URL: http://localhost:3001/webhooks/hitpay
+          EMAIL_DELIVERY_ENABLED: "false"
+          SMTP_HOST: localhost
+          SMTP_PORT: "1025"
+          SMTP_SECURE: "false"
+          SMTP_USER: ci-dummy-smtp-user
+          SMTP_PASS: ci-dummy-smtp-pass
+          MAIL_FROM: "BOMY <noreply@example.com>"
+          MAIL_REPLY_TO: reply@example.com
+          OPS_ALERT_EMAILS: ops@example.com
+          ADMIN_URL: http://localhost:3002
+          INTERNAL_API_SECRET: ci-dummy-internal-secret
+          LOG_LEVEL: silent
+          S3_ENDPOINT: http://localhost:9000
+          S3_ACCESS_KEY: ci-dummy-access-key
+          S3_SECRET_KEY: ci-dummy-secret-key
+          S3_BUCKET: bomy-ci
+          S3_PUBLIC_URL: https://cdn.example.com
