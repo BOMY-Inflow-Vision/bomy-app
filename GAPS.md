@@ -278,18 +278,20 @@
   DELETE RLS policy migration), checkout abandon/success-page store reads (needs a buyer-context
   read policy decision). Each is a well-scoped single migration + refactor when picked up.
 
-## 13. CI runs twice per PR and never exercises Next.js builds · TECH DEBT, LOW
+## 13. ~~CI runs twice per PR and never exercises Next.js builds~~ · CLOSED · TECH DEBT, LOW
 
-- **Half closed — PR #128 (`7c3dee3`, 2026-08-10):** `push:` scoped to `branches: [main]`, matching
-  `pull_request`'s scope. PR-branch pushes no longer double-fire CI (verified: zero runs from a bare
-  branch push, exactly one `pull_request`-triggered run once a PR opens, and a normal `push`-run
-  still fires on merge to `main`). Diagnosed by Bob during PR #127's review (duplicate concurrent
-  runs on the same commit were contending over shared Postgres/Redis test state, the likely cause of
-  an intermittent `tests/checkout/preview.test.ts` rate-limit flake seen there).
-- **Still open — no `pnpm build` job.** Next build breakage (like the Turbo env-allowlist incident,
-  fix `e7fc80f`) only surfaces at Vercel/Railway deploy time. Deliberately kept out of PR #128's
-  scope (Bob's call — separate concern, not bundled with the trigger fix).
-- **Fix (remaining):** add a job running `pnpm build` with dummy env values.
+- **Status: CLOSED, both halves.**
+  - **PR #128 (`7c3dee3`, 2026-08-10):** `push:` scoped to `branches: [main]`, matching
+    `pull_request`'s scope. PR-branch pushes no longer double-fire CI. Diagnosed by Bob during
+    PR #127's review (duplicate concurrent runs on the same commit were contending over shared
+    Postgres/Redis test state, the likely cause of an intermittent
+    `tests/checkout/preview.test.ts` rate-limit flake seen there).
+  - **PR #129 (2026-08-10):** added a fourth `Build` job running `pnpm build` with dummy env
+    values for everything `turbo.json`'s `build` task declares (auth, HitPay, Turnstile, app
+    URLs, S3, DB URLs, mailer-disabled mode) — no Postgres/Redis services, verified both locally
+    and in real CI that the build never touches a live DB. Closes the "never exercises Next.js
+    builds" gap — breakage like the Turbo env-allowlist incident (fix `e7fc80f`) now surfaces in
+    CI, not just at Vercel/Railway deploy time.
 
 ## 14. PSP coupling is split-brain: Stage 5 is PSP-agnostic, Stage 4 is HitPay-shaped · DESIGN INPUT, MEDIUM
 
