@@ -249,18 +249,33 @@
   `brand-subscription-expiry` — the scheduler file already shows the pattern. Delete the interval
   block from `server.ts`.
 
-## 10. No end-to-end/browser test coverage · TESTING, LOW-MEDIUM
+## 10. ~~No end-to-end/browser test coverage~~ · CLOSED · TESTING, LOW-MEDIUM
 
-- **What:** 454 tests, but all unit/integration. There is no Playwright/E2E suite; nothing drives
-  browse → cart → checkout → webhook → order across app boundaries, and web/admin page rendering
-  is only spot-tested (legal pages, footer, nav).
+- **Status (2026-08-14): CLOSED — PR #137.** Added `apps/web/e2e/smoke.spec.ts` (`@playwright/test`,
+  chromium only) with the three checks named in the fix: sign-in page renders, storefront lists a
+  seeded product, `/seller/apply` shows the Turnstile widget. `global-setup.ts` seeds a fixed-slug
+  store/category/product/variant via the same `makeDb`/`withAdmin`/`schema` pattern the vitest
+  integration tests already use, and cleans up after (idempotent — safe to re-run, safe if a prior
+  run crashed mid-way). `playwright.config.ts`'s `webServer` reuses an already-running `pnpm dev`
+  on `:3000` if present, otherwise starts `apps/web`'s own `next dev`. Run via
+  `pnpm --filter @bomy/web test:e2e`; details in `apps/web/e2e/README.md`.
+- **Scope note:** deliberately local-only, not wired into CI — matches the fix's own "against local
+  `pnpm dev` + Docker" framing. Wiring it into CI would need a live dev server + browser binaries in
+  that job, meaningfully more infra than this fix's scope; left as a future follow-up, not done
+  here.
+- **Non-obvious finding along the way:** the Cloudflare "always passes" Turnstile test key
+  (`1x00000000000000000000AA`, already committed for local dev) resolves without ever inserting a
+  visible challenge iframe — an iframe-presence assertion would have been flaky by design. The spec
+  instead asserts the submit button (wired `disabled={!token}`) becomes enabled, which only happens
+  after the widget renders, calls back, and sets a token — stronger proof of the real integration
+  than checking for an iframe that this specific test key never shows.
+- **What (original):** 454 tests, but all unit/integration. There is no Playwright/E2E suite;
+  nothing drives browse → cart → checkout → webhook → order across app boundaries, and web/admin
+  page rendering is only spot-tested (legal pages, footer, nav).
 - **Why it matters:** The two hardest bugs in this repo's history were cross-boundary (Turbo env
   passthrough breaking Vercel builds; JWT-vs-DB-session middleware bounce). Unit tests can't catch
   that class. Also, PR #68 shipped an action with no UI wired to it — a render/E2E layer would
   have caught it.
-- **Fix (single task):** Add one Playwright smoke spec against local `pnpm dev` + Docker: sign-in
-  page renders, storefront lists a seeded product, `/seller/apply` shows the Turnstile widget.
-  Expand later; don't boil the ocean.
 
 ## 11. ~~Unmatched webhooks are logged and dropped~~ · CLOSED · FRAGILE, LOW
 
