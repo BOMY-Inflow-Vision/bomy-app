@@ -262,17 +262,33 @@
   page renders, storefront lists a seeded product, `/seller/apply` shows the Turnstile widget.
   Expand later; don't boil the ocean.
 
-## 11. Unmatched webhooks are logged and dropped · FRAGILE, LOW
+## 11. ~~Unmatched webhooks are logged and dropped~~ · CLOSED · FRAGILE, LOW
 
-- **What:** In `apps/api/src/routes/webhooks/hitpay.ts`, an event with no matching subscription
-  (`no member_subscription found`, `no brand_subscription found`, `unrecognised event shape`) gets
-  a `warn` log and a 200. Money may have moved with no durable record on our side. The order path
-  is better (park-review + `processed_webhook_events`); the membership/brand paths predate it.
+- **Status (2026-08-14): CLOSED — PR #135.** All three "not found / unrecognised" branches
+  (`no member_subscription found`, `no brand_subscription found`, `unrecognised event shape`) now
+  also send an ops email via new `apps/api/src/notifications/webhook-anomaly.ts`, mirroring the
+  existing `[BOMY Ops]` pattern from seller-inquiry alerts (`OPS_ALERT_EMAILS`, skip-and-log when
+  unset, never throws on mailer failure). Fires fire-and-forget from the route handler, never from
+  inside a DB transaction. `handleMembershipCharge`/`handleBrandSubscriptionPayment` now return
+  `{ notFound: boolean }` instead of `void` to carry the signal out of their `withAdmin`
+  transactions — no other line inside either transaction changed (activation, ledger,
+  duplicate-charge, idempotency all untouched). This touches payment/transaction webhook code, so
+  per project convention the implementation ran on Opus (via a Sonnet-orchestrated subagent), with
+  the orchestrating session independently re-verifying the full diff before merge. New test
+  coverage (9 tests) includes a bad-signature → 401 → zero-alerts case proving the alert path sits
+  behind HMAC verification.
+- **Bob's optional, non-blocking follow-up (not actioned):** known HitPay event types with a
+  _missing_ routing ID field entirely (e.g. `charge.created` with no `recurring_billing_id`,
+  `payment_request.completed` with no `payment_request_id`) still fall through to 200 without
+  hitting the alert path — a real, distinct gap, a third category beyond this item's three named
+  branches, correctly scoped out of PR #135. Worth a future GAPS entry if picked up.
+- **What (original):** In `apps/api/src/routes/webhooks/hitpay.ts`, an event with no matching
+  subscription (`no member_subscription found`, `no brand_subscription found`,
+  `unrecognised event shape`) got a `warn` log and a 200. Money may have moved with no durable
+  record on our side. The order path was better (park-review + `processed_webhook_events`); the
+  membership/brand paths predated it.
 - **Why it matters:** Log lines on Railway are the only trace; they expire. An orphaned real
   payment would be invisible unless someone is watching logs that day.
-- **Fix (single task):** On the three "not found / unrecognised" branches, also send an ops email
-  via the existing mailer plugin (the `[BOMY Ops]` pattern from seller-inquiry alerts) or insert a
-  row in a small `unmatched_webhook_events` table. Email is the smaller diff.
 
 ## 12. Dead/abandoned surfaces · HALF-FINISHED, LOW
 
