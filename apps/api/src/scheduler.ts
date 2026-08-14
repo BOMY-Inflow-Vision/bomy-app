@@ -9,6 +9,7 @@ import { expireSubscriptions } from "./jobs/brand-subscription-expiry.js"
 import { runBodyImageCleanup } from "./jobs/body-image-cleanup.js"
 import { runInventoryReservationExpiryJob } from "./jobs/inventory-reservation-expiry.js"
 import { notifyRenewalsDue } from "./jobs/membership-renewal-notification.js"
+import { expireMemberSubscriptions } from "./jobs/member-subscription-expiry.js"
 import { ORDER_AUTO_COMPLETE_CRON, runOrderAutoCompleteJob } from "./jobs/order-auto-complete.js"
 import { issueMonthlyVouchers } from "./jobs/voucher-issuance.js"
 import type { JobLogger } from "./notifications/voucher.js"
@@ -18,6 +19,7 @@ import type { JobLogger } from "./notifications/voucher.js"
 const VOUCHER_ISSUANCE_CRON = "0 8 1 * *" // 08:00 MYT on 1st of month
 const RENEWAL_NOTIFICATION_CRON = "0 9 * * *" // 09:00 MYT daily
 const BRAND_EXPIRY_CRON = "5 0 * * *" // 00:05 MYT daily
+const MEMBER_EXPIRY_CRON = "10 0 * * *" // 00:10 MYT daily
 const INV_EXPIRY_CRON = "*/10 * * * *" // every 10 minutes MYT
 const BODY_IMAGE_CLEANUP_CRON = "0 2 * * *" // 02:00 MYT daily
 
@@ -52,6 +54,7 @@ export async function createScheduler(
   const voucherQueue = new Queue(VOUCHER_QUEUE_NAME, { connection })
   const renewalQueue = new Queue("membership-renewal-notification", { connection })
   const expiryQueue = new Queue("brand-subscription-expiry", { connection })
+  const memberExpiryQueue = new Queue("member-subscription-expiry", { connection })
   const invExpiryQueue = new Queue("inventory-reservation-expiry", { connection })
   const orderAutoCompleteQueue = new Queue("order-auto-complete", { connection })
   const bodyImageCleanupQueue = new Queue("body-image-cleanup", { connection })
@@ -71,6 +74,11 @@ export async function createScheduler(
     "daily-brand-expiry",
     { pattern: BRAND_EXPIRY_CRON, tz: TZ },
     { name: "expire-subscriptions" },
+  )
+  await memberExpiryQueue.upsertJobScheduler(
+    "daily-member-expiry",
+    { pattern: MEMBER_EXPIRY_CRON, tz: TZ },
+    { name: "expire-member-subscriptions" },
   )
   await invExpiryQueue.upsertJobScheduler(
     "every-10min-inv-expiry",
@@ -121,6 +129,17 @@ export async function createScheduler(
     { connection },
   )
 
+  const memberExpiryWorker = new Worker(
+    "member-subscription-expiry",
+    async () => {
+      const { cancelledCount, abandonedCount } = await expireMemberSubscriptions(db)
+      deps.logger.info(
+        `jobs: member-subscription-expiry expired ${cancelledCount} cancelled, ${abandonedCount} abandoned pending`,
+      )
+    },
+    { connection },
+  )
+
   const invExpiryWorker = new Worker(
     "inventory-reservation-expiry",
     async () => {
@@ -155,6 +174,7 @@ export async function createScheduler(
     voucherWorker,
     renewalWorker,
     expiryWorker,
+    memberExpiryWorker,
     invExpiryWorker,
     orderAutoCompleteWorker,
     bodyImageCleanupWorker,
@@ -174,12 +194,14 @@ export async function createScheduler(
         voucherWorker.close(),
         renewalWorker.close(),
         expiryWorker.close(),
+        memberExpiryWorker.close(),
         invExpiryWorker.close(),
         orderAutoCompleteWorker.close(),
         bodyImageCleanupWorker.close(),
         voucherQueue.close(),
         renewalQueue.close(),
         expiryQueue.close(),
+        memberExpiryQueue.close(),
         invExpiryQueue.close(),
         orderAutoCompleteQueue.close(),
         bodyImageCleanupQueue.close(),

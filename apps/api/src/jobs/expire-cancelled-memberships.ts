@@ -11,7 +11,7 @@ const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001" as const
  * row where:
  *   status = 'active' AND cancelled_at IS NOT NULL AND period_end <= now()
  *
- * Run at server start and then every 24 hours via setInterval (see server.ts).
+ * Run daily via BullMQ (see member-subscription-expiry.ts + scheduler.ts).
  * Returns the number of rows updated.
  */
 export async function expireCancelledMemberships(db: Database): Promise<number> {
