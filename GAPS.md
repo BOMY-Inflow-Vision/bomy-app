@@ -182,17 +182,30 @@
 - **Fix (single task each):** (a) Rewrite README status + domain references; (b) sync `.env.example`
   against actual `process.env` reads (`grep -rn 'process.env\[' apps packages`).
 
-## 7. Integration tests skip silently — local green ≠ CI green · TESTING, MEDIUM
+## 7. ~~Integration tests skip silently — local green ≠ CI green~~ · CLOSED · TESTING, MEDIUM
 
-- **What:** All RLS/integration suites are wrapped in `describe.skipIf(!shouldRun)` where
-  `shouldRun = Boolean(DATABASE_APP_URL) && BOMY_RLS_READY === "1"`. Run `pnpm test` without those
-  env vars and the suite passes while skipping the most important tests, with no loud signal.
-- **Where:** Test files across `apps/*/tests/` and `packages/db/tests/`; env contract in `CLAUDE.md`.
+- **Status (2026-08-14): CLOSED — PR #134.** Added `pnpm test:integration`
+  (`scripts/check-integration-env.mjs` + `turbo run test`), which checks
+  `DATABASE_URL`/`DATABASE_APP_URL`/`REDIS_URL`/`BOMY_RLS_READY=1` are all set and fails loudly
+  (red message, exit 1, self-contained inline env example) instead of silently passing with
+  skipped suites. CI's Test job now runs `pnpm test:integration` instead of plain `test` —
+  confirmed green in the real workflow (not just locally), so a future `ci.yml` edit dropping one
+  of these vars now fails the build instead of passing silently.
+- **Scope note:** shipped the fail-fast guard (the GAPS-listed "single task" fix). The optional
+  "and/or" half — a vitest `globalSetup`/reporter that inspects actual skip counts from inside the
+  test process — was left undone: it would additionally catch `turbo.json`'s own `env` allowlist
+  silently dropping one of these var names before spawning the test process (the literal root
+  cause PR #103 fixed for `REDIS_URL`), which the outer shell-level guard cannot see. `turbo.json`'s
+  `test` task already declares all 4 vars, so this residual risk only bites if a future edit
+  removes one from that array — no caller currently needs the deeper check, and the existing
+  Turborepo-env-passthrough memory note already flags the failure mode for whoever touches that
+  array next.
+- **What (original):** All RLS/integration suites are wrapped in `describe.skipIf(!shouldRun)`
+  where `shouldRun = Boolean(DATABASE_APP_URL) && BOMY_RLS_READY === "1"`. Run `pnpm test` without
+  those env vars and the suite passes while skipping the most important tests, with no loud signal.
+- **Where:** Test files across `apps/*/tests/` and `packages/db/tests/`.
 - **Why it matters:** A future agent will "verify" a money/RLS change locally, see green, and ship
   something CI later rejects — or worse, tweak CI env and lose the coverage entirely.
-- **Fix (single task):** Add a root `test:integration` script that fails fast if
-  `DATABASE_APP_URL`/`BOMY_RLS_READY` are unset, and/or a vitest `globalSetup` that prints a
-  RED "N integration suites SKIPPED" banner when the guard trips.
 
 ## 8. ~~`makeDb()` silently falls back to the RLS-exempt owner role~~ · CLOSED · FRAGILE, MEDIUM
 
