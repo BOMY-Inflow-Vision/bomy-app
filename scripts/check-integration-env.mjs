@@ -1,10 +1,9 @@
 /**
  * Guards `pnpm test:integration` against silently skipping RLS/integration
  * suites. All gated test files check DATABASE_URL/DATABASE_APP_URL/
- * BOMY_RLS_READY/REDIS_URL themselves and skip quietly when unset (see
- * CLAUDE.md's Commands section) — this script fails loudly instead, so a
- * missing env var is a hard error, not a green run with silent skips
- * (GAPS #7).
+ * BOMY_RLS_READY/REDIS_URL themselves and skip quietly when unset — this
+ * script fails loudly instead, so a missing env var is a hard error, not a
+ * green run with silent skips (GAPS #7).
  *
  * Run with: node scripts/check-integration-env.mjs
  *           (invoked automatically by `pnpm test:integration`)
@@ -29,7 +28,12 @@ if (missing.length > 0 || !rlsReady) {
       `  BOMY_RLS_READY must be "1" (got: ${JSON.stringify(process.env.BOMY_RLS_READY ?? null)})`,
     )
   }
-  console.error("\n  See CLAUDE.md → Commands for the full env var block.\n")
+  console.error("\n  Example (values for local Docker Compose):")
+  console.error("    DATABASE_URL=postgresql://bomy:changeme_local@localhost:5432/bomy \\")
+  console.error("    DATABASE_APP_URL=postgresql://bomy_app:changeme_local@localhost:5432/bomy \\")
+  console.error("    BOMY_RLS_READY=1 \\")
+  console.error("    REDIS_URL=redis://:changeme_local@localhost:6379 \\")
+  console.error("    pnpm test:integration\n")
   process.exit(1)
 }
 
