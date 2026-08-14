@@ -31,6 +31,7 @@ export default tseslint.config(
       "infra/**",
       "**/next-env.d.ts",
       // Plain-JS runtime scripts — not part of any TypeScript project
+      "scripts/**",
       "packages/*/scripts/**",
       "apps/*/scripts/**",
       // Design-system handoff bundle — external reference material (tokens,

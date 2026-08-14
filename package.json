@@ -13,6 +13,7 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test --concurrency=1",
+    "test:integration": "node scripts/check-integration-env.mjs && turbo run test --concurrency=1",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,mjs,cjs,json,md,yaml,yml,css}\" --ignore-path .prettierignore",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mjs,cjs,json,md,yaml,yml,css}\" --ignore-path .prettierignore",
     "ops:platform-config:set": "pnpm --filter @bomy/db ops:platform-config:set",
