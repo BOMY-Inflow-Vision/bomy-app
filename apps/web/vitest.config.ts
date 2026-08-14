@@ -16,5 +16,9 @@ export default defineConfig({
     // cancel both wipe the same shared tables in beforeEach). Mirrors
     // apps/api/vitest.config.ts.
     fileParallelism: false,
+    // e2e/*.spec.ts are Playwright specs (run via `pnpm test:e2e`, own config
+    // + runner) — vitest's default include glob matches *.spec.ts too and
+    // would otherwise try to execute them itself.
+    exclude: ["**/node_modules/**", "**/dist/**", "**/.next/**", "e2e/**"],
   },
 })

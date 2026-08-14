@@ -9,7 +9,8 @@
     "lint": "eslint src --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.7.4",
@@ -42,6 +43,7 @@
   },
   "devDependencies": {
     "@bomy/config": "workspace:*",
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/typography": "^0.5.20",
     "@types/node": "^20.17.0",
     "@types/react": "^19.1.0",
