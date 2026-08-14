@@ -14,6 +14,7 @@ import { deriveEventIdentity } from "../../webhooks/hitpay/idempotency.js"
 import { handleOrderPayment } from "../../webhooks/hitpay/order-fanout.js"
 import { parseSen } from "../../webhooks/hitpay/parse-sen.js"
 import { dispatchOrderNotifications } from "../../notifications/order.js"
+import { dispatchWebhookAnomalyAlert } from "../../notifications/webhook-anomaly.js"
 
 // Sentinel UUID identifying the HitPay webhook system as the audit actor
 // for all withAdmin writes. No user session exists for inbound webhooks.
@@ -136,7 +137,31 @@ export const hitpayWebhookRoutes: FastifyPluginAsync = async (app) => {
       typeof recurringBillingId === "string"
     ) {
       if (typeof recurringBillingId === "string") {
-        await handleMembershipCharge({ app, recurringBillingId, paymentId, status, amountStr })
+        const membershipResult = await handleMembershipCharge({
+          app,
+          recurringBillingId,
+          paymentId,
+          status,
+          amountStr,
+        })
+
+        // Money may have moved for a recurring billing we cannot attribute to
+        // any subscription row — tell a human (GAPS #11). Fire-and-forget so a
+        // slow/failing SMTP never delays or breaks the 200.
+        if (membershipResult.notFound) {
+          void dispatchWebhookAnomalyAlert(app, {
+            type: "webhook_member_subscription_not_found",
+            subject: "No member subscription found for recurring billing id",
+            details: {
+              recurringBillingId,
+              paymentId: paymentId || "(none)",
+              status: status || "(none)",
+              amount: amountStr,
+            },
+          }).catch((err: unknown) => {
+            request.log.error({ err }, "email_notification_dispatch_error")
+          })
+        }
       }
     } else if (
       eventType === "payment_request.completed" ||
@@ -166,7 +191,7 @@ export const hitpayWebhookRoutes: FastifyPluginAsync = async (app) => {
         }
 
         if (orderResult.result === "not_order") {
-          await handleBrandSubscriptionPayment({
+          const brandResult = await handleBrandSubscriptionPayment({
             app,
             paymentRequestId,
             paymentId,
@@ -174,10 +199,39 @@ export const hitpayWebhookRoutes: FastifyPluginAsync = async (app) => {
             amountStr,
             feesStr,
           })
+
+          // Neither an order nor a brand subscription matched this payment
+          // request — nothing on our side records the money. Alert ops
+          // (GAPS #11), fire-and-forget so the 200 is unaffected.
+          if (brandResult.notFound) {
+            void dispatchWebhookAnomalyAlert(app, {
+              type: "webhook_brand_subscription_not_found",
+              subject: "No brand subscription found for payment request",
+              details: {
+                paymentRequestId,
+                paymentId: paymentId || "(none)",
+                status: status || "(none)",
+                amount: amountStr,
+              },
+            }).catch((err: unknown) => {
+              request.log.error({ err }, "email_notification_dispatch_error")
+            })
+          }
         }
       }
     } else {
       request.log.warn({ eventType, paymentId }, "hitpay webhook: unrecognised event shape")
+
+      // A signed HitPay event we cannot route at all. Alert ops (GAPS #11),
+      // fire-and-forget so the 200 below is unaffected.
+      const eventTypeStr = Array.isArray(eventType) ? eventType.join(",") : (eventType ?? "(none)")
+      void dispatchWebhookAnomalyAlert(app, {
+        type: "webhook_unrecognised_event",
+        subject: "Unrecognised HitPay webhook event",
+        details: { eventType: eventTypeStr, paymentId: paymentId || "(none)" },
+      }).catch((err: unknown) => {
+        request.log.error({ err }, "email_notification_dispatch_error")
+      })
     }
 
     // Always 200 — prevents HitPay from retrying on slow DB writes.
@@ -201,7 +255,11 @@ async function handleMembershipCharge({
   paymentId,
   status,
   amountStr,
-}: MembershipArgs): Promise<void> {
+}: MembershipArgs): Promise<{ notFound: boolean }> {
+  // Set inside the transaction, read after it commits — the ops alert is
+  // dispatched by the caller, never from inside a DB transaction.
+  let notFound = false
+
   await withAdmin(
     app.db.db,
     { userId: SYSTEM_ACTOR, reason: "hitpay webhook: membership charge" },
@@ -222,6 +280,7 @@ async function handleMembershipCharge({
           { recurringBillingId },
           "hitpay webhook: no member_subscription found for recurring id",
         )
+        notFound = true
         return
       }
 
@@ -465,6 +524,8 @@ async function handleMembershipCharge({
       }
     },
   )
+
+  return { notFound }
 }
 
 // ─── Brand subscription (payment request / one-time) ─────────────────────────
@@ -485,7 +546,11 @@ async function handleBrandSubscriptionPayment({
   status,
   amountStr,
   feesStr,
-}: BrandSubArgs): Promise<void> {
+}: BrandSubArgs): Promise<{ notFound: boolean }> {
+  // Set inside the transaction, read after it commits — the ops alert is
+  // dispatched by the caller, never from inside a DB transaction.
+  let notFound = false
+
   await withAdmin(
     app.db.db,
     { userId: SYSTEM_ACTOR, reason: "hitpay webhook: brand subscription payment" },
@@ -504,6 +569,7 @@ async function handleBrandSubscriptionPayment({
           { paymentRequestId },
           "hitpay webhook: no brand_subscription found for payment request",
         )
+        notFound = true
         return
       }
 
@@ -692,6 +758,8 @@ async function handleBrandSubscriptionPayment({
       }
     },
   )
+
+  return { notFound }
 }
 
 // ─── Refund (charge.updated) ──────────────────────────────────────────────────
