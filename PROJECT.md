@@ -137,13 +137,15 @@ idempotent); an unrecognised event shape logs a warning and is otherwise dropped
 
 ### Background jobs (`apps/api`)
 
-Six BullMQ repeatable jobs (all `Asia/Kuala_Lumpur`): voucher-issuance (monthly 1st 08:00),
+Seven BullMQ repeatable jobs (all `Asia/Kuala_Lumpur`): voucher-issuance (monthly 1st 08:00),
 membership-renewal-notification (daily 09:00), brand-subscription-expiry (daily 00:05),
-inventory-reservation-expiry (every 10 min), order-auto-complete (daily), body-image-cleanup
-(nightly 02:00, with retries). Two more run outside BullMQ via `setInterval` at startup + every
-24h: `expireCancelledMemberships`, `expireAbandonedPendingMemberships`. Jobs are disabled when
-`NODE_ENV === "test"`. Admin's "Issue Now" button calls `POST /internal/jobs/voucher-issuance`
-with `Authorization: Bearer <INTERNAL_API_SECRET>`.
+member-subscription-expiry (daily 00:10 — `expireCancelledMemberships` +
+`expireAbandonedPendingMemberships`), inventory-reservation-expiry (every 10 min),
+order-auto-complete (daily), body-image-cleanup (nightly 02:00, with retries). All run through
+Redis-backed BullMQ job schedulers, which dedupe across instances — nothing runs on a bare
+per-process `setInterval` anymore (GAPS #9). Jobs are disabled when `NODE_ENV === "test"`. Admin's
+"Issue Now" button calls `POST /internal/jobs/voucher-issuance` with
+`Authorization: Bearer <INTERNAL_API_SECRET>`.
 
 ### Auth in detail
 

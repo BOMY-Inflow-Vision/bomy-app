@@ -3,8 +3,6 @@ import sensible from "@fastify/sensible"
 import Fastify from "fastify"
 
 import { dbPlugin } from "./plugins/db.js"
-import { expireAbandonedPendingMemberships } from "./jobs/expire-abandoned-pending-memberships.js"
-import { expireCancelledMemberships } from "./jobs/expire-cancelled-memberships.js"
 import { loggingPlugin } from "./plugins/logging.js"
 import { mailerPlugin } from "./plugins/mailer.js"
 import { rateLimitPlugin } from "./plugins/rate-limit.js"
@@ -52,36 +50,14 @@ export async function createApp(opts: { enableJobs?: boolean } = {}) {
   await app.register(hitpayWebhookRoutes)
 
   if (enableJobs) {
-    // Deterministic membership expiry: runs once at startup then every 24 hours.
-    // Closes the gap where a cancelled membership could stay 'active' indefinitely
-    // after period_end without a follow-up HitPay event.
-    const EXPIRY_MS = 24 * 60 * 60 * 1000
-    let expiryIntervalId: ReturnType<typeof setInterval> | undefined
     let scheduler: Scheduler | undefined
 
     app.addHook("onReady", async () => {
-      const db = app.db.db
-      const runExpiry = () => {
-        void expireCancelledMemberships(db)
-          .then((n) => {
-            if (n > 0)
-              app.log.info({ expired: n }, "jobs: expired cancelled memberships past period_end")
-          })
-          .catch((err: unknown) => {
-            app.log.error({ err }, "jobs: expire-cancelled-memberships failed")
-          })
-        void expireAbandonedPendingMemberships(db)
-          .then((n) => {
-            if (n > 0) app.log.info({ expired: n }, "jobs: expired abandoned pending memberships")
-          })
-          .catch((err: unknown) => {
-            app.log.error({ err }, "jobs: expire-abandoned-pending-memberships failed")
-          })
-      }
-      runExpiry()
-      expiryIntervalId = setInterval(runExpiry, EXPIRY_MS)
-
-      // BullMQ scheduler — registers cron jobs and starts workers.
+      // BullMQ scheduler — registers cron jobs (including member-subscription
+      // expiry, GAPS #9) and starts workers. Redis-backed job schedulers
+      // dedupe across instances, unlike the per-process setInterval this
+      // replaced — safe under horizontal scale and overlapping rolling
+      // deploys.
       scheduler = await createScheduler(app.db.db, {
         mailer: app.mailer,
         appLog: app.log,
@@ -93,7 +69,6 @@ export async function createApp(opts: { enableJobs?: boolean } = {}) {
     })
 
     app.addHook("onClose", async () => {
-      if (expiryIntervalId !== undefined) clearInterval(expiryIntervalId)
       await scheduler?.close()
     })
   }

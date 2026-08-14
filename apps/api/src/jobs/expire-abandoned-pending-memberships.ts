@@ -26,7 +26,7 @@ export const PENDING_GRACE_MS = 30 * 60 * 1000
  * user to retry. A genuine (but improbably late) payment still activates via the
  * webhook renewal branch, so no payment is lost.
  *
- * Run at server start and then every 24 hours via setInterval (see server.ts).
+ * Run daily via BullMQ (see member-subscription-expiry.ts + scheduler.ts).
  * Returns the number of rows updated.
  */
 export async function expireAbandonedPendingMemberships(

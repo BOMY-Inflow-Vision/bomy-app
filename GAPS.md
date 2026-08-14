@@ -226,28 +226,41 @@
   currently sets `DATABASE_URL` to the `bomy_app` role (handoff §3) — i.e. safety previously
   depended on an env-naming convention, not code.
 
-## 9. Per-instance `setInterval` jobs double-run under horizontal scale · FRAGILE, LOW-MEDIUM
+## 9. ~~Per-instance `setInterval` jobs double-run under horizontal scale~~ · CLOSED · FRAGILE, LOW-MEDIUM
 
-- **What:** `expireCancelledMemberships` and `expireAbandonedPendingMemberships` run via
+- **Status (2026-08-14): CLOSED — PR #138.** `expireCancelledMemberships` and
+  `expireAbandonedPendingMemberships` moved off the per-process `setInterval` in
+  `apps/api/src/server.ts` onto a new `member-subscription-expiry` BullMQ repeatable queue (daily
+  00:10 MYT), via a new combinator `apps/api/src/jobs/member-subscription-expiry.ts` that runs both
+  sweeps and mirrors `expireSubscriptions`'s (`brand-subscription-expiry.ts`) existing
+  two-sweeps-in-one-job pattern exactly. Redis-backed job schedulers dedupe across instances — the
+  entire class of risk this gap named (steady-state double-run under horizontal scale, and the
+  narrower confirmed-real rolling-deploy overlap) is closed, not just newly-unconfirmed. The
+  `setInterval`/`clearInterval`/`EXPIRY_MS` block is deleted from `server.ts` entirely; the two
+  sweep functions themselves are untouched (only their stale docstring comments referencing
+  `setInterval`/`server.ts` were corrected).
+- **Trade-off, accepted:** the old pattern ran once immediately at server startup, then every 24h
+  from boot time. The BullMQ version only runs on its daily cron tick (00:10 MYT), same as every
+  other scheduled job in `scheduler.ts` — no more immediate-at-deploy sweep. These are
+  non-time-critical housekeeping sweeps (a cancelled/abandoned membership sitting a few extra hours
+  before its status flips has no user-facing urgency), so this trades a minor latency increase for
+  full architectural consistency with the rest of the job system and elimination of the fragility
+  class entirely.
+- **Verification:** booted `apps/api` directly against real Redis (`npx tsx src/index.ts`) and
+  confirmed the server reaches "listening" with zero errors — proves all 7 `upsertJobScheduler`
+  calls (including the new one) succeed against real Redis, since `createScheduler` runs inside the
+  `onReady` hook before the server starts listening. No dedicated `scheduler.ts` test file exists in
+  this repo (the other 6 jobs aren't unit-tested at that level either — same pattern), so this was
+  the direct-equivalent check. Full api suite 303/303 (was 302/302; +1 for the new combinator's
+  wiring test), full monorepo `pnpm test:integration` green.
+- **What (original):** `expireCancelledMemberships` and `expireAbandonedPendingMemberships` ran via
   `setInterval` in `apps/api/src/server.ts:53-84` — once per process. BullMQ jobs are deduplicated
-  by Redis job schedulers; these two are not.
-- **Why it matters:** ~~**Confirmed LIVE (2026-07-15):** the PR #90 prod smoke proved `apps/api`
-  runs **multiple instances**, so these two sweeps are already double-running in prod.~~
-  **RETRACTED 2026-07-20 — that inference was unsound.** The smoke observed only that the rate-limit
-  cap failed to bind across fresh connections; the 2026-07-20 probe showed the actual cause was a
-  **rotating edge IP** (4 distinct values across 6 requests), which fully explains the symptom
-  **without** multiple app instances. Railway service config reads `numReplicas: 1`, single region
-  `asia-southeast1`. **There is no evidence the sweeps are double-running in steady state.**
-- **Residual risk (real but narrower):** during a **rolling deploy** the outgoing and incoming
-  containers overlap, and each runs the startup sweep on boot — so a double-run is possible per
-  deploy, not continuously. There is no `SKIP LOCKED` on those paths.
-- **Before working this:** verify actual concurrency directly rather than inferring it from a
-  rate-limit symptom (e.g. instrument the sweep with a per-boot id and count distinct ids in one
-  window, or check replica count at the moment of the run). Priority returns to **LOW-MEDIUM** —
-  fragile-by-design, not actively firing.
-- **Fix (single task):** Move both sweeps onto a BullMQ repeatable queue (daily), exactly like
-  `brand-subscription-expiry` — the scheduler file already shows the pattern. Delete the interval
-  block from `server.ts`.
+  by Redis job schedulers; these two were not.
+- **History:** an earlier session wrongly inferred these were "confirmed double-running in prod"
+  from a rate-limit symptom that turned out to be caused by a rotating edge IP, not multiple app
+  instances — retracted 2026-07-20. The residual, narrower risk (rolling-deploy container overlap)
+  was real but not actively firing continuously; this PR closes the underlying fragility rather than
+  further investigating how often it fired.
 
 ## 10. ~~No end-to-end/browser test coverage~~ · CLOSED · TESTING, LOW-MEDIUM
 
