@@ -17,8 +17,8 @@ a dashboard. Currency is MYR today (bigint sen); USD/international is a roadmap 
 
 ### Requirements
 
-- **Node.js 20 LTS** — version pinned in `.nvmrc`. Install via [nvm](https://github.com/nvm-sh/nvm).
-- **pnpm 10** — enabled via [Corepack](https://nodejs.org/api/corepack.html) (ships with Node 20).
+- **Node.js 24 LTS** — version pinned in `.nvmrc`. Install via [nvm](https://github.com/nvm-sh/nvm).
+- **pnpm 10** — enabled via [Corepack](https://nodejs.org/api/corepack.html) (ships with Node 24).
 - **Docker Desktop** — runs Postgres 16, Redis 7, MinIO, and Mailhog locally.
 
 ### Quickstart
