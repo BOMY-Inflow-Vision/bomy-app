@@ -2,7 +2,7 @@
 # In Railway: Root Directory = . , Dockerfile Path = apps/api/Dockerfile
 
 # ── Stage 1: install deps ─────────────────────────────────────────────────────
-FROM node:20-alpine AS deps
+FROM node:24-alpine AS deps
 
 RUN npm install -g pnpm@10.33.0
 
@@ -32,7 +32,7 @@ COPY apps/api/ apps/api/
 RUN pnpm --filter @bomy/api build
 
 # ── Stage 3: minimal runtime (single bundled file, no node_modules) ───────────
-FROM node:20-alpine AS runner
+FROM node:24-alpine AS runner
 
 WORKDIR /app
 
