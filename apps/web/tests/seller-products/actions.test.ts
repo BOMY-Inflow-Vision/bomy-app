@@ -59,6 +59,8 @@ import {
   getProductForEdit,
   reactivateVariant,
   removeProductImage,
+  reorderImages,
+  reorderVariants,
   saveProductBody,
   updateProduct,
   updateVariant,
@@ -688,6 +690,124 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
     })
   })
 
+  // ─── reorderVariants ─────────────────────────────────────────────────────
+
+  describe("reorderVariants", () => {
+    let productId: string
+    let variantAId: string
+    let variantBId: string
+    let variantCId: string
+    let foreignVariantId: string
+
+    beforeAll(async () => {
+      productId = randomUUID()
+      variantAId = randomUUID()
+      variantBId = randomUUID()
+      variantCId = randomUUID()
+      const foreignProductId = randomUUID()
+      foreignVariantId = randomUUID()
+
+      await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test seed" }, async (tx) => {
+        await tx.insert(schema.products).values({
+          id: productId,
+          storeId,
+          name: "Reorder Variants Product",
+          slug: `reorder-variants-${productId.slice(0, 8)}`,
+          status: "draft",
+        })
+        await tx.insert(schema.productVariants).values([
+          { id: variantAId, productId, name: "A", priceMyrSen: 1000n, stockCount: 1, sortOrder: 0 },
+          { id: variantBId, productId, name: "B", priceMyrSen: 1000n, stockCount: 1, sortOrder: 1 },
+          { id: variantCId, productId, name: "C", priceMyrSen: 1000n, stockCount: 1, sortOrder: 2 },
+        ])
+        await tx.insert(schema.products).values({
+          id: foreignProductId,
+          storeId,
+          name: "Foreign Product (variants)",
+          slug: `foreign-product-var-${foreignProductId.slice(0, 8)}`,
+          status: "draft",
+        })
+        await tx.insert(schema.productVariants).values({
+          id: foreignVariantId,
+          productId: foreignProductId,
+          name: "Foreign",
+          priceMyrSen: 1000n,
+          stockCount: 1,
+          sortOrder: 0,
+        })
+      })
+    })
+
+    afterAll(async () => {
+      await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
+        await tx
+          .delete(schema.productVariants)
+          .where(eq(schema.productVariants.productId, productId))
+        await tx.delete(schema.products).where(eq(schema.products.id, productId))
+      })
+    })
+
+    it("renumbers variants to match the given order", async () => {
+      mockAuth.mockResolvedValue({
+        user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
+      })
+
+      await reorderVariants(productId, [variantCId, variantAId, variantBId])
+
+      const rows = await withAdmin(
+        testDb.db,
+        { userId: SYSTEM_ACTOR, reason: "test assert" },
+        async (tx) =>
+          tx
+            .select({ id: schema.productVariants.id, sortOrder: schema.productVariants.sortOrder })
+            .from(schema.productVariants)
+            .where(eq(schema.productVariants.productId, productId)),
+      )
+      const byId = new Map(rows.map((r) => [r.id, r.sortOrder]))
+      expect(byId.get(variantCId)).toBe(0)
+      expect(byId.get(variantAId)).toBe(1)
+      expect(byId.get(variantBId)).toBe(2)
+    })
+
+    it("throws when orderedIds is missing a variant", async () => {
+      mockAuth.mockResolvedValue({
+        user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
+      })
+
+      await expect(reorderVariants(productId, [variantAId, variantBId])).rejects.toThrow()
+    })
+
+    it("throws when orderedIds contains a duplicate", async () => {
+      mockAuth.mockResolvedValue({
+        user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
+      })
+
+      await expect(
+        reorderVariants(productId, [variantAId, variantAId, variantBId]),
+      ).rejects.toThrow()
+    })
+
+    it("throws when orderedIds contains a variant from a different product", async () => {
+      mockAuth.mockResolvedValue({
+        user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
+      })
+
+      await expect(
+        reorderVariants(productId, [foreignVariantId, variantBId, variantCId]),
+      ).rejects.toThrow()
+    })
+
+    it("throws when the product belongs to a different seller", async () => {
+      mockAuth.mockResolvedValue({
+        user: { id: otherSellerId, role: "seller_owner", email: "other@test.bomy" },
+      })
+
+      await expect(
+        reorderVariants(productId, [variantAId, variantBId, variantCId]),
+      ).rejects.toThrow("Product not found or not authorized")
+    })
+  })
+
   // ─── image actions ───────────────────────────────────────────────────────
 
   describe("image actions", () => {
@@ -844,6 +964,116 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       ).rejects.toThrow("Invalid image key")
       await expect(addProductImage(productId, "../escape/path.jpg", "any-claim")).rejects.toThrow(
         "Invalid image key",
+      )
+    })
+  })
+
+  // ─── reorderImages ───────────────────────────────────────────────────────
+
+  describe("reorderImages", () => {
+    let productId: string
+    let imageAId: string
+    let imageBId: string
+    let imageCId: string
+    let foreignImageId: string
+
+    beforeAll(async () => {
+      productId = randomUUID()
+      imageAId = randomUUID()
+      imageBId = randomUUID()
+      imageCId = randomUUID()
+      const foreignProductId = randomUUID()
+      foreignImageId = randomUUID()
+
+      await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test seed" }, async (tx) => {
+        await tx.insert(schema.products).values({
+          id: productId,
+          storeId,
+          name: "Reorder Images Product",
+          slug: `reorder-images-${productId.slice(0, 8)}`,
+          status: "draft",
+        })
+        await tx.insert(schema.productImages).values([
+          { id: imageAId, productId, url: "https://example.test/a.jpg", sortOrder: 0 },
+          { id: imageBId, productId, url: "https://example.test/b.jpg", sortOrder: 1 },
+          { id: imageCId, productId, url: "https://example.test/c.jpg", sortOrder: 2 },
+        ])
+        await tx.insert(schema.products).values({
+          id: foreignProductId,
+          storeId,
+          name: "Foreign Product (images)",
+          slug: `foreign-product-img-${foreignProductId.slice(0, 8)}`,
+          status: "draft",
+        })
+        await tx.insert(schema.productImages).values({
+          id: foreignImageId,
+          productId: foreignProductId,
+          url: "https://example.test/foreign.jpg",
+          sortOrder: 0,
+        })
+      })
+    })
+
+    afterAll(async () => {
+      await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
+        await tx.delete(schema.productImages).where(eq(schema.productImages.productId, productId))
+        await tx.delete(schema.products).where(eq(schema.products.id, productId))
+      })
+    })
+
+    it("renumbers images to match the given order", async () => {
+      mockAuth.mockResolvedValue({
+        user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
+      })
+
+      await reorderImages(productId, [imageCId, imageAId, imageBId])
+
+      const rows = await withAdmin(
+        testDb.db,
+        { userId: SYSTEM_ACTOR, reason: "test assert" },
+        async (tx) =>
+          tx
+            .select({ id: schema.productImages.id, sortOrder: schema.productImages.sortOrder })
+            .from(schema.productImages)
+            .where(eq(schema.productImages.productId, productId)),
+      )
+      const byId = new Map(rows.map((r) => [r.id, r.sortOrder]))
+      expect(byId.get(imageCId)).toBe(0)
+      expect(byId.get(imageAId)).toBe(1)
+      expect(byId.get(imageBId)).toBe(2)
+    })
+
+    it("throws when orderedIds is missing an image", async () => {
+      mockAuth.mockResolvedValue({
+        user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
+      })
+
+      await expect(reorderImages(productId, [imageAId, imageBId])).rejects.toThrow()
+    })
+
+    it("throws when orderedIds contains a duplicate", async () => {
+      mockAuth.mockResolvedValue({
+        user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
+      })
+
+      await expect(reorderImages(productId, [imageAId, imageAId, imageBId])).rejects.toThrow()
+    })
+
+    it("throws when orderedIds contains an image from a different product", async () => {
+      mockAuth.mockResolvedValue({
+        user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
+      })
+
+      await expect(reorderImages(productId, [foreignImageId, imageBId, imageCId])).rejects.toThrow()
+    })
+
+    it("throws when the product belongs to a different seller", async () => {
+      mockAuth.mockResolvedValue({
+        user: { id: otherSellerId, role: "seller_owner", email: "other@test.bomy" },
+      })
+
+      await expect(reorderImages(productId, [imageAId, imageBId, imageCId])).rejects.toThrow(
+        "Product not found or not authorized",
       )
     })
   })
