@@ -574,6 +574,56 @@ export async function deactivateVariant(variantId: string): Promise<void> {
   revalidatePath(`/seller/dashboard/products/${updated[0]!.productId}/edit`)
 }
 
+export async function reorderVariants(
+  productId: string,
+  orderedVariantIds: string[],
+): Promise<void> {
+  const session = await requireSeller()
+
+  await withTenant(
+    getDb(),
+    { userId: session.user.id, userRole: session.user.role },
+    async (tx) => {
+      const storeRows = await tx
+        .select({ id: schema.stores.id })
+        .from(schema.stores)
+        .innerJoin(schema.products, eq(schema.products.storeId, schema.stores.id))
+        .where(
+          and(
+            eq(schema.products.id, productId),
+            eq(schema.stores.ownerId, session.user.id),
+            eq(schema.stores.status, "active"),
+          ),
+        )
+        .limit(1)
+      if (!storeRows[0]) throw new Error("Product not found or not authorized")
+
+      const existing = await tx
+        .select({ id: schema.productVariants.id })
+        .from(schema.productVariants)
+        .where(eq(schema.productVariants.productId, productId))
+
+      const providedIds = new Set(orderedVariantIds)
+      const isValidPermutation =
+        orderedVariantIds.length === existing.length &&
+        providedIds.size === orderedVariantIds.length &&
+        existing.every((v) => providedIds.has(v.id))
+      if (!isValidPermutation) {
+        throw new Error("Variant list does not match the product's current variants")
+      }
+
+      for (let i = 0; i < orderedVariantIds.length; i++) {
+        await tx
+          .update(schema.productVariants)
+          .set({ sortOrder: i })
+          .where(eq(schema.productVariants.id, orderedVariantIds[i]!))
+      }
+    },
+  )
+
+  revalidatePath(`/seller/dashboard/products/${productId}/edit`)
+}
+
 // ─── Image mutations ───────────────────────────────────────────────────────
 
 export async function addProductImage(
@@ -714,6 +764,53 @@ export async function removeProductImage(imageId: string): Promise<void> {
   })
 
   revalidatePath(`/seller/dashboard/products/${imageRows[0].productId}/edit`)
+}
+
+export async function reorderImages(productId: string, orderedImageIds: string[]): Promise<void> {
+  const session = await requireSeller()
+
+  await withTenant(
+    getDb(),
+    { userId: session.user.id, userRole: session.user.role },
+    async (tx) => {
+      const storeRows = await tx
+        .select({ id: schema.stores.id })
+        .from(schema.stores)
+        .innerJoin(schema.products, eq(schema.products.storeId, schema.stores.id))
+        .where(
+          and(
+            eq(schema.products.id, productId),
+            eq(schema.stores.ownerId, session.user.id),
+            eq(schema.stores.status, "active"),
+          ),
+        )
+        .limit(1)
+      if (!storeRows[0]) throw new Error("Product not found or not authorized")
+
+      const existing = await tx
+        .select({ id: schema.productImages.id })
+        .from(schema.productImages)
+        .where(eq(schema.productImages.productId, productId))
+
+      const providedIds = new Set(orderedImageIds)
+      const isValidPermutation =
+        orderedImageIds.length === existing.length &&
+        providedIds.size === orderedImageIds.length &&
+        existing.every((img) => providedIds.has(img.id))
+      if (!isValidPermutation) {
+        throw new Error("Image list does not match the product's current images")
+      }
+
+      for (let i = 0; i < orderedImageIds.length; i++) {
+        await tx
+          .update(schema.productImages)
+          .set({ sortOrder: i })
+          .where(eq(schema.productImages.id, orderedImageIds[i]!))
+      }
+    },
+  )
+
+  revalidatePath(`/seller/dashboard/products/${productId}/edit`)
 }
 
 // ─── Presigned upload URL ──────────────────────────────────────────────────

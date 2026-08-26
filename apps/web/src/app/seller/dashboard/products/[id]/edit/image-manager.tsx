@@ -1,17 +1,96 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core"
+import {
+  SortableContext,
+  arrayMove,
+  rectSortingStrategy,
+  sortableKeyboardCoordinates,
+  useSortable,
+} from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
+import { GripVertical } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { createSerializedRunner } from "@/lib/serialized-runner"
 
-import { addProductImage, getPresignedUploadUrl, removeProductImage } from "../../actions"
+import {
+  addProductImage,
+  getPresignedUploadUrl,
+  removeProductImage,
+  reorderImages,
+} from "../../actions"
 
 type ProductImage = {
   id: string
   url: string
   altText: string | null
   sortOrder: number
+}
+
+// Wraps one image thumbnail as a dnd-kit sortable grid item, with its own
+// small grip handle overlay so dragging never fights the delete button that
+// already lives on the same thumbnail.
+function SortableImageThumb({
+  image,
+  onRemove,
+}: {
+  image: ProductImage
+  onRemove: (id: string) => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: image.id,
+  })
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+  return (
+    <div ref={setNodeRef} style={style} className="group relative">
+      <img
+        src={image.url}
+        alt={image.altText ?? ""}
+        width={96}
+        height={96}
+        className="h-24 w-24 rounded-lg object-cover ring-1 ring-border"
+      />
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        aria-label={`Reorder image${image.altText ? `: ${image.altText}` : ""}`}
+        className="absolute left-1 top-1 flex h-5 w-5 cursor-grab touch-none items-center justify-center rounded-full bg-black/50 text-white transition-opacity active:cursor-grabbing sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
+      >
+        <GripVertical className="h-3 w-3" aria-hidden="true" />
+      </button>
+      <Button
+        type="button"
+        onClick={() => onRemove(image.id)}
+        className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 p-0.5 text-white transition-opacity hover:bg-red-600 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
+        aria-label="Remove image"
+      >
+        <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+          <path
+            d="M1 1l10 10M11 1L1 11"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
+        </svg>
+      </Button>
+    </div>
+  )
 }
 
 export function ImageManager({
@@ -30,6 +109,40 @@ export function ImageManager({
   useEffect(() => {
     setImages(initialImages)
   }, [initialImages])
+
+  const latestImages = useRef(initialImages)
+  latestImages.current = initialImages
+
+  const dragSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
+  const [runReorderImages] = useState(() =>
+    createSerializedRunner<string[]>(async (orderedIds) => {
+      try {
+        await reorderImages(productId, orderedIds)
+        setError(null)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to save new order")
+        setImages(latestImages.current)
+      }
+    }),
+  )
+
+  function handleImageDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    setImages((current) => {
+      const oldIndex = current.findIndex((img) => img.id === active.id)
+      const newIndex = current.findIndex((img) => img.id === over.id)
+      if (oldIndex === -1 || newIndex === -1) return current
+      const next = arrayMove(current, oldIndex, newIndex)
+      void runReorderImages(next.map((img) => img.id))
+      return next
+    })
+  }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -101,34 +214,24 @@ export function ImageManager({
         )}
 
         <div className="mb-4 flex flex-wrap gap-3">
-          {images.map((img) => (
-            <div key={img.id} className="group relative">
-              <img
-                src={img.url}
-                alt={img.altText ?? ""}
-                width={96}
-                height={96}
-                className="h-24 w-24 rounded-lg object-cover ring-1 ring-border"
-              />
-              <Button
-                type="button"
-                onClick={() => {
-                  void handleRemove(img.id)
-                }}
-                className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 p-0.5 text-white transition-opacity hover:bg-red-600 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
-                aria-label="Remove image"
-              >
-                <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                  <path
-                    d="M1 1l10 10M11 1L1 11"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </Button>
-            </div>
-          ))}
+          <DndContext
+            id="image-reorder"
+            sensors={dragSensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleImageDragEnd}
+          >
+            <SortableContext items={images.map((img) => img.id)} strategy={rectSortingStrategy}>
+              {images.map((img) => (
+                <SortableImageThumb
+                  key={img.id}
+                  image={img}
+                  onRemove={(id) => {
+                    void handleRemove(id)
+                  }}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
 
           <label
             className={`relative flex h-24 w-24 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-input text-muted-foreground hover:border-primary hover:text-primary ${uploading ? "pointer-events-none" : ""}`}

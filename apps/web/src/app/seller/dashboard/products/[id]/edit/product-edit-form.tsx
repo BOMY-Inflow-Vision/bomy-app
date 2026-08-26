@@ -1,6 +1,24 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core"
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
+import { GripVertical } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -8,12 +26,14 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
+import { createSerializedRunner } from "@/lib/serialized-runner"
 
 import {
   addVariant,
   archiveProduct,
   deactivateVariant,
   reactivateVariant,
+  reorderVariants,
   updateProduct,
   updateVariant,
 } from "../../actions"
@@ -70,6 +90,37 @@ type EditState = {
   leadDays: string
 }
 
+type DragHandleProps = {
+  attributes: ReturnType<typeof useSortable>["attributes"]
+  listeners: ReturnType<typeof useSortable>["listeners"]
+}
+
+// Wraps one variant row as a dnd-kit sortable item. Renders no drag affordance
+// itself — the caller decides where (or whether) to attach dragHandleProps,
+// so a row mid-inline-edit can render with no handle at all rather than
+// fighting its own text inputs.
+function SortableVariantRow({
+  id,
+  children,
+}: {
+  id: string
+  children: (dragHandleProps: DragHandleProps) => React.ReactNode
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+  })
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+  return (
+    <div ref={setNodeRef} style={style}>
+      {children({ attributes, listeners })}
+    </div>
+  )
+}
+
 export function ProductEditForm({
   product,
   variants,
@@ -91,6 +142,53 @@ export function ProductEditForm({
   // Fulfillment toggle state for the "Add Variant" inline form
   const [addFulfillmentChecked, setAddFulfillmentChecked] = useState(false)
   const [addLeadDays, setAddLeadDays] = useState("")
+
+  // Local, optimistically-reorderable copy of the server-provided variant
+  // list. Reordering shouldn't wait on a server round-trip to show on
+  // screen; a failed save reverts back to the last server-confirmed order.
+  // Resynced from `variants` on every prop change (not just length changes —
+  // this component stays mounted across action refreshes, so an edit/
+  // deactivate/reactivate on an existing variant must also flow through,
+  // not just adds/removes). Mirrors ImageManager's identical pattern.
+  const [orderedVariants, setOrderedVariants] = useState(variants)
+  const [variantOrderError, setVariantOrderError] = useState<string | null>(null)
+  const latestVariants = useRef(variants)
+  latestVariants.current = variants
+
+  useEffect(() => {
+    setOrderedVariants(variants)
+  }, [variants])
+
+  const dragSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
+  const [runReorderVariants] = useState(() =>
+    createSerializedRunner<string[]>(async (orderedIds) => {
+      try {
+        await reorderVariants(product.id, orderedIds)
+        setVariantOrderError(null)
+      } catch (err) {
+        setVariantOrderError(err instanceof Error ? err.message : "Failed to save new order")
+        setOrderedVariants(latestVariants.current)
+      }
+    }),
+  )
+
+  function handleVariantDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    setOrderedVariants((current) => {
+      const oldIndex = current.findIndex((v) => v.id === active.id)
+      const newIndex = current.findIndex((v) => v.id === over.id)
+      if (oldIndex === -1 || newIndex === -1) return current
+      const next = arrayMove(current, oldIndex, newIndex)
+      void runReorderVariants(next.map((v) => v.id))
+      return next
+    })
+  }
 
   function openEdit(v: Variant) {
     const isSpecial = v.fulfillmentMode === "backorder" || v.fulfillmentMode === "preorder"
@@ -220,207 +318,255 @@ export function ProductEditForm({
             </Button>
           </div>
 
-          <div className="space-y-2">
-            {variants.map((v) =>
-              editingVariantId === v.id ? (
-                <form
-                  key={v.id}
-                  action={updateVariant.bind(null, v.id)}
-                  onSubmit={() => setEditingVariantId(null)}
-                  className="space-y-2 rounded-lg bg-accent p-3"
-                >
-                  {/* Hidden fulfillment fields driven by client state */}
-                  <input
-                    type="hidden"
-                    name="fulfillment_mode"
-                    value={
-                      editState.fulfillmentChecked
-                        ? editState.leadDays.trim()
-                          ? "preorder"
-                          : "backorder"
-                        : "normal"
+          {variantOrderError && (
+            <p className="mb-2 rounded-lg bg-destructive/10 px-4 py-2 text-sm text-destructive">
+              {variantOrderError}
+            </p>
+          )}
+
+          <DndContext
+            id="variant-reorder"
+            sensors={dragSensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleVariantDragEnd}
+          >
+            <SortableContext
+              items={orderedVariants.map((v) => v.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-2">
+                {orderedVariants.map((v) => (
+                  <SortableVariantRow key={v.id} id={v.id}>
+                    {({ attributes, listeners }) =>
+                      editingVariantId === v.id ? (
+                        <form
+                          action={updateVariant.bind(null, v.id)}
+                          onSubmit={() => setEditingVariantId(null)}
+                          className="space-y-2 rounded-lg bg-accent p-3"
+                        >
+                          {/* Hidden fulfillment fields driven by client state */}
+                          <input
+                            type="hidden"
+                            name="fulfillment_mode"
+                            value={
+                              editState.fulfillmentChecked
+                                ? editState.leadDays.trim()
+                                  ? "preorder"
+                                  : "backorder"
+                                : "normal"
+                            }
+                          />
+                          <input
+                            type="hidden"
+                            name="preorder_lead_days"
+                            value={
+                              editState.fulfillmentChecked ? editState.leadDays.trim() || "0" : "0"
+                            }
+                          />
+
+                          {/* Main fields row */}
+                          <div className="flex items-end gap-2">
+                            <div className="flex-1">
+                              <Label
+                                htmlFor={`edit_name_${v.id}`}
+                                className="mb-1 block text-xs text-muted-foreground"
+                              >
+                                Name *
+                              </Label>
+                              <Input
+                                id={`edit_name_${v.id}`}
+                                name="name"
+                                defaultValue={v.name}
+                                required
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                            <div className="w-24">
+                              <Label
+                                htmlFor={`edit_price_${v.id}`}
+                                className="mb-1 block text-xs text-muted-foreground"
+                              >
+                                Price (RM) *
+                              </Label>
+                              <Input
+                                id={`edit_price_${v.id}`}
+                                name="price"
+                                defaultValue={senToMyr(v.priceMyrSen)}
+                                required
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                            <div className="w-16">
+                              <Label
+                                htmlFor={`edit_stock_${v.id}`}
+                                className="mb-1 block text-xs text-muted-foreground"
+                              >
+                                Stock
+                              </Label>
+                              <Input
+                                id={`edit_stock_${v.id}`}
+                                name="stock"
+                                type="number"
+                                min="0"
+                                defaultValue={v.stockCount}
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                            <div className="w-24">
+                              <Label
+                                htmlFor={`edit_sku_${v.id}`}
+                                className="mb-1 block text-xs text-muted-foreground"
+                              >
+                                SKU
+                              </Label>
+                              <Input
+                                id={`edit_sku_${v.id}`}
+                                name="sku"
+                                defaultValue={v.sku ?? ""}
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Fulfillment row */}
+                          <div className="flex items-center gap-3">
+                            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <input
+                                type="checkbox"
+                                checked={editState.fulfillmentChecked}
+                                onChange={(e) =>
+                                  setEditState((s) => ({
+                                    ...s,
+                                    fulfillmentChecked: e.target.checked,
+                                  }))
+                                }
+                                className="rounded"
+                              />
+                              Back-order / Pre-order
+                            </label>
+                            {editState.fulfillmentChecked && (
+                              <div className="flex items-center gap-1.5">
+                                <Label
+                                  htmlFor="lead-days-edit"
+                                  className="text-xs text-muted-foreground"
+                                >
+                                  Lead days (optional):
+                                </Label>
+                                <Input
+                                  id="lead-days-edit"
+                                  type="number"
+                                  min="1"
+                                  value={editState.leadDays}
+                                  onChange={(e) =>
+                                    setEditState((s) => ({ ...s, leadDays: e.target.value }))
+                                  }
+                                  placeholder="e.g. 14"
+                                  className="w-20 text-xs"
+                                />
+                                <span className="text-xs text-muted-foreground">days</span>
+                              </div>
+                            )}
+                          </div>
+
+                          <input type="hidden" name="attrs" value="" />
+
+                          {/* Action buttons */}
+                          <div className="flex gap-2">
+                            <SubmitButton className="rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">
+                              Save
+                            </SubmitButton>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setEditingVariantId(null)}
+                              className="text-xs text-muted-foreground"
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </form>
+                      ) : (
+                        <div
+                          className={cn(
+                            "flex items-center justify-between rounded-lg border px-4 py-3",
+                            v.isActive
+                              ? "border-border bg-muted"
+                              : "border-border bg-muted opacity-60",
+                          )}
+                        >
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              {...attributes}
+                              {...listeners}
+                              aria-label={`Reorder ${v.name}`}
+                              className="cursor-grab touch-none text-muted-foreground hover:text-foreground active:cursor-grabbing"
+                            >
+                              <GripVertical className="h-4 w-4" aria-hidden="true" />
+                            </button>
+                            <div className="flex items-center gap-4">
+                              <span className="text-sm font-medium text-foreground">{v.name}</span>
+                              {v.sku && (
+                                <span className="font-mono text-xs text-muted-foreground">
+                                  SKU: {v.sku}
+                                </span>
+                              )}
+                              <span className="text-sm text-muted-foreground">
+                                RM {senToMyr(v.priceMyrSen)}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                Stock: {v.stockCount}
+                              </span>
+                              <FulfillmentBadge
+                                mode={v.fulfillmentMode}
+                                days={v.preorderLeadDays}
+                              />
+                              {!v.isActive && (
+                                <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                                  Inactive
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => openEdit(v)}
+                              className="text-xs text-primary hover:underline"
+                            >
+                              Edit
+                            </button>
+                            {v.isActive ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  void deactivateVariant(v.id)
+                                }}
+                                className="text-xs text-destructive hover:underline"
+                              >
+                                Deactivate
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  void reactivateVariant(v.id)
+                                }}
+                                className="text-xs text-green-600 hover:underline"
+                              >
+                                Activate
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )
                     }
-                  />
-                  <input
-                    type="hidden"
-                    name="preorder_lead_days"
-                    value={editState.fulfillmentChecked ? editState.leadDays.trim() || "0" : "0"}
-                  />
-
-                  {/* Main fields row */}
-                  <div className="flex items-end gap-2">
-                    <div className="flex-1">
-                      <Label
-                        htmlFor={`edit_name_${v.id}`}
-                        className="mb-1 block text-xs text-muted-foreground"
-                      >
-                        Name *
-                      </Label>
-                      <Input
-                        id={`edit_name_${v.id}`}
-                        name="name"
-                        defaultValue={v.name}
-                        required
-                        className="h-8 text-sm"
-                      />
-                    </div>
-                    <div className="w-24">
-                      <Label
-                        htmlFor={`edit_price_${v.id}`}
-                        className="mb-1 block text-xs text-muted-foreground"
-                      >
-                        Price (RM) *
-                      </Label>
-                      <Input
-                        id={`edit_price_${v.id}`}
-                        name="price"
-                        defaultValue={senToMyr(v.priceMyrSen)}
-                        required
-                        className="h-8 text-sm"
-                      />
-                    </div>
-                    <div className="w-16">
-                      <Label
-                        htmlFor={`edit_stock_${v.id}`}
-                        className="mb-1 block text-xs text-muted-foreground"
-                      >
-                        Stock
-                      </Label>
-                      <Input
-                        id={`edit_stock_${v.id}`}
-                        name="stock"
-                        type="number"
-                        min="0"
-                        defaultValue={v.stockCount}
-                        className="h-8 text-sm"
-                      />
-                    </div>
-                    <div className="w-24">
-                      <Label
-                        htmlFor={`edit_sku_${v.id}`}
-                        className="mb-1 block text-xs text-muted-foreground"
-                      >
-                        SKU
-                      </Label>
-                      <Input
-                        id={`edit_sku_${v.id}`}
-                        name="sku"
-                        defaultValue={v.sku ?? ""}
-                        className="h-8 text-sm"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Fulfillment row */}
-                  <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <input
-                        type="checkbox"
-                        checked={editState.fulfillmentChecked}
-                        onChange={(e) =>
-                          setEditState((s) => ({ ...s, fulfillmentChecked: e.target.checked }))
-                        }
-                        className="rounded"
-                      />
-                      Back-order / Pre-order
-                    </label>
-                    {editState.fulfillmentChecked && (
-                      <div className="flex items-center gap-1.5">
-                        <Label htmlFor="lead-days-edit" className="text-xs text-muted-foreground">
-                          Lead days (optional):
-                        </Label>
-                        <Input
-                          id="lead-days-edit"
-                          type="number"
-                          min="1"
-                          value={editState.leadDays}
-                          onChange={(e) =>
-                            setEditState((s) => ({ ...s, leadDays: e.target.value }))
-                          }
-                          placeholder="e.g. 14"
-                          className="w-20 text-xs"
-                        />
-                        <span className="text-xs text-muted-foreground">days</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <input type="hidden" name="attrs" value="" />
-
-                  {/* Action buttons */}
-                  <div className="flex gap-2">
-                    <SubmitButton className="rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">
-                      Save
-                    </SubmitButton>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setEditingVariantId(null)}
-                      className="text-xs text-muted-foreground"
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </form>
-              ) : (
-                <div
-                  key={v.id}
-                  className={cn(
-                    "flex items-center justify-between rounded-lg border px-4 py-3",
-                    v.isActive ? "border-border bg-muted" : "border-border bg-muted opacity-60",
-                  )}
-                >
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm font-medium text-foreground">{v.name}</span>
-                    {v.sku && (
-                      <span className="font-mono text-xs text-muted-foreground">SKU: {v.sku}</span>
-                    )}
-                    <span className="text-sm text-muted-foreground">
-                      RM {senToMyr(v.priceMyrSen)}
-                    </span>
-                    <span className="text-xs text-muted-foreground">Stock: {v.stockCount}</span>
-                    <FulfillmentBadge mode={v.fulfillmentMode} days={v.preorderLeadDays} />
-                    {!v.isActive && (
-                      <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                        Inactive
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => openEdit(v)}
-                      className="text-xs text-primary hover:underline"
-                    >
-                      Edit
-                    </button>
-                    {v.isActive ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          void deactivateVariant(v.id)
-                        }}
-                        className="text-xs text-destructive hover:underline"
-                      >
-                        Deactivate
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          void reactivateVariant(v.id)
-                        }}
-                        className="text-xs text-green-600 hover:underline"
-                      >
-                        Activate
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ),
-            )}
-          </div>
+                  </SortableVariantRow>
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
 
           {/* Add variant inline form */}
           {showAddVariant && (
