@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   DndContext,
   KeyboardSensor,
@@ -146,16 +146,18 @@ export function ProductEditForm({
   // Local, optimistically-reorderable copy of the server-provided variant
   // list. Reordering shouldn't wait on a server round-trip to show on
   // screen; a failed save reverts back to the last server-confirmed order.
+  // Resynced from `variants` on every prop change (not just length changes —
+  // this component stays mounted across action refreshes, so an edit/
+  // deactivate/reactivate on an existing variant must also flow through,
+  // not just adds/removes). Mirrors ImageManager's identical pattern.
   const [orderedVariants, setOrderedVariants] = useState(variants)
   const [variantOrderError, setVariantOrderError] = useState<string | null>(null)
   const latestVariants = useRef(variants)
   latestVariants.current = variants
-  if (orderedVariants !== variants && orderedVariants.length !== variants.length) {
-    // The server-provided variant list changed shape (added/removed a
-    // variant elsewhere on this page) — resync rather than keep dragging a
-    // now-stale local copy.
+
+  useEffect(() => {
     setOrderedVariants(variants)
-  }
+  }, [variants])
 
   const dragSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),

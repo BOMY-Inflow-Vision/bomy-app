@@ -55,4 +55,19 @@ describe("createSerializedRunner", () => {
     expect(run).toHaveBeenNthCalledWith(1, "a")
     expect(run).toHaveBeenNthCalledWith(2, "b")
   })
+
+  it("still accepts and runs a new call after a previous run rejected", async () => {
+    const run = vi.fn().mockRejectedValueOnce(new Error("boom")).mockResolvedValue(undefined)
+    const schedule = createSerializedRunner(run)
+
+    await expect(schedule("a")).rejects.toThrow("boom")
+
+    // If `inFlight` never got cleared on the throw, this would hang forever
+    // (schedule() would keep returning the already-settled rejected promise
+    // and `run` would never be called again).
+    await schedule("b")
+
+    expect(run).toHaveBeenCalledTimes(2)
+    expect(run).toHaveBeenNthCalledWith(2, "b")
+  })
 })

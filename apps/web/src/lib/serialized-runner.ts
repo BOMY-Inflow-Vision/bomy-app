@@ -17,13 +17,20 @@ export function createSerializedRunner<T>(
   let hasPending = false
 
   async function drain(): Promise<void> {
-    while (hasPending) {
-      const arg = pending as T
-      hasPending = false
-      pending = undefined
-      await run(arg)
+    try {
+      while (hasPending) {
+        const arg = pending as T
+        hasPending = false
+        pending = undefined
+        await run(arg)
+      }
+    } finally {
+      // Always clear, even on a thrown/rejected run — otherwise a single
+      // rejection wedges this runner forever (inFlight stays a settled
+      // rejected promise, so every future schedule() just returns it
+      // without ever calling `run` again).
+      inFlight = null
     }
-    inFlight = null
   }
 
   return function schedule(arg: T): Promise<void> {
