@@ -1297,6 +1297,16 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       const inactiveCat = result!.categories.find((c) => c.id === inactiveCatId)
       expect(inactiveCat?.isActive).toBe(false)
     })
+
+    it("returns variant priceMyrSen as a string, not bigint — bigint can't cross the Server-to-Client-Component prop boundary", async () => {
+      mockAuth.mockResolvedValue({
+        user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
+      })
+
+      const result = await getProductForEdit(productWithInactiveCatId)
+      expect(typeof result!.variants[0]!.priceMyrSen).toBe("string")
+      expect(result!.variants[0]!.priceMyrSen).toBe("1000")
+    })
   })
 
   // ── saveProductBody ──────────────────────────────────────────────────────────
