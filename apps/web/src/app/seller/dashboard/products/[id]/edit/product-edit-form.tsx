@@ -31,7 +31,7 @@ type Product = {
 type Variant = {
   id: string
   name: string
-  priceMyrSen: bigint
+  priceMyrSen: string
   stockCount: number
   sku: string | null
   attributes: unknown
@@ -40,9 +40,10 @@ type Variant = {
   preorderLeadDays: number | null
 }
 
-function senToMyr(sen: bigint): string {
-  const whole = sen / 100n
-  const frac = String(sen % 100n).padStart(2, "0")
+function senToMyr(sen: string): string {
+  const senBigInt = BigInt(sen)
+  const whole = senBigInt / 100n
+  const frac = String(senBigInt % 100n).padStart(2, "0")
   return `${whole}.${frac}`
 }
 

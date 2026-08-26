@@ -182,7 +182,13 @@ export async function getProductForEdit(productId: string) {
           .orderBy(schema.categories.name),
       ])
 
-      return { product: products[0], variants, images, categories }
+      // priceMyrSen is bigint — React Server Components can't serialise bigint
+      // across the server-to-client-component boundary (same restriction as the
+      // server-action boundary), so stringify before this crosses into
+      // ProductEditForm's props.
+      const safeVariants = variants.map((v) => ({ ...v, priceMyrSen: v.priceMyrSen.toString() }))
+
+      return { product: products[0], variants: safeVariants, images, categories }
     },
   )
 }
