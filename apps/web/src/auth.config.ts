@@ -8,7 +8,18 @@ const CONSENT_ALLOWLIST = ["/auth/consent", "/auth/sign-in", "/terms", "/privacy
 
 // Edge-safe config: no DB imports. Used by both middleware and the full auth.ts.
 export const authConfig = {
-  providers: [Google],
+  providers: [
+    Google({
+      // Google verifies email ownership before issuing the token, and the
+      // magic-link flow already requires clicking a link sent to that exact
+      // inbox — both sides of the link this enables are already
+      // proof-of-ownership. Without this, a user who first signs in via
+      // magic link gets OAuthAccountNotLinked the first time they try
+      // Google with the same email, instead of it linking to their
+      // existing account.
+      allowDangerousEmailAccountLinking: true,
+    }),
+  ],
   pages: {
     signIn: "/auth/sign-in",
     verifyRequest: "/auth/verify-request",
