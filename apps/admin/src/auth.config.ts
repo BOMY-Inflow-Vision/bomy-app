@@ -7,7 +7,18 @@ const BOMY_ROLES: UserRole[] = ["bomy_ops", "bomy_admin", "bomy_finance"]
 const PUBLIC_AUTH_PATHS = ["/auth/sign-in", "/unauthorized"]
 
 export const authConfig = {
-  providers: [Google],
+  providers: [
+    Google({
+      // Admin is Google-only, but a bomy_ops/bomy_admin/bomy_finance user
+      // row can exist before that person has ever actually signed in (e.g.
+      // bootstrapped by direct DB insert). Without this, their first real
+      // Google sign-in throws OAuthAccountNotLinked instead of linking to
+      // the pre-seeded row. Google verifies email ownership before issuing
+      // the token, so linking by email here isn't the account-takeover risk
+      // this "dangerous" flag is named for.
+      allowDangerousEmailAccountLinking: true,
+    }),
+  ],
   pages: { signIn: "/auth/sign-in" },
   callbacks: {
     // Propagate custom JWT claims into the session for the edge middleware.
