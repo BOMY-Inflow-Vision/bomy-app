@@ -1192,6 +1192,216 @@ git commit -m "feat(web): add SEO fields to seller product edit form"
 
 ---
 
+### Task 6b: DB CHECK constraint tests for the SEO columns (added post-PR1, Charlie's request)
+
+**Why:** Task 1 added `CHECK` constraints (length + URL-protocol) as a schema-level backstop behind the
+action-level `validateSeoFields` validation. No test exercised those constraints directly. This project's
+convention (e.g. `stores.excerpt`'s own "DB CHECK rejects excerpt > 160 chars via direct insert" test) treats
+schema constraints as a first-class, separately-tested contract, not merely duplicate action validation —
+added at Charlie's explicit request during the PR1 review gate.
+
+**Files:**
+
+- Modify: `packages/db/tests/catalog.test.ts` (add 4 new `it()` blocks inside the existing
+  `describe("products", ...)` block, reusing its `activeProductId` fixture)
+- Create: `packages/db/tests/stores.test.ts` (no existing DB-level test file covers the `stores` table at
+  all — `packages/db/tests/rls.test.ts` is a generic `withTenant` argument-validation file, not per-table;
+  `catalog.test.ts` is products/categories/variants/images domain, not stores)
+
+- [ ] **Step 1: Add products CHECK tests to `catalog.test.ts`**
+
+Insert these 4 tests inside the existing `describe("products", ...)` block (`packages/db/tests/catalog.test.ts`),
+right after the `"seller A cannot UPDATE seller B's product"` test and before that describe block's closing
+`})` (around line 317), reusing the block's own `activeProductId` fixture:
+
+```ts
+it("CHECK constraint rejects meta_title over 70 characters", async () => {
+  await expect(
+    withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "test check constraint" }, async (tx) =>
+      tx
+        .update(products)
+        .set({ metaTitle: "a".repeat(71) })
+        .where(eq(products.id, activeProductId)),
+    ),
+  ).rejects.toThrow()
+})
+
+it("CHECK constraint rejects meta_description over 160 characters", async () => {
+  await expect(
+    withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "test check constraint" }, async (tx) =>
+      tx
+        .update(products)
+        .set({ metaDescription: "a".repeat(161) })
+        .where(eq(products.id, activeProductId)),
+    ),
+  ).rejects.toThrow()
+})
+
+it("CHECK constraint rejects a non-http(s) og_image_url", async () => {
+  await expect(
+    withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "test check constraint" }, async (tx) =>
+      tx
+        .update(products)
+        .set({ ogImageUrl: "ftp://example.com/image.png" })
+        .where(eq(products.id, activeProductId)),
+    ),
+  ).rejects.toThrow()
+})
+
+it("accepts a valid https og_image_url", async () => {
+  await expect(
+    withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "test check constraint" }, async (tx) =>
+      tx
+        .update(products)
+        .set({ ogImageUrl: "https://cdn.example.com/og.png" })
+        .where(eq(products.id, activeProductId)),
+    ),
+  ).resolves.not.toThrow()
+})
+```
+
+No new imports needed — `products`, `withAdmin`, `SYSTEM_ACTOR`, `eq` are all already imported/defined in
+this file.
+
+- [ ] **Step 2: Create `packages/db/tests/stores.test.ts`**
+
+```ts
+/**
+ * Store schema — SEO field CHECK constraint tests (migration 0030).
+ *
+ * Requires a live Postgres with the bomy_app role and applied migrations.
+ *
+ *   docker compose -f infra/docker/compose.yml up -d postgres
+ *   pnpm --filter @bomy/db migrate
+ *   DATABASE_APP_URL=... BOMY_RLS_READY=1 pnpm --filter @bomy/db test
+ */
+import { randomUUID } from "node:crypto"
+
+import { eq } from "drizzle-orm"
+import { afterAll, beforeAll, describe, expect, it } from "vitest"
+
+import { makeDb, type Db } from "../src/client.js"
+import { stores, users } from "../src/schema/index.js"
+import { withAdmin } from "../src/tenant.js"
+
+const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
+
+const DATABASE_URL = process.env["DATABASE_APP_URL"] ?? process.env["DATABASE_URL"]
+const RLS_READY = process.env["BOMY_RLS_READY"] === "1"
+const shouldRun = Boolean(DATABASE_URL) && RLS_READY
+
+describe.skipIf(!shouldRun)("stores SEO field CHECK constraints", () => {
+  let handle: Db
+  let ownerId: string
+  let storeId: string
+
+  beforeAll(async () => {
+    handle = makeDb({ url: DATABASE_URL as string })
+    ownerId = randomUUID()
+    storeId = randomUUID()
+
+    await withAdmin(
+      handle.db,
+      { userId: SYSTEM_ACTOR, reason: "stores check test seed" },
+      async (tx) => {
+        await tx
+          .insert(users)
+          .values({ id: ownerId, email: `${ownerId}@test.bomy`, role: "seller_owner" })
+        await tx.insert(stores).values({
+          id: storeId,
+          ownerId,
+          name: "Check Constraint Test Store",
+          slug: `check-store-${storeId.slice(0, 8)}`,
+          status: "active",
+        })
+      },
+    )
+  })
+
+  afterAll(async () => {
+    await withAdmin(
+      handle.db,
+      { userId: SYSTEM_ACTOR, reason: "stores check test cleanup" },
+      async (tx) => {
+        await tx.delete(stores).where(eq(stores.id, storeId))
+        await tx.delete(users).where(eq(users.id, ownerId))
+      },
+    )
+    await handle.close()
+  })
+
+  it("CHECK constraint rejects meta_title over 70 characters", async () => {
+    await expect(
+      withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "test check constraint" }, async (tx) =>
+        tx
+          .update(stores)
+          .set({ metaTitle: "a".repeat(71) })
+          .where(eq(stores.id, storeId)),
+      ),
+    ).rejects.toThrow()
+  })
+
+  it("CHECK constraint rejects meta_description over 160 characters", async () => {
+    await expect(
+      withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "test check constraint" }, async (tx) =>
+        tx
+          .update(stores)
+          .set({ metaDescription: "a".repeat(161) })
+          .where(eq(stores.id, storeId)),
+      ),
+    ).rejects.toThrow()
+  })
+
+  it("CHECK constraint rejects a non-http(s) og_image_url", async () => {
+    await expect(
+      withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "test check constraint" }, async (tx) =>
+        tx
+          .update(stores)
+          .set({ ogImageUrl: "ftp://example.com/image.png" })
+          .where(eq(stores.id, storeId)),
+      ),
+    ).rejects.toThrow()
+  })
+
+  it("accepts a valid https og_image_url", async () => {
+    await expect(
+      withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "test check constraint" }, async (tx) =>
+        tx
+          .update(stores)
+          .set({ ogImageUrl: "https://cdn.example.com/og.png" })
+          .where(eq(stores.id, storeId)),
+      ),
+    ).resolves.not.toThrow()
+  })
+})
+```
+
+Check `packages/db/src/schema/index.ts` actually re-exports `stores` and `users` (it does — every other
+test file in this directory imports them the same way).
+
+- [ ] **Step 3: Run both test files**
+
+```bash
+DATABASE_APP_URL=postgresql://bomy_app:changeme_local@localhost:5432/bomy \
+DATABASE_URL=postgresql://bomy:changeme_local@localhost:5432/bomy \
+BOMY_RLS_READY=1 \
+pnpm --filter @bomy/db test catalog.test.ts stores.test.ts --run
+```
+
+Expected: PASS, all tests green — including the 4 new tests in `catalog.test.ts` and all 4 new tests in the
+new `stores.test.ts` file.
+
+- [ ] **Step 4: Typecheck and commit**
+
+Run: `pnpm --filter @bomy/db typecheck`
+
+```bash
+git add packages/db/tests/catalog.test.ts packages/db/tests/stores.test.ts
+git commit -m "test(db): add CHECK constraint tests for SEO fields on stores and products"
+```
+
+---
+
 ## PR 2: Admin store/product SEO surfaces
 
 ### Task 7: Admin store SEO action
