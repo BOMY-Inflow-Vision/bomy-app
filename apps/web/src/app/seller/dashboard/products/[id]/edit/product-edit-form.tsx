@@ -47,6 +47,9 @@ type Product = {
   description: string | null
   categoryId: string | null
   status: "draft" | "active" | "archived"
+  metaTitle: string | null
+  metaDescription: string | null
+  ogImageUrl: string | null
 }
 type Variant = {
   id: string
@@ -277,6 +280,54 @@ export function ProductEditForm({
                   name="description"
                   rows={3}
                   defaultValue={product.description ?? ""}
+                />
+              </div>
+              <div className="col-span-2">
+                <Label
+                  htmlFor="metaTitle"
+                  className="mb-1 block text-xs font-medium text-muted-foreground"
+                >
+                  Meta title{" "}
+                  <span className="font-normal">(overrides the page title in search results)</span>
+                </Label>
+                <Input
+                  id="metaTitle"
+                  name="metaTitle"
+                  maxLength={70}
+                  defaultValue={product.metaTitle ?? ""}
+                />
+              </div>
+              <div className="col-span-2">
+                <Label
+                  htmlFor="metaDescription"
+                  className="mb-1 block text-xs font-medium text-muted-foreground"
+                >
+                  Meta description
+                </Label>
+                <Textarea
+                  id="metaDescription"
+                  name="metaDescription"
+                  rows={3}
+                  maxLength={160}
+                  defaultValue={product.metaDescription ?? ""}
+                />
+              </div>
+              <div className="col-span-2">
+                <Label
+                  htmlFor="ogImageUrl"
+                  className="mb-1 block text-xs font-medium text-muted-foreground"
+                >
+                  OG image URL{" "}
+                  <span className="font-normal">
+                    (shown when this product is shared on social media)
+                  </span>
+                </Label>
+                <Input
+                  id="ogImageUrl"
+                  name="ogImageUrl"
+                  type="url"
+                  defaultValue={product.ogImageUrl ?? ""}
+                  placeholder="https://…"
                 />
               </div>
             </div>
