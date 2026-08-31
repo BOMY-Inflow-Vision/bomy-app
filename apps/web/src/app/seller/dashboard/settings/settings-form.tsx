@@ -9,7 +9,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 
-import { updateStoreCategories, updateStoreSettings, updateStoreVideo } from "./actions"
+import {
+  updateStoreCategories,
+  updateStoreSeo,
+  updateStoreSettings,
+  updateStoreVideo,
+} from "./actions"
 import { getStoreBodyImageUploadUrl, saveStoreBody } from "./body-actions"
 
 type State = { ok: true } | { ok: false; error: string } | null
@@ -25,6 +30,9 @@ export function SettingsForm({
   currentBodyHtml,
   currentBodyRevision,
   currentVideoId,
+  currentMetaTitle,
+  currentMetaDescription,
+  currentOgImageUrl,
   allCategories,
   assignedCategoryIds,
 }: {
@@ -32,12 +40,19 @@ export function SettingsForm({
   currentBodyHtml: string | null
   currentBodyRevision: number
   currentVideoId: string | null
+  currentMetaTitle: string
+  currentMetaDescription: string
+  currentOgImageUrl: string
   allCategories: { id: string; name: string }[]
   assignedCategoryIds: string[]
 }) {
   const [excerptState, excerptAction, excerptPending] = useActionState(formAction, null)
   const [videoState, videoAction, videoPending] = useActionState(
     (_prev: State, formData: FormData) => updateStoreVideo(formData),
+    null,
+  )
+  const [seoState, seoAction, seoPending] = useActionState(
+    (_prev: State, formData: FormData) => updateStoreSeo(formData),
     null,
   )
   const [selected, setSelected] = useState<Set<string>>(() => new Set(assignedCategoryIds))
@@ -205,6 +220,77 @@ export function SettingsForm({
             </div>
             <Button type="submit" disabled={videoPending}>
               {videoPending ? "Saving…" : "Save"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* SEO */}
+      <Card>
+        <CardContent className="p-6">
+          <h2 className="mb-4 text-sm font-semibold text-foreground">SEO</h2>
+          <form action={seoAction} className="space-y-4">
+            {seoState && !seoState.ok && (
+              <div
+                role="alert"
+                aria-live="assertive"
+                className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive"
+              >
+                {seoState.error}
+              </div>
+            )}
+            {seoState?.ok && (
+              <div
+                role="status"
+                aria-live="polite"
+                className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700"
+              >
+                SEO settings saved.
+              </div>
+            )}
+            <div>
+              <Label htmlFor="metaTitle" className="mb-1 block text-sm font-medium">
+                Meta title{" "}
+                <span className="font-normal text-muted-foreground">
+                  (overrides the page title shown in search results)
+                </span>
+              </Label>
+              <Input
+                id="metaTitle"
+                name="metaTitle"
+                maxLength={70}
+                defaultValue={currentMetaTitle}
+              />
+            </div>
+            <div>
+              <Label htmlFor="metaDescription" className="mb-1 block text-sm font-medium">
+                Meta description
+              </Label>
+              <Textarea
+                id="metaDescription"
+                name="metaDescription"
+                rows={3}
+                maxLength={160}
+                defaultValue={currentMetaDescription}
+              />
+            </div>
+            <div>
+              <Label htmlFor="ogImageUrl" className="mb-1 block text-sm font-medium">
+                OG image URL{" "}
+                <span className="font-normal text-muted-foreground">
+                  (shown when your storefront is shared on social media)
+                </span>
+              </Label>
+              <Input
+                id="ogImageUrl"
+                name="ogImageUrl"
+                type="url"
+                defaultValue={currentOgImageUrl}
+                placeholder="https://…"
+              />
+            </div>
+            <Button type="submit" disabled={seoPending}>
+              {seoPending ? "Saving…" : "Save"}
             </Button>
           </form>
         </CardContent>
