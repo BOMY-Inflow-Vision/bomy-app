@@ -2507,6 +2507,11 @@ const [store] = await db
   .limit(1)
 ```
 
+The `where` clause already filters `eq(schema.stores.status, "active")` — this is the same query the page
+component itself uses, so `generateMetadata` automatically inherits the exact same visibility rules as the
+rendered page: a suspended/pending store returns `null` here exactly as it does for the page component,
+never a partial/leaked row. No separate, unfiltered lookup is introduced.
+
 And add them to the returned `store` object at the bottom of the function:
 
 ```ts
@@ -2712,7 +2717,10 @@ export const getProductBySlug = cache(async (storeSlug: string, productSlug: str
 
 (and change the closing `}` at the end of the function to `})`).
 
-Add `metaTitle`, `metaDescription`, `ogImageUrl` to the product select:
+Add `metaTitle`, `metaDescription`, `ogImageUrl` to the product select, **and** `storeExcerpt`/`storeDescription`
+— the metadata fallback chain needs the store's own excerpt/description as a further fallback below the
+product's own description, per the design (a product with no description at all should still get something
+better than the bare product name in its meta description):
 
 ```ts
 const [product] = await db
@@ -2729,6 +2737,8 @@ const [product] = await db
     storeId: schema.stores.id,
     storeName: schema.stores.name,
     storeSlug: schema.stores.slug,
+    storeExcerpt: schema.stores.excerpt,
+    storeDescription: schema.stores.description,
     categoryId: schema.products.categoryId,
   })
   .from(schema.products)
@@ -2744,7 +2754,13 @@ const [product] = await db
   .limit(1)
 ```
 
-(`metaTitle`, `metaDescription`, `ogImageUrl` are already present on `product` after this — the function returns `product` merged with `variants`/`images` further down; no other change needed there since it spreads/returns the full row.)
+(`metaTitle`, `metaDescription`, `ogImageUrl`, `storeExcerpt`, `storeDescription` are already present on
+`product` after this — the function returns `product` merged with `variants`/`images` further down; no
+other change needed there since it spreads/returns the full row. The store join already filters
+`status: "active"` and the product `where` already filters `status: "active"` — this query is the same one
+the page component itself uses, so `generateMetadata` automatically inherits the exact same visibility
+rules: a draft/archived product or a product in a suspended/pending store returns `null` here exactly as it
+does for the page, never a partial/leaked row.)
 
 - [ ] **Step 2: Write the failing test**
 
@@ -2764,9 +2780,13 @@ function productData(
   overrides: Partial<{
     name: string
     description: string | null
+    coverImageUrl: string | null
     metaTitle: string | null
     metaDescription: string | null
     ogImageUrl: string | null
+    storeExcerpt: string | null
+    storeDescription: string | null
+    images: Array<{ id: string; url: string; altText: string | null; sortOrder: number }>
   }> = {},
 ) {
   return {
@@ -2782,6 +2802,8 @@ function productData(
     storeId: "s1",
     storeName: "Acme",
     storeSlug: "acme",
+    storeExcerpt: null,
+    storeDescription: null,
     categoryId: null,
     variants: [],
     images: [],
@@ -2816,12 +2838,79 @@ describe("products/[storeSlug]/[productSlug] generateMetadata", () => {
     expect(metadata.openGraph?.images).toBeUndefined()
   })
 
-  it("omits description entirely when metaDescription/description are both empty", async () => {
+  it("falls back to the store's excerpt when the product has no description of its own", async () => {
+    mockGetProductBySlug.mockResolvedValueOnce(
+      productData({ storeExcerpt: "A fine little shop", storeDescription: "Full store bio" }),
+    )
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ storeSlug: "acme", productSlug: "widget" }),
+    })
+    expect(metadata.description).toBe("A fine little shop")
+  })
+
+  it("falls back to the store's description when neither the product description nor the store excerpt is set", async () => {
+    mockGetProductBySlug.mockResolvedValueOnce(productData({ storeDescription: "Full store bio" }))
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ storeSlug: "acme", productSlug: "widget" }),
+    })
+    expect(metadata.description).toBe("Full store bio")
+  })
+
+  it("omits description entirely when metaDescription/description/storeExcerpt/storeDescription are all empty", async () => {
     mockGetProductBySlug.mockResolvedValueOnce(productData())
     const metadata = await generateMetadata({
       params: Promise.resolve({ storeSlug: "acme", productSlug: "widget" }),
     })
     expect(metadata.description).toBeUndefined()
+  })
+
+  it("falls back to coverImageUrl for the OG image when ogImageUrl is unset", async () => {
+    mockGetProductBySlug.mockResolvedValueOnce(
+      productData({ coverImageUrl: "https://cdn.example.com/cover.png" }),
+    )
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ storeSlug: "acme", productSlug: "widget" }),
+    })
+    expect(metadata.openGraph?.images).toEqual(["https://cdn.example.com/cover.png"])
+  })
+
+  it("falls back to the first product image when neither ogImageUrl nor coverImageUrl is set", async () => {
+    mockGetProductBySlug.mockResolvedValueOnce(
+      productData({
+        images: [
+          { id: "img1", url: "https://cdn.example.com/gallery-1.png", altText: null, sortOrder: 0 },
+          { id: "img2", url: "https://cdn.example.com/gallery-2.png", altText: null, sortOrder: 1 },
+        ],
+      }),
+    )
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ storeSlug: "acme", productSlug: "widget" }),
+    })
+    expect(metadata.openGraph?.images).toEqual(["https://cdn.example.com/gallery-1.png"])
+  })
+
+  it("omits OG images entirely when ogImageUrl, coverImageUrl, and images are all unset", async () => {
+    mockGetProductBySlug.mockResolvedValueOnce(productData())
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ storeSlug: "acme", productSlug: "widget" }),
+    })
+    expect(metadata.openGraph?.images).toBeUndefined()
+  })
+
+  it("prefers ogImageUrl over coverImageUrl and product images when all three are set", async () => {
+    mockGetProductBySlug.mockResolvedValueOnce(
+      productData({
+        ogImageUrl: "https://cdn.example.com/explicit-og.png",
+        coverImageUrl: "https://cdn.example.com/cover.png",
+        images: [
+          { id: "img1", url: "https://cdn.example.com/gallery-1.png", altText: null, sortOrder: 0 },
+        ],
+      }),
+    )
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ storeSlug: "acme", productSlug: "widget" }),
+    })
+    expect(metadata.openGraph?.images).toEqual(["https://cdn.example.com/explicit-og.png"])
   })
 
   it("returns an empty metadata object when the product is not found", async () => {
@@ -2838,6 +2927,8 @@ describe("products/[storeSlug]/[productSlug] generateMetadata", () => {
 
 Run: `pnpm --filter @bomy/web test product-metadata.test.ts --run`
 Expected: FAIL — `generateMetadata is not exported` from `page.tsx`.
+(The failure will show 10 tests failing, not 4 — Charlie's PR3 review gate added 6 more fallback-chain
+test cases beyond the original 4; count them in the file, not from this note, if unsure.)
 
 - [ ] **Step 4: Implement `generateMetadata`**
 
@@ -2856,7 +2947,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!product) return {}
 
   const title = product.metaTitle ?? product.name
-  const description = product.metaDescription ?? product.description ?? undefined
+  const description =
+    product.metaDescription ??
+    product.description ??
+    product.storeExcerpt ??
+    product.storeDescription ??
+    undefined
+  const ogImage = product.ogImageUrl ?? product.coverImageUrl ?? product.images[0]?.url ?? undefined
 
   return {
     title,
@@ -2864,16 +2961,23 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     openGraph: {
       title,
       ...(description ? { description } : {}),
-      ...(product.ogImageUrl ? { images: [product.ogImageUrl] } : {}),
+      ...(ogImage ? { images: [ogImage] } : {}),
     },
   }
 }
 ```
 
+Fallback priority, most to least specific: the product's own `metaTitle`/`metaDescription`/`ogImageUrl`
+(explicit SEO fields) → the product's own `description`/`coverImageUrl` → the product's first gallery image
+(`images[0]?.url`, already ordered by `sortOrder`/`createdAt`/`id` the same way the product page's own
+gallery renders) → the parent store's `excerpt` → the parent store's `description`. `images` is always an
+array (never `undefined`) per `getProductBySlug`'s return shape, so `product.images[0]?.url` safely
+evaluates to `undefined` on an empty gallery — no null-safety gap.
+
 - [ ] **Step 5: Run test to verify it passes**
 
 Run: `pnpm --filter @bomy/web test product-metadata.test.ts --run`
-Expected: PASS, all 4 tests green.
+Expected: PASS, all 10 tests green.
 
 - [ ] **Step 6: Run the full web integration suite and typecheck**
 
@@ -2900,29 +3004,81 @@ git commit -m "feat(web): add generateMetadata to the public product page"
 
 ---
 
-### Task 13: Live browser verification
+### Task 13: Live rendered-`<head>` verification (real HTTP against the running dev server)
 
-**Files:** none (manual verification, no code changes).
+**Files:** none (verification only, no code changes).
+
+**Why HTTP instead of a signed-in browser session:** the `<title>`/`<meta name="description">`/
+`<meta property="og:*">` tags this task verifies are rendered server-side by Next.js into the raw HTML
+response for both `/brands/[slug]` and `/products/[storeSlug]/[productSlug]` — both fully public routes,
+no session needed to view them. A plain HTTP fetch of that HTML shows the exact same `<head>` content a
+browser would render; no browser JS execution is involved in producing these specific tags. This worktree
+has no OAuth credentials for the seller/admin UI (deliberately not copied in), so this task seeds SEO field
+values directly into the DB (bypassing the UI, which the earlier tasks' own test suites already proved
+writes these fields correctly) and fetches the public pages to confirm the _rendering_ side specifically —
+that's the one thing no automated test in Tasks 11/12 can prove, since those tests call `generateMetadata`
+directly with mocked query results, never against a real running Next.js server producing real HTML.
 
 - [ ] **Step 1: Start the full stack**
 
-Run: `pnpm dev` (web on :3000, api on :3001, admin on :3002), with Docker infra already up.
+Run: `pnpm dev` (web on :3000), with Docker infra already up. Confirm `curl -s http://localhost:3000/ -o /dev/null -w "%{http_code}\n"` returns `200` before proceeding.
 
-- [ ] **Step 2: Verify store metadata end-to-end**
+- [ ] **Step 2: Seed a store and product with explicit SEO values, and a second pair with none (fallback case)**
 
-As a seller with an active store: set meta title/description/OG image via `/seller/dashboard/settings`. Visit the store's public page (`/brands/[slug]`) and view page source (or DevTools → Elements → `<head>`) — confirm `<title>` matches the meta title, `<meta name="description">` matches the meta description, and `<meta property="og:image">` matches the OG image URL. Then clear all three fields via the same form, reload the public page, confirm `<title>` falls back to the store name and `<meta name="description">` falls back to the excerpt (or is absent if excerpt is also empty).
+Use a one-off Node script (or `psql`) via `withAdmin` to insert two active stores and two active products
+(one product per store), matching the fixture style used throughout this plan's own tests — real
+`randomUUID()` ids, `@test.bomy`-suffixed owner emails, cleaned up in Step 5. Store A / Product A get
+explicit `metaTitle`/`metaDescription`/`ogImageUrl` set; Store B / Product B get all three left `null` (so
+the public pages exercise the fallback chains) but Store B gets a real `excerpt` and Product B gets a real
+`description` so the fallback has something non-trivial to surface.
 
-- [ ] **Step 3: Verify product metadata end-to-end**
+- [ ] **Step 3: Fetch and check the store pages**
 
-Repeat Step 2 for a product: set fields via `/seller/dashboard/products/[id]/edit`, verify on `/products/[storeSlug]/[productSlug]`, clear and verify fallback to product name/description.
+```bash
+curl -s http://localhost:3000/brands/<store-a-slug> | grep -oE '<title>[^<]*</title>|<meta[^>]*property="og:[^"]*"[^>]*>|<meta[^>]*name="description"[^>]*>'
+```
 
-- [ ] **Step 4: Verify admin edit paths**
+For Store A (explicit values): confirm the `<title>` text matches the seeded `metaTitle`, a
+`<meta name="description">` with the seeded `metaDescription`, and `<meta property="og:image">` with the
+seeded `ogImageUrl`.
 
-As admin: edit the same store's SEO fields via `/stores/[id]` and the same product's via `/products/[id]`, confirm changes are reflected on the public pages after a reload (revalidatePath should make this immediate, no redeploy needed).
+Repeat for Store B (fallback): confirm `<title>` matches the store's `name`, `<meta name="description">`
+matches the seeded `excerpt`, and no `<meta property="og:image">` tag is present at all (no OG image
+source available).
 
-- [ ] **Step 5: Report results**
+- [ ] **Step 4: Fetch and check the product pages**
 
-No commit for this task — report the verification outcome (pass/fail per page, with a screenshot or copied `<head>` snippet for at least one explicit-values case and one fallback case) before considering PR 3 done.
+Same `curl` pattern against `http://localhost:3000/products/<store-slug>/<product-slug>` for Product A
+(explicit values, same three checks) and Product B (fallback: `<title>` matches product `name`,
+`<meta name="description">` matches the seeded product `description` — not the store excerpt, since
+`description` outranks it in the fallback chain — and `<meta property="og:image">` is present only if
+Product B was also seeded with a `coverImageUrl` or product image; if Product B has none of
+`ogImageUrl`/`coverImageUrl`/images, confirm no `og:image` tag appears).
+
+- [ ] **Step 5: Clean up the seeded fixtures**
+
+Delete the two products, two stores, and two owner users created in Step 2, via the same `withAdmin`
+script/session (matching this plan's established test-cleanup convention — user rows may not be
+deletable per migration 0027's least-privilege grants; if so, leave them, consistent with every other
+test file in this repo).
+
+- [ ] **Step 6: Note the scope boundary on live admin/seller edit round-trips**
+
+The seller/admin edit UIs (`/seller/dashboard/settings`, `/seller/dashboard/products/[id]/edit`,
+`/stores/[id]`, `/products/[id]`) themselves need a real authenticated session to drive end-to-end, and
+`revalidatePath`'s actual cache-invalidation behavior only manifests inside a live Next.js server request —
+neither is reproducible from a standalone script in this environment. This is a known, accepted scope
+boundary (same one noted in this project's PR #126 handoff for a similar case), not a skipped requirement:
+the write-path correctness (including the `revalidatePath` calls firing with the right arguments) was
+already verified by Tasks 3/7/9's own action-level tests with mocked `revalidatePath`, and this task proves
+the read/render side independently. Recommend Charlie do one real signed-in pass over the 4 edit surfaces
+when convenient, confirming a save is reflected on the public page after a plain reload.
+
+- [ ] **Step 7: Report results**
+
+No commit for this task — report the verification outcome per page (explicit-values case and fallback
+case, for both store and product), pasting the actual matched `<title>`/`<meta>` lines from Steps 3-4, before
+considering PR 3 done.
 
 ---
 
