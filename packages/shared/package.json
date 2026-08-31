@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./youtube": "./src/youtube.ts",
-    "./body-sanitizer": "./src/body-sanitizer.ts"
+    "./body-sanitizer": "./src/body-sanitizer.ts",
+    "./seo": "./src/seo.ts"
   },
   "dependencies": {
     "node-html-parser": "^6.1.13",
