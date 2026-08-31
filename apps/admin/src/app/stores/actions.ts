@@ -129,6 +129,10 @@ export async function updateStoreSeo(
 
   if (!result.ok) return result
 
+  // Only invalidates apps/admin's own Next.js cache — this is a separate deployment from
+  // apps/web, so the /brands/${slug} call cannot invalidate apps/web's cache. Currently a no-op
+  // in production either way, since apps/web/src/app/layout.tsx sets `dynamic = "force-dynamic"`
+  // (no route cache to invalidate). Kept for defensiveness in case that ever changes.
   revalidatePath(`/stores/${storeId}`)
   revalidatePath(`/brands/${result.slug}`)
 

@@ -235,7 +235,7 @@ describe.skipIf(!shouldRun)("updateStoreSeo action", () => {
     expect(result).toEqual({ ok: true })
   })
 
-  it("revalidates the admin store detail page and the public storefront", async () => {
+  it("calls revalidatePath with both the admin detail path and the public storefront path", async () => {
     mockRevalidatePath.mockClear()
     mockAuth.mockResolvedValue({ user: { id: adminId, role: "bomy_admin" } })
     const result = await updateStoreSeo(
@@ -245,5 +245,44 @@ describe.skipIf(!shouldRun)("updateStoreSeo action", () => {
     expect(result).toEqual({ ok: true })
     expect(mockRevalidatePath).toHaveBeenCalledWith(`/stores/${storeId}`)
     expect(mockRevalidatePath).toHaveBeenCalledWith(`/brands/${storeSlug}`)
+  })
+
+  it("ignores extra form fields outside the SEO allowlist (name/slug/status)", async () => {
+    const [before] = await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "verify" }, (tx) =>
+      tx
+        .select({
+          name: schema.stores.name,
+          slug: schema.stores.slug,
+          status: schema.stores.status,
+        })
+        .from(schema.stores)
+        .where(eq(schema.stores.id, storeId)),
+    )
+
+    mockAuth.mockResolvedValue({ user: { id: adminId, role: "bomy_admin" } })
+    const result = await updateStoreSeo(
+      storeId,
+      seoFd({
+        metaTitle: "Allowlist Check",
+        metaDescription: "",
+        ogImageUrl: "",
+        name: "Hijacked Name",
+        slug: "hijacked-slug",
+        status: "suspended",
+      }),
+    )
+    expect(result).toEqual({ ok: true })
+
+    const [after] = await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "verify" }, (tx) =>
+      tx
+        .select({
+          name: schema.stores.name,
+          slug: schema.stores.slug,
+          status: schema.stores.status,
+        })
+        .from(schema.stores)
+        .where(eq(schema.stores.id, storeId)),
+    )
+    expect(after).toEqual(before)
   })
 })

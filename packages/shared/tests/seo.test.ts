@@ -91,6 +91,38 @@ describe("validateSeoFields", () => {
     if (!result.ok) expect(result.errors.ogImageUrl).toMatch(/2048/)
   })
 
+  it("normalizes an uppercase or mixed-case protocol to lowercase", () => {
+    const result = validateSeoFields({
+      metaTitle: "",
+      metaDescription: "",
+      ogImageUrl: "HTTPS://cdn.example.com/og.png",
+    })
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        metaTitle: null,
+        metaDescription: null,
+        ogImageUrl: "https://cdn.example.com/og.png",
+      },
+    })
+  })
+
+  it("normalizes a URL missing the double slash after the scheme", () => {
+    const result = validateSeoFields({
+      metaTitle: "",
+      metaDescription: "",
+      ogImageUrl: "https:cdn.example.com/og.png",
+    })
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        metaTitle: null,
+        metaDescription: null,
+        ogImageUrl: "https://cdn.example.com/og.png",
+      },
+    })
+  })
+
   it("ignores non-string field values instead of throwing", () => {
     const result = validateSeoFields({
       metaTitle: 123,

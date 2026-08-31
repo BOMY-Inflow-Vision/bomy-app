@@ -146,7 +146,7 @@ describe.skipIf(!shouldRun)("updateProductSeo action", () => {
     expect(result).toEqual({ ok: true })
   })
 
-  it("revalidates the admin product page and the public product page", async () => {
+  it("calls revalidatePath with both the admin product path and the public product path", async () => {
     mockRevalidatePath.mockClear()
     mockAuth.mockResolvedValue({ user: { id: adminId, role: "bomy_admin" } })
     const result = await updateProductSeo(
@@ -156,5 +156,47 @@ describe.skipIf(!shouldRun)("updateProductSeo action", () => {
     expect(result).toEqual({ ok: true })
     expect(mockRevalidatePath).toHaveBeenCalledWith(`/products/${productId}`)
     expect(mockRevalidatePath).toHaveBeenCalledWith(`/products/${storeSlug}/${productSlug}`)
+  })
+
+  it("ignores extra form fields outside the SEO allowlist (name/slug/status/storeId)", async () => {
+    const [before] = await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "verify" }, (tx) =>
+      tx
+        .select({
+          name: schema.products.name,
+          slug: schema.products.slug,
+          status: schema.products.status,
+          storeId: schema.products.storeId,
+        })
+        .from(schema.products)
+        .where(eq(schema.products.id, productId)),
+    )
+
+    mockAuth.mockResolvedValue({ user: { id: adminId, role: "bomy_admin" } })
+    const result = await updateProductSeo(
+      productId,
+      fd({
+        metaTitle: "Allowlist Check",
+        metaDescription: "",
+        ogImageUrl: "",
+        name: "Hijacked Name",
+        slug: "hijacked-slug",
+        status: "archived",
+        storeId: randomUUID(),
+      }),
+    )
+    expect(result).toEqual({ ok: true })
+
+    const [after] = await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "verify" }, (tx) =>
+      tx
+        .select({
+          name: schema.products.name,
+          slug: schema.products.slug,
+          status: schema.products.status,
+          storeId: schema.products.storeId,
+        })
+        .from(schema.products)
+        .where(eq(schema.products.id, productId)),
+    )
+    expect(after).toEqual(before)
   })
 })

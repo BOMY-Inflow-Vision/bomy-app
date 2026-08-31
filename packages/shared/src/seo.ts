@@ -58,8 +58,10 @@ export function validateSeoFields(raw: unknown): SeoFieldsValidation {
         const u = new URL(ogImageUrlRaw)
         if (u.protocol !== "http:" && u.protocol !== "https:") {
           errors.ogImageUrl = "OG image URL must start with http:// or https://"
+        } else if (u.href.length > OG_IMAGE_URL_MAX) {
+          errors.ogImageUrl = `OG image URL must be ${OG_IMAGE_URL_MAX} characters or fewer`
         } else {
-          ogImageUrl = ogImageUrlRaw
+          ogImageUrl = u.href
         }
       } catch {
         errors.ogImageUrl = "OG image URL must be a valid absolute URL"
