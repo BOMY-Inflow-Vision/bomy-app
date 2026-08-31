@@ -317,6 +317,57 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       expect(row!.status).toBe("active")
     })
 
+    it("saves SEO fields alongside the other product fields", async () => {
+      mockAuth.mockResolvedValue({
+        user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
+      })
+
+      await updateProduct(
+        productId,
+        fd({
+          name: "Updated Product",
+          slug: "updated-product",
+          categoryId: "",
+          description: "Updated desc",
+          status: "active",
+          metaTitle: "Product Meta Title",
+          metaDescription: "Product meta description",
+          ogImageUrl: "https://cdn.example.com/product-og.png",
+        }),
+      )
+
+      const [row] = await withAdmin(
+        testDb.db,
+        { userId: SYSTEM_ACTOR, reason: "test assert" },
+        async (tx) => tx.select().from(schema.products).where(eq(schema.products.id, productId)),
+      )
+      expect(row!.metaTitle).toBe("Product Meta Title")
+      expect(row!.metaDescription).toBe("Product meta description")
+      expect(row!.ogImageUrl).toBe("https://cdn.example.com/product-og.png")
+    })
+
+    it("rejects an invalid ogImageUrl without writing anything", async () => {
+      mockAuth.mockResolvedValue({
+        user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
+      })
+
+      await expect(
+        updateProduct(
+          productId,
+          fd({
+            name: "Updated Product",
+            slug: "updated-product",
+            categoryId: "",
+            description: "",
+            status: "active",
+            metaTitle: "",
+            metaDescription: "",
+            ogImageUrl: "not-a-url",
+          }),
+        ),
+      ).rejects.toThrow()
+    })
+
     it("throws when product belongs to a different seller (RLS)", async () => {
       mockAuth.mockResolvedValue({
         user: { id: otherSellerId, role: "seller_owner", email: "other@test.bomy" },
