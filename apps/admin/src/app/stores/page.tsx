@@ -168,7 +168,12 @@ export default async function StoresPage({
             {rows.map((row) => (
               <tr key={row.id} className="border-b border-border last:border-0">
                 <td className="px-4 py-3">
-                  <div className="font-medium text-foreground">{row.name}</div>
+                  <Link
+                    href={`/stores/${row.id}`}
+                    className="font-medium text-foreground hover:underline"
+                  >
+                    {row.name}
+                  </Link>
                   <div className="font-mono text-xs text-muted-foreground">{row.slug}</div>
                   <CopyId id={row.id} />
                 </td>
