@@ -1,4 +1,5 @@
 import { and, asc, count, desc, eq, sql } from "drizzle-orm"
+import { cache } from "react"
 
 import { makeDb, schema, withPublicRead } from "@bomy/db"
 
@@ -114,7 +115,7 @@ export async function getProducts({
   })
 }
 
-export async function getProductBySlug(storeSlug: string, productSlug: string) {
+export const getProductBySlug = cache(async (storeSlug: string, productSlug: string) => {
   return withPublicRead(getDb(), async (db) => {
     const [product] = await db
       .select({
@@ -124,9 +125,14 @@ export async function getProductBySlug(storeSlug: string, productSlug: string) {
         description: schema.products.description,
         coverImageUrl: schema.products.coverImageUrl,
         bodyHtml: schema.products.bodyHtml,
+        metaTitle: schema.products.metaTitle,
+        metaDescription: schema.products.metaDescription,
+        ogImageUrl: schema.products.ogImageUrl,
         storeId: schema.stores.id,
         storeName: schema.stores.name,
         storeSlug: schema.stores.slug,
+        storeExcerpt: schema.stores.excerpt,
+        storeDescription: schema.stores.description,
         categoryId: schema.products.categoryId,
       })
       .from(schema.products)
@@ -186,4 +192,4 @@ export async function getProductBySlug(storeSlug: string, productSlug: string) {
       images,
     }
   })
-}
+})
