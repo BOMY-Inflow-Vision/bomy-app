@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 
 import { schema, withAdmin } from "@bomy/db"
+import { validateSeoFields } from "@bomy/shared/seo"
 
 import { requireAdminId } from "@/lib/auth"
 import { getDb } from "@/lib/db"
@@ -93,4 +94,43 @@ export async function createStore(formData: FormData) {
       .where(eq(schema.users.id, owner.id))
   })
   revalidatePath("/stores")
+}
+
+export async function updateStoreSeo(
+  storeId: string,
+  formData: FormData,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const adminId = await requireAdminId()
+
+  const validated = validateSeoFields({
+    metaTitle: formData.get("metaTitle"),
+    metaDescription: formData.get("metaDescription"),
+    ogImageUrl: formData.get("ogImageUrl"),
+  })
+  if (!validated.ok) {
+    const firstError = Object.values(validated.errors)[0]
+    return { ok: false, error: firstError ?? "Invalid input." }
+  }
+  const { metaTitle, metaDescription, ogImageUrl } = validated.value
+
+  const result = await withAdmin(
+    getDb(),
+    { userId: adminId, reason: `admin update store SEO (storeId=${storeId})` },
+    async (tx) => {
+      const [row] = await tx
+        .update(schema.stores)
+        .set({ metaTitle, metaDescription, ogImageUrl, updatedAt: new Date() })
+        .where(eq(schema.stores.id, storeId))
+        .returning({ slug: schema.stores.slug })
+      if (!row) return { ok: false as const, error: "Store not found" }
+      return { ok: true as const, slug: row.slug }
+    },
+  )
+
+  if (!result.ok) return result
+
+  revalidatePath(`/stores/${storeId}`)
+  revalidatePath(`/brands/${result.slug}`)
+
+  return { ok: true }
 }
