@@ -23,6 +23,9 @@ export default async function SellerSettingsPage() {
           bodyHtml: schema.stores.bodyHtml,
           bodyRevision: schema.stores.bodyRevision,
           videoId: schema.stores.videoId,
+          metaTitle: schema.stores.metaTitle,
+          metaDescription: schema.stores.metaDescription,
+          ogImageUrl: schema.stores.ogImageUrl,
         })
         .from(schema.stores)
         .where(and(eq(schema.stores.ownerId, session.user.id), eq(schema.stores.status, "active")))
@@ -61,6 +64,9 @@ export default async function SellerSettingsPage() {
         currentBodyHtml={storeRow.bodyHtml}
         currentBodyRevision={storeRow.bodyRevision}
         currentVideoId={storeRow.videoId}
+        currentMetaTitle={storeRow.metaTitle ?? ""}
+        currentMetaDescription={storeRow.metaDescription ?? ""}
+        currentOgImageUrl={storeRow.ogImageUrl ?? ""}
         allCategories={allCategories}
         assignedCategoryIds={[...assignedIds]}
       />

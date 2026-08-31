@@ -315,6 +315,62 @@ describe.skipIf(!shouldRun)("catalog RLS", () => {
         },
       )
     })
+
+    it("CHECK constraint rejects meta_title over 70 characters", async () => {
+      await expect(
+        withAdmin(
+          handle.db,
+          { userId: SYSTEM_ACTOR, reason: "test check constraint" },
+          async (tx) =>
+            tx
+              .update(products)
+              .set({ metaTitle: "a".repeat(71) })
+              .where(eq(products.id, activeProductId)),
+        ),
+      ).rejects.toThrow()
+    })
+
+    it("CHECK constraint rejects meta_description over 160 characters", async () => {
+      await expect(
+        withAdmin(
+          handle.db,
+          { userId: SYSTEM_ACTOR, reason: "test check constraint" },
+          async (tx) =>
+            tx
+              .update(products)
+              .set({ metaDescription: "a".repeat(161) })
+              .where(eq(products.id, activeProductId)),
+        ),
+      ).rejects.toThrow()
+    })
+
+    it("CHECK constraint rejects a non-http(s) og_image_url", async () => {
+      await expect(
+        withAdmin(
+          handle.db,
+          { userId: SYSTEM_ACTOR, reason: "test check constraint" },
+          async (tx) =>
+            tx
+              .update(products)
+              .set({ ogImageUrl: "ftp://example.com/image.png" })
+              .where(eq(products.id, activeProductId)),
+        ),
+      ).rejects.toThrow()
+    })
+
+    it("accepts a valid https og_image_url", async () => {
+      await expect(
+        withAdmin(
+          handle.db,
+          { userId: SYSTEM_ACTOR, reason: "test check constraint" },
+          async (tx) =>
+            tx
+              .update(products)
+              .set({ ogImageUrl: "https://cdn.example.com/og.png" })
+              .where(eq(products.id, activeProductId)),
+        ),
+      ).resolves.not.toThrow()
+    })
   })
 
   // ── product_variants ────────────────────────────────────────────────────

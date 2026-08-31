@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
+import type { Metadata } from "next"
 
 import { BodyRenderer } from "@/components/body-renderer"
 import { Button } from "@/components/ui/button"
@@ -9,6 +10,26 @@ import { getStorePage } from "./queries"
 
 interface Props {
   params: Promise<{ slug: string }>
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params
+  const data = await getStorePage(slug)
+  if (!data) return {}
+
+  const { store } = data
+  const title = store.metaTitle ?? store.name
+  const description = store.metaDescription ?? store.excerpt ?? store.description ?? undefined
+
+  return {
+    title,
+    ...(description ? { description } : {}),
+    openGraph: {
+      title,
+      ...(description ? { description } : {}),
+      ...(store.ogImageUrl ? { images: [store.ogImageUrl] } : {}),
+    },
+  }
 }
 
 function ProductCard({

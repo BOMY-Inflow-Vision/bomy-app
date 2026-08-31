@@ -156,6 +156,10 @@ const MIGRATIONS = [
     name: "0029_categories_public_active_product_ref",
     file: join(__dirname, "../drizzle/0029_categories_public_active_product_ref.sql"),
   },
+  {
+    name: "0030_seo_fields",
+    file: join(__dirname, "../drizzle/0030_seo_fields.sql"),
+  },
 ]
 
 try {

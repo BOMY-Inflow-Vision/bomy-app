@@ -1,4 +1,5 @@
 import { and, asc, eq, lte, sql } from "drizzle-orm"
+import { cache } from "react"
 
 import { makeDb, schema, withPublicRead } from "@bomy/db"
 
@@ -17,7 +18,7 @@ interface ProductCard {
   coverImageUrl: string | null
 }
 
-export async function getStorePage(slug: string) {
+export const getStorePage = cache(async (slug: string) => {
   return withPublicRead(getDb(), async (db) => {
     const [store] = await db
       .select({
@@ -25,8 +26,12 @@ export async function getStorePage(slug: string) {
         name: schema.stores.name,
         slug: schema.stores.slug,
         description: schema.stores.description,
+        excerpt: schema.stores.excerpt,
         bodyHtml: schema.stores.bodyHtml,
         videoId: schema.stores.videoId,
+        metaTitle: schema.stores.metaTitle,
+        metaDescription: schema.stores.metaDescription,
+        ogImageUrl: schema.stores.ogImageUrl,
       })
       .from(schema.stores)
       .where(and(eq(schema.stores.slug, slug), eq(schema.stores.status, "active")))
@@ -137,8 +142,12 @@ export async function getStorePage(slug: string) {
         name: store.name,
         slug: store.slug,
         description: store.description,
+        excerpt: store.excerpt,
         bodyHtml: store.bodyHtml,
         videoId: store.videoId,
+        metaTitle: store.metaTitle,
+        metaDescription: store.metaDescription,
+        ogImageUrl: store.ogImageUrl,
       },
       categorySections,
       uncategorized: {
@@ -147,4 +156,4 @@ export async function getStorePage(slug: string) {
       },
     }
   })
-}
+})

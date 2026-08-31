@@ -1,7 +1,17 @@
 import { randomUUID } from "node:crypto"
 
 import { eq } from "drizzle-orm"
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi, type Mock } from "vitest"
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+  type Mock,
+} from "vitest"
 
 import { makeDb, schema, withAdmin } from "@bomy/db"
 
@@ -9,12 +19,14 @@ vi.mock("@/auth", () => ({ auth: vi.fn() }))
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 
 import { auth } from "@/auth"
-import { createStore } from "../../src/app/stores/actions"
+import { revalidatePath } from "next/cache"
+import { createStore, updateStoreSeo } from "../../src/app/stores/actions"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
 const DATABASE_URL = process.env["DATABASE_APP_URL"] ?? process.env["DATABASE_URL"]
 const shouldRun = Boolean(DATABASE_URL) && process.env["BOMY_RLS_READY"] === "1"
 const mockAuth = auth as unknown as Mock
+const mockRevalidatePath = revalidatePath as unknown as Mock
 const VALID_BODY_HTML =
   "<p>We started making handcrafted candles in a small Penang kitchen in 2019, and today we still hand-pour every single batch ourselves.</p>"
 const VALID_VIDEO_URL = "https://youtu.be/dQw4w9WgXcQ"
@@ -114,5 +126,163 @@ describe.skipIf(!shouldRun)("createStore one-store guard", () => {
     f.set("videoUrl", "")
     await expect(createStore(f)).rejects.toThrow("A valid YouTube video URL is required.")
     expect(await readStores()).toHaveLength(0)
+  })
+})
+
+describe.skipIf(!shouldRun)("updateStoreSeo action", () => {
+  let testDb: ReturnType<typeof makeDb>
+  let adminId: string
+  let sellerId: string
+  let storeId: string
+  let storeSlug: string
+
+  beforeAll(async () => {
+    process.env["DATABASE_URL"] = DATABASE_URL as string
+    testDb = makeDb({ url: DATABASE_URL as string })
+    adminId = randomUUID()
+    sellerId = randomUUID()
+    storeSlug = `admin-seo-${randomUUID().slice(0, 8)}`
+
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test seed" }, async (tx) => {
+      await tx.insert(schema.users).values([
+        { id: adminId, email: `admin-${adminId}@test.bomy`, role: "bomy_admin" },
+        { id: sellerId, email: `seller-${sellerId}@test.bomy`, role: "seller_owner" },
+      ])
+      const [store] = await tx
+        .insert(schema.stores)
+        .values({ ownerId: sellerId, name: "Admin SEO Store", slug: storeSlug, status: "pending" })
+        .returning({ id: schema.stores.id })
+      storeId = store!.id
+    })
+  })
+
+  afterAll(async () => {
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
+      await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
+    })
+    await testDb.close()
+  })
+
+  function seoFd(fields: Record<string, string>): FormData {
+    const f = new FormData()
+    for (const [k, v] of Object.entries(fields)) f.append(k, v)
+    return f
+  }
+
+  it("saves SEO fields regardless of store status (pending here)", async () => {
+    mockAuth.mockResolvedValue({ user: { id: adminId, role: "bomy_admin" } })
+    const result = await updateStoreSeo(
+      storeId,
+      seoFd({
+        metaTitle: "Admin Title",
+        metaDescription: "Admin description",
+        ogImageUrl: "https://cdn.example.com/admin-og.png",
+      }),
+    )
+    expect(result).toEqual({ ok: true })
+
+    const [row] = await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "verify" }, (tx) =>
+      tx
+        .select({
+          metaTitle: schema.stores.metaTitle,
+          metaDescription: schema.stores.metaDescription,
+          ogImageUrl: schema.stores.ogImageUrl,
+        })
+        .from(schema.stores)
+        .where(eq(schema.stores.id, storeId)),
+    )
+    expect(row?.metaTitle).toBe("Admin Title")
+    expect(row?.metaDescription).toBe("Admin description")
+    expect(row?.ogImageUrl).toBe("https://cdn.example.com/admin-og.png")
+  })
+
+  it("rejects an invalid ogImageUrl without writing anything", async () => {
+    mockAuth.mockResolvedValue({ user: { id: adminId, role: "bomy_admin" } })
+    const result = await updateStoreSeo(
+      storeId,
+      seoFd({ metaTitle: "", metaDescription: "", ogImageUrl: "not-a-url" }),
+    )
+    expect(result.ok).toBe(false)
+  })
+
+  it("rejects a non-admin caller (seller_owner) without writing anything", async () => {
+    mockAuth.mockResolvedValue({ user: { id: sellerId, role: "seller_owner" } })
+    await expect(
+      updateStoreSeo(
+        storeId,
+        seoFd({ metaTitle: "Hijacked", metaDescription: "", ogImageUrl: "" }),
+      ),
+    ).rejects.toThrow("FORBIDDEN")
+
+    const [row] = await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "verify" }, (tx) =>
+      tx
+        .select({ metaTitle: schema.stores.metaTitle })
+        .from(schema.stores)
+        .where(eq(schema.stores.id, storeId)),
+    )
+    expect(row?.metaTitle).not.toBe("Hijacked")
+  })
+
+  it("admin can edit SEO for a store owned by a different seller than the admin", async () => {
+    // adminId and sellerId are always different users in this fixture — this test exists to make that
+    // "admin acts across ownership boundaries" property explicit and load-bearing, not incidental.
+    expect(adminId).not.toBe(sellerId)
+    mockAuth.mockResolvedValue({ user: { id: adminId, role: "bomy_admin" } })
+    const result = await updateStoreSeo(
+      storeId,
+      seoFd({ metaTitle: "Cross-owner edit", metaDescription: "", ogImageUrl: "" }),
+    )
+    expect(result).toEqual({ ok: true })
+  })
+
+  it("calls revalidatePath with both the admin detail path and the public storefront path", async () => {
+    mockRevalidatePath.mockClear()
+    mockAuth.mockResolvedValue({ user: { id: adminId, role: "bomy_admin" } })
+    const result = await updateStoreSeo(
+      storeId,
+      seoFd({ metaTitle: "x", metaDescription: "", ogImageUrl: "" }),
+    )
+    expect(result).toEqual({ ok: true })
+    expect(mockRevalidatePath).toHaveBeenCalledWith(`/stores/${storeId}`)
+    expect(mockRevalidatePath).toHaveBeenCalledWith(`/brands/${storeSlug}`)
+  })
+
+  it("ignores extra form fields outside the SEO allowlist (name/slug/status)", async () => {
+    const [before] = await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "verify" }, (tx) =>
+      tx
+        .select({
+          name: schema.stores.name,
+          slug: schema.stores.slug,
+          status: schema.stores.status,
+        })
+        .from(schema.stores)
+        .where(eq(schema.stores.id, storeId)),
+    )
+
+    mockAuth.mockResolvedValue({ user: { id: adminId, role: "bomy_admin" } })
+    const result = await updateStoreSeo(
+      storeId,
+      seoFd({
+        metaTitle: "Allowlist Check",
+        metaDescription: "",
+        ogImageUrl: "",
+        name: "Hijacked Name",
+        slug: "hijacked-slug",
+        status: "suspended",
+      }),
+    )
+    expect(result).toEqual({ ok: true })
+
+    const [after] = await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "verify" }, (tx) =>
+      tx
+        .select({
+          name: schema.stores.name,
+          slug: schema.stores.slug,
+          status: schema.stores.status,
+        })
+        .from(schema.stores)
+        .where(eq(schema.stores.id, storeId)),
+    )
+    expect(after).toEqual(before)
   })
 })

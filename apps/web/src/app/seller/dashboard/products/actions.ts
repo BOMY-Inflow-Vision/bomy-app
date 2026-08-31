@@ -10,6 +10,7 @@ import { makeDb, schema, withAdmin, withTenant } from "@bomy/db"
 import type { Database } from "@bomy/db"
 
 import { auth } from "@/auth"
+import { validateSeoFields } from "@bomy/shared/seo"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001" as const
 
@@ -311,6 +312,16 @@ export async function updateProduct(productId: string, formData: FormData): Prom
   const description = str(formData, "description").trim() || null
   const status = (str(formData, "status") || "draft") as "draft" | "active" | "archived"
 
+  const seoValidated = validateSeoFields({
+    metaTitle: formData.get("metaTitle"),
+    metaDescription: formData.get("metaDescription"),
+    ogImageUrl: formData.get("ogImageUrl"),
+  })
+  if (!seoValidated.ok) {
+    throw new Error(Object.values(seoValidated.errors)[0] ?? "Invalid SEO input")
+  }
+  const { metaTitle, metaDescription, ogImageUrl } = seoValidated.value
+
   const updated = await withTenant(
     getDb(),
     { userId: session.user.id, userRole: session.user.role },
@@ -331,7 +342,17 @@ export async function updateProduct(productId: string, formData: FormData): Prom
 
       return tx
         .update(schema.products)
-        .set({ name, slug, categoryId, description, status, updatedAt: new Date() })
+        .set({
+          name,
+          slug,
+          categoryId,
+          description,
+          status,
+          metaTitle,
+          metaDescription,
+          ogImageUrl,
+          updatedAt: new Date(),
+        })
         .where(eq(schema.products.id, productId))
         .returning({ id: schema.products.id })
     },

@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
+import type { Metadata } from "next"
 
 import { getProductBySlug } from "../../queries"
 import { BodyRenderer } from "@/components/body-renderer"
@@ -8,6 +9,31 @@ import { VariantPicker } from "./variant-picker"
 
 interface Props {
   params: Promise<{ storeSlug: string; productSlug: string }>
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { storeSlug, productSlug } = await params
+  const product = await getProductBySlug(storeSlug, productSlug)
+  if (!product) return {}
+
+  const title = product.metaTitle ?? product.name
+  const description =
+    product.metaDescription ??
+    product.description ??
+    product.storeExcerpt ??
+    product.storeDescription ??
+    undefined
+  const ogImage = product.ogImageUrl ?? product.coverImageUrl ?? product.images[0]?.url ?? undefined
+
+  return {
+    title,
+    ...(description ? { description } : {}),
+    openGraph: {
+      title,
+      ...(description ? { description } : {}),
+      ...(ogImage ? { images: [ogImage] } : {}),
+    },
+  }
 }
 
 export default async function ProductDetailPage({ params }: Props) {
