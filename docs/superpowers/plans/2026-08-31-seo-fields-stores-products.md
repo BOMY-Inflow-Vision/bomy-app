@@ -1501,6 +1501,36 @@ describe.skipIf(!shouldRun)("updateStoreSeo action", () => {
     expect(result.ok).toBe(false)
   })
 
+  it("rejects a non-admin caller (seller_owner) without writing anything", async () => {
+    mockAuth.mockResolvedValue({ user: { id: sellerId, role: "seller_owner" } })
+    await expect(
+      updateStoreSeo(
+        storeId,
+        seoFd({ metaTitle: "Hijacked", metaDescription: "", ogImageUrl: "" }),
+      ),
+    ).rejects.toThrow("FORBIDDEN")
+
+    const [row] = await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "verify" }, (tx) =>
+      tx
+        .select({ metaTitle: schema.stores.metaTitle })
+        .from(schema.stores)
+        .where(eq(schema.stores.id, storeId)),
+    )
+    expect(row?.metaTitle).not.toBe("Hijacked")
+  })
+
+  it("admin can edit SEO for a store owned by a different seller than the admin", async () => {
+    // adminId and sellerId are always different users in this fixture — this test exists to make that
+    // "admin acts across ownership boundaries" property explicit and load-bearing, not incidental.
+    expect(adminId).not.toBe(sellerId)
+    mockAuth.mockResolvedValue({ user: { id: adminId, role: "bomy_admin" } })
+    const result = await updateStoreSeo(
+      storeId,
+      seoFd({ metaTitle: "Cross-owner edit", metaDescription: "", ogImageUrl: "" }),
+    )
+    expect(result).toEqual({ ok: true })
+  })
+
   it("revalidates the admin store detail page and the public storefront", async () => {
     mockRevalidatePath.mockClear()
     mockAuth.mockResolvedValue({ user: { id: adminId, role: "bomy_admin" } })
@@ -1572,7 +1602,7 @@ export async function updateStoreSeo(
 
   const result = await withAdmin(
     getDb(),
-    { userId: adminId, reason: "admin update store SEO" },
+    { userId: adminId, reason: `admin update store SEO (storeId=${storeId})` },
     async (tx) => {
       const [row] = await tx
         .update(schema.stores)
@@ -1738,7 +1768,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ id
 
   const store = await withAdmin(
     getDb(),
-    { userId: adminId, reason: "admin view store detail" },
+    { userId: adminId, reason: `admin view store detail (storeId=${id})` },
     async (tx) => {
       const [row] = await tx
         .select({
@@ -1956,6 +1986,34 @@ describe.skipIf(!shouldRun)("updateProductSeo action", () => {
     expect(result).toEqual({ ok: false, error: "Product not found" })
   })
 
+  it("rejects a non-admin caller (seller_owner) without writing anything", async () => {
+    mockAuth.mockResolvedValue({ user: { id: sellerId, role: "seller_owner" } })
+    await expect(
+      updateProductSeo(
+        productId,
+        fd({ metaTitle: "Hijacked", metaDescription: "", ogImageUrl: "" }),
+      ),
+    ).rejects.toThrow("FORBIDDEN")
+
+    const [row] = await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "verify" }, (tx) =>
+      tx
+        .select({ metaTitle: schema.products.metaTitle })
+        .from(schema.products)
+        .where(eq(schema.products.id, productId)),
+    )
+    expect(row?.metaTitle).not.toBe("Hijacked")
+  })
+
+  it("admin can edit SEO for a product owned by a different seller than the admin", async () => {
+    expect(adminId).not.toBe(sellerId)
+    mockAuth.mockResolvedValue({ user: { id: adminId, role: "bomy_admin" } })
+    const result = await updateProductSeo(
+      productId,
+      fd({ metaTitle: "Cross-owner edit", metaDescription: "", ogImageUrl: "" }),
+    )
+    expect(result).toEqual({ ok: true })
+  })
+
   it("revalidates the admin product page and the public product page", async () => {
     mockRevalidatePath.mockClear()
     mockAuth.mockResolvedValue({ user: { id: adminId, role: "bomy_admin" } })
@@ -2018,7 +2076,7 @@ export async function updateProductSeo(
 
   const result = await withAdmin(
     getDb(),
-    { userId: adminId, reason: "admin update product SEO" },
+    { userId: adminId, reason: `admin update product SEO (productId=${productId})` },
     async (tx) => {
       const [row] = await tx
         .select({ productSlug: schema.products.slug, storeSlug: schema.stores.slug })
@@ -2115,9 +2173,13 @@ export default async function ProductsPage({
           name: schema.products.name,
           status: schema.products.status,
           storeName: schema.stores.name,
+          storeSlug: schema.stores.slug,
+          ownerEmail: schema.users.email,
+          ownerName: schema.users.name,
         })
         .from(schema.products)
         .innerJoin(schema.stores, eq(schema.stores.id, schema.products.storeId))
+        .innerJoin(schema.users, eq(schema.users.id, schema.stores.ownerId))
         .where(filters.length ? and(...filters) : undefined)
         .orderBy(asc(schema.stores.name), asc(schema.products.name))
     },
@@ -2150,6 +2212,7 @@ export default async function ProductsPage({
             <tr className="border-b border-border bg-muted text-left text-xs font-semibold text-muted-foreground">
               <th className="px-4 py-3">Product</th>
               <th className="px-4 py-3">Store</th>
+              <th className="px-4 py-3">Seller</th>
               <th className="px-4 py-3">Status</th>
             </tr>
           </thead>
@@ -2164,7 +2227,13 @@ export default async function ProductsPage({
                     {row.name}
                   </Link>
                 </td>
-                <td className="px-4 py-3 text-muted-foreground">{row.storeName}</td>
+                <td className="px-4 py-3 text-muted-foreground">
+                  <div>{row.storeName}</div>
+                  <div className="font-mono text-xs">{row.storeSlug}</div>
+                </td>
+                <td className="px-4 py-3 text-muted-foreground">
+                  {row.ownerName ?? row.ownerEmail}
+                </td>
                 <td className="px-4 py-3">
                   <Badge variant="outline">{row.status}</Badge>
                 </td>
@@ -2172,7 +2241,7 @@ export default async function ProductsPage({
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={3} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">
                   No products found.
                 </td>
               </tr>
@@ -2303,7 +2372,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
 
   const product = await withAdmin(
     getDb(),
-    { userId: adminId, reason: "admin view product detail" },
+    { userId: adminId, reason: `admin view product detail (productId=${id})` },
     async (tx) => {
       const [row] = await tx
         .select({
@@ -2311,12 +2380,16 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
           name: schema.products.name,
           status: schema.products.status,
           storeName: schema.stores.name,
+          storeSlug: schema.stores.slug,
+          ownerEmail: schema.users.email,
+          ownerName: schema.users.name,
           metaTitle: schema.products.metaTitle,
           metaDescription: schema.products.metaDescription,
           ogImageUrl: schema.products.ogImageUrl,
         })
         .from(schema.products)
         .innerJoin(schema.stores, eq(schema.stores.id, schema.products.storeId))
+        .innerJoin(schema.users, eq(schema.users.id, schema.stores.ownerId))
         .where(eq(schema.products.id, id))
         .limit(1)
       return row ?? null
@@ -2329,7 +2402,8 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
     <div className="p-6">
       <h1 className="mb-1 text-lg font-semibold text-foreground">{product.name}</h1>
       <p className="mb-6 text-sm text-muted-foreground">
-        {product.storeName} · {product.status}
+        {product.storeName} ({product.storeSlug}) · {product.ownerName ?? product.ownerEmail} ·{" "}
+        {product.status}
       </p>
       <ProductSeoForm
         productId={product.id}
