@@ -1,14 +1,15 @@
 "use client"
 
 import Script from "next/script"
-import { useActionState, useEffect, useRef, useState } from "react"
+import { type FormEvent, useActionState, useEffect, useRef, useState, useTransition } from "react"
 
+import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 
-import { submitSellerInquiry } from "./actions"
+import { submitSellerInquiry, type SellerInquiryResult } from "./actions"
 
 declare global {
   interface Window {
@@ -31,19 +32,21 @@ declare global {
 
 const SITEKEY = process.env["NEXT_PUBLIC_TURNSTILE_SITEKEY"] ?? ""
 
-const INITIAL_STATE = { success: false, error: "" }
-
-function formAction(
-  _prev: typeof INITIAL_STATE,
+async function formAction(
+  _prev: SellerInquiryResult | null,
   formData: FormData,
-): Promise<typeof INITIAL_STATE> {
-  return submitSellerInquiry(formData)
-    .then(() => ({ success: true, error: "" }))
-    .catch((e: Error) => ({ success: false, error: e.message }))
+): Promise<SellerInquiryResult> {
+  try {
+    return await submitSellerInquiry(formData)
+  } catch {
+    return { ok: false, error: "We couldn't submit your application. Please try again." }
+  }
 }
 
 export default function SellerApplyPage() {
-  const [state, action, pending] = useActionState(formAction, INITIAL_STATE)
+  const [state, action, pending] = useActionState(formAction, null)
+  const [, startTransition] = useTransition()
+  const toast = useToast()
   const containerRef = useRef<HTMLDivElement | null>(null)
   const widgetIdRef = useRef<string | null>(null)
   const [token, setToken] = useState("")
@@ -62,18 +65,23 @@ export default function SellerApplyPage() {
     })
   }, [scriptReady])
 
-  // Reset the widget on ANY action failure.
-  // Depend on `state` (the whole object), not `state.error` — useActionState
-  // returns a fresh object reference per invocation, but the error string can
-  // be value-equal across consecutive failures (e.g. two verify rejections
-  // both produce "Verification failed..."). [state.error] would not re-fire;
-  // [state] does because the reference changes each time.
+  // Reset the widget and toast on ANY action result.
+  // Depend on `state` (the whole object), not a field — useActionState returns a
+  // fresh object per invocation, but the error string can be value-equal across
+  // consecutive failures (e.g. two verify rejections both produce "Verification
+  // failed..."). A field dependency would not re-fire; [state] does.
   useEffect(() => {
-    if (state.error && widgetIdRef.current && window.turnstile) {
+    if (!state) return
+    if (state.ok) {
+      toast.success("Application submitted — we'll be in touch within 3–5 business days.")
+      return
+    }
+    toast.error(state.error)
+    if (widgetIdRef.current && window.turnstile) {
       window.turnstile.reset(widgetIdRef.current)
       setToken("")
     }
-  }, [state])
+  }, [state, toast])
 
   // Cleanup on unmount — avoids duplicate widgets if the page remounts.
   useEffect(() => {
@@ -85,7 +93,15 @@ export default function SellerApplyPage() {
     }
   }, [])
 
-  if (state.success) {
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+    // Dispatched manually rather than via <form action>: React 19 resets uncontrolled fields
+    // after a form action completes even when it returns an error, wiping the applicant's input.
+    startTransition(() => action(formData))
+  }
+
+  if (state?.ok) {
     return (
       <main className="flex min-h-screen items-start justify-center bg-muted pt-16">
         <div className="w-full max-w-lg rounded-2xl bg-background p-8 shadow-sm ring-1 ring-border text-center">
@@ -101,7 +117,7 @@ export default function SellerApplyPage() {
 
   return (
     <main className="flex min-h-screen items-start justify-center bg-muted pt-16">
-      {/* Scoped to the form branch: the state.success early-return above unmounts
+      {/* Scoped to the form branch: the success early-return above unmounts
           this, so a back-nav to the form re-fetches the script. Harmless — the
           render effect's widgetIdRef guard prevents a duplicate widget. */}
       <Script
@@ -116,13 +132,16 @@ export default function SellerApplyPage() {
           Interested in selling on BOMY? Fill in the form and our team will be in touch.
         </p>
 
-        {state.error && (
-          <div className="mb-4 rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        {state && !state.ok && (
+          <div
+            role="alert"
+            className="mb-4 rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive"
+          >
             {state.error}
           </div>
         )}
 
-        <form action={action} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label htmlFor="name" className="mb-1 block text-sm font-medium">
               Full Name *

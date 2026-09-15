@@ -10,19 +10,22 @@ import { sendApplicantAck, sendOpsAlert } from "@/notifications/seller-inquiry"
 
 const EMAIL_RE = /^[^\s,;<>"@]+@[^\s,;<>"@]+\.[^\s,;<>"@]+$/
 
+// Validation failures are returned, not thrown: production redacts thrown Server Action messages.
+export type SellerInquiryResult = { ok: true } | { ok: false; error: string }
+
 function readFormString(formData: FormData, key: string): string {
   const value = formData.get(key)
   return typeof value === "string" ? value.trim() : ""
 }
 
-export async function submitSellerInquiry(formData: FormData) {
+export async function submitSellerInquiry(formData: FormData): Promise<SellerInquiryResult> {
   // 1. Turnstile verify FIRST — before any field validation, DB insert,
   //    or mail dispatch. Failure → generic form-level error; no side effects.
   const rawToken = formData.get("cf-turnstile-response")
   const token = typeof rawToken === "string" && rawToken.length > 0 ? rawToken : null
   const verify = await verifyTurnstile(token)
   if (!verify.success) {
-    throw new Error("Verification failed. Please try the challenge again.")
+    return { ok: false, error: "Verification failed. Please try the challenge again." }
   }
 
   // 2. Required-field validation.
@@ -34,12 +37,12 @@ export async function submitSellerInquiry(formData: FormData) {
   const message = readFormString(formData, "message") || null
 
   if (!name || !email || !contactNumber || !companyName || !storeName) {
-    throw new Error("All required fields must be filled in.")
+    return { ok: false, error: "All required fields must be filled in." }
   }
 
   // 3. Single-address email shape validation (defense in depth on top of Turnstile).
   if (!EMAIL_RE.test(email)) {
-    throw new Error("Please provide a valid email address.")
+    return { ok: false, error: "Please provide a valid email address." }
   }
 
   // 4. DB insert.
@@ -71,7 +74,7 @@ export async function submitSellerInquiry(formData: FormData) {
       reason: "missing_ops_recipients",
       inquiryId,
     })
-    return
+    return { ok: true }
   }
 
   try {
@@ -88,4 +91,6 @@ export async function submitSellerInquiry(formData: FormData) {
       message: err instanceof Error ? err.message : String(err),
     })
   }
+
+  return { ok: true }
 }
