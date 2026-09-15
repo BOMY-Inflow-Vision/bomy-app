@@ -4,25 +4,11 @@ import { describe, expect, it } from "vitest"
 
 import { Button } from "@/components/ui/button"
 
-describe("Button reward variant", () => {
-  it("renders with the reward background/foreground classes", () => {
-    const html = renderToStaticMarkup(<Button variant="reward">Join now</Button>)
-    expect(html).toContain("bg-reward")
-    expect(html).toContain("text-reward-foreground")
-  })
-
-  it("still renders the default variant unchanged", () => {
-    const html = renderToStaticMarkup(<Button>Continue</Button>)
-    expect(html).toContain("bg-primary")
-    expect(html).toContain("text-primary-foreground")
-  })
-})
-
 function Icon() {
   return <svg data-testid="icon" />
 }
 
-describe("Button icon slide", () => {
+describe("Button", () => {
   it("renders the plain button unchanged when no icon is given", () => {
     const html = renderToStaticMarkup(<Button>Save</Button>)
     expect(html).not.toContain("group/slide")

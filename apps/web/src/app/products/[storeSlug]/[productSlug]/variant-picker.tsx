@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Check, ShoppingCart } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { SlideIconButton } from "@/components/slide-icon-button"
+import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/toaster"
 import type { CartItem } from "@/lib/cart"
 import { useCart } from "@/lib/cart"
@@ -144,7 +144,7 @@ export function VariantPicker({ product, variants }: VariantPickerProps) {
       )}
 
       {/* Add to cart */}
-      <SlideIconButton
+      <Button
         type="button"
         onClick={handleAddToCart}
         disabled={!canAddToCart}
@@ -154,7 +154,7 @@ export function VariantPicker({ product, variants }: VariantPickerProps) {
         size="lg"
       >
         {added ? "Added to cart" : "Add to cart"}
-      </SlideIconButton>
+      </Button>
     </div>
   )
 }
