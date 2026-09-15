@@ -7,7 +7,6 @@ import { schema, withAdmin } from "@bomy/db"
 import { HitPayClient } from "@bomy/hitpay"
 
 import { authorizeAdminAction } from "@/lib/admin-action"
-import { requireAdminId } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { flashToast } from "@/lib/flash-toast-server"
 
@@ -72,8 +71,14 @@ function hitpayClient() {
   return new HitPayClient({ apiKey, baseUrl: apiUrl })
 }
 
-export async function cancelMembership(subId: string) {
-  const adminId = await requireAdminId()
+// Server-form trigger — flashes every outcome instead of throwing.
+export async function cancelMembership(subId: string): Promise<void> {
+  const authz = await authorizeAdminAction()
+  if (!authz.ok) {
+    await flashToast("error", authz.error)
+    return
+  }
+  const adminId = authz.adminId
 
   // Fetch subscription outside the write transaction so the connection
   // is not held open during the HitPay HTTP call.
@@ -87,18 +92,38 @@ export async function cancelMembership(subId: string) {
           status: schema.memberSubscriptions.status,
           cancelledAt: schema.memberSubscriptions.cancelledAt,
           hitpayRecurringId: schema.memberSubscriptions.hitpayRecurringId,
+          periodEnd: schema.memberSubscriptions.periodEnd,
         })
         .from(schema.memberSubscriptions)
         .where(eq(schema.memberSubscriptions.id, subId))
         .limit(1),
   )
 
-  if (!sub) throw new Error("Subscription not found")
-  if (sub.status !== "active" || sub.cancelledAt !== null)
-    throw new Error(`Cannot cancel: subscription is '${sub.status}'`)
+  if (!sub) {
+    await flashToast("error", "Subscription not found.")
+    return
+  }
+  if (sub.status === "active" && sub.cancelledAt !== null) {
+    await flashToast("error", "This membership is already scheduled to cancel.")
+    return
+  }
+  if (sub.status !== "active") {
+    await flashToast("error", `Cannot cancel: subscription is '${sub.status}'.`)
+    return
+  }
 
   if (sub.hitpayRecurringId) {
-    await hitpayClient().cancelRecurringBilling(sub.hitpayRecurringId)
+    try {
+      await hitpayClient().cancelRecurringBilling(sub.hitpayRecurringId)
+    } catch (err) {
+      // Renewal is still live at HitPay, so don't record the cancellation; the admin can retry.
+      console.error("[admin cancelMembership] HitPay cancel failed", err)
+      await flashToast(
+        "error",
+        "HitPay couldn't cancel the renewal, so nothing was changed. Please try again.",
+      )
+      return
+    }
   }
 
   await withAdmin(getDb(), { userId: adminId, reason: "admin cancel membership" }, async (tx) => {
@@ -114,4 +139,14 @@ export async function cancelMembership(subId: string) {
       )
   })
   revalidatePath("/memberships")
+
+  const activeUntil = sub.periodEnd.toLocaleDateString("en-MY", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  })
+  await flashToast(
+    "success",
+    `Membership cancelled — renewal stopped; it stays active until ${activeUntil}.`,
+  )
 }
