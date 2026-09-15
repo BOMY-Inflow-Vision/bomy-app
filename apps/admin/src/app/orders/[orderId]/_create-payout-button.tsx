@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { Wallet } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
@@ -45,6 +46,7 @@ export function CreatePayoutButton({ orderId }: { orderId: string }) {
         }}
         disabled={state === "loading"}
         size="sm"
+        icon={<Wallet />}
       >
         {state === "loading" ? "Creating…" : "Create Payout Record"}
       </Button>

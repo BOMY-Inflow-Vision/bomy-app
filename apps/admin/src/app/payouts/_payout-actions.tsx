@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { CircleCheck, CircleX, Clock, X } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
@@ -84,13 +85,14 @@ export function PayoutActions({ payoutId, status }: Props) {
         <Button
           size="sm"
           variant="secondary"
+          icon={<Clock />}
           onClick={() => {
             void doProcessing()
           }}
           disabled={loading}
           className="bg-blue-100 text-blue-700 hover:bg-blue-200"
         >
-          → Processing
+          Processing
         </Button>
       )}
 
@@ -120,6 +122,7 @@ export function PayoutActions({ payoutId, status }: Props) {
           <div className="flex gap-1">
             <Button
               size="sm"
+              icon={<CircleCheck />}
               onClick={() => {
                 void doComplete()
               }}
@@ -128,7 +131,13 @@ export function PayoutActions({ payoutId, status }: Props) {
             >
               Confirm
             </Button>
-            <Button size="sm" variant="secondary" onClick={() => setShowComplete(false)}>
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={<X />}
+              arrowOnHover={false}
+              onClick={() => setShowComplete(false)}
+            >
               Cancel
             </Button>
           </div>
@@ -163,6 +172,7 @@ export function PayoutActions({ payoutId, status }: Props) {
             <Button
               size="sm"
               variant="destructive"
+              icon={<CircleX />}
               onClick={() => {
                 void doFail()
               }}
@@ -170,7 +180,13 @@ export function PayoutActions({ payoutId, status }: Props) {
             >
               Confirm
             </Button>
-            <Button size="sm" variant="secondary" onClick={() => setShowFail(false)}>
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={<X />}
+              arrowOnHover={false}
+              onClick={() => setShowFail(false)}
+            >
               Cancel
             </Button>
           </div>

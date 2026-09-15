@@ -1,3 +1,5 @@
+import { Eye } from "lucide-react"
+
 import {
   ORDER_FULFILMENT_STATUSES,
   ORDER_PAYMENT_STATUSES,
@@ -10,6 +12,7 @@ import { getDb } from "@/lib/db"
 import { senToMyr } from "@/lib/money"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 
 import { fetchOrdersFiltered } from "./_queries"
@@ -104,9 +107,9 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
                   {order.createdAt.toLocaleDateString("en-MY")}
                 </td>
                 <td className="px-4 py-3">
-                  <a href={`/orders/${order.id}`} className="text-primary hover:underline">
-                    View
-                  </a>
+                  <Button asChild variant="link" size="sm" icon={<Eye />}>
+                    <a href={`/orders/${order.id}`}>View</a>
+                  </Button>
                 </td>
               </tr>
             ))}

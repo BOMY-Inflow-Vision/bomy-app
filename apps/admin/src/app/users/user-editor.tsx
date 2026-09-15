@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useTransition } from "react"
+import { Pencil, Save, X } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
@@ -43,8 +44,9 @@ export function UserEditor({
           type="button"
           variant="link"
           size="sm"
+          icon={<Pencil />}
           onClick={() => setEditing(true)}
-          className="mt-1 h-auto p-0 text-xs"
+          className="mt-1 text-xs"
         >
           Edit
         </Button>
@@ -82,6 +84,7 @@ export function UserEditor({
           type="button"
           variant="link"
           size="sm"
+          icon={<Save />}
           disabled={pending}
           onClick={() => {
             setErrors({})
@@ -111,7 +114,7 @@ export function UserEditor({
               }
             })
           }}
-          className="h-auto p-0 text-xs disabled:opacity-50"
+          className="text-xs"
         >
           {pending ? "Saving…" : "Save"}
         </Button>
@@ -119,6 +122,8 @@ export function UserEditor({
           type="button"
           variant="ghost"
           size="sm"
+          icon={<X />}
+          arrowOnHover={false}
           disabled={pending}
           onClick={() => {
             setEditing(false)
@@ -126,7 +131,7 @@ export function UserEditor({
             setEmailVal(displayEmail)
             setErrors({})
           }}
-          className="h-auto p-0 text-xs text-muted-foreground disabled:opacity-50"
+          className="text-xs text-muted-foreground"
         >
           Cancel
         </Button>

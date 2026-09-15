@@ -1,6 +1,7 @@
 "use client"
 
 import { useRef, useState, useTransition } from "react"
+import { Plus } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
@@ -40,7 +41,7 @@ export function NewCategoryForm() {
         placeholder="Category name"
         className="w-48"
       />
-      <Button type="submit" disabled={pending}>
+      <Button type="submit" disabled={pending} icon={<Plus />}>
         {pending ? "Adding…" : "Add Category"}
       </Button>
       {error && <p className="text-sm text-destructive">{error}</p>}

@@ -1,4 +1,5 @@
 import { eq, sql } from "drizzle-orm"
+import { CircleCheck, CircleX } from "lucide-react"
 
 import { schema, withAdmin } from "@bomy/db"
 
@@ -80,8 +81,9 @@ export default async function BrandPlansPage() {
                       type="submit"
                       variant="ghost"
                       size="sm"
+                      icon={row.isActive ? <CircleX /> : <CircleCheck />}
                       className={cn(
-                        "h-auto p-0 text-xs hover:bg-transparent",
+                        "text-xs hover:bg-transparent",
                         row.isActive
                           ? "text-destructive hover:text-destructive"
                           : "text-primary hover:text-primary",

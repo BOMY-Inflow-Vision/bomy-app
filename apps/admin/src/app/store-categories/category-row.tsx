@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useTransition } from "react"
+import { CircleCheck, CircleX, Pencil, Save, Trash2, X } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { cn } from "@/lib/utils"
@@ -121,10 +122,17 @@ export function StoreCategoryRow({ cat }: { cat: StoreCategory }) {
         <td className="px-4 py-3">{statusBadge}</td>
         <td className="px-4 py-3 text-right">
           <div className="flex items-center justify-end gap-2">
-            <Button size="sm" onClick={handleSave} disabled={isPending}>
+            <Button size="sm" icon={<Save />} onClick={handleSave} disabled={isPending}>
               Save
             </Button>
-            <Button size="sm" variant="outline" onClick={handleCancel} disabled={isPending}>
+            <Button
+              size="sm"
+              variant="outline"
+              icon={<X />}
+              arrowOnHover={false}
+              onClick={handleCancel}
+              disabled={isPending}
+            >
               Cancel
             </Button>
           </div>
@@ -149,7 +157,8 @@ export function StoreCategoryRow({ cat }: { cat: StoreCategory }) {
           <Button
             variant="link"
             size="sm"
-            className="h-auto p-0 text-xs"
+            icon={<Pencil />}
+            className="text-xs"
             onClick={() => {
               setError(null)
               setEditing(true)
@@ -161,7 +170,8 @@ export function StoreCategoryRow({ cat }: { cat: StoreCategory }) {
           <Button
             variant="ghost"
             size="sm"
-            className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
+            icon={cat.isActive ? <CircleX /> : <CircleCheck />}
+            className="text-xs text-muted-foreground hover:text-foreground"
             onClick={handleToggle}
             disabled={isPending}
           >
@@ -170,7 +180,8 @@ export function StoreCategoryRow({ cat }: { cat: StoreCategory }) {
           <Button
             variant="ghost"
             size="sm"
-            className="h-auto p-0 text-xs text-destructive hover:text-destructive"
+            icon={<Trash2 />}
+            className="text-xs text-destructive hover:text-destructive"
             onClick={handleDelete}
             disabled={isPending}
           >

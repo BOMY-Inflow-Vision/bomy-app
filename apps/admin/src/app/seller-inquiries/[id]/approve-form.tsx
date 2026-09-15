@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useTransition } from "react"
+import { CircleCheck, CircleX } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
@@ -69,6 +70,7 @@ export function ApproveForm({
       <div className="flex gap-2">
         <Button
           type="button"
+          icon={<CircleCheck />}
           disabled={!canApprove}
           onClick={() =>
             startTransition(async () => {
@@ -88,6 +90,7 @@ export function ApproveForm({
         <Button
           type="button"
           variant="outline"
+          icon={<CircleX />}
           disabled={pending}
           onClick={() =>
             startTransition(async () => {

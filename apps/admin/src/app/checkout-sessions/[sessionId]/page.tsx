@@ -1,11 +1,13 @@
 import { eq } from "drizzle-orm"
 import { notFound } from "next/navigation"
+import { ArrowLeft } from "lucide-react"
 
 import { schema, withAdmin } from "@bomy/db"
 
 import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 
 import { ResolveForm } from "./_resolve-form"
@@ -56,9 +58,9 @@ export default async function CheckoutSessionReviewPage({ params }: Props) {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
-      <a href="/orders" className="mb-6 block text-sm text-primary hover:underline">
-        ← Back to orders
-      </a>
+      <Button asChild variant="link" icon={<ArrowLeft />} arrowOnHover={false} className="mb-6">
+        <a href="/orders">Back to orders</a>
+      </Button>
 
       <h1 className="mb-2 text-2xl font-bold text-foreground">Payment Review</h1>
       <p className="mb-6 font-mono text-sm text-muted-foreground">{session.id}</p>

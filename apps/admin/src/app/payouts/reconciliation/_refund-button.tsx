@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useTransition } from "react"
+import { Undo2 } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
@@ -18,6 +19,7 @@ export function RefundButton({ id }: { id: string }) {
         type="button"
         variant="destructive"
         size="sm"
+        icon={<Undo2 />}
         disabled={pending}
         onClick={() =>
           start(async () => {

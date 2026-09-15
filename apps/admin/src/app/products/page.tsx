@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { and, asc, eq, ilike, or, type SQL } from "drizzle-orm"
+import { Search } from "lucide-react"
 
 import { schema, withAdmin } from "@bomy/db"
 
@@ -62,7 +63,7 @@ export default async function ProductsPage({
             placeholder="Search by product or store…"
             className="h-8 w-64 text-sm"
           />
-          <Button type="submit" variant="outline" size="sm">
+          <Button type="submit" variant="outline" size="sm" icon={<Search />}>
             Search
           </Button>
         </form>

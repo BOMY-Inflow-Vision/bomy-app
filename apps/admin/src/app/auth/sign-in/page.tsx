@@ -1,3 +1,5 @@
+import { LogIn } from "lucide-react"
+
 import { signIn } from "@/auth"
 import { Button } from "@/components/ui/button"
 import { ToastOnMount } from "@/components/toast-on-mount"
@@ -35,7 +37,7 @@ export default async function SignInPage({
             await signIn("google", { redirectTo: "/stores" })
           }}
         >
-          <Button type="submit" variant="outline" className="w-full">
+          <Button type="submit" variant="outline" icon={<LogIn />} className="w-full">
             Continue with Google
           </Button>
         </form>

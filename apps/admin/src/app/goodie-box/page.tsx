@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { and, desc, eq, sql } from "drizzle-orm"
+import { PackageCheck } from "lucide-react"
 
 import { schema, withAdmin } from "@bomy/db"
 
@@ -168,7 +169,13 @@ export default async function GoodieBoxPage({
                         required
                         className="w-32 text-xs"
                       />
-                      <Button type="submit" variant="link" size="sm" className="text-xs">
+                      <Button
+                        type="submit"
+                        variant="link"
+                        size="sm"
+                        icon={<PackageCheck />}
+                        className="text-xs"
+                      >
                         Mark Dispatched
                       </Button>
                     </form>

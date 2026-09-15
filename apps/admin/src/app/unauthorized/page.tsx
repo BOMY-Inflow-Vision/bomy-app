@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { LogIn } from "lucide-react"
 
 import { ToastOnMount } from "@/components/toast-on-mount"
 import { Button } from "@/components/ui/button"
@@ -12,7 +13,7 @@ export default function UnauthorizedPage() {
         <p className="mt-2 text-sm text-muted-foreground">
           Your account does not have admin access to BOMY.
         </p>
-        <Button asChild variant="link" className="mt-4">
+        <Button asChild variant="link" icon={<LogIn />} className="mt-4">
           <Link href="/auth/sign-in">Sign in with a different account</Link>
         </Button>
       </div>

@@ -1,6 +1,7 @@
 "use client"
 
 import { useActionState, useEffect } from "react"
+import { Save } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
@@ -89,7 +90,7 @@ export function ProductSeoForm({
               placeholder="https://…"
             />
           </div>
-          <Button type="submit" disabled={pending}>
+          <Button type="submit" disabled={pending} icon={<Save />}>
             {pending ? "Saving…" : "Save"}
           </Button>
         </form>

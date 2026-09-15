@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { and, asc, desc, eq, ilike, or, type SQL } from "drizzle-orm"
+import { Ban, CircleCheck, Plus, Search } from "lucide-react"
 
 import { schema, withAdmin } from "@bomy/db"
 
@@ -133,12 +134,12 @@ export default async function StoresPage({
               placeholder="Search…"
               className="h-8 w-40 text-sm"
             />
-            <Button type="submit" variant="outline" size="sm">
+            <Button type="submit" variant="outline" size="sm" icon={<Search />}>
               Search
             </Button>
           </form>
-          <Button asChild>
-            <Link href="/stores/new">+ Create Store</Link>
+          <Button asChild icon={<Plus />}>
+            <Link href="/stores/new">Create Store</Link>
           </Button>
         </div>
       </div>
@@ -191,14 +192,20 @@ export default async function StoresPage({
                 <td className="px-4 py-3">
                   {row.status === "pending" && (
                     <form action={approveStore.bind(null, row.id)}>
-                      <Button variant="link" type="submit" className="h-auto p-0">
+                      <Button variant="link" size="sm" type="submit" icon={<CircleCheck />}>
                         Approve
                       </Button>
                     </form>
                   )}
                   {row.status === "active" && (
                     <form action={suspendStore.bind(null, row.id)}>
-                      <Button variant="link" type="submit" className="h-auto p-0 text-destructive">
+                      <Button
+                        variant="link"
+                        size="sm"
+                        type="submit"
+                        icon={<Ban />}
+                        className="text-destructive"
+                      >
                         Suspend
                       </Button>
                     </form>

@@ -1,4 +1,5 @@
 import { and, desc, eq } from "drizzle-orm"
+import { ArrowRight } from "lucide-react"
 
 import { schema, withAdmin } from "@bomy/db"
 
@@ -7,6 +8,7 @@ import { getDb } from "@/lib/db"
 import { senToMyr } from "@/lib/money"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 
 import { PayoutActions } from "./_payout-actions"
@@ -60,9 +62,9 @@ export default async function PayoutsPage({ searchParams }: Props) {
     <div className="mx-auto max-w-7xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">Payouts</h1>
-        <a href="/payouts/reconciliation" className="text-sm text-primary hover:underline">
-          Reconciliation →
-        </a>
+        <Button asChild variant="link" icon={<ArrowRight />}>
+          <a href="/payouts/reconciliation">Reconciliation</a>
+        </Button>
       </div>
 
       <div className="mb-6 flex gap-2">

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useTransition } from "react"
+import { CircleX } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
@@ -17,6 +18,7 @@ export function RejectButton({ inquiryId }: { inquiryId: string }) {
         type="button"
         variant="link"
         size="sm"
+        icon={<CircleX />}
         disabled={pending}
         onClick={() =>
           startTransition(async () => {
@@ -30,7 +32,7 @@ export function RejectButton({ inquiryId }: { inquiryId: string }) {
             toast.success("Inquiry rejected.")
           })
         }
-        className="h-auto p-0 text-sm text-amber-600 disabled:opacity-50"
+        className="text-sm text-amber-600"
       >
         {pending ? "Rejecting…" : "Reject"}
       </Button>

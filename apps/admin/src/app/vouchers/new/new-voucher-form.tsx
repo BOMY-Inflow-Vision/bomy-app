@@ -1,6 +1,7 @@
 "use client"
 
 import { type FormEvent, useActionState, useEffect, useTransition } from "react"
+import { Plus, X } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
@@ -98,8 +99,10 @@ export function NewVoucherForm({ currentMonth, defaultExpiry }: Props) {
         <Input id="expiresAt" name="expiresAt" type="date" required defaultValue={defaultExpiry} />
       </div>
       <div className="flex gap-3 pt-2">
-        <Button type="submit">Create Voucher</Button>
-        <Button variant="outline" asChild>
+        <Button type="submit" icon={<Plus />}>
+          Create Voucher
+        </Button>
+        <Button variant="outline" asChild icon={<X />} arrowOnHover={false}>
           <a href="/vouchers">Cancel</a>
         </Button>
       </div>

@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { desc, eq, sql } from "drizzle-orm"
+import { Save, X } from "lucide-react"
 
 import { schema, withAdmin } from "@bomy/db"
 
@@ -98,7 +99,9 @@ export default async function MembershipsPage({
                 className="w-64"
               />
             </div>
-            <Button type="submit">Save</Button>
+            <Button type="submit" icon={<Save />}>
+              Save
+            </Button>
           </form>
         </Card>
       </section>
@@ -171,7 +174,9 @@ export default async function MembershipsPage({
                           type="submit"
                           variant="ghost"
                           size="sm"
-                          className="h-auto p-0 text-xs text-destructive hover:text-destructive"
+                          icon={<X />}
+                          arrowOnHover={false}
+                          className="text-xs text-destructive hover:text-destructive"
                         >
                           Cancel
                         </Button>

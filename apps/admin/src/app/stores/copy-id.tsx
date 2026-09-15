@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { Check, Copy } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
@@ -14,6 +15,8 @@ export function CopyId({ id }: { id: string }) {
       type="button"
       variant="ghost"
       size="sm"
+      icon={copied ? <Check /> : <Copy />}
+      arrowOnHover={!copied}
       title={id}
       onClick={() => {
         void navigator.clipboard.writeText(id).then(
@@ -27,10 +30,12 @@ export function CopyId({ id }: { id: string }) {
           },
         )
       }}
-      className="mt-1 inline-flex h-auto items-center gap-1 p-0 font-mono text-[10px] text-muted-foreground hover:text-foreground"
+      className="mt-1 font-mono text-[10px] text-muted-foreground hover:text-foreground"
     >
-      <span>{id.slice(0, 8)}…</span>
-      <span className="font-sans text-primary">{copied ? "Copied!" : "Copy ID"}</span>
+      <span className="inline-flex items-center gap-1">
+        <span>{id.slice(0, 8)}…</span>
+        <span className="font-sans text-primary">{copied ? "Copied!" : "Copy ID"}</span>
+      </span>
     </Button>
   )
 }

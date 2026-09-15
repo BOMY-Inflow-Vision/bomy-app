@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { desc, eq, sql } from "drizzle-orm"
+import { Plus, Save, Send } from "lucide-react"
 
 import { schema, withAdmin } from "@bomy/db"
 
@@ -157,13 +158,14 @@ export default async function VouchersPage() {
           {/* Buttons are siblings — never nest forms. Save Config references
               voucher-config-form via the form= attribute (HTML5 association). */}
           <div className="flex items-center gap-3 pt-4">
-            <Button type="submit" form="voucher-config-form" size="sm">
+            <Button type="submit" form="voucher-config-form" size="sm" icon={<Save />}>
               Save Config
             </Button>
             <form action={triggerVoucherIssuance}>
               <Button
                 type="submit"
                 size="sm"
+                icon={<Send />}
                 className="bg-amber-600 text-white hover:bg-amber-700"
               >
                 Issue Now
@@ -216,8 +218,8 @@ export default async function VouchersPage() {
       <div>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-semibold text-foreground">Compensation Vouchers</h2>
-          <Button asChild size="sm">
-            <Link href="/vouchers/new">+ Create Voucher</Link>
+          <Button asChild size="sm" icon={<Plus />}>
+            <Link href="/vouchers/new">Create Voucher</Link>
           </Button>
         </div>
         <Card>

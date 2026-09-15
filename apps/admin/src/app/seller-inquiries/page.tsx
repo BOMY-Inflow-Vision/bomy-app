@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { and, asc, desc, eq, ilike, or, type SQL } from "drizzle-orm"
+import { Eye, Search, Trash2 } from "lucide-react"
 
 import { INQUIRY_STATUSES, schema, withAdmin, type InquiryStatus } from "@bomy/db"
 
@@ -119,7 +120,7 @@ export default async function SellerInquiriesPage({
               placeholder="Search…"
               className="h-8 w-40 text-sm"
             />
-            <Button type="submit" variant="outline" size="sm">
+            <Button type="submit" variant="outline" size="sm" icon={<Search />}>
               Search
             </Button>
           </form>
@@ -177,28 +178,29 @@ export default async function SellerInquiriesPage({
                 <div className="flex flex-col items-end gap-2">
                   {row.status === "pending" ? (
                     <>
-                      <Link
-                        href={`/seller-inquiries/${row.id}`}
-                        className="text-sm text-primary hover:underline"
-                      >
-                        Review →
-                      </Link>
+                      <Button asChild variant="link" size="sm" icon={<Eye />} className="text-sm">
+                        <Link href={`/seller-inquiries/${row.id}`}>Review</Link>
+                      </Button>
                       <RejectButton inquiryId={row.id} />
                     </>
                   ) : (
-                    <Link
-                      href={`/seller-inquiries/${row.id}`}
-                      className="text-sm text-muted-foreground hover:underline"
+                    <Button
+                      asChild
+                      variant="link"
+                      size="sm"
+                      icon={<Eye />}
+                      className="text-sm text-muted-foreground"
                     >
-                      View →
-                    </Link>
+                      <Link href={`/seller-inquiries/${row.id}`}>View</Link>
+                    </Button>
                   )}
                   <form action={deleteInquiry.bind(null, row.id)}>
                     <Button
                       type="submit"
                       variant="link"
                       size="sm"
-                      className="h-auto p-0 text-sm text-destructive"
+                      icon={<Trash2 />}
+                      className="text-sm text-destructive"
                     >
                       Delete
                     </Button>

@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { LogOut } from "lucide-react"
 
 import { signOutAction } from "@/app/auth/actions"
 import { Button } from "@/components/ui/button"
@@ -59,7 +60,9 @@ export function Sidebar({ email }: { email: string }) {
             type="submit"
             variant="ghost"
             size="sm"
-            className="mt-2 h-7 w-full justify-start px-0 text-slate-300 hover:bg-transparent hover:text-slate-100"
+            icon={<LogOut />}
+            arrowOnHover={false}
+            className="mt-2 w-full justify-start text-slate-300 hover:bg-transparent hover:text-slate-100"
           >
             Sign out
           </Button>

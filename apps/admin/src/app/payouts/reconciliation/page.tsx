@@ -1,4 +1,5 @@
 import { asc, eq, inArray } from "drizzle-orm"
+import { ArrowLeft, Eye } from "lucide-react"
 
 import { schema, withAdmin } from "@bomy/db"
 
@@ -6,6 +7,7 @@ import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { senToMyr } from "@/lib/money"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 
 import { fetchNegativeCommissionOrders } from "../../orders/_queries"
@@ -45,9 +47,9 @@ export default async function ReconciliationPage() {
     <div className="mx-auto max-w-5xl space-y-10 px-4 py-8">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">Reconciliation</h1>
-        <a href="/payouts" className="text-sm text-primary hover:underline">
-          ← Back to payouts
-        </a>
+        <Button asChild variant="link" icon={<ArrowLeft />} arrowOnHover={false}>
+          <a href="/payouts">Back to payouts</a>
+        </Button>
       </div>
 
       <section>
@@ -125,12 +127,15 @@ export default async function ReconciliationPage() {
                     {s.createdAt.toLocaleDateString("en-MY")}
                   </p>
                 </div>
-                <a
-                  href={`/checkout-sessions/${s.id}`}
-                  className="text-sm font-medium text-primary hover:underline"
+                <Button
+                  asChild
+                  variant="link"
+                  size="sm"
+                  icon={<Eye />}
+                  className="text-sm font-medium"
                 >
-                  Review →
-                </a>
+                  <a href={`/checkout-sessions/${s.id}`}>Review</a>
+                </Button>
               </li>
             ))}
           </ul>

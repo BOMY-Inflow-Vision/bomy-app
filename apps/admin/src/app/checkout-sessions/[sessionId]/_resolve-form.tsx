@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { CircleCheck } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
@@ -50,7 +51,7 @@ export function ResolveForm({ sessionId }: { sessionId: string }) {
         />
       </div>
       {error && <p className="text-sm text-destructive">{error}</p>}
-      <Button type="submit" disabled={pending || !note.trim()}>
+      <Button type="submit" disabled={pending || !note.trim()} icon={<CircleCheck />}>
         {pending ? "Resolving…" : "Mark resolved"}
       </Button>
     </form>

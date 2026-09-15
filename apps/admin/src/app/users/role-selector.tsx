@@ -1,6 +1,7 @@
 "use client"
 
 import { useTransition } from "react"
+import { Save } from "lucide-react"
 
 import { USER_ROLES, type UserRole } from "@bomy/db/types"
 
@@ -47,7 +48,8 @@ export function RoleSelector({ userId, currentRole }: { userId: string; currentR
         type="submit"
         variant="link"
         size="sm"
-        className="h-auto p-0 text-xs"
+        icon={<Save />}
+        className="text-xs"
         disabled={pending}
       >
         {pending ? "Saving…" : "Save"}

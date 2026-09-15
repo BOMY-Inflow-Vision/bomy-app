@@ -2,12 +2,14 @@ import Link from "next/link"
 import { eq } from "drizzle-orm"
 import { alias } from "drizzle-orm/pg-core"
 import { notFound } from "next/navigation"
+import { ArrowLeft } from "lucide-react"
 
 import { schema, withAdmin, type InquiryStatus } from "@bomy/db"
 
 import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { ApproveForm } from "./approve-form"
 
 const STATUS_COLORS: Record<InquiryStatus, string> = {
@@ -59,9 +61,9 @@ export default async function SellerInquiryDetailPage({ params }: Props) {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
-      <Link href="/seller-inquiries" className="mb-6 block text-sm text-primary hover:underline">
-        ← Back to inquiries
-      </Link>
+      <Button asChild variant="link" icon={<ArrowLeft />} arrowOnHover={false} className="mb-6">
+        <Link href="/seller-inquiries">Back to inquiries</Link>
+      </Button>
 
       <div className="mb-4 flex items-center gap-3">
         <h1 className="text-2xl font-bold text-foreground">{row.name}</h1>
