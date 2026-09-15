@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react"
 
+import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -37,6 +38,7 @@ const EMPTY = {
 }
 
 export function AddressManager({ initial }: { initial: Row[] }) {
+  const toast = useToast()
   const [adding, setAdding] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState(EMPTY)
@@ -101,7 +103,16 @@ export function AddressManager({ initial }: { initial: Row[] }) {
                         variant="link"
                         size="sm"
                         disabled={pending}
-                        onClick={() => startTransition(async () => void (await setDefault(a.id)))}
+                        onClick={() =>
+                          startTransition(async () => {
+                            const res = await setDefault(a.id)
+                            if (res.ok) {
+                              toast.success("Default address updated")
+                            } else {
+                              toast.error(res.errors.form ?? "Couldn't set default address")
+                            }
+                          })
+                        }
                         className="h-auto p-0 text-xs"
                       >
                         Set default
@@ -122,7 +133,16 @@ export function AddressManager({ initial }: { initial: Row[] }) {
                       variant="link"
                       size="sm"
                       disabled={pending}
-                      onClick={() => startTransition(async () => void (await deleteAddress(a.id)))}
+                      onClick={() =>
+                        startTransition(async () => {
+                          const res = await deleteAddress(a.id)
+                          if (res.ok) {
+                            toast.success("Address deleted")
+                          } else {
+                            toast.error(res.errors.form ?? "Couldn't delete address")
+                          }
+                        })
+                      }
                       className="h-auto p-0 text-xs text-destructive hover:text-destructive"
                     >
                       Delete
@@ -170,9 +190,13 @@ export function AddressManager({ initial }: { initial: Row[] }) {
                 ? await updateAddress(editingId, input)
                 : await addAddress(input)
               if (res.ok) {
+                toast.success(editingId ? "Address updated" : "Address added")
                 resetForm()
               } else {
                 setErrors(res.errors)
+                toast.error(
+                  res.errors.form ?? "Couldn't save address — check the highlighted fields",
+                )
               }
             })
           }}

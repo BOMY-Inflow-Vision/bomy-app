@@ -1,11 +1,12 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 
 import type { CheckoutSessionStatus } from "@bomy/db"
 
+import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
 import { useCart } from "@/lib/cart"
 
@@ -24,6 +25,7 @@ type PollerState =
 export function SuccessPoller() {
   const router = useRouter()
   const { clearCart } = useCart()
+  const toast = useToast()
   const searchParams = useSearchParams()
   const rawId = searchParams.get("session") ?? ""
   const sessionId = UUID_RE.test(rawId) ? rawId : null
@@ -31,6 +33,19 @@ export function SuccessPoller() {
   const [state, setState] = useState<PollerState>(
     sessionId ? { phase: "polling" } : { phase: "not_found" },
   )
+  const toastedRef = useRef(false)
+
+  // Exactly one toast per terminal status, guarded against StrictMode/effect
+  // re-runs — the full-page copy above is the primary channel; this just
+  // echoes the outcome for consistency with the rest of the site.
+  useEffect(() => {
+    if (state.phase !== "done") return
+    if (toastedRef.current) return
+    toastedRef.current = true
+    if (state.status === "paid") toast.success("Payment confirmed")
+    else if (state.status === "failed") toast.error("Payment failed — please try again")
+    else if (state.status === "expired") toast.warning("Your checkout session expired")
+  }, [state, toast])
 
   useEffect(() => {
     if (!sessionId) return

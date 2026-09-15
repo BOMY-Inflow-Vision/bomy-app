@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 
+import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
 
 import { cancelPendingCheckout } from "../actions"
@@ -16,6 +17,7 @@ type CancelState =
 
 export function CancelHandler() {
   const router = useRouter()
+  const toast = useToast()
   const searchParams = useSearchParams()
   const rawId = searchParams.get("session") ?? ""
 
@@ -37,8 +39,12 @@ export function CancelHandler() {
           return
         }
         setState({ phase: "cancelled" })
+        toast.info("Checkout cancelled — your cart is still saved")
       } catch {
-        if (!unmounted) setState({ phase: "error" })
+        if (!unmounted) {
+          setState({ phase: "error" })
+          toast.error("We couldn't cancel your checkout. Please try again or contact support.")
+        }
       }
     }
 
@@ -46,7 +52,7 @@ export function CancelHandler() {
     return () => {
       unmounted = true
     }
-  }, [rawId, router])
+  }, [rawId, router, toast])
 
   if (state.phase === "cancelling" || state.phase === "redirecting") {
     return (

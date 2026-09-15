@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react"
 
+import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -87,6 +88,7 @@ const INVALID_LINE_COPY: Record<string, string> = {
 }
 
 export function CheckoutForm({ savedAddresses = [] }: { savedAddresses?: SavedAddress[] }) {
+  const toast = useToast()
   const { items, clearCart, hydrated } = useCart()
   const [preview, setPreview] = useState<PreviewResult | null>(null)
   const [voucherId, setVoucherId] = useState<string | null>(null)
@@ -146,7 +148,10 @@ export function CheckoutForm({ savedAddresses = [] }: { savedAddresses?: SavedAd
       if (selectedId === "new" && saveToBook) {
         const saved = await addAddress({ label: null, ...v.value })
         if (!saved.ok) {
-          setTopError(saved.errors.form ?? "Couldn't save the address. Uncheck save to continue.")
+          const message =
+            saved.errors.form ?? "Couldn't save the address. Uncheck save to continue."
+          setTopError(message)
+          toast.error(message)
           return
         }
       }
@@ -162,8 +167,10 @@ export function CheckoutForm({ savedAddresses = [] }: { savedAddresses?: SavedAd
       }
       if (r.error === "INVALID_ADDRESS" && r.details?.["fieldErrors"]) {
         setFieldErrors(r.details["fieldErrors"] as ShippingAddressErrors)
+        toast.error("Please check the highlighted address fields.")
       } else {
         setTopError(CHECKOUT_USER_COPY[r.error])
+        toast.error(CHECKOUT_USER_COPY[r.error])
       }
     })
   }
