@@ -3,11 +3,18 @@
 import Link from "next/link"
 
 import { Button } from "@/components/ui/button"
+import { useToast } from "@/components/toaster"
 import { formatMyrSen } from "@/lib/format"
-import { useCart } from "@/lib/cart"
+import { useCart, type CartItem } from "@/lib/cart"
 
 export default function CartPage() {
   const { items, itemCount, removeItem, updateQuantity, hydrated } = useCart()
+  const toast = useToast()
+
+  function remove(item: CartItem) {
+    removeItem(item.variantId)
+    toast.info(`${item.productName} removed from cart`)
+  }
 
   if (!hydrated) {
     return (
@@ -80,7 +87,11 @@ export default function CartPage() {
                     variant="outline"
                     size="icon"
                     className="h-7 w-7"
-                    onClick={() => updateQuantity(item.variantId, item.quantity - 1)}
+                    onClick={() =>
+                      item.quantity > 1
+                        ? updateQuantity(item.variantId, item.quantity - 1)
+                        : remove(item)
+                    }
                   >
                     −
                   </Button>
@@ -99,7 +110,7 @@ export default function CartPage() {
                     variant="ghost"
                     size="sm"
                     className="ml-2 text-xs text-destructive hover:text-destructive"
-                    onClick={() => removeItem(item.variantId)}
+                    onClick={() => remove(item)}
                   >
                     Remove
                   </Button>

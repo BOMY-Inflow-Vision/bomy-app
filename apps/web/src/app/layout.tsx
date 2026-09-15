@@ -7,6 +7,7 @@ import { Footer } from "@/components/footer"
 import { SessionProvider } from "@/components/session-provider"
 import { CartProvider } from "@/lib/cart"
 import { NavBar } from "@/components/nav-bar"
+import { ToastProvider } from "@/components/toaster"
 
 import "./globals.css"
 
@@ -33,11 +34,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${plusJakartaSans.variable} ${ibmPlexMono.variable}`}>
       <body className={plusJakartaSans.className}>
         <SessionProvider>
-          <CartProvider>
-            <NavBar />
-            {children}
-            <Footer />
-          </CartProvider>
+          <ToastProvider>
+            <CartProvider>
+              <NavBar />
+              {children}
+              <Footer />
+            </CartProvider>
+          </ToastProvider>
         </SessionProvider>
       </body>
     </html>
