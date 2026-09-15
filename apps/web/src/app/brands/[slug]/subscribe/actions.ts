@@ -8,6 +8,7 @@ import { makeDb, schema, withAdmin, withPublicRead, withTenant, type UserRole } 
 import { HitPayClient, type PaymentRequestResponse } from "@bomy/hitpay"
 
 import { auth } from "@/auth"
+import { flashToast } from "@/lib/flash-toast-server"
 import { isPendingAbandoned } from "@/lib/membership"
 import { paymentsEnabled } from "@/lib/payments-enabled"
 
@@ -353,7 +354,13 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
         // Leave row in place.
       }
     }
-    throw err
+    // Compensation above has run; surface a retryable error instead of crashing the page.
+    console.error("[subscribeToBrand] checkout could not start", err)
+    await flashToast(
+      "error",
+      "We couldn't start your brand subscription checkout. Please try again in a moment.",
+    )
+    redirect(`/brands/${store.slug}/subscribe`)
   }
 
   redirect(paymentRequest.url)
@@ -404,6 +411,7 @@ export async function abandonPendingBrandSubscription(slug: string) {
     },
   )
 
+  await flashToast("info", "Checkout cancelled — you can subscribe again anytime.")
   redirect(`/brands/${slug}/subscribe`)
 }
 

@@ -17,6 +17,8 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/auth", () => ({ auth: vi.fn() }))
 
+vi.mock("@/lib/flash-toast-server", () => ({ flashToast: vi.fn() }))
+
 vi.mock("@bomy/hitpay", async (importActual) => {
   const actual = await importActual<typeof HitPayModule>()
   return { ...actual, HitPayClient: vi.fn() }
@@ -33,7 +35,8 @@ import { auth } from "@/auth"
 import { HitPayClient } from "@bomy/hitpay"
 import type * as HitPayModule from "@bomy/hitpay"
 import * as dbModule from "@bomy/db"
-import { joinMembership } from "../../src/app/(marketing)/membership/actions"
+import { flashToast } from "@/lib/flash-toast-server"
+import { cancelMembership, joinMembership } from "../../src/app/(marketing)/membership/actions"
 
 const USER_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
 
@@ -79,7 +82,12 @@ describe("joinMembership — DB correlation failure compensation", () => {
       if (callCount === 4) return undefined
     })
 
-    await expect(joinMembership()).rejects.toThrow("DB write failed — simulated")
+    // Compensation runs, then the user is sent back to /membership with an error toast.
+    await expect(joinMembership()).rejects.toThrow(/^REDIRECT:\/membership$/)
+    expect(flashToast).toHaveBeenCalledWith(
+      "error",
+      expect.stringContaining("couldn't start your membership"),
+    )
 
     // Live billing must be cancelled.
     expect(cancelRecurringBilling).toHaveBeenCalledWith("rec-abc")
@@ -114,7 +122,11 @@ describe("joinMembership — DB correlation failure compensation", () => {
       if (callCount === 4) return undefined // reconciliation write succeeds
     })
 
-    await expect(joinMembership()).rejects.toThrow("DB write failed — simulated")
+    await expect(joinMembership()).rejects.toThrow(/^REDIRECT:\/membership$/)
+    expect(flashToast).toHaveBeenCalledWith(
+      "error",
+      expect.stringContaining("couldn't start your membership"),
+    )
 
     expect(cancelRecurringBilling).toHaveBeenCalledWith("rec-xyz")
     // 4 calls: price + insert + fail + reconciliation write; NO delete call.
@@ -230,5 +242,63 @@ describe("joinMembership — payments disabled guard (PR #39)", () => {
     expect(dbModule.withAdmin).not.toHaveBeenCalled()
     expect(dbModule.withTenant).not.toHaveBeenCalled()
     expect(HitPayClient).not.toHaveBeenCalled()
+  })
+})
+
+describe("cancelMembership — HitPay cancel handling", () => {
+  const PERIOD_END = new Date("2027-03-14T00:00:00Z")
+  const ACTIVE_SUB = {
+    id: "cccccccc-cccc-cccc-cccc-cccccccccccc",
+    userId: USER_ID,
+    status: "active" as const,
+    hitpayRecurringId: "rec-live",
+    periodEnd: PERIOD_END,
+  }
+
+  beforeEach(() => {
+    process.env["HITPAY_API_KEY"] = "test-key"
+    process.env["HITPAY_API_URL"] = "https://api.sandbox.hit-pay.com"
+    ;(auth as unknown as Mock).mockResolvedValue({
+      user: { id: USER_ID, role: "buyer", email: "t@test.bomy" },
+    })
+    ;(dbModule.withTenant as unknown as Mock).mockResolvedValue(ACTIVE_SUB)
+  })
+
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it("HitPay cancel fails → records nothing, shows an error toast, returns to manage", async () => {
+    const cancelRecurringBilling = vi.fn().mockRejectedValue(new Error("HitPay 503"))
+    ;(HitPayClient as unknown as Mock).mockImplementation(() => ({ cancelRecurringBilling }))
+
+    await expect(cancelMembership()).rejects.toThrow(/^REDIRECT:\/membership\/manage$/)
+
+    expect(cancelRecurringBilling).toHaveBeenCalledWith("rec-live")
+    // Renewal is still live at HitPay, so the cancelledAt write must not run.
+    expect(dbModule.withAdmin).not.toHaveBeenCalled()
+    expect(flashToast).toHaveBeenCalledWith(
+      "error",
+      expect.stringContaining("couldn't cancel your membership"),
+    )
+  })
+
+  it("HitPay cancel succeeds → records the cancellation and toasts the active-until date", async () => {
+    const cancelRecurringBilling = vi.fn().mockResolvedValue(undefined)
+    ;(HitPayClient as unknown as Mock).mockImplementation(() => ({ cancelRecurringBilling }))
+    ;(dbModule.withAdmin as unknown as Mock).mockResolvedValue(undefined)
+
+    await expect(cancelMembership()).rejects.toThrow(/^REDIRECT:\/membership\/manage$/)
+
+    expect(dbModule.withAdmin).toHaveBeenCalledOnce()
+    const activeUntil = PERIOD_END.toLocaleDateString("en-MY", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    })
+    expect(flashToast).toHaveBeenCalledWith(
+      "success",
+      `Membership cancelled — it stays active until ${activeUntil}.`,
+    )
   })
 })

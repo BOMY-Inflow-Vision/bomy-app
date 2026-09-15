@@ -25,6 +25,8 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/auth", () => ({ auth: vi.fn() }))
 
+vi.mock("@/lib/flash-toast-server", () => ({ flashToast: vi.fn() }))
+
 vi.mock("@bomy/hitpay", () => ({ HitPayClient: vi.fn() }))
 
 import { auth } from "@/auth"
@@ -298,7 +300,9 @@ describe.skipIf(!shouldRun)("subscribeToBrand", () => {
     const createPaymentRequest = vi.fn().mockRejectedValue(new Error("HitPay unavailable"))
     MockHitPayClient.mockImplementation(() => ({ createPaymentRequest }))
 
-    await expect(subscribeToBrand(planId)).rejects.toThrow("HitPay unavailable")
+    // Pending row is cleaned up, then the user is sent back to the subscribe page (with an error toast).
+    const url = await expectRedirect(() => subscribeToBrand(planId))
+    expect(url).toMatch(/^\/brands\/[^/]+\/subscribe$/)
 
     const rows = await withAdmin(testDb.db, { userId, reason: "test assert" }, async (tx) =>
       tx
