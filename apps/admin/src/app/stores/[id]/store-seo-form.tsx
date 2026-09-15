@@ -1,7 +1,8 @@
 "use client"
 
-import { useActionState } from "react"
+import { useActionState, useEffect } from "react"
 
+import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -27,6 +28,13 @@ export function StoreSeoForm({
     (_prev: State, formData: FormData) => updateStoreSeo(storeId, formData),
     null,
   )
+  const toast = useToast()
+
+  useEffect(() => {
+    if (!state) return
+    if (state.ok) toast.success("SEO settings saved.")
+    else toast.error(state.error)
+  }, [state, toast])
 
   return (
     <Card>

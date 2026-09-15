@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react"
 
+import { useToast } from "@/components/toaster"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -23,16 +24,19 @@ export function CategoryRow({ cat }: { cat: Category }) {
   const [sortOrder, setSortOrder] = useState(cat.sortOrder)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const toast = useToast()
 
   function handleSave() {
     startTransition(async () => {
       const result = await updateCategory(cat.id, name, sortOrder)
       if (!result.ok) {
         setError(result.error)
+        toast.error(result.error)
         return
       }
       setError(null)
       setEditing(false)
+      toast.success("Category updated.")
     })
   }
 
@@ -44,14 +48,27 @@ export function CategoryRow({ cat }: { cat: Category }) {
   }
 
   function handleToggle() {
-    startTransition(() => toggleCategory(cat.id, !cat.isActive))
+    startTransition(async () => {
+      const willBeActive = !cat.isActive
+      const result = await toggleCategory(cat.id, willBeActive)
+      if (!result.ok) {
+        toast.error(result.error)
+        return
+      }
+      toast.success(willBeActive ? "Category activated." : "Category deactivated.")
+    })
   }
 
   function handleDelete() {
     if (!window.confirm(`Delete "${cat.name}"? This cannot be undone.`)) return
     startTransition(async () => {
       const result = await deleteCategory(cat.id)
-      if (!result.ok) setError(result.error)
+      if (!result.ok) {
+        setError(result.error)
+        toast.error(result.error)
+        return
+      }
+      toast.success("Category deleted.")
     })
   }
 

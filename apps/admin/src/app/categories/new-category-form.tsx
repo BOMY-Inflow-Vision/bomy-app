@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react"
 
+import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -11,16 +12,19 @@ export function NewCategoryForm() {
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const ref = useRef<HTMLFormElement>(null)
+  const toast = useToast()
 
   function submit(formData: FormData) {
     startTransition(async () => {
       const res = await createCategory(formData)
       if (!res.ok) {
         setError(res.error)
+        toast.error(res.error)
         return
       }
       setError(null)
       ref.current?.reset()
+      toast.success("Category created.")
     })
   }
 

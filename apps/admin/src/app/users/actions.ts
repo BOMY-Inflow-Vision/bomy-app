@@ -5,28 +5,41 @@ import { revalidatePath } from "next/cache"
 
 import { schema, withAdmin, type UserRole, USER_ROLES } from "@bomy/db"
 
-import { requireAdminId } from "@/lib/auth"
+import { authorizeAdminAction } from "@/lib/admin-action"
 import { getDb } from "@/lib/db"
 import { validateUserProfile } from "./user-profile-schema"
 
-export async function updateUserRole(userId: string, role: UserRole) {
-  if (!USER_ROLES.includes(role)) throw new Error(`Invalid role: ${role}`)
-  const adminId = await requireAdminId({ roles: ["bomy_admin"] })
+export async function updateUserRole(
+  userId: string,
+  role: UserRole,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!USER_ROLES.includes(role)) return { ok: false, error: `Invalid role: ${role}` }
+  const authz = await authorizeAdminAction({ roles: ["bomy_admin"] })
+  if (!authz.ok) return { ok: false, error: authz.error }
 
-  await withAdmin(getDb(), { userId: adminId, reason: "admin update user role" }, async (tx) => {
-    await tx
-      .update(schema.users)
-      .set({ role, updatedAt: new Date() })
-      .where(eq(schema.users.id, userId))
-  })
+  await withAdmin(
+    getDb(),
+    { userId: authz.adminId, reason: "admin update user role" },
+    async (tx) => {
+      await tx
+        .update(schema.users)
+        .set({ role, updatedAt: new Date() })
+        .where(eq(schema.users.id, userId))
+    },
+  )
   revalidatePath("/users")
+  return { ok: true }
 }
 
 export async function updateUserProfile(
   userId: string,
   input: { name: string; email: string },
-): Promise<{ ok: true } | { ok: false; errors: { name?: string; email?: string } }> {
-  const adminId = await requireAdminId({ roles: ["bomy_admin"] })
+): Promise<
+  { ok: true } | { ok: false; errors: { name?: string; email?: string; general?: string } }
+> {
+  const authz = await authorizeAdminAction({ roles: ["bomy_admin"] })
+  if (!authz.ok) return { ok: false, errors: { general: authz.error } }
+  const adminId = authz.adminId
 
   const parsed = validateUserProfile(input)
   if (!parsed.ok) return { ok: false, errors: parsed.errors }

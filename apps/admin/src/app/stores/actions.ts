@@ -3,49 +3,101 @@
 import { randomUUID } from "node:crypto"
 
 import { eq } from "drizzle-orm"
+import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
 
 import { schema, withAdmin } from "@bomy/db"
 import { validateSeoFields } from "@bomy/shared/seo"
 
-import { requireAdminId } from "@/lib/auth"
+import { authorizeAdminAction } from "@/lib/admin-action"
 import { getDb } from "@/lib/db"
+import { flashToast } from "@/lib/flash-toast-server"
 import { validateStoreProvisioning } from "@/lib/brand-story-validation"
 
-export async function approveStore(storeId: string) {
-  const adminId = await requireAdminId()
-  await withAdmin(getDb(), { userId: adminId, reason: "admin approve store" }, async (tx) => {
-    const [store] = await tx
-      .select({ ownerId: schema.stores.ownerId })
-      .from(schema.stores)
-      .where(eq(schema.stores.id, storeId))
-      .limit(1)
-    if (!store) throw new Error("Store not found")
-    await tx
-      .update(schema.stores)
-      .set({ status: "active", updatedAt: new Date() })
-      .where(eq(schema.stores.id, storeId))
-    await tx
-      .update(schema.users)
-      .set({ role: "seller_owner", updatedAt: new Date() })
-      .where(eq(schema.users.id, store.ownerId))
-  })
+// Server-form trigger (no client JS runs after submit) — must not throw for an expected
+// failure; flashes a toast for both outcomes itself instead of returning a result.
+export async function approveStore(storeId: string): Promise<void> {
+  const authz = await authorizeAdminAction()
+  if (!authz.ok) {
+    await flashToast("error", authz.error)
+    return
+  }
+
+  try {
+    await withAdmin(
+      getDb(),
+      { userId: authz.adminId, reason: "admin approve store" },
+      async (tx) => {
+        const [store] = await tx
+          .select({ ownerId: schema.stores.ownerId })
+          .from(schema.stores)
+          .where(eq(schema.stores.id, storeId))
+          .limit(1)
+        if (!store) throw new Error("Store not found")
+        await tx
+          .update(schema.stores)
+          .set({ status: "active", updatedAt: new Date() })
+          .where(eq(schema.stores.id, storeId))
+        await tx
+          .update(schema.users)
+          .set({ role: "seller_owner", updatedAt: new Date() })
+          .where(eq(schema.users.id, store.ownerId))
+      },
+    )
+  } catch (err) {
+    const message =
+      err instanceof Error && err.message === "Store not found"
+        ? "Store not found."
+        : "Could not approve store."
+    await flashToast("error", message)
+    return
+  }
+
   revalidatePath("/stores")
+  await flashToast("success", "Store approved — owner promoted to seller.")
 }
 
-export async function suspendStore(storeId: string) {
-  const adminId = await requireAdminId()
-  await withAdmin(getDb(), { userId: adminId, reason: "admin suspend store" }, async (tx) => {
-    await tx
-      .update(schema.stores)
-      .set({ status: "suspended", updatedAt: new Date() })
-      .where(eq(schema.stores.id, storeId))
-  })
+// Server-form trigger — same shape as approveStore above.
+export async function suspendStore(storeId: string): Promise<void> {
+  const authz = await authorizeAdminAction()
+  if (!authz.ok) {
+    await flashToast("error", authz.error)
+    return
+  }
+
+  try {
+    await withAdmin(
+      getDb(),
+      { userId: authz.adminId, reason: "admin suspend store" },
+      async (tx) => {
+        await tx
+          .update(schema.stores)
+          .set({ status: "suspended", updatedAt: new Date() })
+          .where(eq(schema.stores.id, storeId))
+      },
+    )
+  } catch {
+    await flashToast("error", "Could not suspend store.")
+    return
+  }
+
   revalidatePath("/stores")
+  await flashToast("success", "Store suspended.")
 }
 
-export async function createStore(formData: FormData) {
-  const adminId = await requireAdminId()
+export type CreateStoreResult = { ok: true } | { ok: false; error: string }
+
+// Bound to a client `useActionState` form (stores/new/new-store-form.tsx) rather than a
+// server-form + redirect closure — a thrown error used to discard the whole form (the brand
+// story field alone is 200+ chars), so this returns a typed result and only redirects on
+// success, keeping the client form mounted (and its entered values) on failure.
+export async function createStore(
+  _prevState: CreateStoreResult | null,
+  formData: FormData,
+): Promise<CreateStoreResult> {
+  const authz = await authorizeAdminAction()
+  if (!authz.ok) return { ok: false, error: authz.error }
+
   const ownerEmail = formData.get("ownerEmail") as string
   const name = formData.get("name") as string
   const slug = formData.get("slug") as string
@@ -53,54 +105,75 @@ export async function createStore(formData: FormData) {
   const bodyHtml = formData.get("bodyHtml")
   const videoUrl = formData.get("videoUrl")
 
-  if (!ownerEmail || !name || !slug) throw new Error("Missing required fields")
+  if (!ownerEmail || !name || !slug) return { ok: false, error: "Missing required fields" }
 
   const storeId = randomUUID()
   const validated = await validateStoreProvisioning(bodyHtml, videoUrl, storeId)
-  if (!validated.ok) throw new Error(validated.error)
+  if (!validated.ok) return { ok: false, error: validated.error }
   const { bodyHtml: finalBodyHtml, videoId } = validated
 
-  await withAdmin(getDb(), { userId: adminId, reason: "admin create store" }, async (tx) => {
-    const [owner] = await tx
-      .select({ id: schema.users.id })
-      .from(schema.users)
-      .where(eq(schema.users.email, ownerEmail))
-      .for("update")
-      .limit(1)
-    if (!owner) throw new Error(`No user found with email: ${ownerEmail}`)
+  try {
+    await withAdmin(
+      getDb(),
+      { userId: authz.adminId, reason: "admin create store" },
+      async (tx) => {
+        const [owner] = await tx
+          .select({ id: schema.users.id })
+          .from(schema.users)
+          .where(eq(schema.users.email, ownerEmail))
+          .for("update")
+          .limit(1)
+        if (!owner) throw new Error(`No user found with email: ${ownerEmail}`)
 
-    const existingStore = await tx
-      .select({ id: schema.stores.id })
-      .from(schema.stores)
-      .where(eq(schema.stores.ownerId, owner.id))
-      .limit(1)
-    if (existingStore.length > 0) throw new Error("Owner already has a store")
+        const existingStore = await tx
+          .select({ id: schema.stores.id })
+          .from(schema.stores)
+          .where(eq(schema.stores.ownerId, owner.id))
+          .limit(1)
+        if (existingStore.length > 0) throw new Error("Owner already has a store")
 
-    // id/bodyHtml/videoId supplied together in one INSERT — never insert first and update
-    // after (same partial-commit hazard as approveInquiry).
-    await tx.insert(schema.stores).values({
-      id: storeId,
-      ownerId: owner.id,
-      name,
-      slug,
-      description,
-      status: "active",
-      bodyHtml: finalBodyHtml,
-      videoId,
-    })
-    await tx
-      .update(schema.users)
-      .set({ role: "seller_owner", updatedAt: new Date() })
-      .where(eq(schema.users.id, owner.id))
-  })
+        // id/bodyHtml/videoId supplied together in one INSERT — never insert first and update
+        // after (same partial-commit hazard as approveInquiry).
+        await tx.insert(schema.stores).values({
+          id: storeId,
+          ownerId: owner.id,
+          name,
+          slug,
+          description,
+          status: "active",
+          bodyHtml: finalBodyHtml,
+          videoId,
+        })
+        await tx
+          .update(schema.users)
+          .set({ role: "seller_owner", updatedAt: new Date() })
+          .where(eq(schema.users.id, owner.id))
+      },
+    )
+  } catch (err) {
+    // Only surface the two known, safe-to-show business errors verbatim — anything else
+    // (e.g. a raw DB error) falls back to a generic message rather than leaking internals.
+    if (err instanceof Error && err.message.startsWith("No user found with email:")) {
+      return { ok: false, error: err.message }
+    }
+    if (err instanceof Error && err.message === "Owner already has a store") {
+      return { ok: false, error: err.message }
+    }
+    return { ok: false, error: "Could not create store." }
+  }
+
   revalidatePath("/stores")
+  await flashToast("success", "Store created.")
+  redirect("/stores")
 }
 
 export async function updateStoreSeo(
   storeId: string,
   formData: FormData,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const adminId = await requireAdminId()
+  const authz = await authorizeAdminAction()
+  if (!authz.ok) return { ok: false, error: authz.error }
+  const adminId = authz.adminId
 
   const validated = validateSeoFields({
     metaTitle: formData.get("metaTitle"),

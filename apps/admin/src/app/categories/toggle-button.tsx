@@ -15,7 +15,13 @@ export function ToggleButton({ id, isActive }: { id: string; isActive: boolean }
       size="sm"
       className="h-auto p-0 text-xs"
       disabled={pending}
-      onClick={() => startTransition(() => toggleCategory(id, !isActive))}
+      onClick={() =>
+        startTransition(() => {
+          // Dead code (not imported anywhere) — toggleCategory now returns a typed result
+          // instead of void; this discards it to keep the file type-checking unchanged.
+          void toggleCategory(id, !isActive)
+        })
+      }
     >
       {pending ? "…" : isActive ? "Deactivate" : "Activate"}
     </Button>

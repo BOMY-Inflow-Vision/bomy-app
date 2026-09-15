@@ -2,10 +2,12 @@
 
 import { useState } from "react"
 
+import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
 
 export function CopyId({ id }: { id: string }) {
   const [copied, setCopied] = useState(false)
+  const toast = useToast()
 
   return (
     <Button
@@ -14,9 +16,16 @@ export function CopyId({ id }: { id: string }) {
       size="sm"
       title={id}
       onClick={() => {
-        void navigator.clipboard.writeText(id)
-        setCopied(true)
-        setTimeout(() => setCopied(false), 1500)
+        void navigator.clipboard.writeText(id).then(
+          () => {
+            toast.success("Copied.")
+            setCopied(true)
+            setTimeout(() => setCopied(false), 1500)
+          },
+          () => {
+            toast.error("Couldn't copy — select and copy it manually.")
+          },
+        )
       }}
       className="mt-1 inline-flex h-auto items-center gap-1 p-0 font-mono text-[10px] text-muted-foreground hover:text-foreground"
     >

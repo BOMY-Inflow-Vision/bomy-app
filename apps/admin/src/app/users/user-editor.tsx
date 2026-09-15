@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react"
 
+import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -22,8 +23,9 @@ export function UserEditor({
   const [displayEmail, setDisplayEmail] = useState(email)
   const [nameVal, setNameVal] = useState(name ?? "")
   const [emailVal, setEmailVal] = useState(email)
-  const [errors, setErrors] = useState<{ name?: string; email?: string }>({})
+  const [errors, setErrors] = useState<{ name?: string; email?: string; general?: string }>({})
   const [pending, startTransition] = useTransition()
+  const toast = useToast()
 
   useEffect(() => {
     setDisplayName(name)
@@ -74,6 +76,7 @@ export function UserEditor({
         className="h-7 px-2 py-1 text-xs"
       />
       {errors.email && <span className="text-xs text-destructive">{errors.email}</span>}
+      {errors.general && <span className="text-xs text-destructive">{errors.general}</span>}
       <div className="flex gap-2">
         <Button
           type="button"
@@ -96,8 +99,15 @@ export function UserEditor({
                 setNameVal(parsed.value.name ?? "")
                 setEmailVal(parsed.value.email)
                 setEditing(false)
+                toast.success("Profile updated.")
               } else {
                 setErrors(res.errors)
+                toast.error(
+                  res.errors.general ??
+                    res.errors.email ??
+                    res.errors.name ??
+                    "Could not save profile.",
+                )
               }
             })
           }}

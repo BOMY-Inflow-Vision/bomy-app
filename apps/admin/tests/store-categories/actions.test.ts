@@ -222,6 +222,19 @@ describe.skipIf(!shouldRun)("store-categories admin actions", () => {
       )
       expect(row!.isActive).toBe(true)
     })
+
+    it("a demoted admin gets a typed error, no write", async () => {
+      mockAuth.mockResolvedValue({ user: { id: adminId, role: "buyer" } })
+      const result = await toggleStoreCategory(catId, false)
+      expect(result).toEqual({ ok: false, error: "You don't have permission to do that." })
+      const [row] = await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "assert" }, (tx) =>
+        tx
+          .select({ isActive: schema.storeCategories.isActive })
+          .from(schema.storeCategories)
+          .where(eq(schema.storeCategories.id, catId)),
+      )
+      expect(row!.isActive).toBe(true)
+    })
   })
 
   // ─── deleteStoreCategory ──────────────────────────────────────────────────

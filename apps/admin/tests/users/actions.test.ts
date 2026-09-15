@@ -94,20 +94,37 @@ describe.skipIf(!shouldRun)("admin user actions", () => {
     expect(audit.length).toBeGreaterThanOrEqual(1)
   })
 
-  it("rejects a non-bomy_admin from updateUserProfile (FORBIDDEN, no write)", async () => {
+  it("rejects a non-bomy_admin from updateUserProfile with a typed error (no write)", async () => {
     mockAuth.mockResolvedValue({ user: { id: adminId, role: "bomy_ops" } })
-    await expect(updateUserProfile(targetId, { name: "x", email: "x@y.com" })).rejects.toThrow(
-      /FORBIDDEN/,
-    )
+    const res = await updateUserProfile(targetId, { name: "x", email: "x@y.com" })
+    expect(res).toEqual({
+      ok: false,
+      errors: { general: "You don't have permission to do that." },
+    })
     expect((await readUser(targetId))?.name).toBe("Old Name")
   })
 
-  it("blocks a non-bomy_admin from self-promoting via updateUserRole (FORBIDDEN, no write)", async () => {
+  it("blocks a non-bomy_admin from self-promoting via updateUserRole with a typed error (no write)", async () => {
     for (const role of ["bomy_ops", "bomy_finance"] as const) {
       mockAuth.mockResolvedValue({ user: { id: adminId, role } })
-      await expect(updateUserRole(targetId, "bomy_admin")).rejects.toThrow(/FORBIDDEN/)
+      const res = await updateUserRole(targetId, "bomy_admin")
+      expect(res).toEqual({ ok: false, error: "You don't have permission to do that." })
       expect((await readUser(targetId))?.role).toBe("buyer")
     }
+  })
+
+  it("updateUserRole: rejects an invalid role value with a typed error", async () => {
+    mockAuth.mockResolvedValue({ user: { id: adminId, role: "bomy_admin" } })
+    const res = await updateUserRole(targetId, "not_a_role" as never)
+    expect(res).toEqual({ ok: false, error: "Invalid role: not_a_role" })
+    expect((await readUser(targetId))?.role).toBe("buyer")
+  })
+
+  it("updateUserRole: happy path updates the role", async () => {
+    mockAuth.mockResolvedValue({ user: { id: adminId, role: "bomy_admin" } })
+    const res = await updateUserRole(targetId, "seller_owner")
+    expect(res).toEqual({ ok: true })
+    expect((await readUser(targetId))?.role).toBe("seller_owner")
   })
 
   it("rejects a mixed-case duplicate email and leaves the target unchanged", async () => {

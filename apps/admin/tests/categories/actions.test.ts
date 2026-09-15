@@ -9,7 +9,7 @@ vi.mock("@/auth", () => ({ auth: vi.fn() }))
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 
 import { auth } from "@/auth"
-import { deleteCategory, updateCategory } from "../../src/app/categories/actions"
+import { deleteCategory, toggleCategory, updateCategory } from "../../src/app/categories/actions"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
 const DATABASE_URL = process.env["DATABASE_APP_URL"] ?? process.env["DATABASE_URL"]
@@ -93,6 +93,70 @@ describe.skipIf(!shouldRun)("category actions", () => {
       const result = await updateCategory(catId, "Valid Name", -1)
       expect(result).toMatchObject({ ok: false })
       expect((result as { ok: false; error: string }).error).toMatch(/whole number/)
+    })
+
+    it("a demoted admin gets a typed error, no write", async () => {
+      mockAuth.mockResolvedValue({ user: { id: adminId, role: "buyer" } })
+      const result = await updateCategory(catId, "Hijacked", 999)
+      expect(result).toEqual({ ok: false, error: "You don't have permission to do that." })
+    })
+  })
+
+  // ─── toggleCategory ───────────────────────────────────────────────────────
+
+  describe("toggleCategory", () => {
+    let catId: string
+
+    beforeEach(async () => {
+      catId = randomUUID()
+      await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test seed" }, (tx) =>
+        tx.insert(schema.categories).values({
+          id: catId,
+          name: "Togglable",
+          slug: `toggle-cat-${catId.slice(0, 8)}`,
+          sortOrder: 5,
+          isActive: true,
+        }),
+      )
+    })
+
+    afterEach(async () => {
+      await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, (tx) =>
+        tx.delete(schema.categories).where(eq(schema.categories.id, catId)),
+      )
+    })
+
+    it("deactivates then reactivates", async () => {
+      expect(await toggleCategory(catId, false)).toEqual({ ok: true })
+      let [row] = await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "assert" }, (tx) =>
+        tx
+          .select({ isActive: schema.categories.isActive })
+          .from(schema.categories)
+          .where(eq(schema.categories.id, catId)),
+      )
+      expect(row!.isActive).toBe(false)
+
+      expect(await toggleCategory(catId, true)).toEqual({ ok: true })
+      ;[row] = await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "assert" }, (tx) =>
+        tx
+          .select({ isActive: schema.categories.isActive })
+          .from(schema.categories)
+          .where(eq(schema.categories.id, catId)),
+      )
+      expect(row!.isActive).toBe(true)
+    })
+
+    it("a demoted admin gets a typed error, no write", async () => {
+      mockAuth.mockResolvedValue({ user: { id: adminId, role: "buyer" } })
+      const result = await toggleCategory(catId, false)
+      expect(result).toEqual({ ok: false, error: "You don't have permission to do that." })
+      const [row] = await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "assert" }, (tx) =>
+        tx
+          .select({ isActive: schema.categories.isActive })
+          .from(schema.categories)
+          .where(eq(schema.categories.id, catId)),
+      )
+      expect(row!.isActive).toBe(true)
     })
   })
 

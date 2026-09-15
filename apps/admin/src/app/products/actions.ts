@@ -6,14 +6,16 @@ import { revalidatePath } from "next/cache"
 import { schema, withAdmin } from "@bomy/db"
 import { validateSeoFields } from "@bomy/shared/seo"
 
-import { requireAdminId } from "@/lib/auth"
+import { authorizeAdminAction } from "@/lib/admin-action"
 import { getDb } from "@/lib/db"
 
 export async function updateProductSeo(
   productId: string,
   formData: FormData,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const adminId = await requireAdminId()
+  const authz = await authorizeAdminAction()
+  if (!authz.ok) return { ok: false, error: authz.error }
+  const adminId = authz.adminId
 
   const validated = validateSeoFields({
     metaTitle: formData.get("metaTitle"),

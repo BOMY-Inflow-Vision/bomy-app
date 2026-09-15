@@ -2,12 +2,14 @@
 
 import { useState, useTransition } from "react"
 
+import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
 import { rejectInquiry } from "./actions"
 
 export function RejectButton({ inquiryId }: { inquiryId: string }) {
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const toast = useToast()
 
   return (
     <div className="flex flex-col items-end gap-1">
@@ -20,7 +22,12 @@ export function RejectButton({ inquiryId }: { inquiryId: string }) {
           startTransition(async () => {
             setError(null)
             const res = await rejectInquiry(inquiryId)
-            if (!res.ok) setError(res.error)
+            if (!res.ok) {
+              setError(res.error)
+              toast.error(res.error)
+              return
+            }
+            toast.success("Inquiry rejected.")
           })
         }
         className="h-auto p-0 text-sm text-amber-600 disabled:opacity-50"

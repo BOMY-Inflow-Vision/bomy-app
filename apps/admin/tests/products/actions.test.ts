@@ -118,14 +118,13 @@ describe.skipIf(!shouldRun)("updateProductSeo action", () => {
     expect(result).toEqual({ ok: false, error: "Product not found" })
   })
 
-  it("rejects a non-admin caller (seller_owner) without writing anything", async () => {
+  it("rejects a non-admin caller (seller_owner) with a typed error, without writing anything", async () => {
     mockAuth.mockResolvedValue({ user: { id: sellerId, role: "seller_owner" } })
-    await expect(
-      updateProductSeo(
-        productId,
-        fd({ metaTitle: "Hijacked", metaDescription: "", ogImageUrl: "" }),
-      ),
-    ).rejects.toThrow("FORBIDDEN")
+    const result = await updateProductSeo(
+      productId,
+      fd({ metaTitle: "Hijacked", metaDescription: "", ogImageUrl: "" }),
+    )
+    expect(result).toEqual({ ok: false, error: "You don't have permission to do that." })
 
     const [row] = await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "verify" }, (tx) =>
       tx
