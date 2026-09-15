@@ -1,11 +1,18 @@
 "use client"
 
 import * as React from "react"
+import { usePathname } from "next/navigation"
 import { CircleAlert, CircleCheck, CircleX, Info, X } from "lucide-react"
 
+import {
+  FLASH_TOAST_COOKIE,
+  parseFlashToast,
+  readCookieValue,
+  type ToastType,
+} from "@/lib/flash-toast"
 import { cn } from "@/lib/utils"
 
-export type ToastType = "success" | "error" | "info" | "warning"
+export type { ToastType }
 
 export interface ToastItem {
   id: number
@@ -71,16 +78,18 @@ const TOAST_STYLES: Record<
   },
 }
 
-interface ToastApi {
-  success: (message: string) => void
-  info: (message: string) => void
-  warning: (message: string) => void
-  error: (message: string) => void
-}
+type ToastApi = Record<ToastType, (message: string) => void>
 
 const ToastContext = React.createContext<ToastApi | null>(null)
 
-export function ToastProvider({ children }: { children: React.ReactNode }) {
+export function ToastProvider({
+  children,
+  flash = null,
+}: {
+  children: React.ReactNode
+  // Server-read flash cookie; a new value after a Server Action re-render re-runs the listener.
+  flash?: string | null
+}) {
   const [toasts, dispatch] = React.useReducer(toastReducer, [])
   const nextId = React.useRef(0)
 
@@ -100,6 +109,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={api}>
       {children}
+      <FlashToastListener flash={flash} toast={api} />
       {/* Live region stays mounted so screen readers announce toasts added later. */}
       <div
         role="region"
@@ -116,6 +126,20 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       </div>
     </ToastContext.Provider>
   )
+}
+
+function FlashToastListener({ flash, toast }: { flash: string | null; toast: ToastApi }) {
+  const pathname = usePathname()
+
+  React.useEffect(() => {
+    const raw = readCookieValue(document.cookie, FLASH_TOAST_COOKIE)
+    if (!raw) return
+    document.cookie = `${FLASH_TOAST_COOKIE}=; Max-Age=0; Path=/`
+    const parsed = parseFlashToast(raw)
+    if (parsed) toast[parsed.type](parsed.message)
+  }, [flash, pathname, toast])
+
+  return null
 }
 
 function ToastRow({
