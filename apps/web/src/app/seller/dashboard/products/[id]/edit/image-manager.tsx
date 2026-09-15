@@ -20,6 +20,7 @@ import {
 import { CSS } from "@dnd-kit/utilities"
 import { GripVertical } from "lucide-react"
 
+import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { createSerializedRunner } from "@/lib/serialized-runner"
@@ -100,6 +101,7 @@ export function ImageManager({
   productId: string
   images: ProductImage[]
 }) {
+  const toast = useToast()
   const [images, setImages] = useState(initialImages)
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -121,10 +123,18 @@ export function ImageManager({
   const [runReorderImages] = useState(() =>
     createSerializedRunner<string[]>(async (orderedIds) => {
       try {
-        await reorderImages(productId, orderedIds)
+        const result = await reorderImages(productId, orderedIds)
+        if (!result.ok) {
+          setError(result.error)
+          toast.error(result.error)
+          setImages(latestImages.current)
+          return
+        }
         setError(null)
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to save new order")
+        const message = err instanceof Error ? err.message : "Failed to save new order"
+        setError(message)
+        toast.error(message)
         setImages(latestImages.current)
       }
     }),
@@ -150,11 +160,13 @@ export function ImageManager({
 
     if (!file.type.startsWith("image/")) {
       setError("Only image files are allowed")
+      toast.error("Only image files are allowed")
       return
     }
 
     if (file.size > 2 * 1024 * 1024) {
       setError("Image must be smaller than 2 MB")
+      toast.error("Image must be smaller than 2 MB")
       return
     }
 
@@ -182,10 +194,14 @@ export function ImageManager({
         xhr.send(file)
       })
 
-      const newImage = await addProductImage(productId, key, claim)
-      setImages((prev) => [...prev, newImage])
+      const added = await addProductImage(productId, key, claim)
+      if (!added.ok) throw new Error(added.error)
+      setImages((prev) => [...prev, added.image])
+      toast.success("Image uploaded")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed")
+      const message = err instanceof Error ? err.message : "Upload failed"
+      setError(message)
+      toast.error(message)
     } finally {
       setUploading(false)
       setProgress(0)
@@ -194,12 +210,14 @@ export function ImageManager({
   }
 
   async function handleRemove(imageId: string) {
-    try {
-      await removeProductImage(imageId)
-      setImages((prev) => prev.filter((img) => img.id !== imageId))
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to remove image")
+    const result = await removeProductImage(imageId)
+    if (!result.ok) {
+      setError(result.error)
+      toast.error(result.error)
+      return
     }
+    setImages((prev) => prev.filter((img) => img.id !== imageId))
+    toast.success("Image removed")
   }
 
   return (

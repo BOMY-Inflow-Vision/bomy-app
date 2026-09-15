@@ -309,6 +309,7 @@ export function SettingsForm({
             saveBody={saveStoreBody}
             getUploadUrl={getStoreBodyImageUploadUrl}
             saveLabel="Save Brand Story"
+            successMessage="Brand story saved"
             conflictNoun="store"
             ariaLabel="Brand story editor"
             contentLabel="brand story"

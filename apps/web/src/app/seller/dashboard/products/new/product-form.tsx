@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { type FormEvent, useActionState, useEffect, useState, useTransition } from "react"
 
+import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -9,8 +10,14 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 
-import { createProduct } from "../actions"
-import { SubmitButton } from "@/components/submit-button"
+import { createProduct, type ProductActionResult } from "../actions"
+
+async function formAction(
+  _prev: ProductActionResult | null,
+  formData: FormData,
+): Promise<ProductActionResult> {
+  return createProduct(formData)
+}
 
 type Category = { id: string; name: string }
 
@@ -26,6 +33,9 @@ type VariantRow = {
 }
 
 export function ProductForm({ categories }: { categories: Category[] }) {
+  const [state, dispatch, pending] = useActionState(formAction, null)
+  const [, startTransition] = useTransition()
+  const toast = useToast()
   const [variants, setVariants] = useState<VariantRow[]>([
     {
       id: 0,
@@ -74,10 +84,36 @@ export function ProductForm({ categories }: { categories: Category[] }) {
     setVariants((prev) => prev.map((v) => (v.id === id ? { ...v, [field]: value } : v)))
   }
 
+  // Toast on every result. Depend on the whole `state` object (not a field) —
+  // useActionState returns a fresh object per invocation, but the error string
+  // can repeat across consecutive failures, so a field dependency wouldn't re-fire.
+  useEffect(() => {
+    if (!state) return
+    if (!state.ok) toast.error(state.error)
+  }, [state, toast])
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+    // Dispatched manually rather than via <form action>: React 19 resets uncontrolled
+    // fields after a form action completes even when it returns an error, which would
+    // wipe out everything the seller just typed.
+    startTransition(() => dispatch(formData))
+  }
+
   return (
-    <form action={createProduct} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-6">
       {/* Hidden: variant count */}
       <input type="hidden" name="variant_count" value={variants.length} />
+
+      {state && !state.ok && (
+        <div
+          role="alert"
+          className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive"
+        >
+          {state.error}
+        </div>
+      )}
 
       {/* Product fields */}
       <Card>
@@ -334,9 +370,13 @@ export function ProductForm({ categories }: { categories: Category[] }) {
 
       {/* Actions */}
       <div className="flex gap-3">
-        <SubmitButton className="rounded-lg bg-primary px-6 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-          Create Product
-        </SubmitButton>
+        <Button
+          type="submit"
+          disabled={pending}
+          className="rounded-lg bg-primary px-6 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {pending ? "Creating…" : "Create Product"}
+        </Button>
         <a
           href="/seller/dashboard/products"
           className="rounded-lg border border-input px-6 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"

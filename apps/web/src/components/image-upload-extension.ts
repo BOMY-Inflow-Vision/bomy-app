@@ -19,7 +19,9 @@ interface ImageUploadOptions {
   onUploadStart: () => void
   onUploadProgress: (pct: number) => void
   onUploadComplete: () => void
-  onUploadError: () => void
+  /** `code` is the getUploadUrl error string (e.g. "rate_limited") when known,
+   * so the caller can map it to human copy; omitted for network/HTTP failures. */
+  onUploadError: (code?: string) => void
   /** Noun used in the max-images alert (e.g. "product body", "brand story"). Defaults to
    * "product body" so the product editor's existing copy is unchanged. */
   contentLabel?: string
@@ -74,8 +76,7 @@ export const ImageUploadExtension = Node.create<ImageUploadOptions>({
             .getUploadUrl(file.type, file.size)
             .then((result) => {
               if (!result.ok) {
-                options.onUploadError()
-                alert(`Cannot upload: ${result.error}`)
+                options.onUploadError(result.error)
                 return
               }
               const { uploadUrl, publicUrl } = result

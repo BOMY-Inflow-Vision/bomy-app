@@ -43,6 +43,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
             initialRevision={product.bodyRevision}
             saveBody={saveProductBody.bind(null, product.id)}
             getUploadUrl={getBodyImageUploadUrl.bind(null, product.id)}
+            successMessage="Product details saved"
           />
         </section>
       </div>

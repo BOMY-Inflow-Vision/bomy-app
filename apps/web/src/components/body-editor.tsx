@@ -44,10 +44,26 @@ import {
 
 import { extractYoutubeVideoId } from "@bomy/shared/youtube"
 
+import { useToast } from "@/components/toaster"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { YoutubeEmbedExtension } from "./youtube-embed-extension"
 import { ImageUploadExtension } from "./image-upload-extension"
+
+// Maps getUploadUrl's typed error codes to copy a seller can act on.
+function uploadErrorMessage(code?: string): string {
+  switch (code) {
+    case "rate_limited":
+      return "Too many image uploads — try again in a bit."
+    case "invalid_type":
+    case "invalid_size":
+      return "That image can't be used — check the file type and size (max 2 MB)."
+    case "not_found":
+      return "Couldn't upload — the item may have been removed."
+    default:
+      return "Upload failed. Please try again."
+  }
+}
 
 interface Props {
   initialHtml: string | null
@@ -67,6 +83,8 @@ interface Props {
   onUploadStateChange?: (uploading: boolean) => void
   /** Text shown on the submit button. Defaults to the product-editing copy. */
   saveLabel?: string
+  /** Toast message on a successful save. Defaults to a neutral "Saved." */
+  successMessage?: string
   /** Noun used in the optimistic-concurrency conflict message (e.g. "product", "store"). */
   conflictNoun?: string
   /** aria-label on the editor's textbox, announced by screen readers. */
@@ -83,10 +101,12 @@ export function BodyEditor({
   onDirtyChange,
   onUploadStateChange,
   saveLabel = "Save Product Details",
+  successMessage = "Saved.",
   conflictNoun = "product",
   ariaLabel = "Product body editor",
   contentLabel = "product body",
 }: Props) {
+  const toast = useToast()
   const [revision, setRevision] = useState(initialRevision)
   const [dirty, setDirty] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -126,8 +146,9 @@ export function BodyEditor({
             return next
           })
         },
-        onUploadError: () => {
+        onUploadError: (code?: string) => {
           setUploadError(true)
+          toast.error(uploadErrorMessage(code))
           setActiveUploadCount((c) => {
             const next = Math.max(0, c - 1)
             if (next === 0) onUploadStateChange?.(false)
@@ -177,8 +198,10 @@ export function BodyEditor({
       result = await saveBody(html, revision)
     } catch {
       setConflictDetected(false)
-      setSaveError("Save failed: network error. Please try again.")
+      const message = "Save failed: network error. Please try again."
+      setSaveError(message)
       setSaveStatus("idle")
+      toast.error(message)
       return
     }
     if (result.ok) {
@@ -189,17 +212,20 @@ export function BodyEditor({
       setConflictDetected(false)
       savedHtmlRef.current = result.html ?? ""
       editor.commands.setContent(result.html ?? "")
+      toast.success(successMessage)
       setTimeout(() => setSaveStatus("idle"), 2000)
     } else if (result.error === "conflict") {
       setConflictDetected(true)
-      setSaveError(
-        `Another tab or device saved this ${conflictNoun}. Copy your changes, then reload to get the latest version.`,
-      )
+      const message = `Another tab or device saved this ${conflictNoun}. Copy your changes, then reload to get the latest version.`
+      setSaveError(message)
       setSaveStatus("idle")
+      toast.error(message)
     } else {
       setConflictDetected(false)
-      setSaveError(`Save failed: ${result.error}`)
+      const message = `Save failed: ${result.error}`
+      setSaveError(message)
       setSaveStatus("idle")
+      toast.error(message)
     }
   }
 
