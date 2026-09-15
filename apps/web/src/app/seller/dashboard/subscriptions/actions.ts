@@ -14,13 +14,17 @@ function getDb() {
   return _client.db
 }
 
-function parseMyrToSen(myr: string): bigint {
+// Validation/authorization failures are returned, not thrown: production redacts
+// thrown Server Action error messages.
+export type PlanActionResult = { ok: true } | { ok: false; error: string }
+
+function parseMyrToSen(myr: string): { ok: true; value: bigint } | { ok: false; error: string } {
   const trimmed = myr.trim()
   const m = trimmed.match(/^(\d+)(?:\.(\d{1,2}))?$/)
-  if (!m) throw new Error(`Invalid amount: "${trimmed}"`)
+  if (!m) return { ok: false, error: `Invalid amount: "${trimmed}"` }
   const sen = BigInt(m[1]!) * 100n + BigInt((m[2] ?? "0").padEnd(2, "0"))
-  if (sen === 0n) throw new Error("Price must be greater than zero")
-  return sen
+  if (sen === 0n) return { ok: false, error: "Price must be greater than zero" }
+  return { ok: true, value: sen }
 }
 
 function str(fd: FormData, key: string): string {
@@ -116,32 +120,43 @@ export async function getSellerPlansData() {
   )
 }
 
-export async function createPlan(formData: FormData) {
+export async function createPlan(formData: FormData): Promise<PlanActionResult> {
   const session = await requireSeller()
 
   const termMonths = Number(str(formData, "termMonths"))
-  if (![3, 6, 12].includes(termMonths)) throw new Error("Term must be 3, 6, or 12 months")
+  if (![3, 6, 12].includes(termMonths)) {
+    return { ok: false, error: "Term must be 3, 6, or 12 months" }
+  }
 
-  const priceMyrSen = parseMyrToSen(str(formData, "priceMyrSen"))
+  const parsedPrice = parseMyrToSen(str(formData, "priceMyrSen"))
+  if (!parsedPrice.ok) return { ok: false, error: parsedPrice.error }
+  const priceMyrSen = parsedPrice.value
 
   const discountPct = Number(str(formData, "discountPct"))
-  if (!Number.isInteger(discountPct) || discountPct < 5 || discountPct > 10)
-    throw new Error("Discount must be between 5% and 10%")
+  if (!Number.isInteger(discountPct) || discountPct < 5 || discountPct > 10) {
+    return { ok: false, error: "Discount must be between 5% and 10%" }
+  }
 
   const description = str(formData, "description").trim() || null
 
+  let result: PlanActionResult
   try {
-    await withTenant(
+    result = await withTenant(
       getDb(),
       { userId: session.user.id, userRole: session.user.role },
-      async (tx) => {
+      async (tx): Promise<PlanActionResult> => {
         const storeRows = await tx
           .select({ id: schema.stores.id })
           .from(schema.stores)
           .where(eq(schema.stores.ownerId, session.user.id))
           .limit(1)
 
-        if (!storeRows[0]) throw new Error("No store found for this seller")
+        if (!storeRows[0]) {
+          // Nothing written yet in this transaction — a typed return here commits
+          // an otherwise-empty (read-only) transaction, which is equivalent to a
+          // rollback since no rows were touched.
+          return { ok: false, error: "No store found for this seller" }
+        }
 
         await tx.insert(schema.brandSubscriptionPlans).values({
           storeId: storeRows[0].id,
@@ -150,43 +165,63 @@ export async function createPlan(formData: FormData) {
           discountPct,
           description,
         })
+
+        return { ok: true }
       },
     )
   } catch (err) {
-    if (isUniqueViolation(err))
-      throw new Error("A plan for this term length already exists for your store")
-    throw err
+    // A unique-violation (or any other DB error) here is a genuine driver throw from
+    // the INSERT — Postgres auto-rolls-back the transaction. Caught here (outside the
+    // transaction) and mapped to a typed result rather than re-thrown.
+    if (isUniqueViolation(err)) {
+      return { ok: false, error: "A plan for this term length already exists for your store" }
+    }
+    return { ok: false, error: "Something went wrong. Please try again." }
   }
 
+  if (!result.ok) return result
+
   revalidatePath("/seller/dashboard/subscriptions")
+  return { ok: true }
 }
 
-export async function updatePlan(planId: string, formData: FormData) {
+export async function updatePlan(planId: string, formData: FormData): Promise<PlanActionResult> {
   const session = await requireSeller()
 
-  const priceMyrSen = parseMyrToSen(str(formData, "priceMyrSen"))
+  const parsedPrice = parseMyrToSen(str(formData, "priceMyrSen"))
+  if (!parsedPrice.ok) return { ok: false, error: parsedPrice.error }
+  const priceMyrSen = parsedPrice.value
 
   const discountPct = Number(str(formData, "discountPct"))
-  if (!Number.isInteger(discountPct) || discountPct < 5 || discountPct > 10)
-    throw new Error("Discount must be between 5% and 10%")
+  if (!Number.isInteger(discountPct) || discountPct < 5 || discountPct > 10) {
+    return { ok: false, error: "Discount must be between 5% and 10%" }
+  }
 
   const description = str(formData, "description").trim() || null
 
   // Editing any field resets isActive to false so BOMY must re-approve the
   // updated price/discount before buyers can subscribe. Existing active
   // subscriptions are unaffected (values are snapshotted at purchase).
-  const updated = await withTenant(
-    getDb(),
-    { userId: session.user.id, userRole: session.user.role },
-    async (tx) =>
-      tx
-        .update(schema.brandSubscriptionPlans)
-        .set({ priceMyrSen, discountPct, description, isActive: false, updatedAt: new Date() })
-        .where(eq(schema.brandSubscriptionPlans.id, planId))
-        .returning({ id: schema.brandSubscriptionPlans.id }),
-  )
+  let updated: { id: string }[]
+  try {
+    updated = await withTenant(
+      getDb(),
+      { userId: session.user.id, userRole: session.user.role },
+      async (tx) =>
+        tx
+          .update(schema.brandSubscriptionPlans)
+          .set({ priceMyrSen, discountPct, description, isActive: false, updatedAt: new Date() })
+          .where(eq(schema.brandSubscriptionPlans.id, planId))
+          .returning({ id: schema.brandSubscriptionPlans.id }),
+    )
+  } catch {
+    // The UPDATE either touches 0 rows (handled below, not an error) or the whole
+    // transaction fails outright — either way nothing partial is left committed.
+    return { ok: false, error: "Something went wrong. Please try again." }
+  }
 
-  if (updated.length === 0) throw new Error("Plan not found or not authorized")
+  if (updated.length === 0) return { ok: false, error: "Plan not found or not authorized" }
 
   revalidatePath("/seller/dashboard/subscriptions")
+  return { ok: true }
 }
