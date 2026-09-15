@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { Save } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
@@ -90,8 +91,12 @@ export function EnterTrackingForm({ orderId, currentCarrier, currentTracking }: 
         />
       </div>
       {error && <p className="text-sm text-destructive">{error}</p>}
-      <Button type="submit" disabled={pending} className="flex items-center justify-center gap-2">
-        {pending && <Spinner />}
+      <Button
+        type="submit"
+        icon={pending ? <Spinner /> : <Save />}
+        arrowOnHover={!pending}
+        disabled={pending}
+      >
         {pending ? "Saving…" : "Save tracking"}
       </Button>
     </form>

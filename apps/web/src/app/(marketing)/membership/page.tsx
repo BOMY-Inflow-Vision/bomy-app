@@ -1,6 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm"
 import Link from "next/link"
 import { redirect } from "next/navigation"
+import { CreditCard, LogIn } from "lucide-react"
 
 import { schema, withAdmin, withTenant } from "@bomy/db"
 
@@ -116,14 +117,18 @@ export default async function MembershipPage() {
               </div>
             ) : session ? (
               <form action={joinMembership}>
-                <SubmitButton className="w-full rounded-xl bg-amber-500 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-amber-600 active:bg-amber-700 transition-colors">
+                <SubmitButton
+                  icon={<CreditCard />}
+                  className="w-full bg-amber-500 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-amber-600 active:bg-amber-700 transition-colors"
+                >
                   Join now — {priceDisplay}
                 </SubmitButton>
               </form>
             ) : (
               <Button
                 asChild
-                className="w-full rounded-xl bg-amber-500 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-amber-600 active:bg-amber-700 transition-colors"
+                icon={<LogIn />}
+                className="w-full bg-amber-500 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-amber-600 active:bg-amber-700 transition-colors"
               >
                 <Link href="/auth/sign-in?callbackUrl=/membership">
                   Sign in to join — {priceDisplay}

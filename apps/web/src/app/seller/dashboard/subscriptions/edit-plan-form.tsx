@@ -1,6 +1,7 @@
 "use client"
 
 import { type FormEvent, useTransition } from "react"
+import { Save } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
@@ -85,7 +86,7 @@ export function EditPlanForm({
         </Label>
         <Input id={`desc_${planId}`} name="description" defaultValue={defaultDescription} />
       </div>
-      <Button type="submit" size="sm" disabled={pending}>
+      <Button type="submit" size="sm" icon={<Save />} disabled={pending}>
         {pending ? "Saving…" : "Save"}
       </Button>
     </form>

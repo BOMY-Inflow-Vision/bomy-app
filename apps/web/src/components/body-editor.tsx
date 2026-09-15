@@ -43,8 +43,10 @@ import {
 } from "lucide-react"
 
 import { extractYoutubeVideoId } from "@bomy/shared/youtube"
+import { RefreshCw, Save } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { YoutubeEmbedExtension } from "./youtube-embed-extension"
@@ -234,13 +236,16 @@ export function BodyEditor({
       {dirty && (
         <div className="flex items-center gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
           <span>You have unsaved changes.</span>
-          <button
+          <Button
             type="button"
-            className="font-medium underline"
+            variant="link"
+            size="sm"
+            icon={<Save />}
+            className="font-medium"
             onClick={(e) => void handleSave(e as unknown as React.FormEvent)}
           >
             Save now
-          </button>
+          </Button>
         </div>
       )}
 
@@ -464,13 +469,16 @@ export function BodyEditor({
         <div className="rounded border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {saveError}
           {conflictDetected && (
-            <button
+            <Button
               type="button"
-              className="ml-2 font-medium underline"
+              variant="link"
+              size="sm"
+              icon={<RefreshCw />}
+              className="ml-2 font-medium"
               onClick={() => window.location.reload()}
             >
               Reload page
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -478,13 +486,14 @@ export function BodyEditor({
       <form onSubmit={(e) => void handleSave(e)}>
         <input type="hidden" name="bodyHtml" ref={bodyHtmlRef} defaultValue={initialHtml ?? ""} />
         <input type="hidden" name="bodyRevision" value={revision} readOnly />
-        <button
+        <Button
           type="submit"
+          icon={<Save />}
           disabled={saveStatus === "saving" || isUploading || !dirty}
-          className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
+          className="bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
         >
           {saveStatus === "saving" ? "Saving…" : saveLabel}
-        </button>
+        </Button>
       </form>
     </div>
   )

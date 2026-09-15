@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation"
+import { Eye } from "lucide-react"
 
 import { auth } from "@/auth"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { senToMyr } from "@/lib/money"
 
 import { AccountTabs } from "../account-tabs"
@@ -55,12 +57,9 @@ export default async function BuyerOrdersPage() {
                       {order.fulfilmentStatus}
                     </Badge>
                   </div>
-                  <a
-                    href={`/account/orders/${order.id}`}
-                    className="text-sm font-medium text-primary hover:underline"
-                  >
-                    View
-                  </a>
+                  <Button variant="link" size="sm" icon={<Eye />} asChild>
+                    <a href={`/account/orders/${order.id}`}>View</a>
+                  </Button>
                 </li>
               ))}
             </ul>

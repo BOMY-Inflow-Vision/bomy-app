@@ -32,8 +32,10 @@ export default function SignInPage({ searchParams }: { searchParams: SignInSearc
               await signIn("google", { redirectTo: "/auth/consent" })
             }}
           >
-            <SubmitButton className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted">
-              <GoogleIcon />
+            <SubmitButton
+              icon={<GoogleIcon />}
+              className="w-full border border-input bg-background text-sm font-medium text-foreground transition-colors hover:bg-muted"
+            >
               Continue with Google
             </SubmitButton>
           </form>

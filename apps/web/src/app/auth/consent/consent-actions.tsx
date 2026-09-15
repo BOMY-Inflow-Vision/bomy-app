@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { Ban, CircleCheck } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
@@ -42,16 +43,22 @@ export function ConsentActions() {
 
   return (
     <div className="flex flex-col gap-3">
-      <Button onClick={() => void handleAgree()} disabled={pending !== null} className="w-full">
-        {pending === "agree" && <Spinner />}I Agree
+      <Button
+        icon={pending === "agree" ? <Spinner /> : <CircleCheck />}
+        onClick={() => void handleAgree()}
+        disabled={pending !== null}
+        className="w-full"
+      >
+        I Agree
       </Button>
       <Button
         variant="outline"
+        icon={pending === "decline" ? <Spinner /> : <Ban />}
+        arrowOnHover={false}
         onClick={() => void handleDecline()}
         disabled={pending !== null}
         className="w-full"
       >
-        {pending === "decline" && <Spinner />}
         Decline
       </Button>
     </div>

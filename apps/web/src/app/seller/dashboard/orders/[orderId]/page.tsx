@@ -1,9 +1,11 @@
 import { eq } from "drizzle-orm"
 import { notFound, redirect } from "next/navigation"
+import { ArrowLeft } from "lucide-react"
 
 import { makeDb, schema, withTenant } from "@bomy/db"
 
 import { auth } from "@/auth"
+import { Button } from "@/components/ui/button"
 import { senToMyr } from "@/lib/money"
 
 import { fetchSellerOrderDetail } from "../queries"
@@ -44,12 +46,16 @@ export default async function SellerOrderDetailPage({ params }: Props) {
 
   return (
     <div className="p-8">
-      <a
-        href="/seller/dashboard/orders"
-        className="mb-6 block text-sm text-primary hover:underline"
+      <Button
+        variant="link"
+        size="sm"
+        icon={<ArrowLeft />}
+        arrowOnHover={false}
+        className="mb-6"
+        asChild
       >
-        ← Back to orders
-      </a>
+        <a href="/seller/dashboard/orders">Back to orders</a>
+      </Button>
 
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">Order {order.id.slice(0, 8)}…</h1>

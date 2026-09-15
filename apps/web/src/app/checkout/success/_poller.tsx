@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
+import { ArrowLeft, Eye, RefreshCw } from "lucide-react"
 
 import type { CheckoutSessionStatus } from "@bomy/db"
 
@@ -109,7 +110,7 @@ export function SuccessPoller() {
         <p className="mb-6 text-sm text-muted-foreground">
           This checkout session doesn&apos;t exist or has already been processed.
         </p>
-        <Button asChild variant="link">
+        <Button asChild variant="link" icon={<ArrowLeft />} arrowOnHover={false}>
           <Link href="/cart">Back to cart</Link>
         </Button>
       </main>
@@ -140,7 +141,7 @@ function DoneView({ status }: { status: CheckoutSessionStatus }) {
         <p className="mb-6 text-sm text-muted-foreground">
           Your order has been placed. You&apos;ll receive a confirmation email shortly.
         </p>
-        <Button asChild>
+        <Button asChild icon={<Eye />}>
           <Link href="/account/orders">View my orders</Link>
         </Button>
       </main>
@@ -154,7 +155,7 @@ function DoneView({ status }: { status: CheckoutSessionStatus }) {
         <p className="mb-6 text-sm text-muted-foreground">
           Your payment was not successful. Please try again.
         </p>
-        <Button asChild>
+        <Button asChild icon={<RefreshCw />}>
           <Link href="/checkout">Try again</Link>
         </Button>
       </main>
@@ -168,7 +169,7 @@ function DoneView({ status }: { status: CheckoutSessionStatus }) {
         <p className="mb-6 text-sm text-muted-foreground">
           Your checkout session has expired. Please return to your cart and try again.
         </p>
-        <Button asChild>
+        <Button asChild icon={<ArrowLeft />} arrowOnHover={false}>
           <Link href="/cart">Back to cart</Link>
         </Button>
       </main>
@@ -182,7 +183,7 @@ function DoneView({ status }: { status: CheckoutSessionStatus }) {
         <p className="mb-6 text-sm text-muted-foreground">
           Your checkout was cancelled. Your cart is still saved.
         </p>
-        <Button asChild>
+        <Button asChild icon={<ArrowLeft />} arrowOnHover={false}>
           <Link href="/cart">Back to cart</Link>
         </Button>
       </main>

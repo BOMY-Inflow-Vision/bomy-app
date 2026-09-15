@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { Check, Copy } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
@@ -16,6 +17,8 @@ export function CopyStoreId({ id }: { id: string }) {
         type="button"
         variant="ghost"
         size="sm"
+        icon={copied ? <Check /> : <Copy />}
+        arrowOnHover={!copied}
         onClick={() => {
           navigator.clipboard
             .writeText(id)
@@ -28,7 +31,7 @@ export function CopyStoreId({ id }: { id: string }) {
               toast.error("Couldn't copy — select and copy it manually.")
             })
         }}
-        className="h-auto p-0 text-xs font-medium text-primary hover:underline hover:bg-transparent"
+        className="text-xs font-medium text-primary hover:underline hover:bg-transparent"
       >
         {copied ? "Copied!" : "Copy"}
       </Button>

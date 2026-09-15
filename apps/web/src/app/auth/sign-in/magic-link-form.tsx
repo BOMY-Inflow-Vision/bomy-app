@@ -2,6 +2,7 @@
 
 import Script from "next/script"
 import { useActionState, useEffect, useRef, useState } from "react"
+import { Send } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
@@ -102,7 +103,12 @@ export function MagicLinkForm() {
             Sign-in temporarily unavailable.
           </p>
         )}
-        <Button type="submit" disabled={pending || !token || !SITEKEY} className="w-full">
+        <Button
+          type="submit"
+          icon={<Send />}
+          disabled={pending || !token || !SITEKEY}
+          className="w-full"
+        >
           {pending ? "Sending…" : "Send magic link"}
         </Button>
       </form>

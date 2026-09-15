@@ -1,7 +1,9 @@
 import { notFound, redirect } from "next/navigation"
+import { ArrowLeft } from "lucide-react"
 
 import { auth } from "@/auth"
 import { BodyEditor } from "@/components/body-editor"
+import { Button } from "@/components/ui/button"
 import { getBodyImageUploadUrl, getProductForEdit, saveProductBody } from "../../actions"
 import { ImageManager } from "./image-manager"
 import { ProductEditForm } from "./product-edit-form"
@@ -22,12 +24,16 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
     <div className="p-8">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-xl font-semibold text-foreground">Edit Product</h1>
-        <a
-          href="/seller/dashboard/products"
-          className="text-sm text-muted-foreground hover:underline"
+        <Button
+          variant="link"
+          size="sm"
+          icon={<ArrowLeft />}
+          arrowOnHover={false}
+          className="text-muted-foreground"
+          asChild
         >
-          ← Back to Products
-        </a>
+          <a href="/seller/dashboard/products">Back to Products</a>
+        </Button>
       </div>
 
       <div className="space-y-8">

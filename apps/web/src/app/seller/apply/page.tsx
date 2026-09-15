@@ -2,6 +2,7 @@
 
 import Script from "next/script"
 import { type FormEvent, useActionState, useEffect, useRef, useState, useTransition } from "react"
+import { Send } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
@@ -200,7 +201,12 @@ export default function SellerApplyPage() {
             </div>
           )}
 
-          <Button type="submit" disabled={pending || !token || !SITEKEY} className="w-full">
+          <Button
+            type="submit"
+            icon={<Send />}
+            disabled={pending || !token || !SITEKEY}
+            className="w-full"
+          >
             {pending ? "Submitting…" : "Submit Application"}
           </Button>
         </form>

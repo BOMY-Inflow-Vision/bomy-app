@@ -1,6 +1,7 @@
 "use client"
 
 import { type FormEvent, useActionState, useEffect, useState, useTransition } from "react"
+import { Plus, X } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
@@ -214,10 +215,11 @@ export function ProductForm({ categories }: { categories: Category[] }) {
               type="button"
               variant="outline"
               size="sm"
+              icon={<Plus />}
               onClick={addVariant}
               className="text-xs text-primary border-primary/50 hover:bg-accent"
             >
-              + Add Variant
+              Add Variant
             </Button>
           </div>
 
@@ -372,17 +374,21 @@ export function ProductForm({ categories }: { categories: Category[] }) {
       <div className="flex gap-3">
         <Button
           type="submit"
+          icon={<Plus />}
           disabled={pending}
-          className="rounded-lg bg-primary px-6 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+          className="bg-primary px-6 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {pending ? "Creating…" : "Create Product"}
         </Button>
-        <a
-          href="/seller/dashboard/products"
-          className="rounded-lg border border-input px-6 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
+        <Button
+          variant="outline"
+          icon={<X />}
+          arrowOnHover={false}
+          className="border-input px-6 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
+          asChild
         >
-          Cancel
-        </a>
+          <a href="/seller/dashboard/products">Cancel</a>
+        </Button>
       </div>
     </form>
   )

@@ -1,5 +1,8 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
+import { ArrowLeft } from "lucide-react"
+
+import { Button } from "@/components/ui/button"
 
 import { getStoreProducts } from "./queries"
 
@@ -20,9 +23,9 @@ export default async function StoreProductsPage({ params, searchParams }: Props)
     <main className="mx-auto max-w-5xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-xl font-semibold text-foreground">{store.name}</h1>
-        <Link href={`/brands/${store.slug}`} className="text-sm text-primary hover:underline">
-          Back to storefront
-        </Link>
+        <Button variant="link" size="sm" icon={<ArrowLeft />} arrowOnHover={false} asChild>
+          <Link href={`/brands/${store.slug}`}>Back to storefront</Link>
+        </Button>
       </div>
 
       {products.length === 0 ? (

@@ -1,7 +1,9 @@
 import { notFound, redirect } from "next/navigation"
+import { ArrowLeft } from "lucide-react"
 
 import { auth } from "@/auth"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { senToMyr } from "@/lib/money"
 
 import { fetchBuyerOrderDetail } from "../queries"
@@ -24,9 +26,16 @@ export default async function BuyerOrderDetailPage({ params }: Props) {
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
-      <a href="/account/orders" className="mb-6 block text-sm text-primary hover:underline">
-        ← Back to orders
-      </a>
+      <Button
+        variant="link"
+        size="sm"
+        icon={<ArrowLeft />}
+        arrowOnHover={false}
+        className="mb-6"
+        asChild
+      >
+        <a href="/account/orders">Back to orders</a>
+      </Button>
 
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">{order.storeName}</h1>

@@ -1,7 +1,9 @@
 import { Fragment } from "react"
 import { redirect } from "next/navigation"
+import { Pencil, X } from "lucide-react"
 
 import { auth } from "@/auth"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { CreatePlanForm } from "./create-plan-form"
 import { EditPlanForm } from "./edit-plan-form"
@@ -94,19 +96,26 @@ export default async function SellerSubscriptionsPage({
                       </td>
                       <td className="px-5 py-3">
                         {isEditing ? (
-                          <a
-                            href="/seller/dashboard/subscriptions"
-                            className="text-xs text-muted-foreground hover:underline"
+                          <Button
+                            variant="link"
+                            size="sm"
+                            icon={<X />}
+                            arrowOnHover={false}
+                            className="text-xs text-muted-foreground"
+                            asChild
                           >
-                            Cancel
-                          </a>
+                            <a href="/seller/dashboard/subscriptions">Cancel</a>
+                          </Button>
                         ) : (
-                          <a
-                            href={`/seller/dashboard/subscriptions?edit=${plan.id}`}
-                            className="text-xs text-primary hover:underline"
+                          <Button
+                            variant="link"
+                            size="sm"
+                            icon={<Pencil />}
+                            className="text-xs"
+                            asChild
                           >
-                            Edit
-                          </a>
+                            <a href={`/seller/dashboard/subscriptions?edit=${plan.id}`}>Edit</a>
+                          </Button>
                         )}
                       </td>
                     </tr>

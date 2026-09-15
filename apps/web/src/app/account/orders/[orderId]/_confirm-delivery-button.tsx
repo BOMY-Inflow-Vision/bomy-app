@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { PackageCheck } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
@@ -35,7 +36,12 @@ export function ConfirmDeliveryButton({ orderId }: Props) {
 
   return (
     <div>
-      <Button onClick={() => void handleClick()} disabled={pending} size="lg">
+      <Button
+        onClick={() => void handleClick()}
+        icon={<PackageCheck />}
+        disabled={pending}
+        size="lg"
+      >
         {pending ? "Confirming…" : "Confirm delivery received"}
       </Button>
       {error && <p className="mt-2 text-sm text-destructive">{error}</p>}

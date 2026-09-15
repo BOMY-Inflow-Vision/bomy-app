@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useTransition } from "react"
+import { Pencil, Save, X } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
@@ -28,7 +29,13 @@ export function NameEditor({ name }: { name: string | null }) {
     return (
       <div className="flex items-center gap-2">
         <p className="truncate text-lg font-semibold text-foreground">{displayName ?? "—"}</p>
-        <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(true)}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          icon={<Pencil />}
+          onClick={() => setEditing(true)}
+        >
           Edit
         </Button>
       </div>
@@ -49,6 +56,7 @@ export function NameEditor({ name }: { name: string | null }) {
         <Button
           type="button"
           size="sm"
+          icon={<Save />}
           disabled={pending}
           onClick={() => {
             setError(null)
@@ -76,6 +84,8 @@ export function NameEditor({ name }: { name: string | null }) {
           type="button"
           variant="ghost"
           size="sm"
+          icon={<X />}
+          arrowOnHover={false}
           disabled={pending}
           onClick={() => {
             setEditing(false)

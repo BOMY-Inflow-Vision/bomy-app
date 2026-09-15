@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import type { Metadata } from "next"
+import { CreditCard, Eye } from "lucide-react"
 
 import { BodyRenderer } from "@/components/body-renderer"
 import { Button } from "@/components/ui/button"
@@ -94,7 +95,7 @@ export default async function StorePage({ params }: Props) {
         </div>
         <div className="flex flex-col gap-4">
           {store.videoId && <VideoEmbed videoId={store.videoId} title={`${store.name} video`} />}
-          <Button asChild className="self-start">
+          <Button asChild icon={<CreditCard />} className="self-start">
             <Link href={`/brands/${store.slug}/subscribe`}>Subscribe</Link>
           </Button>
         </div>
@@ -111,12 +112,11 @@ export default async function StorePage({ params }: Props) {
               <div className="flex items-baseline justify-between">
                 <h2 className="text-lg font-semibold text-foreground">{section.category.name}</h2>
                 {section.hasMore && (
-                  <Link
-                    href={`/brands/${store.slug}/products?category=${section.category.slug}`}
-                    className="text-sm text-primary hover:underline"
-                  >
-                    View all in {section.category.name}
-                  </Link>
+                  <Button variant="link" size="sm" icon={<Eye />} asChild>
+                    <Link href={`/brands/${store.slug}/products?category=${section.category.slug}`}>
+                      View all in {section.category.name}
+                    </Link>
+                  </Button>
                 )}
               </div>
               <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
@@ -132,12 +132,11 @@ export default async function StorePage({ params }: Props) {
               <div className="flex items-baseline justify-between">
                 <h2 className="text-lg font-semibold text-foreground">Uncategorized</h2>
                 {uncategorized.hasMore && (
-                  <Link
-                    href={`/brands/${store.slug}/products?category=__uncategorized`}
-                    className="text-sm text-primary hover:underline"
-                  >
-                    View all
-                  </Link>
+                  <Button variant="link" size="sm" icon={<Eye />} asChild>
+                    <Link href={`/brands/${store.slug}/products?category=__uncategorized`}>
+                      View all
+                    </Link>
+                  </Button>
                 )}
               </div>
               <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">

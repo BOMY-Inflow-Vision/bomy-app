@@ -1,6 +1,7 @@
 "use client"
 
 import { type FormEvent, useTransition } from "react"
+import { Plus } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
@@ -103,7 +104,7 @@ export function CreatePlanForm({ availableTerms }: { availableTerms: number[] })
         </Label>
         <Input id="description" name="description" placeholder="Describe subscriber benefits" />
       </div>
-      <Button type="submit" disabled={pending}>
+      <Button type="submit" icon={<Plus />} disabled={pending}>
         {pending ? "Creating…" : "Create Plan"}
       </Button>
     </form>

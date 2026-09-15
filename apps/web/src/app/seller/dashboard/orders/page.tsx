@@ -1,9 +1,11 @@
 import { eq } from "drizzle-orm"
 import { redirect } from "next/navigation"
+import { Eye } from "lucide-react"
 
 import { makeDb, schema, withTenant } from "@bomy/db"
 
 import { auth } from "@/auth"
+import { Button } from "@/components/ui/button"
 import { senToMyr } from "@/lib/money"
 import { cn } from "@/lib/utils"
 
@@ -107,12 +109,9 @@ export default async function SellerOrdersPage({ searchParams }: Props) {
                   {order.createdAt.toLocaleDateString("en-MY")}
                 </p>
               </div>
-              <a
-                href={`/seller/dashboard/orders/${order.id}`}
-                className="ml-6 text-sm font-medium text-primary hover:underline"
-              >
-                View
-              </a>
+              <Button variant="link" size="sm" icon={<Eye />} className="ml-6" asChild>
+                <a href={`/seller/dashboard/orders/${order.id}`}>View</a>
+              </Button>
             </div>
           ))}
         </div>

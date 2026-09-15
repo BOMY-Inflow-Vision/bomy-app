@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
+import { ArrowLeft } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
@@ -72,7 +73,7 @@ export function CancelHandler() {
         <p className="mb-6 text-sm text-muted-foreground">
           We couldn&apos;t cancel your checkout. Please try again or contact support.
         </p>
-        <Button asChild variant="link">
+        <Button asChild variant="link" icon={<ArrowLeft />} arrowOnHover={false}>
           <Link href="/cart">Back to cart</Link>
         </Button>
       </main>
@@ -85,7 +86,7 @@ export function CancelHandler() {
       <p className="mb-6 text-sm text-muted-foreground">
         Your checkout has been cancelled. Your cart is still saved.
       </p>
-      <Button asChild>
+      <Button asChild icon={<ArrowLeft />} arrowOnHover={false}>
         <Link href="/cart">Back to cart</Link>
       </Button>
     </main>

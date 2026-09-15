@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { CreditCard, Search, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/toaster"
@@ -35,12 +36,9 @@ export default function CartPage() {
       {items.length === 0 ? (
         <div className="rounded-xl border border-dashed border-input py-20 text-center">
           <p className="text-sm text-muted-foreground">Your cart is empty.</p>
-          <Link
-            href="/products"
-            className="mt-4 inline-block text-sm font-medium text-primary hover:underline"
-          >
-            Browse products
-          </Link>
+          <Button variant="link" icon={<Search />} className="mt-4" asChild>
+            <Link href="/products">Browse products</Link>
+          </Button>
         </div>
       ) : (
         <div className="flex flex-col gap-4">
@@ -109,6 +107,7 @@ export default function CartPage() {
                     type="button"
                     variant="ghost"
                     size="sm"
+                    icon={<Trash2 />}
                     className="ml-2 text-xs text-destructive hover:text-destructive"
                     onClick={() => remove(item)}
                   >
@@ -128,7 +127,7 @@ export default function CartPage() {
               Shipping, vouchers, and any brand-subscription discounts are applied at checkout — the
               final price you pay will be shown there.
             </p>
-            <Button asChild className="mt-4 w-full">
+            <Button asChild icon={<CreditCard />} className="mt-4 w-full">
               <Link href="/checkout">Continue to checkout</Link>
             </Button>
           </div>

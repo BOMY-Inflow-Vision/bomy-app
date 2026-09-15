@@ -18,7 +18,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { GripVertical } from "lucide-react"
+import { Archive, CircleMinus, CirclePlus, GripVertical, Pencil, Plus, Save, X } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
@@ -421,8 +421,9 @@ export function ProductEditForm({
             <div className="flex items-center gap-3">
               <Button
                 type="submit"
+                icon={<Save />}
                 disabled={productSaving}
-                className="rounded-lg bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+                className="bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {productSaving ? "Saving…" : "Save Changes"}
               </Button>
@@ -430,6 +431,7 @@ export function ProductEditForm({
                 <Button
                   type="button"
                   variant="outline"
+                  icon={<Archive />}
                   disabled={archivePending}
                   onClick={() => {
                     void handleArchive()
@@ -453,10 +455,11 @@ export function ProductEditForm({
               type="button"
               variant="outline"
               size="sm"
+              icon={<Plus />}
               onClick={() => setShowAddVariant(true)}
               className="text-xs text-primary border-primary/50 hover:bg-accent"
             >
-              + Add Variant
+              Add Variant
             </Button>
           </div>
 
@@ -615,8 +618,10 @@ export function ProductEditForm({
                           <div className="flex gap-2">
                             <Button
                               type="submit"
+                              size="sm"
+                              icon={<Save />}
                               disabled={variantEditPending}
-                              className="rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+                              className="bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
                             >
                               {variantEditPending ? "Saving…" : "Save"}
                             </Button>
@@ -624,6 +629,8 @@ export function ProductEditForm({
                               type="button"
                               variant="outline"
                               size="sm"
+                              icon={<X />}
+                              arrowOnHover={false}
                               onClick={() => setEditingVariantId(null)}
                               className="text-xs text-muted-foreground"
                             >
@@ -675,35 +682,44 @@ export function ProductEditForm({
                             </div>
                           </div>
                           <div className="flex gap-2">
-                            <button
+                            <Button
                               type="button"
+                              variant="link"
+                              size="sm"
+                              icon={<Pencil />}
                               onClick={() => openEdit(v)}
-                              className="text-xs text-primary hover:underline"
+                              className="text-xs"
                             >
                               Edit
-                            </button>
+                            </Button>
                             {v.isActive ? (
-                              <button
+                              <Button
                                 type="button"
+                                variant="link"
+                                size="sm"
+                                icon={<CircleMinus />}
                                 disabled={togglingVariantId === v.id}
                                 onClick={() => {
                                   void handleToggleVariant(v.id, false)
                                 }}
-                                className="text-xs text-destructive hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+                                className="text-xs text-destructive disabled:cursor-not-allowed disabled:opacity-60"
                               >
                                 {togglingVariantId === v.id ? "Deactivating…" : "Deactivate"}
-                              </button>
+                              </Button>
                             ) : (
-                              <button
+                              <Button
                                 type="button"
+                                variant="link"
+                                size="sm"
+                                icon={<CirclePlus />}
                                 disabled={togglingVariantId === v.id}
                                 onClick={() => {
                                   void handleToggleVariant(v.id, true)
                                 }}
-                                className="text-xs text-green-600 hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+                                className="text-xs text-green-600 disabled:cursor-not-allowed disabled:opacity-60"
                               >
                                 {togglingVariantId === v.id ? "Activating…" : "Activate"}
-                              </button>
+                              </Button>
                             )}
                           </div>
                         </div>
@@ -815,8 +831,10 @@ export function ProductEditForm({
               <div className="flex gap-2">
                 <Button
                   type="submit"
+                  size="sm"
+                  icon={<Plus />}
                   disabled={addVariantPending}
-                  className="rounded bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {addVariantPending ? "Adding…" : "Add"}
                 </Button>
@@ -824,6 +842,8 @@ export function ProductEditForm({
                   type="button"
                   variant="outline"
                   size="sm"
+                  icon={<X />}
+                  arrowOnHover={false}
                   onClick={() => {
                     setShowAddVariant(false)
                     setAddFulfillmentChecked(false)

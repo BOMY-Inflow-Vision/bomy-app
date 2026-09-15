@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { PackageCheck } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
@@ -38,6 +39,7 @@ export function MarkDeliveredButton({ orderId }: { orderId: string }) {
     <div>
       <Button
         onClick={() => void handleClick()}
+        icon={<PackageCheck />}
         disabled={pending}
         className="bg-green-700 hover:bg-green-800 text-white"
       >

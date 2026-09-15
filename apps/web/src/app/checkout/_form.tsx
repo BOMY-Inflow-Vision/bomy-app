@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useTransition } from "react"
+import { CreditCard } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
@@ -439,8 +440,14 @@ export function CheckoutForm({ savedAddresses = [] }: { savedAddresses?: SavedAd
         </div>
       )}
 
-      <Button type="submit" size="lg" disabled={isPending} className="w-full">
-        {isPending && <Spinner />}
+      <Button
+        type="submit"
+        size="lg"
+        icon={isPending ? <Spinner /> : <CreditCard />}
+        arrowOnHover={!isPending}
+        disabled={isPending}
+        className="w-full"
+      >
         {isPending ? "Processing…" : "Proceed to payment"}
       </Button>
     </form>

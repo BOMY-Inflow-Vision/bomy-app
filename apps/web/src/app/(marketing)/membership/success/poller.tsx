@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { Eye, RefreshCw, RotateCcw } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -56,7 +57,8 @@ export function MembershipActivationPoller({ initialActive, pendingFresh }: Prop
           </p>
           <Button
             asChild
-            className="w-full rounded-xl bg-amber-500 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-amber-600 active:bg-amber-700 transition-colors"
+            icon={<Eye />}
+            className="w-full bg-amber-500 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-amber-600 active:bg-amber-700 transition-colors"
           >
             <Link href="/membership/manage">View my membership</Link>
           </Button>
@@ -97,13 +99,20 @@ export function MembershipActivationPoller({ initialActive, pendingFresh }: Prop
           </p>
           <Button
             type="button"
+            icon={<RefreshCw />}
             onClick={() => router.refresh()}
-            className="w-full rounded-xl bg-amber-500 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-amber-600 active:bg-amber-700 transition-colors"
+            className="w-full bg-amber-500 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-amber-600 active:bg-amber-700 transition-colors"
           >
             I&apos;ve paid — check again
           </Button>
           <form action={abandonPendingMembership} className="mt-3">
-            <Button type="submit" variant="outline" className="w-full rounded-xl">
+            <Button
+              type="submit"
+              variant="outline"
+              icon={<RotateCcw />}
+              arrowOnHover={false}
+              className="w-full"
+            >
               Start over
             </Button>
           </form>

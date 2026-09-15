@@ -1,6 +1,7 @@
 "use client"
 
 import { type FormEvent, useEffect, useState, useActionState, useTransition } from "react"
+import { Save } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { BodyEditor } from "@/components/body-editor"
@@ -164,7 +165,7 @@ export function SettingsForm({
               />
               <p className="mt-1 text-xs text-muted-foreground">Up to {EXCERPT_MAX} characters.</p>
             </div>
-            <Button type="submit" disabled={excerptPending}>
+            <Button type="submit" icon={<Save />} disabled={excerptPending}>
               {excerptPending ? "Saving…" : "Save"}
             </Button>
           </form>
@@ -218,6 +219,7 @@ export function SettingsForm({
           )}
           <Button
             type="button"
+            icon={<Save />}
             onClick={saveCategories}
             disabled={catPending || allCategories.length === 0}
             className="mt-4"
@@ -265,7 +267,7 @@ export function SettingsForm({
                 placeholder="https://www.youtube.com/watch?v=..."
               />
             </div>
-            <Button type="submit" disabled={videoPending}>
+            <Button type="submit" icon={<Save />} disabled={videoPending}>
               {videoPending ? "Saving…" : "Save"}
             </Button>
           </form>
@@ -336,7 +338,7 @@ export function SettingsForm({
                 placeholder="https://…"
               />
             </div>
-            <Button type="submit" disabled={seoPending}>
+            <Button type="submit" icon={<Save />} disabled={seoPending}>
               {seoPending ? "Saving…" : "Save"}
             </Button>
           </form>

@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { Search, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
@@ -42,9 +43,11 @@ export default async function ProductsPage({ searchParams }: Props) {
           className="flex-1 rounded-lg border border-input px-4 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
         />
         {category && <input type="hidden" name="category" value={category} />}
-        <Button type="submit">Search</Button>
+        <Button type="submit" icon={<Search />}>
+          Search
+        </Button>
         {q && (
-          <Button variant="outline" asChild>
+          <Button variant="outline" icon={<X />} arrowOnHover={false} asChild>
             <Link
               href={category ? `/products?category=${encodeURIComponent(category)}` : "/products"}
             >

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useTransition } from "react"
+import { Check, Pencil, Plus, Save, Trash2, X } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
@@ -102,6 +103,7 @@ export function AddressManager({ initial }: { initial: Row[] }) {
                         type="button"
                         variant="link"
                         size="sm"
+                        icon={<Check />}
                         disabled={pending}
                         onClick={() =>
                           startTransition(async () => {
@@ -113,7 +115,7 @@ export function AddressManager({ initial }: { initial: Row[] }) {
                             }
                           })
                         }
-                        className="h-auto p-0 text-xs"
+                        className="text-xs"
                       >
                         Set default
                       </Button>
@@ -122,9 +124,10 @@ export function AddressManager({ initial }: { initial: Row[] }) {
                       type="button"
                       variant="link"
                       size="sm"
+                      icon={<Pencil />}
                       disabled={pending}
                       onClick={() => startEdit(a)}
-                      className="h-auto p-0 text-xs"
+                      className="text-xs"
                     >
                       Edit
                     </Button>
@@ -132,6 +135,7 @@ export function AddressManager({ initial }: { initial: Row[] }) {
                       type="button"
                       variant="link"
                       size="sm"
+                      icon={<Trash2 />}
                       disabled={pending}
                       onClick={() =>
                         startTransition(async () => {
@@ -143,7 +147,7 @@ export function AddressManager({ initial }: { initial: Row[] }) {
                           }
                         })
                       }
-                      className="h-auto p-0 text-xs text-destructive hover:text-destructive"
+                      className="text-xs text-destructive hover:text-destructive"
                     >
                       Delete
                     </Button>
@@ -161,6 +165,7 @@ export function AddressManager({ initial }: { initial: Row[] }) {
       {!formOpen ? (
         <Button
           type="button"
+          icon={<Plus />}
           onClick={() => {
             setForm(EMPTY)
             setAdding(true)
@@ -279,10 +284,17 @@ export function AddressManager({ initial }: { initial: Row[] }) {
             {errors.state && <p className="mt-1 text-xs text-destructive">{errors.state}</p>}
           </div>
           <div className="flex gap-2">
-            <Button type="submit" disabled={pending}>
+            <Button type="submit" icon={<Save />} disabled={pending}>
               {pending ? "Saving…" : editingId ? "Save changes" : "Save address"}
             </Button>
-            <Button type="button" variant="ghost" disabled={pending} onClick={resetForm}>
+            <Button
+              type="button"
+              variant="ghost"
+              icon={<X />}
+              arrowOnHover={false}
+              disabled={pending}
+              onClick={resetForm}
+            >
               Cancel
             </Button>
           </div>
