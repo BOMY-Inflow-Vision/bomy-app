@@ -1,10 +1,12 @@
 import Link from "next/link"
 
+import { ToastOnMount } from "@/components/toast-on-mount"
 import { Button } from "@/components/ui/button"
 
 export default function UnauthorizedPage() {
   return (
     <div className="flex min-h-screen items-center justify-center">
+      <ToastOnMount type="error" message="Your account doesn't have admin access to BOMY." />
       <div className="text-center">
         <h1 className="text-2xl font-semibold text-foreground">Access Denied</h1>
         <p className="mt-2 text-sm text-muted-foreground">

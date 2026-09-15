@@ -19,7 +19,9 @@ export const authConfig = {
       allowDangerousEmailAccountLinking: true,
     }),
   ],
-  pages: { signIn: "/auth/sign-in" },
+  // Auth.js sends non-sign-in errors (AccessDenied, Verification) to pages.error; without it they
+  // land on its unstyled /api/auth/error page instead of the sign-in page's error toast.
+  pages: { signIn: "/auth/sign-in", error: "/auth/sign-in" },
   callbacks: {
     // Propagate custom JWT claims into the session for the edge middleware.
     // With strategy:"jwt", the middleware decodes the JWT but does NOT run the
