@@ -6,41 +6,62 @@ import { revalidatePath } from "next/cache"
 import { schema, withAdmin } from "@bomy/db"
 import { HitPayClient } from "@bomy/hitpay"
 
+import { authorizeAdminAction } from "@/lib/admin-action"
 import { requireAdminId } from "@/lib/auth"
 import { getDb } from "@/lib/db"
+import { flashToast } from "@/lib/flash-toast-server"
 
-export async function updateRenewalNotificationDays(formData: FormData) {
-  const adminId = await requireAdminId()
+// Server-form trigger (no client JS runs after submit) — must not throw for an expected
+// failure; flashes a toast for both outcomes itself instead of returning a result.
+export async function updateRenewalNotificationDays(formData: FormData): Promise<void> {
+  const authz = await authorizeAdminAction()
+  if (!authz.ok) {
+    await flashToast("error", authz.error)
+    return
+  }
 
   const raw = (formData.get("notificationDays") as string | null)?.trim()
-  if (!raw) throw new Error("Notification days are required")
+  if (!raw) {
+    await flashToast("error", "Notification days are required.")
+    return
+  }
 
   const days = raw
     .split(",")
     .map((s) => Number(s.trim()))
     .filter((n) => Number.isInteger(n) && n > 0)
 
-  if (days.length === 0) throw new Error("At least one positive integer day is required")
+  if (days.length === 0) {
+    await flashToast("error", "At least one positive integer day is required.")
+    return
+  }
 
-  await withAdmin(
-    getDb(),
-    { userId: adminId, reason: "admin update renewal_notification_days" },
-    async (tx) => {
-      await tx
-        .insert(schema.platformConfig)
-        .values({
-          key: "renewal_notification_days",
-          value: days,
-          description: "Days before membership expiry at which renewal reminder emails are sent.",
-          updatedBy: adminId,
-        })
-        .onConflictDoUpdate({
-          target: schema.platformConfig.key,
-          set: { value: days, updatedBy: adminId, updatedAt: new Date() },
-        })
-    },
-  )
+  try {
+    await withAdmin(
+      getDb(),
+      { userId: authz.adminId, reason: "admin update renewal_notification_days" },
+      async (tx) => {
+        await tx
+          .insert(schema.platformConfig)
+          .values({
+            key: "renewal_notification_days",
+            value: days,
+            description: "Days before membership expiry at which renewal reminder emails are sent.",
+            updatedBy: authz.adminId,
+          })
+          .onConflictDoUpdate({
+            target: schema.platformConfig.key,
+            set: { value: days, updatedBy: authz.adminId, updatedAt: new Date() },
+          })
+      },
+    )
+  } catch {
+    await flashToast("error", "Could not update renewal notification days.")
+    return
+  }
+
   revalidatePath("/memberships")
+  await flashToast("success", "Renewal notification days updated.")
 }
 
 function hitpayClient() {

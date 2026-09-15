@@ -1,7 +1,9 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 
+import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -11,6 +13,8 @@ export function ResolveForm({ sessionId }: { sessionId: string }) {
   const [note, setNote] = useState("")
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
+  const toast = useToast()
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -19,9 +23,16 @@ export function ResolveForm({ sessionId }: { sessionId: string }) {
     setError(null)
     const result = await resolvePaymentReview(sessionId, note.trim())
     if (result.ok) {
-      window.location.reload()
+      toast.success("Payment review resolved.")
+      // router.refresh() (not window.location.reload()) so the success toast stays visible —
+      // this re-runs the server component, which reads the session fresh from the DB and
+      // renders the "Resolved" card instead of this form once resolvedBy is set.
+      router.refresh()
     } else {
-      setError(result.error === "FORBIDDEN" ? "Not authorized." : "Could not resolve session.")
+      const message =
+        result.error === "FORBIDDEN" ? "Not authorized." : "Could not resolve session."
+      setError(message)
+      toast.error(message)
       setPending(false)
     }
   }

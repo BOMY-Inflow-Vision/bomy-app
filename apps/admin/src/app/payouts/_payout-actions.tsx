@@ -2,10 +2,12 @@
 
 import { useState } from "react"
 
+import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { humanizePayoutError } from "@/lib/payout-error-copy"
 import { markPayoutCompleted, markPayoutFailed, markPayoutProcessing } from "./actions"
 
 interface Props {
@@ -21,14 +23,21 @@ export function PayoutActions({ payoutId, status }: Props) {
   const [failNotes, setFailNotes] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const toast = useToast()
 
   async function doProcessing() {
     setLoading(true)
     setError(null)
     const r = await markPayoutProcessing(payoutId)
     setLoading(false)
-    if (r.ok) setLocalStatus("processing")
-    else setError(r.error)
+    if (r.ok) {
+      setLocalStatus("processing")
+      toast.success("Payout marked processing.")
+    } else {
+      const copy = humanizePayoutError("markProcessing", r.error)
+      setError(copy.message)
+      toast[copy.toast](copy.message)
+    }
   }
 
   async function doComplete() {
@@ -39,7 +48,12 @@ export function PayoutActions({ payoutId, status }: Props) {
     if (r.ok) {
       setLocalStatus("completed")
       setShowComplete(false)
-    } else setError(r.error)
+      toast.success("Payout marked completed.")
+    } else {
+      const copy = humanizePayoutError("markCompleted", r.error)
+      setError(copy.message)
+      toast[copy.toast](copy.message)
+    }
   }
 
   async function doFail() {
@@ -50,7 +64,12 @@ export function PayoutActions({ payoutId, status }: Props) {
     if (r.ok) {
       setLocalStatus("failed")
       setShowFail(false)
-    } else setError(r.error)
+      toast.success("Payout marked failed.")
+    } else {
+      const copy = humanizePayoutError("markFailed", r.error)
+      setError(copy.message)
+      toast[copy.toast](copy.message)
+    }
   }
 
   if (localStatus === "completed" || localStatus === "failed") {

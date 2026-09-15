@@ -9,8 +9,10 @@ import { afterAll, beforeAll, describe, expect, it, vi, type Mock } from "vitest
 
 vi.mock("@/auth", () => ({ auth: vi.fn() }))
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
+vi.mock("@/lib/flash-toast-server", () => ({ flashToast: vi.fn() }))
 
 import { auth } from "@/auth"
+import { flashToast } from "@/lib/flash-toast-server"
 import { togglePlanActive } from "../../src/app/brand-plans/actions"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
@@ -20,6 +22,7 @@ const RLS_READY = process.env["BOMY_RLS_READY"] === "1"
 const shouldRun = Boolean(DATABASE_URL) && RLS_READY
 
 const mockAuth = auth as unknown as Mock
+const mockFlashToast = flashToast as unknown as Mock
 
 describe.skipIf(!shouldRun)("togglePlanActive", () => {
   let testDb: ReturnType<typeof makeDb>
@@ -66,7 +69,8 @@ describe.skipIf(!shouldRun)("togglePlanActive", () => {
     await testDb.close()
   })
 
-  it("activates an inactive plan", async () => {
+  it("activates an inactive plan, flashes success", async () => {
+    mockFlashToast.mockClear()
     mockAuth.mockResolvedValue({
       user: { id: adminId, role: "bomy_admin", email: "admin@test.bomy" },
     })
@@ -83,15 +87,37 @@ describe.skipIf(!shouldRun)("togglePlanActive", () => {
           .where(eq(schema.brandSubscriptionPlans.id, planId)),
     )
     expect(row?.isActive).toBe(true)
+    expect(mockFlashToast).toHaveBeenCalledWith("success", "Plan activated.")
   })
 
-  it("deactivates an active plan", async () => {
+  it("deactivates an active plan, flashes success", async () => {
+    mockFlashToast.mockClear()
     mockAuth.mockResolvedValue({
       user: { id: adminId, role: "bomy_admin", email: "admin@test.bomy" },
     })
 
     await togglePlanActive(planId, false)
 
+    const [row] = await withAdmin(
+      testDb.db,
+      { userId: adminId, reason: "test assert" },
+      async (tx) =>
+        tx
+          .select({ isActive: schema.brandSubscriptionPlans.isActive })
+          .from(schema.brandSubscriptionPlans)
+          .where(eq(schema.brandSubscriptionPlans.id, planId)),
+    )
+    expect(row?.isActive).toBe(false)
+    expect(mockFlashToast).toHaveBeenCalledWith("success", "Plan deactivated.")
+  })
+
+  it("a demoted admin gets a flashed error, no write", async () => {
+    mockFlashToast.mockClear()
+    mockAuth.mockResolvedValue({ user: { id: adminId, role: "buyer" } })
+
+    await togglePlanActive(planId, true)
+
+    expect(mockFlashToast).toHaveBeenCalledWith("error", "You don't have permission to do that.")
     const [row] = await withAdmin(
       testDb.db,
       { userId: adminId, reason: "test assert" },
