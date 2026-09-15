@@ -7,6 +7,7 @@ import { redirect } from "next/navigation"
 import { makeDb, schema, withAdmin, withTenant } from "@bomy/db"
 
 import { auth, signOut, unstable_update } from "@/auth"
+import { flashToast } from "@/lib/flash-toast-server"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001" as const
 
@@ -16,7 +17,9 @@ function getDb() {
   return _client.db
 }
 
-export async function acceptConsent(): Promise<void> {
+export type AcceptConsentResult = { ok: false; error: string } | undefined
+
+export async function acceptConsent(): Promise<AcceptConsentResult> {
   const session = await auth()
   if (!session?.user?.id) redirect("/auth/sign-in")
 
@@ -36,7 +39,14 @@ export async function acceptConsent(): Promise<void> {
         .limit(1),
   )
   const version = typeof rows[0]?.value === "string" ? rows[0].value : null
-  if (!version) throw new Error("tos_version not found in platform_config")
+  // Typed return instead of throwing: a Server Action's thrown-error message is
+  // redacted in production, so the client would only ever see a generic crash.
+  if (!version) {
+    return {
+      ok: false,
+      error: "We couldn't record your consent. Please try again or contact support.",
+    }
+  }
 
   // Capture acceptance provenance for the PDPA audit trail. First x-forwarded-for
   // hop is the client; behind Vercel/Railway proxies the chain is appended right.
@@ -59,6 +69,8 @@ export async function acceptConsent(): Promise<void> {
   // without requiring a sign-out. trigger="update" fires the jwt() callback
   // in auth.ts which stamps the new version.
   await unstable_update({ consentVersion: version } as Parameters<typeof unstable_update>[0])
+
+  await flashToast("success", "Thanks — you're all set.")
 
   redirect("/")
 }

@@ -3,6 +3,7 @@
 import Script from "next/script"
 import { useActionState, useEffect, useRef, useState } from "react"
 
+import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -34,10 +35,19 @@ const SITEKEY = process.env["NEXT_PUBLIC_TURNSTILE_SITEKEY"] ?? ""
 
 export function MagicLinkForm() {
   const [state, action, pending] = useActionState(sendMagicLinkAction, null)
+  const toast = useToast()
   const containerRef = useRef<HTMLDivElement | null>(null)
   const widgetIdRef = useRef<string | null>(null)
   const [token, setToken] = useState("")
   const [scriptReady, setScriptReady] = useState(false)
+
+  // Toast the error once per submission — keyed on the returned state object
+  // so a fresh action result (each has a new object identity) toasts exactly
+  // once. The inline banner below stays too; no success toast (the redirect
+  // to /auth/verify-request is itself the confirmation).
+  useEffect(() => {
+    if (state?.error) toast.error(state.error)
+  }, [state, toast])
 
   useEffect(() => {
     if (!scriptReady || !containerRef.current || widgetIdRef.current) return

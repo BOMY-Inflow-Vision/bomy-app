@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 
+import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
 
 import { acceptConsent, declineConsent } from "./actions"
@@ -21,10 +22,17 @@ function Spinner() {
 
 export function ConsentActions() {
   const [pending, setPending] = useState<"agree" | "decline" | null>(null)
+  const toast = useToast()
 
   const handleAgree = async () => {
     setPending("agree")
-    await acceptConsent()
+    // On success acceptConsent() redirects (throws NEXT_REDIRECT) and never
+    // returns here. It only returns a value on the typed failure path.
+    const result = await acceptConsent()
+    if (result && !result.ok) {
+      toast.error(result.error)
+      setPending(null)
+    }
   }
 
   const handleDecline = async () => {

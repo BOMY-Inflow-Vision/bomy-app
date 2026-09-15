@@ -1,19 +1,24 @@
 "use client"
 
-import { signOut } from "next-auth/react"
+import { useFormStatus } from "react-dom"
 
 import { Button } from "@/components/ui/button"
 
-export function SignOutButton() {
+import { signOutAction } from "./actions"
+
+function SignOutSubmit() {
+  const { pending } = useFormStatus()
   return (
-    <Button
-      type="button"
-      variant="outline"
-      onClick={() => {
-        void signOut({ callbackUrl: "/" })
-      }}
-    >
+    <Button type="submit" variant="outline" disabled={pending}>
       Sign out
     </Button>
+  )
+}
+
+export function SignOutButton() {
+  return (
+    <form action={signOutAction}>
+      <SignOutSubmit />
+    </form>
   )
 }
