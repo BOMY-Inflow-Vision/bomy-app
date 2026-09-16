@@ -15,7 +15,7 @@ vi.mock("@/auth", () => ({ auth: vi.fn() }))
 
 import { auth } from "@/auth"
 import { getCategories, getProductBySlug, getProducts } from "@/app/products/queries"
-import { getStorePage } from "@/app/brands/[slug]/queries"
+import { getBrandSubscriberAvatars, getStorePage } from "@/app/brands/[slug]/queries"
 import { getBrands } from "@/app/brands/queries"
 import { updateStoreCategories } from "@/app/seller/dashboard/settings/actions"
 
@@ -1325,3 +1325,103 @@ describe.skipIf(!shouldRun)(
     })
   },
 )
+
+describe.skipIf(!shouldRun)("getBrandSubscriberAvatars", () => {
+  let testDb: ReturnType<typeof makeDb>
+  let storeId: string
+  let planId: string
+  let ownerId: string
+  let activeUserId: string
+  let cancelledUserId: string
+
+  beforeAll(async () => {
+    process.env["DATABASE_URL"] = DATABASE_URL as string
+    testDb = makeDb({ url: DATABASE_URL as string })
+
+    ownerId = randomUUID()
+    activeUserId = randomUUID()
+    cancelledUserId = randomUUID()
+    planId = randomUUID()
+    const storeSlug = `test-brand-subs-${randomUUID().slice(0, 8)}`
+
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test seed" }, async (tx) => {
+      await tx.insert(schema.users).values([
+        { id: ownerId, email: `${ownerId}@test.bomy`, role: "seller_owner", name: "Owner" },
+        { id: activeUserId, email: `${activeUserId}@test.bomy`, role: "buyer", name: "Ada Active" },
+        {
+          id: cancelledUserId,
+          email: `${cancelledUserId}@test.bomy`,
+          role: "buyer",
+          name: "Cara Cancelled",
+        },
+      ])
+      const [store] = await tx
+        .insert(schema.stores)
+        .values({ ownerId, name: "Sub Avatar Test Store", slug: storeSlug, status: "active" })
+        .returning({ id: schema.stores.id })
+      storeId = store!.id
+      await tx.insert(schema.brandSubscriptionPlans).values({
+        id: planId,
+        storeId,
+        termMonths: 3,
+        priceMyrSen: 5000n,
+        discountPct: 5,
+        isActive: true,
+      })
+      await tx.insert(schema.brandSubscriptions).values([
+        {
+          userId: activeUserId,
+          storeId,
+          planId,
+          status: "active",
+          priceMyrSen: 5000n,
+          discountPct: 5,
+          periodStart: new Date(),
+          periodEnd: new Date(Date.now() + 90 * 86400 * 1000),
+          hitpayFeeSen: 200n,
+          bomyCommissionSen: 480n,
+          brandPayoutSen: 4320n,
+        },
+        {
+          userId: cancelledUserId,
+          storeId,
+          planId,
+          status: "cancelled",
+          priceMyrSen: 5000n,
+          discountPct: 5,
+          periodStart: new Date(),
+          periodEnd: new Date(Date.now() + 90 * 86400 * 1000),
+          bomyCommissionSen: 0n,
+          brandPayoutSen: 0n,
+          cancelledAt: new Date(),
+        },
+      ])
+    })
+  })
+
+  afterAll(async () => {
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
+      await tx
+        .delete(schema.brandSubscriptions)
+        .where(eq(schema.brandSubscriptions.storeId, storeId))
+      // brand_subscription_plans and users have no DELETE grant for bomy_app
+      // (soft-deactivation is the model — see migration 0027), so the plan and the three
+      // test users are intentionally left behind, matching every other test file's convention.
+      await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
+    })
+    await testDb.close()
+  })
+
+  it("returns only the active subscriber's avatar, with a derived initial and correct total", async () => {
+    const result = await getBrandSubscriberAvatars(storeId)
+    expect(result.total).toBe(1)
+    expect(result.avatars).toHaveLength(1)
+    expect(result.avatars[0]?.id).toBe(activeUserId)
+    expect(result.avatars[0]?.initial).toBe("A")
+  })
+
+  it("excludes the cancelled subscriber", async () => {
+    const result = await getBrandSubscriberAvatars(storeId)
+    expect(result.avatars.some((a) => a.id === cancelledUserId)).toBe(false)
+  })
+})

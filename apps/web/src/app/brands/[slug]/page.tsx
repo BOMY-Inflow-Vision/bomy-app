@@ -3,6 +3,7 @@ import { notFound } from "next/navigation"
 import type { Metadata } from "next"
 import { CreditCard, Eye } from "lucide-react"
 
+import { auth } from "@/auth"
 import { BodyRenderer } from "@/components/body-renderer"
 import { AvatarGroup } from "@/components/ui/avatar-group"
 import { Button } from "@/components/ui/button"
@@ -78,9 +79,19 @@ export default async function StorePage({ params }: Props) {
   if (!data) notFound()
 
   const { store, categorySections, uncategorized } = data
-  const { avatars: subscriberAvatars, total: subscriberCount } = await getBrandSubscriberAvatars(
-    store.id,
-  )
+
+  // Gated to signed-in visitors: getBrandSubscriberAvatars runs under an audited
+  // admin-bypass (RLS blocks a public-read context from seeing another user's row), and
+  // this is the highest-traffic public/SEO surface in the app — calling it unconditionally
+  // would write an admin_bypass_audit row on every anonymous pageview, including bots and
+  // crawlers, defeating that table's purpose as a forensic trail of genuine admin bypasses
+  // (PR #145 review, Bob). Signed-in browsing traffic is a small enough fraction to keep
+  // the audit trail meaningful, and it's also the more relevant audience for this social
+  // proof widget.
+  const session = await auth()
+  const { avatars: subscriberAvatars, total: subscriberCount } = session
+    ? await getBrandSubscriberAvatars(store.id)
+    : { avatars: [], total: 0 }
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-10 px-4 py-8">

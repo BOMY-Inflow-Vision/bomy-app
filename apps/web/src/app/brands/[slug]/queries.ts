@@ -166,11 +166,15 @@ export interface SubscriberAvatar {
   initial: string
 }
 
-// RLS's users_self_read policy blocks a public-read context from seeing any other
-// user's row, so this narrow admin-bypass read is required to show subscriber avatars
-// on the public brand page — same pattern as getPriceSen on the membership page. Only
-// avatar image + a single initial (no name/email) leave the server, to keep this social
-// proof widget from exposing subscribers' identities to anonymous visitors.
+// RLS's users_self_read policy blocks a public-read context from seeing any other user's
+// row, so this narrow admin-bypass read is required to show subscriber avatars on the
+// brand page — same pattern as getPriceSen on the membership page. Only avatar image + a
+// single initial (no name/email) leave the server, to keep this social proof widget from
+// exposing subscribers' identities. Callers should only invoke this for a signed-in
+// visitor (see brands/[slug]/page.tsx) — brand_subscriptions carries per-subscriber
+// financial/commission columns, so a real public-read RLS policy here would need to open
+// row-level SELECT on that table to anonymous traffic, a materially bigger exposure than
+// the narrow id/image/initial this function actually returns (PR #145 review, Bob).
 export const getBrandSubscriberAvatars = cache(async (storeId: string) => {
   return withAdmin(
     getDb(),

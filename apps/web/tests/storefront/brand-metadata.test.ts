@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
 
 vi.mock("../../src/app/brands/[slug]/queries", () => ({ getStorePage: vi.fn() }))
+vi.mock("@/auth", () => ({ auth: vi.fn() }))
 
 import { generateMetadata } from "../../src/app/brands/[slug]/page"
 import { getStorePage } from "../../src/app/brands/[slug]/queries"
