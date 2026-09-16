@@ -1,10 +1,12 @@
 import { notFound } from "next/navigation"
+import { ArrowLeft } from "lucide-react"
 
 import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { senToMyr } from "@/lib/money"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 
 import { fetchOrderWithDetail } from "../_queries"
@@ -22,9 +24,9 @@ export default async function AdminOrderDetailPage({ params }: Props) {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
-      <a href="/orders" className="mb-6 block text-sm text-primary hover:underline">
-        &larr; Back to orders
-      </a>
+      <Button asChild variant="link" icon={<ArrowLeft />} arrowOnHover={false} className="mb-6">
+        <a href="/orders">Back to orders</a>
+      </Button>
 
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">Order {order.id.slice(0, 8)}&hellip;</h1>

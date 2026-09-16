@@ -1,9 +1,11 @@
-import { and, asc, eq, lte, sql } from "drizzle-orm"
+import { and, asc, desc, eq, lte, sql } from "drizzle-orm"
 import { cache } from "react"
 
-import { makeDb, schema, withPublicRead } from "@bomy/db"
+import { makeDb, schema, withAdmin, withPublicRead } from "@bomy/db"
 
 const CATEGORY_PREVIEW_CAP = 8
+const SUBSCRIBER_AVATAR_CAP = 4
+const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001" as const
 
 let _client: ReturnType<typeof makeDb> | null = null
 function getDb() {
@@ -156,4 +158,67 @@ export const getStorePage = cache(async (slug: string) => {
       },
     }
   })
+})
+
+export interface SubscriberAvatar {
+  id: string
+  image: string | null
+  initial: string
+}
+
+// RLS's users_self_read policy blocks a public-read context from seeing any other user's
+// row, so this narrow admin-bypass read is required to show subscriber avatars on the
+// brand page — same pattern as getPriceSen on the membership page. Only avatar image + a
+// single initial (no name/email) leave the server, to keep this social proof widget from
+// exposing subscribers' identities. Callers should only invoke this for a signed-in
+// visitor (see brands/[slug]/page.tsx) — brand_subscriptions carries per-subscriber
+// financial/commission columns, so a real public-read RLS policy here would need to open
+// row-level SELECT on that table to anonymous traffic, a materially bigger exposure than
+// the narrow id/image/initial this function actually returns (PR #145 review, Bob). The
+// audit write this still costs on every signed-in brand-page view is tracked as GAPS.md #17.
+export const getBrandSubscriberAvatars = cache(async (storeId: string) => {
+  return withAdmin(
+    getDb(),
+    {
+      userId: SYSTEM_ACTOR,
+      reason: "read brand subscriber avatars for a signed-in visitor's brand page view",
+    },
+    async (tx) => {
+      const rows = await tx
+        .select({
+          id: schema.users.id,
+          image: schema.users.image,
+          name: schema.users.name,
+          email: schema.users.email,
+        })
+        .from(schema.brandSubscriptions)
+        .innerJoin(schema.users, eq(schema.users.id, schema.brandSubscriptions.userId))
+        .where(
+          and(
+            eq(schema.brandSubscriptions.storeId, storeId),
+            eq(schema.brandSubscriptions.status, "active"),
+          ),
+        )
+        .orderBy(desc(schema.brandSubscriptions.createdAt))
+        .limit(SUBSCRIBER_AVATAR_CAP)
+
+      const [countRow] = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(schema.brandSubscriptions)
+        .where(
+          and(
+            eq(schema.brandSubscriptions.storeId, storeId),
+            eq(schema.brandSubscriptions.status, "active"),
+          ),
+        )
+
+      const avatars: SubscriberAvatar[] = rows.map((row) => ({
+        id: row.id,
+        image: row.image,
+        initial: (row.name ?? row.email)[0]!.toUpperCase(),
+      }))
+
+      return { avatars, total: countRow?.count ?? 0 }
+    },
+  )
 })

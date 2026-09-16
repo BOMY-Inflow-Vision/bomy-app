@@ -1,21 +1,36 @@
 import Link from "next/link"
 import { desc, eq, sql } from "drizzle-orm"
+import { Plus, Save, Send } from "lucide-react"
 
 import { schema, withAdmin } from "@bomy/db"
 
 import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
+import { pageCount, pageOffset, parsePage, PAGE_SIZE } from "@/lib/pagination"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Pagination } from "@/components/ui/pagination"
+import { Select } from "@/components/ui/select"
 import { triggerVoucherIssuance, updateVoucherConfig } from "./actions"
 
-export default async function VouchersPage() {
-  const { id: adminId } = await requireAdmin()
+const VOUCHER_TYPE_OPTIONS = [
+  { value: "fixed_myr", label: "Fixed MYR" },
+  { value: "percentage", label: "Percentage" },
+  { value: "random_myr", label: "Random MYR" },
+]
 
-  const [configRows, statsRows, vouchers] = await Promise.all([
+export default async function VouchersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>
+}) {
+  const { id: adminId } = await requireAdmin()
+  const page = parsePage((await searchParams).page)
+
+  const [configRows, statsRows, { rows: vouchers, total }] = await Promise.all([
     withAdmin(getDb(), { userId: adminId, reason: "admin read voucher config" }, async (tx) =>
       tx
         .select({ key: schema.platformConfig.key, value: schema.platformConfig.value })
@@ -33,8 +48,8 @@ export default async function VouchersPage() {
         .groupBy(schema.vouchers.issuedMonth)
         .orderBy(desc(schema.vouchers.issuedMonth)),
     ),
-    withAdmin(getDb(), { userId: adminId, reason: "admin list vouchers" }, async (tx) =>
-      tx
+    withAdmin(getDb(), { userId: adminId, reason: "admin list vouchers" }, async (tx) => {
+      const rows = await tx
         .select({
           id: schema.vouchers.id,
           userEmail: schema.users.email,
@@ -49,8 +64,12 @@ export default async function VouchersPage() {
         })
         .from(schema.vouchers)
         .innerJoin(schema.users, eq(schema.users.id, schema.vouchers.userId))
-        .orderBy(desc(sql`${schema.vouchers.createdAt}`)),
-    ),
+        .orderBy(desc(sql`${schema.vouchers.createdAt}`))
+        .limit(PAGE_SIZE)
+        .offset(pageOffset(page))
+      const countRows = await tx.select({ count: sql<number>`count(*)` }).from(schema.vouchers)
+      return { rows, total: Number(countRows[0]!.count) }
+    }),
   ])
 
   const config = Object.fromEntries(configRows.map((r) => [r.key, r.value]))
@@ -67,16 +86,12 @@ export default async function VouchersPage() {
               <Label htmlFor="voucher-type" className="w-32 text-sm font-medium text-foreground">
                 Type
               </Label>
-              <select
+              <Select
                 id="voucher-type"
                 name="type"
                 defaultValue={currentType}
-                className="rounded border border-input px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-              >
-                <option value="fixed_myr">Fixed MYR</option>
-                <option value="percentage">Percentage</option>
-                <option value="random_myr">Random MYR</option>
-              </select>
+                options={VOUCHER_TYPE_OPTIONS}
+              />
             </div>
             {/* All three field groups are always rendered so the form is
                 submittable after changing the type dropdown without JS.
@@ -157,13 +172,14 @@ export default async function VouchersPage() {
           {/* Buttons are siblings — never nest forms. Save Config references
               voucher-config-form via the form= attribute (HTML5 association). */}
           <div className="flex items-center gap-3 pt-4">
-            <Button type="submit" form="voucher-config-form" size="sm">
+            <Button type="submit" form="voucher-config-form" size="sm" icon={<Save />}>
               Save Config
             </Button>
             <form action={triggerVoucherIssuance}>
               <Button
                 type="submit"
                 size="sm"
+                icon={<Send />}
                 className="bg-amber-600 text-white hover:bg-amber-700"
               >
                 Issue Now
@@ -216,8 +232,8 @@ export default async function VouchersPage() {
       <div>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-semibold text-foreground">Compensation Vouchers</h2>
-          <Button asChild size="sm">
-            <Link href="/vouchers/new">+ Create Voucher</Link>
+          <Button asChild size="sm" icon={<Plus />}>
+            <Link href="/vouchers/new">Create Voucher</Link>
           </Button>
         </div>
         <Card>
@@ -275,6 +291,11 @@ export default async function VouchersPage() {
               )}
             </tbody>
           </table>
+          <Pagination
+            page={page}
+            totalPages={pageCount(total)}
+            buildHref={(p) => (p > 1 ? `/vouchers?page=${p}` : "/vouchers")}
+          />
         </Card>
       </div>
     </div>

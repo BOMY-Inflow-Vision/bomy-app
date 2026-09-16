@@ -3,9 +3,10 @@ import { eq } from "drizzle-orm"
 import NextAuth from "next-auth"
 import type { DefaultSession } from "next-auth"
 
-import { makeAuthDb, schema, type UserRole } from "@bomy/db"
+import { BOMY_ADMIN_ROLES, makeAuthDb, schema, type UserRole } from "@bomy/db"
 
 import { authConfig } from "./auth.config"
+import { flashToast } from "./lib/flash-toast-server"
 import { refreshRole, type RoleToken } from "./lib/role-refresh"
 
 declare module "next-auth" {
@@ -68,6 +69,21 @@ function getNextAuth(): ReturnType<typeof NextAuth> {
         session.user.role = (token["role"] as UserRole) ?? "buyer"
         session.roleRefreshFailed = token["roleRefreshFailed"] === true
         return session
+      },
+    },
+    events: {
+      // Non-admins are redirected to /unauthorized (which shows its own error
+      // toast), so only surface a success toast for BOMY admin roles.
+      async signIn({ user }) {
+        const dbUser = user as typeof user & { role?: UserRole }
+        const adminRoles: readonly UserRole[] = BOMY_ADMIN_ROLES
+        if (!dbUser.role || !adminRoles.includes(dbUser.role)) return
+        try {
+          await flashToast("success", `Signed in as ${user.email ?? "admin"}`)
+        } catch (error) {
+          // A toast failure must never break sign-in.
+          console.warn("flashToast failed during signIn event", error)
+        }
       },
     },
   })

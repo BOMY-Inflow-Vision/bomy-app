@@ -1,8 +1,9 @@
 "use client"
 
+import * as React from "react"
 import { useFormStatus } from "react-dom"
 
-import { Button } from "@/components/ui/button"
+import { Button, type ButtonProps } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 function Spinner() {
@@ -21,18 +22,31 @@ function Spinner() {
 export function SubmitButton({
   children,
   className,
+  icon,
+  arrowOnHover = true,
+  variant,
+  size,
 }: {
   children: React.ReactNode
   className?: string
+  icon?: React.ReactNode
+  arrowOnHover?: boolean
+  variant?: ButtonProps["variant"]
+  size?: ButtonProps["size"]
 }) {
   const { pending } = useFormStatus()
   return (
     <Button
       type="submit"
       disabled={pending}
+      variant={variant}
+      size={size}
+      // While pending the spinner takes the icon slot and the hover arrow is suppressed.
+      icon={icon === undefined ? undefined : pending ? <Spinner /> : icon}
+      arrowOnHover={arrowOnHover && !pending}
       className={cn("gap-2 disabled:cursor-not-allowed disabled:opacity-60", className)}
     >
-      {pending && <Spinner />}
+      {icon === undefined && pending && <Spinner />}
       {children}
     </Button>
   )

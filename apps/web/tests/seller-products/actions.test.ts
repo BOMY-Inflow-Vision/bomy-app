@@ -22,6 +22,7 @@ vi.mock("next/navigation", () => ({
 }))
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 vi.mock("@/auth", () => ({ auth: vi.fn() }))
+vi.mock("@/lib/flash-toast-server", () => ({ flashToast: vi.fn() }))
 
 // Capture after() callbacks so tests can flush them deterministically
 const afterCallbacks: Array<() => void | Promise<void>> = []
@@ -351,34 +352,32 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
         user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
       })
 
-      await expect(
-        updateProduct(
-          productId,
-          fd({
-            name: "Updated Product",
-            slug: "updated-product",
-            categoryId: "",
-            description: "",
-            status: "active",
-            metaTitle: "",
-            metaDescription: "",
-            ogImageUrl: "not-a-url",
-          }),
-        ),
-      ).rejects.toThrow()
+      const result = await updateProduct(
+        productId,
+        fd({
+          name: "Updated Product",
+          slug: "updated-product",
+          categoryId: "",
+          description: "",
+          status: "active",
+          metaTitle: "",
+          metaDescription: "",
+          ogImageUrl: "not-a-url",
+        }),
+      )
+      expect(result.ok).toBe(false)
     })
 
-    it("throws when product belongs to a different seller (RLS)", async () => {
+    it("returns a typed error when product belongs to a different seller (RLS)", async () => {
       mockAuth.mockResolvedValue({
         user: { id: otherSellerId, role: "seller_owner", email: "other@test.bomy" },
       })
 
-      await expect(
-        updateProduct(
-          productId,
-          fd({ name: "Hacked", slug: "hacked", categoryId: "", description: "", status: "active" }),
-        ),
-      ).rejects.toThrow("Product not found or not authorized")
+      const result = await updateProduct(
+        productId,
+        fd({ name: "Hacked", slug: "hacked", categoryId: "", description: "", status: "active" }),
+      )
+      expect(result).toEqual({ ok: false, error: "Product not found or not authorized" })
     })
   })
 
@@ -529,17 +528,16 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       expect(large!.priceMyrSen).toBe(3500n)
     })
 
-    it("rejects addVariant for another seller's product", async () => {
+    it("returns a typed error for addVariant on another seller's product", async () => {
       mockAuth.mockResolvedValue({
         user: { id: otherSellerId, role: "seller_owner", email: "other@test.bomy" },
       })
 
-      await expect(
-        addVariant(
-          productId,
-          fd({ name: "Hacked", price: "1.00", stock: "1", sku: "", attrs: "" }),
-        ),
-      ).rejects.toThrow("Product not found or not authorized")
+      const result = await addVariant(
+        productId,
+        fd({ name: "Hacked", price: "1.00", stock: "1", sku: "", attrs: "" }),
+      )
+      expect(result).toEqual({ ok: false, error: "Product not found or not authorized" })
     })
 
     it("updates a variant", async () => {
@@ -609,12 +607,13 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       expect(row!.isActive).toBe(true)
     })
 
-    it("rejects reactivateVariant for another seller's variant", async () => {
+    it("returns a typed error for reactivateVariant on another seller's variant", async () => {
       mockAuth.mockResolvedValue({
         user: { id: otherSellerId, role: "seller_owner", email: "other@test.bomy" },
       })
 
-      await expect(reactivateVariant(variantId)).rejects.toThrow("not found or not authorized")
+      const result = await reactivateVariant(variantId)
+      expect(result).toEqual({ ok: false, error: "Variant not found or not authorized" })
     })
 
     it("addVariant saves preorder fulfillment mode with lead days", async () => {
@@ -820,42 +819,40 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       expect(byId.get(variantBId)).toBe(2)
     })
 
-    it("throws when orderedIds is missing a variant", async () => {
+    it("returns a typed error when orderedIds is missing a variant", async () => {
       mockAuth.mockResolvedValue({
         user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
       })
 
-      await expect(reorderVariants(productId, [variantAId, variantBId])).rejects.toThrow()
+      const result = await reorderVariants(productId, [variantAId, variantBId])
+      expect(result.ok).toBe(false)
     })
 
-    it("throws when orderedIds contains a duplicate", async () => {
+    it("returns a typed error when orderedIds contains a duplicate", async () => {
       mockAuth.mockResolvedValue({
         user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
       })
 
-      await expect(
-        reorderVariants(productId, [variantAId, variantAId, variantBId]),
-      ).rejects.toThrow()
+      const result = await reorderVariants(productId, [variantAId, variantAId, variantBId])
+      expect(result.ok).toBe(false)
     })
 
-    it("throws when orderedIds contains a variant from a different product", async () => {
+    it("returns a typed error when orderedIds contains a variant from a different product", async () => {
       mockAuth.mockResolvedValue({
         user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
       })
 
-      await expect(
-        reorderVariants(productId, [foreignVariantId, variantBId, variantCId]),
-      ).rejects.toThrow()
+      const result = await reorderVariants(productId, [foreignVariantId, variantBId, variantCId])
+      expect(result.ok).toBe(false)
     })
 
-    it("throws when the product belongs to a different seller", async () => {
+    it("returns a typed error when the product belongs to a different seller", async () => {
       mockAuth.mockResolvedValue({
         user: { id: otherSellerId, role: "seller_owner", email: "other@test.bomy" },
       })
 
-      await expect(
-        reorderVariants(productId, [variantAId, variantBId, variantCId]),
-      ).rejects.toThrow("Product not found or not authorized")
+      const result = await reorderVariants(productId, [variantAId, variantBId, variantCId])
+      expect(result).toEqual({ ok: false, error: "Product not found or not authorized" })
     })
   })
 
@@ -928,7 +925,7 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       imageId = images[0]!.id
     })
 
-    it("rejects addProductImage with a claim signed for a different user", async () => {
+    it("returns a typed error for addProductImage with a claim signed for a different user", async () => {
       mockAuth.mockResolvedValue({
         user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
       })
@@ -936,12 +933,11 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       process.env["AUTH_SECRET"] = TEST_AUTH_SECRET
 
       const key = "products/00000000-0000-0000-0000-000000000099.jpg"
-      await expect(
-        addProductImage(productId, key, makeTestClaim(otherSellerId, key)),
-      ).rejects.toThrow("Invalid upload claim")
+      const result = await addProductImage(productId, key, makeTestClaim(otherSellerId, key))
+      expect(result).toEqual({ ok: false, error: "Invalid upload claim" })
     })
 
-    it("rejects addProductImage for another seller's product", async () => {
+    it("returns a typed error for addProductImage on another seller's product", async () => {
       mockAuth.mockResolvedValue({
         user: { id: otherSellerId, role: "seller_owner", email: "other@test.bomy" },
       })
@@ -949,17 +945,17 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       process.env["AUTH_SECRET"] = TEST_AUTH_SECRET
 
       const key = "products/00000000-0000-0000-0000-000000000003.jpg"
-      await expect(
-        addProductImage(productId, key, makeTestClaim(otherSellerId, key)),
-      ).rejects.toThrow("Product not found or not authorized")
+      const result = await addProductImage(productId, key, makeTestClaim(otherSellerId, key))
+      expect(result).toEqual({ ok: false, error: "Product not found or not authorized" })
     })
 
-    it("rejects removeProductImage for another seller's image", async () => {
+    it("returns a typed error for removeProductImage on another seller's image", async () => {
       mockAuth.mockResolvedValue({
         user: { id: otherSellerId, role: "seller_owner", email: "other@test.bomy" },
       })
 
-      await expect(removeProductImage(imageId)).rejects.toThrow("Image not found or not authorized")
+      const result = await removeProductImage(imageId)
+      expect(result).toEqual({ ok: false, error: "Image not found or not authorized" })
     })
 
     it("removes own product image (R2 deleted, audit row written)", async () => {
@@ -1006,16 +1002,14 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       expect(auditRows.length).toBeGreaterThan(0)
     })
 
-    it("addProductImage rejects key not matching products/ pattern", async () => {
+    it("addProductImage returns a typed error for a key not matching products/ pattern", async () => {
       mockAuth.mockResolvedValue({
         user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
       })
-      await expect(
-        addProductImage(productId, "https://cdn.evil.com/img.jpg", "any-claim"),
-      ).rejects.toThrow("Invalid image key")
-      await expect(addProductImage(productId, "../escape/path.jpg", "any-claim")).rejects.toThrow(
-        "Invalid image key",
-      )
+      const r1 = await addProductImage(productId, "https://cdn.evil.com/img.jpg", "any-claim")
+      expect(r1).toEqual({ ok: false, error: "Invalid image key" })
+      const r2 = await addProductImage(productId, "../escape/path.jpg", "any-claim")
+      expect(r2).toEqual({ ok: false, error: "Invalid image key" })
     })
   })
 
@@ -1094,38 +1088,40 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       expect(byId.get(imageBId)).toBe(2)
     })
 
-    it("throws when orderedIds is missing an image", async () => {
+    it("returns a typed error when orderedIds is missing an image", async () => {
       mockAuth.mockResolvedValue({
         user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
       })
 
-      await expect(reorderImages(productId, [imageAId, imageBId])).rejects.toThrow()
+      const result = await reorderImages(productId, [imageAId, imageBId])
+      expect(result.ok).toBe(false)
     })
 
-    it("throws when orderedIds contains a duplicate", async () => {
+    it("returns a typed error when orderedIds contains a duplicate", async () => {
       mockAuth.mockResolvedValue({
         user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
       })
 
-      await expect(reorderImages(productId, [imageAId, imageAId, imageBId])).rejects.toThrow()
+      const result = await reorderImages(productId, [imageAId, imageAId, imageBId])
+      expect(result.ok).toBe(false)
     })
 
-    it("throws when orderedIds contains an image from a different product", async () => {
+    it("returns a typed error when orderedIds contains an image from a different product", async () => {
       mockAuth.mockResolvedValue({
         user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
       })
 
-      await expect(reorderImages(productId, [foreignImageId, imageBId, imageCId])).rejects.toThrow()
+      const result = await reorderImages(productId, [foreignImageId, imageBId, imageCId])
+      expect(result.ok).toBe(false)
     })
 
-    it("throws when the product belongs to a different seller", async () => {
+    it("returns a typed error when the product belongs to a different seller", async () => {
       mockAuth.mockResolvedValue({
         user: { id: otherSellerId, role: "seller_owner", email: "other@test.bomy" },
       })
 
-      await expect(reorderImages(productId, [imageAId, imageBId, imageCId])).rejects.toThrow(
-        "Product not found or not authorized",
-      )
+      const result = await reorderImages(productId, [imageAId, imageBId, imageCId])
+      expect(result).toEqual({ ok: false, error: "Product not found or not authorized" })
     })
   })
 
@@ -1161,7 +1157,7 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       })
     })
 
-    it("createProduct rejects for suspended store", async () => {
+    it("createProduct returns a typed error for suspended store", async () => {
       mockAuth.mockResolvedValue({
         user: {
           id: suspendedUserId,
@@ -1175,10 +1171,11 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       formData.set("variant_name_0", "Default")
       formData.set("variant_price_0", "10.00")
       formData.set("variant_stock_0", "5")
-      await expect(createProduct(formData)).rejects.toThrow("No active store found for this seller")
+      const result = await createProduct(formData)
+      expect(result).toEqual({ ok: false, error: "No active store found for this seller" })
     })
 
-    it("updateVariant rejects for suspended store", async () => {
+    it("updateVariant returns a typed error for suspended store", async () => {
       const suspProductId = randomUUID()
       const suspVariantId = randomUUID()
       await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test setup" }, async (tx) => {
@@ -1213,9 +1210,8 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       formData.set("sku", "")
       formData.set("attrs", "")
 
-      await expect(updateVariant(suspVariantId, formData)).rejects.toThrow(
-        "Variant not found or not authorized",
-      )
+      const result = await updateVariant(suspVariantId, formData)
+      expect(result).toEqual({ ok: false, error: "Variant not found or not authorized" })
 
       await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
         await tx.delete(schema.productVariants).where(eq(schema.productVariants.id, suspVariantId))
@@ -1223,7 +1219,7 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       })
     })
 
-    it("deactivateVariant rejects for suspended store", async () => {
+    it("deactivateVariant returns a typed error for suspended store", async () => {
       const suspProductId = randomUUID()
       const suspVariantId = randomUUID()
       await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test setup" }, async (tx) => {
@@ -1251,9 +1247,8 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
         },
       })
 
-      await expect(deactivateVariant(suspVariantId)).rejects.toThrow(
-        "Variant not found or not authorized",
-      )
+      const result = await deactivateVariant(suspVariantId)
+      expect(result).toEqual({ ok: false, error: "Variant not found or not authorized" })
 
       await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
         await tx.delete(schema.productVariants).where(eq(schema.productVariants.id, suspVariantId))
@@ -1261,7 +1256,7 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       })
     })
 
-    it("removeProductImage rejects for suspended store", async () => {
+    it("removeProductImage returns a typed error for suspended store", async () => {
       const suspProductId = randomUUID()
       const suspImageId = randomUUID()
       await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test setup" }, async (tx) => {
@@ -1288,9 +1283,8 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
         },
       })
 
-      await expect(removeProductImage(suspImageId)).rejects.toThrow(
-        "Image not found or not authorized",
-      )
+      const result = await removeProductImage(suspImageId)
+      expect(result).toEqual({ ok: false, error: "Image not found or not authorized" })
 
       await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
         await tx.delete(schema.productImages).where(eq(schema.productImages.id, suspImageId))

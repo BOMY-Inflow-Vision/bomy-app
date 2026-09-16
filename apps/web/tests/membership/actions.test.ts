@@ -25,6 +25,8 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/auth", () => ({ auth: vi.fn() }))
 
+vi.mock("@/lib/flash-toast-server", () => ({ flashToast: vi.fn() }))
+
 vi.mock("@bomy/hitpay", async (importActual) => {
   const actual = await importActual<typeof HitPayModule>()
   return { ...actual, HitPayClient: vi.fn() }
@@ -309,7 +311,9 @@ describe.skipIf(!shouldRun)("membership actions", () => {
         cancelRecurringBilling,
       }))
 
-      await expect(joinMembership()).rejects.toThrow("HitPay unavailable")
+      // Pending row is cleaned up, then the user is sent back to /membership (with an error toast).
+      const url = await expectRedirect(joinMembership)
+      expect(url).toBe("/membership")
 
       // No live billing was created, so cancelRecurringBilling should not be called
       expect(cancelRecurringBilling).not.toHaveBeenCalled()

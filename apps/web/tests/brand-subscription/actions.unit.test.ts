@@ -17,6 +17,8 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/auth", () => ({ auth: vi.fn() }))
 
+vi.mock("@/lib/flash-toast-server", () => ({ flashToast: vi.fn() }))
+
 vi.mock("@bomy/hitpay", () => ({ HitPayClient: vi.fn() }))
 
 vi.mock("@bomy/db", () => ({
@@ -30,6 +32,7 @@ vi.mock("@bomy/db", () => ({
 import { auth } from "@/auth"
 import { HitPayClient } from "@bomy/hitpay"
 import * as dbModule from "@bomy/db"
+import { flashToast } from "@/lib/flash-toast-server"
 import { subscribeToBrand } from "../../src/app/brands/[slug]/subscribe/actions"
 
 const USER_ID = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
@@ -78,7 +81,14 @@ describe("subscribeToBrand — DB correlation failure compensation", () => {
     const mockWithAdmin = dbModule.withAdmin as unknown as Mock
     mockWithAdmin.mockResolvedValue(undefined) // insert + delete
 
-    await expect(subscribeToBrand(PLAN_ID)).rejects.toThrow("HitPay unreachable")
+    // Cleanup runs, then the user is sent back to the subscribe page with an error toast.
+    await expect(subscribeToBrand(PLAN_ID)).rejects.toThrow(
+      /^REDIRECT:\/brands\/test-brand\/subscribe$/,
+    )
+    expect(flashToast).toHaveBeenCalledWith(
+      "error",
+      expect.stringContaining("couldn't start your brand subscription"),
+    )
 
     // pending row cleanup must be called (2nd withAdmin = delete)
     expect(mockWithAdmin).toHaveBeenCalledTimes(2)
@@ -107,7 +117,13 @@ describe("subscribeToBrand — DB correlation failure compensation", () => {
       return undefined // delete
     })
 
-    await expect(subscribeToBrand(PLAN_ID)).rejects.toThrow("DB write failed — primary")
+    await expect(subscribeToBrand(PLAN_ID)).rejects.toThrow(
+      /^REDIRECT:\/brands\/test-brand\/subscribe$/,
+    )
+    expect(flashToast).toHaveBeenCalledWith(
+      "error",
+      expect.stringContaining("couldn't start your brand subscription"),
+    )
 
     // 4 calls: insert + primary fail + fallback fail + delete
     expect(mockWithAdmin).toHaveBeenCalledTimes(4)
@@ -141,6 +157,8 @@ describe("subscribeToBrand — DB correlation failure compensation", () => {
 
     // 3 calls: insert + primary fail + fallback succeed; NO delete
     expect(mockWithAdmin).toHaveBeenCalledTimes(3)
+    // Checkout still proceeds, so no error toast.
+    expect(flashToast).not.toHaveBeenCalled()
   })
 })
 

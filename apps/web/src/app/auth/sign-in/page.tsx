@@ -1,15 +1,15 @@
 import { signIn } from "@/auth"
 import { SubmitButton } from "@/components/submit-button"
+import { ToastOnMount } from "@/components/toast-on-mount"
+import { authErrorMessage } from "@/lib/auth-error-messages"
 
 import { MagicLinkForm } from "./magic-link-form"
 
 const emailEnabled = process.env["EMAIL_DELIVERY_ENABLED"] === "true"
 
-export default function SignInPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ consent?: string }>
-}) {
+type SignInSearchParams = Promise<{ consent?: string; error?: string | string[] }>
+
+export default function SignInPage({ searchParams }: { searchParams: SignInSearchParams }) {
   return (
     <main className="flex min-h-screen items-center justify-center bg-muted">
       <div className="w-full max-w-sm rounded-2xl bg-background p-8 shadow-sm ring-1 ring-border">
@@ -23,6 +23,7 @@ export default function SignInPage({
         </div>
 
         <ConsentDeclinedBanner searchParams={searchParams} />
+        <AuthErrorBanner searchParams={searchParams} />
 
         <div className="flex flex-col gap-3">
           <form
@@ -31,8 +32,10 @@ export default function SignInPage({
               await signIn("google", { redirectTo: "/auth/consent" })
             }}
           >
-            <SubmitButton className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted">
-              <GoogleIcon />
+            <SubmitButton
+              icon={<GoogleIcon />}
+              className="w-full border border-input bg-background text-sm font-medium text-foreground transition-colors hover:bg-muted"
+            >
               Continue with Google
             </SubmitButton>
           </form>
@@ -66,17 +69,43 @@ export default function SignInPage({
   )
 }
 
-async function ConsentDeclinedBanner({
-  searchParams,
-}: {
-  searchParams: Promise<{ consent?: string }>
-}) {
+async function ConsentDeclinedBanner({ searchParams }: { searchParams: SignInSearchParams }) {
   const params = await searchParams
   if (params.consent !== "declined") return null
   return (
-    <div className="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-200">
-      You must accept the Terms and Privacy Policy to use BOMY.
-    </div>
+    <>
+      <div className="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-200">
+        You must accept the Terms and Privacy Policy to use BOMY.
+      </div>
+      {/* No clearSearchParam: stripping ?consent= would trigger a client
+          re-fetch of this server component without the param, making the
+          banner above disappear on the same render pass that shows the
+          toast. Leaving the param means a manual refresh re-shows both,
+          which is preferable to the banner vanishing under the user. */}
+      <ToastOnMount
+        type="warning"
+        message="You must accept the Terms and Privacy Policy to use BOMY."
+      />
+    </>
+  )
+}
+
+async function AuthErrorBanner({ searchParams }: { searchParams: SignInSearchParams }) {
+  const params = await searchParams
+  const raw = params.error
+  const code = Array.isArray(raw) ? raw[0] : raw
+  const message = authErrorMessage(code)
+  if (!message) return null
+  return (
+    <>
+      <p role="alert" className="mb-4 text-sm text-destructive">
+        {message}
+      </p>
+      {/* Same reasoning as ConsentDeclinedBanner above: no clearSearchParam,
+          so the inline alert stays visible instead of vanishing when
+          ToastOnMount's router.replace re-renders this server component. */}
+      <ToastOnMount type="error" message={message} />
+    </>
   )
 }
 

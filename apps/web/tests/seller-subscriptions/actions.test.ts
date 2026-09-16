@@ -93,7 +93,7 @@ describe.skipIf(!shouldRun)("seller subscription plan actions", () => {
         user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
       })
 
-      await createPlan(
+      const result = await createPlan(
         makeFormData({
           termMonths: "3",
           priceMyrSen: "50.00",
@@ -101,6 +101,7 @@ describe.skipIf(!shouldRun)("seller subscription plan actions", () => {
           description: "3-month brand perks",
         }),
       )
+      expect(result).toEqual({ ok: true })
 
       const rows = await withAdmin(
         testDb.db,
@@ -163,7 +164,7 @@ describe.skipIf(!shouldRun)("seller subscription plan actions", () => {
         user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
       })
 
-      await updatePlan(
+      const result = await updatePlan(
         planId,
         makeFormData({
           priceMyrSen: "150.00",
@@ -171,6 +172,7 @@ describe.skipIf(!shouldRun)("seller subscription plan actions", () => {
           description: "updated annual plan",
         }),
       )
+      expect(result).toEqual({ ok: true })
 
       const [row] = await withAdmin(
         testDb.db,
@@ -187,14 +189,16 @@ describe.skipIf(!shouldRun)("seller subscription plan actions", () => {
       expect(row!.isActive).toBe(false)
     })
 
-    it("throws when plan belongs to a different seller's store (RLS)", async () => {
+    it("returns a typed not-authorized error when plan belongs to a different seller's store (RLS)", async () => {
       mockAuth.mockResolvedValue({
         user: { id: otherSellerId, role: "seller_owner", email: "other@test.bomy" },
       })
 
-      await expect(
-        updatePlan(planId, makeFormData({ priceMyrSen: "200.00", discountPct: "5" })),
-      ).rejects.toThrow("Plan not found or not authorized")
+      const result = await updatePlan(
+        planId,
+        makeFormData({ priceMyrSen: "200.00", discountPct: "5" }),
+      )
+      expect(result).toEqual({ ok: false, error: "Plan not found or not authorized" })
     })
 
     it("editing an active plan resets isActive to false (re-approval required)", async () => {
@@ -227,15 +231,45 @@ describe.skipIf(!shouldRun)("seller subscription plan actions", () => {
   })
 
   describe("createPlan — duplicate term", () => {
-    it("duplicate term throws a controlled error (not a raw DB error)", async () => {
+    it("duplicate term returns a controlled typed error (not a raw DB error)", async () => {
       mockAuth.mockResolvedValue({
         user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
       })
 
       // 3-month plan was already created in the createPlan describe above
-      await expect(
-        createPlan(makeFormData({ termMonths: "3", priceMyrSen: "40.00", discountPct: "5" })),
-      ).rejects.toThrow("A plan for this term length already exists for your store")
+      const result = await createPlan(
+        makeFormData({ termMonths: "3", priceMyrSen: "40.00", discountPct: "5" }),
+      )
+      expect(result).toEqual({
+        ok: false,
+        error: "A plan for this term length already exists for your store",
+      })
+    })
+  })
+
+  describe("createPlan — no store", () => {
+    it("returns a typed error when the seller has no store", async () => {
+      const storelessSellerId = randomUUID()
+
+      await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test seed" }, async (tx) => {
+        await tx.insert(schema.users).values({
+          id: storelessSellerId,
+          email: `${storelessSellerId}@test.bomy`,
+          role: "seller_owner",
+        })
+      })
+
+      mockAuth.mockResolvedValue({
+        user: { id: storelessSellerId, role: "seller_owner", email: "storeless@test.bomy" },
+      })
+
+      const result = await createPlan(
+        makeFormData({ termMonths: "3", priceMyrSen: "40.00", discountPct: "5" }),
+      )
+      expect(result).toEqual({ ok: false, error: "No store found for this seller" })
+
+      // No cleanup delete: bomy_app has no DELETE grant on `users` (RLS policies.sql:462) —
+      // matches the convention elsewhere in this file/suite of only cleaning up `stores` rows.
     })
   })
 })

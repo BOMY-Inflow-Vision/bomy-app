@@ -1,7 +1,9 @@
 "use client"
 
 import { useRef, useState, useTransition } from "react"
+import { Plus } from "lucide-react"
 
+import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -11,16 +13,19 @@ export function NewCategoryForm() {
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const ref = useRef<HTMLFormElement>(null)
+  const toast = useToast()
 
   function submit(formData: FormData) {
     startTransition(async () => {
       const res = await createCategory(formData)
       if (!res.ok) {
         setError(res.error)
+        toast.error(res.error)
         return
       }
       setError(null)
       ref.current?.reset()
+      toast.success("Category created.")
     })
   }
 
@@ -36,7 +41,7 @@ export function NewCategoryForm() {
         placeholder="Category name"
         className="w-48"
       />
-      <Button type="submit" disabled={pending}>
+      <Button type="submit" disabled={pending} icon={<Plus />}>
         {pending ? "Adding…" : "Add Category"}
       </Button>
       {error && <p className="text-sm text-destructive">{error}</p>}

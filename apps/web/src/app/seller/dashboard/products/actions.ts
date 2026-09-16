@@ -10,7 +10,13 @@ import { makeDb, schema, withAdmin, withTenant } from "@bomy/db"
 import type { Database } from "@bomy/db"
 
 import { auth } from "@/auth"
+import { flashToast } from "@/lib/flash-toast-server"
 import { validateSeoFields } from "@bomy/shared/seo"
+
+// Validation/authorization failures are returned, not thrown: production redacts thrown
+// Server Action error messages. Unexpected errors (raw DB failures) are still allowed to
+// throw and reach error.tsx.
+export type ProductActionResult = { ok: true } | { ok: false; error: string }
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001" as const
 
@@ -208,22 +214,22 @@ export async function getCategories() {
 
 // ─── Product mutations ─────────────────────────────────────────────────────
 
-export async function createProduct(formData: FormData): Promise<void> {
+export async function createProduct(formData: FormData): Promise<ProductActionResult> {
   const session = await requireSeller()
 
   const name = str(formData, "name").trim()
-  if (!name) throw new Error("Product name is required")
+  if (!name) return { ok: false, error: "Product name is required" }
 
   const rawSlug = str(formData, "slug").trim()
   const slug = rawSlug || slugify(name)
-  if (!slug) throw new Error("Could not generate a valid slug from the product name")
+  if (!slug) return { ok: false, error: "Could not generate a valid slug from the product name" }
 
   const categoryId = str(formData, "categoryId") || null
   const description = str(formData, "description").trim() || null
   const status = (str(formData, "status") || "draft") as "draft" | "active" | "archived"
 
   const variantCount = parseInt(str(formData, "variant_count") || "0", 10)
-  if (variantCount < 1) throw new Error("At least one variant is required")
+  if (variantCount < 1) return { ok: false, error: "At least one variant is required" }
 
   const variants: Array<{
     name: string
@@ -237,10 +243,15 @@ export async function createProduct(formData: FormData): Promise<void> {
 
   for (let i = 0; i < variantCount; i++) {
     const vName = str(formData, `variant_name_${i}`).trim()
-    if (!vName) throw new Error(`Variant ${i + 1} name is required`)
-    const vPrice = parseMyrToSen(str(formData, `variant_price_${i}`))
+    if (!vName) return { ok: false, error: `Variant ${i + 1} name is required` }
+    let vPrice: bigint
+    try {
+      vPrice = parseMyrToSen(str(formData, `variant_price_${i}`))
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : "Invalid price" }
+    }
     const vStock = parseInt(str(formData, `variant_stock_${i}`) || "0", 10)
-    if (vStock < 0) throw new Error(`Variant ${i + 1} stock cannot be negative`)
+    if (vStock < 0) return { ok: false, error: `Variant ${i + 1} stock cannot be negative` }
     const vSku = str(formData, `variant_sku_${i}`).trim() || null
     const vAttrsRaw = str(formData, `variant_attrs_${i}`).trim()
     let vAttrs: Record<string, unknown> = {}
@@ -268,46 +279,61 @@ export async function createProduct(formData: FormData): Promise<void> {
     })
   }
 
-  const productId = await withTenant(
-    getDb(),
-    { userId: session.user.id, userRole: session.user.role },
-    async (tx) => {
-      const storeId = await resolveStore(tx, session.user.id)
+  let productId: string
+  try {
+    productId = await withTenant(
+      getDb(),
+      { userId: session.user.id, userRole: session.user.role },
+      async (tx) => {
+        const storeId = await resolveStore(tx, session.user.id)
 
-      const [product] = await tx
-        .insert(schema.products)
-        .values({ storeId, name, slug, categoryId, description, status })
-        .returning({ id: schema.products.id })
+        const [product] = await tx
+          .insert(schema.products)
+          .values({ storeId, name, slug, categoryId, description, status })
+          .returning({ id: schema.products.id })
 
-      await tx.insert(schema.productVariants).values(
-        variants.map((v, i) => ({
-          productId: product!.id,
-          name: v.name,
-          sku: v.sku,
-          priceMyrSen: v.priceMyrSen,
-          stockCount: v.stockCount,
-          attributes: v.attributes,
-          fulfillmentMode: v.fulfillmentMode,
-          preorderLeadDays: v.preorderLeadDays,
-          sortOrder: i,
-        })),
-      )
+        await tx.insert(schema.productVariants).values(
+          variants.map((v, i) => ({
+            productId: product!.id,
+            name: v.name,
+            sku: v.sku,
+            priceMyrSen: v.priceMyrSen,
+            stockCount: v.stockCount,
+            attributes: v.attributes,
+            fulfillmentMode: v.fulfillmentMode,
+            preorderLeadDays: v.preorderLeadDays,
+            sortOrder: i,
+          })),
+        )
 
-      return product!.id
-    },
-  )
+        return product!.id
+      },
+    )
+  } catch (err) {
+    // resolveStore's "no active store" is an expected, user-facing failure —
+    // surface it as a typed error like every other guard in this file.
+    // Anything else (a real DB failure) is unexpected and keeps throwing.
+    if (err instanceof Error && err.message === "No active store found for this seller") {
+      return { ok: false, error: err.message }
+    }
+    throw err
+  }
 
   revalidatePath("/seller/dashboard/products")
+  await flashToast("success", "Product created")
   redirect(`/seller/dashboard/products/${productId}/edit`)
 }
 
-export async function updateProduct(productId: string, formData: FormData): Promise<void> {
+export async function updateProduct(
+  productId: string,
+  formData: FormData,
+): Promise<ProductActionResult> {
   const session = await requireSeller()
 
   const name = str(formData, "name").trim()
-  if (!name) throw new Error("Product name is required")
+  if (!name) return { ok: false, error: "Product name is required" }
   const slug = str(formData, "slug").trim() || slugify(name)
-  if (!slug) throw new Error("Could not generate a valid slug from the product name")
+  if (!slug) return { ok: false, error: "Could not generate a valid slug from the product name" }
   const categoryId = str(formData, "categoryId") || null
   const description = str(formData, "description").trim() || null
   const status = (str(formData, "status") || "draft") as "draft" | "active" | "archived"
@@ -318,11 +344,11 @@ export async function updateProduct(productId: string, formData: FormData): Prom
     ogImageUrl: formData.get("ogImageUrl"),
   })
   if (!seoValidated.ok) {
-    throw new Error(Object.values(seoValidated.errors)[0] ?? "Invalid SEO input")
+    return { ok: false, error: Object.values(seoValidated.errors)[0] ?? "Invalid SEO input" }
   }
   const { metaTitle, metaDescription, ogImageUrl } = seoValidated.value
 
-  const updated = await withTenant(
+  const result = await withTenant(
     getDb(),
     { userId: session.user.id, userRole: session.user.role },
     async (tx) => {
@@ -338,9 +364,11 @@ export async function updateProduct(productId: string, formData: FormData): Prom
           ),
         )
         .limit(1)
-      if (!storeRows[0]) throw new Error("Product not found or not authorized")
+      if (!storeRows[0]) {
+        return { ok: false as const, error: "Product not found or not authorized" }
+      }
 
-      return tx
+      const updated = await tx
         .update(schema.products)
         .set({
           name,
@@ -355,19 +383,25 @@ export async function updateProduct(productId: string, formData: FormData): Prom
         })
         .where(eq(schema.products.id, productId))
         .returning({ id: schema.products.id })
+
+      if (updated.length === 0) {
+        return { ok: false as const, error: "Product not found or not authorized" }
+      }
+      return { ok: true as const }
     },
   )
 
-  if (updated.length === 0) throw new Error("Product not found or not authorized")
+  if (!result.ok) return result
 
   revalidatePath(`/seller/dashboard/products/${productId}/edit`)
   revalidatePath("/seller/dashboard/products")
+  return { ok: true }
 }
 
-export async function archiveProduct(productId: string): Promise<void> {
+export async function archiveProduct(productId: string): Promise<ProductActionResult> {
   const session = await requireSeller()
 
-  const updated = await withTenant(
+  const result = await withTenant(
     getDb(),
     { userId: session.user.id, userRole: session.user.role },
     async (tx) => {
@@ -383,32 +417,48 @@ export async function archiveProduct(productId: string): Promise<void> {
           ),
         )
         .limit(1)
-      if (!storeRows[0]) throw new Error("Product not found or not authorized")
+      if (!storeRows[0]) {
+        return { ok: false as const, error: "Product not found or not authorized" }
+      }
 
-      return tx
+      const updated = await tx
         .update(schema.products)
         .set({ status: "archived", updatedAt: new Date() })
         .where(eq(schema.products.id, productId))
         .returning({ id: schema.products.id })
+
+      if (updated.length === 0) {
+        return { ok: false as const, error: "Product not found or not authorized" }
+      }
+      return { ok: true as const }
     },
   )
 
-  if (updated.length === 0) throw new Error("Product not found or not authorized")
+  if (!result.ok) return result
 
   revalidatePath("/seller/dashboard/products")
+  await flashToast("success", "Product archived")
   redirect("/seller/dashboard/products")
 }
 
 // ─── Variant mutations ─────────────────────────────────────────────────────
 
-export async function addVariant(productId: string, formData: FormData): Promise<void> {
+export async function addVariant(
+  productId: string,
+  formData: FormData,
+): Promise<ProductActionResult> {
   const session = await requireSeller()
 
   const name = str(formData, "name").trim()
-  if (!name) throw new Error("Variant name is required")
-  const priceMyrSen = parseMyrToSen(str(formData, "price"))
+  if (!name) return { ok: false, error: "Variant name is required" }
+  let priceMyrSen: bigint
+  try {
+    priceMyrSen = parseMyrToSen(str(formData, "price"))
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Invalid price" }
+  }
   const stockCount = parseInt(str(formData, "stock") || "0", 10)
-  if (stockCount < 0) throw new Error("Stock cannot be negative")
+  if (stockCount < 0) return { ok: false, error: "Stock cannot be negative" }
   const sku = str(formData, "sku").trim() || null
   const attrsRaw = str(formData, "attrs").trim()
   let attributes: Record<string, unknown> = {}
@@ -424,7 +474,7 @@ export async function addVariant(productId: string, formData: FormData): Promise
     parseInt(str(formData, "preorder_lead_days") || "0", 10),
   )
 
-  await withTenant(
+  const result = await withTenant(
     getDb(),
     { userId: session.user.id, userRole: session.user.role },
     async (tx) => {
@@ -440,7 +490,7 @@ export async function addVariant(productId: string, formData: FormData): Promise
           ),
         )
         .limit(1)
-      if (!rows[0]) throw new Error("Product not found or not authorized")
+      if (!rows[0]) return { ok: false as const, error: "Product not found or not authorized" }
 
       await tx.insert(schema.productVariants).values({
         productId,
@@ -452,23 +502,36 @@ export async function addVariant(productId: string, formData: FormData): Promise
         fulfillmentMode,
         preorderLeadDays,
       })
+      return { ok: true as const }
     },
   ).catch((err) => {
-    if (isRlsViolation(err)) throw new Error("Product not found or not authorized")
+    if (isRlsViolation(err))
+      return { ok: false as const, error: "Product not found or not authorized" }
     throw err
   })
 
+  if (!result.ok) return result
+
   revalidatePath(`/seller/dashboard/products/${productId}/edit`)
+  return { ok: true }
 }
 
-export async function updateVariant(variantId: string, formData: FormData): Promise<void> {
+export async function updateVariant(
+  variantId: string,
+  formData: FormData,
+): Promise<ProductActionResult> {
   const session = await requireSeller()
 
   const name = str(formData, "name").trim()
-  if (!name) throw new Error("Variant name is required")
-  const priceMyrSen = parseMyrToSen(str(formData, "price"))
+  if (!name) return { ok: false, error: "Variant name is required" }
+  let priceMyrSen: bigint
+  try {
+    priceMyrSen = parseMyrToSen(str(formData, "price"))
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Invalid price" }
+  }
   const stockCount = parseInt(str(formData, "stock") || "0", 10)
-  if (stockCount < 0) throw new Error("Stock cannot be negative")
+  if (stockCount < 0) return { ok: false, error: "Stock cannot be negative" }
   const sku = str(formData, "sku").trim() || null
   const attrsRaw = str(formData, "attrs").trim()
   let attributes: Record<string, unknown> = {}
@@ -484,7 +547,7 @@ export async function updateVariant(variantId: string, formData: FormData): Prom
     parseInt(str(formData, "preorder_lead_days") || "0", 10),
   )
 
-  const updated = await withTenant(
+  const result = await withTenant(
     getDb(),
     { userId: session.user.id, userRole: session.user.role },
     async (tx) => {
@@ -501,9 +564,11 @@ export async function updateVariant(variantId: string, formData: FormData): Prom
           ),
         )
         .limit(1)
-      if (!storeCheck[0]) throw new Error("Variant not found or not authorized")
+      if (!storeCheck[0]) {
+        return { ok: false as const, error: "Variant not found or not authorized" }
+      }
 
-      return tx
+      const updated = await tx
         .update(schema.productVariants)
         .set({
           name,
@@ -517,18 +582,24 @@ export async function updateVariant(variantId: string, formData: FormData): Prom
         })
         .where(eq(schema.productVariants.id, variantId))
         .returning({ id: schema.productVariants.id, productId: schema.productVariants.productId })
+
+      if (updated.length === 0) {
+        return { ok: false as const, error: "Variant not found or not authorized" }
+      }
+      return { ok: true as const, productId: updated[0]!.productId }
     },
   )
 
-  if (updated.length === 0) throw new Error("Variant not found or not authorized")
+  if (!result.ok) return result
 
-  revalidatePath(`/seller/dashboard/products/${updated[0]!.productId}/edit`)
+  revalidatePath(`/seller/dashboard/products/${result.productId}/edit`)
+  return { ok: true }
 }
 
-export async function reactivateVariant(variantId: string): Promise<void> {
+export async function reactivateVariant(variantId: string): Promise<ProductActionResult> {
   const session = await requireSeller()
 
-  const updated = await withTenant(
+  const result = await withTenant(
     getDb(),
     { userId: session.user.id, userRole: session.user.role },
     async (tx) => {
@@ -545,25 +616,33 @@ export async function reactivateVariant(variantId: string): Promise<void> {
           ),
         )
         .limit(1)
-      if (!storeCheck[0]) throw new Error("Variant not found or not authorized")
+      if (!storeCheck[0]) {
+        return { ok: false as const, error: "Variant not found or not authorized" }
+      }
 
-      return tx
+      const updated = await tx
         .update(schema.productVariants)
         .set({ isActive: true, updatedAt: new Date() })
         .where(eq(schema.productVariants.id, variantId))
         .returning({ id: schema.productVariants.id, productId: schema.productVariants.productId })
+
+      if (updated.length === 0) {
+        return { ok: false as const, error: "Variant not found or not authorized" }
+      }
+      return { ok: true as const, productId: updated[0]!.productId }
     },
   )
 
-  if (updated.length === 0) throw new Error("Variant not found or not authorized")
+  if (!result.ok) return result
 
-  revalidatePath(`/seller/dashboard/products/${updated[0]!.productId}/edit`)
+  revalidatePath(`/seller/dashboard/products/${result.productId}/edit`)
+  return { ok: true }
 }
 
-export async function deactivateVariant(variantId: string): Promise<void> {
+export async function deactivateVariant(variantId: string): Promise<ProductActionResult> {
   const session = await requireSeller()
 
-  const updated = await withTenant(
+  const result = await withTenant(
     getDb(),
     { userId: session.user.id, userRole: session.user.role },
     async (tx) => {
@@ -580,28 +659,36 @@ export async function deactivateVariant(variantId: string): Promise<void> {
           ),
         )
         .limit(1)
-      if (!storeCheck[0]) throw new Error("Variant not found or not authorized")
+      if (!storeCheck[0]) {
+        return { ok: false as const, error: "Variant not found or not authorized" }
+      }
 
-      return tx
+      const updated = await tx
         .update(schema.productVariants)
         .set({ isActive: false, updatedAt: new Date() })
         .where(eq(schema.productVariants.id, variantId))
         .returning({ id: schema.productVariants.id, productId: schema.productVariants.productId })
+
+      if (updated.length === 0) {
+        return { ok: false as const, error: "Variant not found or not authorized" }
+      }
+      return { ok: true as const, productId: updated[0]!.productId }
     },
   )
 
-  if (updated.length === 0) throw new Error("Variant not found or not authorized")
+  if (!result.ok) return result
 
-  revalidatePath(`/seller/dashboard/products/${updated[0]!.productId}/edit`)
+  revalidatePath(`/seller/dashboard/products/${result.productId}/edit`)
+  return { ok: true }
 }
 
 export async function reorderVariants(
   productId: string,
   orderedVariantIds: string[],
-): Promise<void> {
+): Promise<ProductActionResult> {
   const session = await requireSeller()
 
-  await withTenant(
+  const result = await withTenant(
     getDb(),
     { userId: session.user.id, userRole: session.user.role },
     async (tx) => {
@@ -617,7 +704,9 @@ export async function reorderVariants(
           ),
         )
         .limit(1)
-      if (!storeRows[0]) throw new Error("Product not found or not authorized")
+      if (!storeRows[0]) {
+        return { ok: false as const, error: "Product not found or not authorized" }
+      }
 
       const existing = await tx
         .select({ id: schema.productVariants.id })
@@ -630,7 +719,10 @@ export async function reorderVariants(
         providedIds.size === orderedVariantIds.length &&
         existing.every((v) => providedIds.has(v.id))
       if (!isValidPermutation) {
-        throw new Error("Variant list does not match the product's current variants")
+        return {
+          ok: false as const,
+          error: "Variant list does not match the product's current variants",
+        }
       }
 
       for (let i = 0; i < orderedVariantIds.length; i++) {
@@ -639,13 +731,21 @@ export async function reorderVariants(
           .set({ sortOrder: i })
           .where(eq(schema.productVariants.id, orderedVariantIds[i]!))
       }
+      return { ok: true as const }
     },
   )
 
+  if (!result.ok) return result
+
   revalidatePath(`/seller/dashboard/products/${productId}/edit`)
+  return { ok: true }
 }
 
 // ─── Image mutations ───────────────────────────────────────────────────────
+
+export type AddProductImageResult =
+  | { ok: true; image: { id: string; url: string; altText: string | null; sortOrder: number } }
+  | { ok: false; error: string }
 
 export async function addProductImage(
   productId: string,
@@ -653,18 +753,20 @@ export async function addProductImage(
   claim: string,
   altText?: string,
   sortOrder?: number,
-): Promise<{ id: string; url: string; altText: string | null; sortOrder: number }> {
+): Promise<AddProductImageResult> {
   const KEY_PATTERN =
     /^products\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp|gif|avif)$/
-  if (!KEY_PATTERN.test(key)) throw new Error("Invalid image key")
+  if (!KEY_PATTERN.test(key)) return { ok: false, error: "Invalid image key" }
 
   const { buildPublicUrl, verifyUploadClaim } = await import("@/lib/s3")
   const url = buildPublicUrl(key)
 
   const session = await requireSeller()
-  if (!verifyUploadClaim(session.user.id, key, claim)) throw new Error("Invalid upload claim")
+  if (!verifyUploadClaim(session.user.id, key, claim)) {
+    return { ok: false, error: "Invalid upload claim" }
+  }
 
-  const newImage = await withTenant(
+  const result = await withTenant(
     getDb(),
     { userId: session.user.id, userRole: session.user.role },
     async (tx) => {
@@ -681,7 +783,7 @@ export async function addProductImage(
         )
         .limit(1)
         .for("update", { of: schema.products })
-      if (!rows[0]) throw new Error("Product not found or not authorized")
+      if (!rows[0]) return { ok: false as const, error: "Product not found or not authorized" }
 
       const nextSortOrder =
         sortOrder !== undefined
@@ -709,18 +811,21 @@ export async function addProductImage(
         .set({ coverImageUrl: url })
         .where(and(eq(schema.products.id, productId), isNull(schema.products.coverImageUrl)))
 
-      return inserted!
+      return { ok: true as const, image: inserted! }
     },
   ).catch((err) => {
-    if (isRlsViolation(err)) throw new Error("Product not found or not authorized")
+    if (isRlsViolation(err))
+      return { ok: false as const, error: "Product not found or not authorized" }
     throw err
   })
 
+  if (!result.ok) return result
+
   revalidatePath(`/seller/dashboard/products/${productId}/edit`)
-  return newImage
+  return result
 }
 
-export async function removeProductImage(imageId: string): Promise<void> {
+export async function removeProductImage(imageId: string): Promise<ProductActionResult> {
   const session = await requireSeller()
   const db = getDb()
 
@@ -747,7 +852,7 @@ export async function removeProductImage(imageId: string): Promise<void> {
         .limit(1),
   )
 
-  if (!imageRows[0]) throw new Error("Image not found or not authorized")
+  if (!imageRows[0]) return { ok: false, error: "Image not found or not authorized" }
 
   const { keyFromPublicUrl, deleteObject } = await import("@/lib/s3")
   const key = keyFromPublicUrl(imageRows[0].url)
@@ -785,12 +890,16 @@ export async function removeProductImage(imageId: string): Promise<void> {
   })
 
   revalidatePath(`/seller/dashboard/products/${imageRows[0].productId}/edit`)
+  return { ok: true }
 }
 
-export async function reorderImages(productId: string, orderedImageIds: string[]): Promise<void> {
+export async function reorderImages(
+  productId: string,
+  orderedImageIds: string[],
+): Promise<ProductActionResult> {
   const session = await requireSeller()
 
-  await withTenant(
+  const result = await withTenant(
     getDb(),
     { userId: session.user.id, userRole: session.user.role },
     async (tx) => {
@@ -806,7 +915,9 @@ export async function reorderImages(productId: string, orderedImageIds: string[]
           ),
         )
         .limit(1)
-      if (!storeRows[0]) throw new Error("Product not found or not authorized")
+      if (!storeRows[0]) {
+        return { ok: false as const, error: "Product not found or not authorized" }
+      }
 
       const existing = await tx
         .select({ id: schema.productImages.id })
@@ -819,7 +930,10 @@ export async function reorderImages(productId: string, orderedImageIds: string[]
         providedIds.size === orderedImageIds.length &&
         existing.every((img) => providedIds.has(img.id))
       if (!isValidPermutation) {
-        throw new Error("Image list does not match the product's current images")
+        return {
+          ok: false as const,
+          error: "Image list does not match the product's current images",
+        }
       }
 
       for (let i = 0; i < orderedImageIds.length; i++) {
@@ -828,10 +942,14 @@ export async function reorderImages(productId: string, orderedImageIds: string[]
           .set({ sortOrder: i })
           .where(eq(schema.productImages.id, orderedImageIds[i]!))
       }
+      return { ok: true as const }
     },
   )
 
+  if (!result.ok) return result
+
   revalidatePath(`/seller/dashboard/products/${productId}/edit`)
+  return { ok: true }
 }
 
 // ─── Presigned upload URL ──────────────────────────────────────────────────

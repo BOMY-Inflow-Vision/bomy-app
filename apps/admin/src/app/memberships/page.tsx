@@ -1,15 +1,18 @@
 import Link from "next/link"
 import { desc, eq, sql } from "drizzle-orm"
+import { Save, X } from "lucide-react"
 
 import { schema, withAdmin } from "@bomy/db"
 
 import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
+import { pageCount, pageOffset, parsePage, PAGE_SIZE } from "@/lib/pagination"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Pagination } from "@/components/ui/pagination"
 import { cancelMembership, updateRenewalNotificationDays } from "./actions"
 
 const STATUS_COLORS: Record<string, string> = {
@@ -23,12 +26,13 @@ const STATUS_COLORS: Record<string, string> = {
 export default async function MembershipsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>
+  searchParams: Promise<{ status?: string; page?: string }>
 }) {
   const { id: adminId } = await requireAdmin()
-  const { status } = await searchParams
+  const { status, page: pageParam } = await searchParams
+  const page = parsePage(pageParam)
 
-  const [notifyDaysRow, rows] = await Promise.all([
+  const [notifyDaysRow, { rows, total }] = await Promise.all([
     withAdmin(
       getDb(),
       { userId: adminId, reason: "admin read renewal_notification_days" },
@@ -40,7 +44,15 @@ export default async function MembershipsPage({
           .limit(1),
     ).then((r) => r[0]),
     withAdmin(getDb(), { userId: adminId, reason: "admin list memberships" }, async (tx) => {
-      const q = tx
+      const where =
+        status && ["pending", "active", "cancelled", "expired", "payment_failed"].includes(status)
+          ? eq(
+              schema.memberSubscriptions.status,
+              status as "pending" | "active" | "cancelled" | "expired" | "payment_failed",
+            )
+          : undefined
+
+      const rows = await tx
         .select({
           id: schema.memberSubscriptions.id,
           userEmail: schema.users.email,
@@ -53,26 +65,33 @@ export default async function MembershipsPage({
         })
         .from(schema.memberSubscriptions)
         .innerJoin(schema.users, eq(schema.users.id, schema.memberSubscriptions.userId))
+        .where(where)
         .orderBy(desc(sql`${schema.memberSubscriptions.createdAt}`))
-
-      if (
-        status &&
-        ["pending", "active", "cancelled", "expired", "payment_failed"].includes(status)
-      ) {
-        return q.where(
-          eq(
-            schema.memberSubscriptions.status,
-            status as "pending" | "active" | "cancelled" | "expired" | "payment_failed",
-          ),
-        )
-      }
-      return q
+        .limit(PAGE_SIZE)
+        .offset(pageOffset(page))
+      const countRows = await tx
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.memberSubscriptions)
+        .where(where)
+      return { rows, total: Number(countRows[0]!.count) }
     }),
   ])
 
   const currentNotifyDays = Array.isArray(notifyDaysRow?.value)
     ? (notifyDaysRow.value as number[]).join(", ")
     : "30, 14, 7, 1"
+
+  const buildHref = (next: { status?: string; page?: number }) => {
+    const s = next.status ?? status ?? ""
+    // Any filter change (no explicit page) resets to page 1 — staying on the current
+    // page could land past the end of a narrower result set.
+    const p = next.page ?? 1
+    const params = new URLSearchParams()
+    if (s) params.set("status", s)
+    if (p > 1) params.set("page", String(p))
+    const qs = params.toString()
+    return qs ? `/memberships?${qs}` : "/memberships"
+  }
 
   return (
     <div className="space-y-8 p-6">
@@ -98,7 +117,9 @@ export default async function MembershipsPage({
                 className="w-64"
               />
             </div>
-            <Button type="submit">Save</Button>
+            <Button type="submit" icon={<Save />}>
+              Save
+            </Button>
           </form>
         </Card>
       </section>
@@ -113,7 +134,7 @@ export default async function MembershipsPage({
             {["", "pending", "active", "cancelled", "expired", "payment_failed"].map((s) => (
               <Link
                 key={s}
-                href={s ? `/memberships?status=${s}` : "/memberships"}
+                href={buildHref({ status: s })}
                 className={cn(
                   "rounded px-3 py-1",
                   status === s || (!status && !s)
@@ -171,7 +192,9 @@ export default async function MembershipsPage({
                           type="submit"
                           variant="ghost"
                           size="sm"
-                          className="h-auto p-0 text-xs text-destructive hover:text-destructive"
+                          icon={<X />}
+                          arrowOnHover={false}
+                          className="text-xs text-destructive hover:text-destructive"
                         >
                           Cancel
                         </Button>
@@ -189,6 +212,11 @@ export default async function MembershipsPage({
               )}
             </tbody>
           </table>
+          <Pagination
+            page={page}
+            totalPages={pageCount(total)}
+            buildHref={(p) => buildHref({ page: p })}
+          />
         </Card>
       </section>
     </div>

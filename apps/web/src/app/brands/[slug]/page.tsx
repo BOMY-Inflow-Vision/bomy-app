@@ -1,12 +1,15 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import type { Metadata } from "next"
+import { CreditCard, Eye } from "lucide-react"
 
+import { auth } from "@/auth"
 import { BodyRenderer } from "@/components/body-renderer"
+import { AvatarGroup } from "@/components/ui/avatar-group"
 import { Button } from "@/components/ui/button"
 import { VideoEmbed } from "@/components/video-embed"
 
-import { getStorePage } from "./queries"
+import { getBrandSubscriberAvatars, getStorePage } from "./queries"
 
 interface Props {
   params: Promise<{ slug: string }>
@@ -77,6 +80,19 @@ export default async function StorePage({ params }: Props) {
 
   const { store, categorySections, uncategorized } = data
 
+  // Gated to signed-in visitors: getBrandSubscriberAvatars runs under an audited
+  // admin-bypass (RLS blocks a public-read context from seeing another user's row), and
+  // this is the highest-traffic public/SEO surface in the app — calling it unconditionally
+  // would write an admin_bypass_audit row on every anonymous pageview, including bots and
+  // crawlers, defeating that table's purpose as a forensic trail of genuine admin bypasses
+  // (PR #145 review, Bob). Signed-in browsing traffic is a small enough fraction to keep
+  // the audit trail meaningful, and it's also the more relevant audience for this social
+  // proof widget.
+  const session = await auth()
+  const { avatars: subscriberAvatars, total: subscriberCount } = session
+    ? await getBrandSubscriberAvatars(store.id)
+    : { avatars: [], total: 0 }
+
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-10 px-4 py-8">
       <h1 className="text-center text-2xl font-bold text-foreground">{store.name}</h1>
@@ -94,9 +110,19 @@ export default async function StorePage({ params }: Props) {
         </div>
         <div className="flex flex-col gap-4">
           {store.videoId && <VideoEmbed videoId={store.videoId} title={`${store.name} video`} />}
-          <Button asChild className="self-start">
+          <Button asChild icon={<CreditCard />} className="self-start">
             <Link href={`/brands/${store.slug}/subscribe`}>Subscribe</Link>
           </Button>
+          {subscriberAvatars.length > 0 && (
+            <div className="flex items-center gap-3">
+              <AvatarGroup avatars={subscriberAvatars} total={subscriberCount} />
+              <p className="text-sm text-muted-foreground">
+                {subscriberCount === 1
+                  ? "1 buyer is subscribed"
+                  : `${subscriberCount} buyers are subscribed`}
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -111,12 +137,11 @@ export default async function StorePage({ params }: Props) {
               <div className="flex items-baseline justify-between">
                 <h2 className="text-lg font-semibold text-foreground">{section.category.name}</h2>
                 {section.hasMore && (
-                  <Link
-                    href={`/brands/${store.slug}/products?category=${section.category.slug}`}
-                    className="text-sm text-primary hover:underline"
-                  >
-                    View all in {section.category.name}
-                  </Link>
+                  <Button variant="link" size="sm" icon={<Eye />} asChild>
+                    <Link href={`/brands/${store.slug}/products?category=${section.category.slug}`}>
+                      View all in {section.category.name}
+                    </Link>
+                  </Button>
                 )}
               </div>
               <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
@@ -132,12 +157,11 @@ export default async function StorePage({ params }: Props) {
               <div className="flex items-baseline justify-between">
                 <h2 className="text-lg font-semibold text-foreground">Uncategorized</h2>
                 {uncategorized.hasMore && (
-                  <Link
-                    href={`/brands/${store.slug}/products?category=__uncategorized`}
-                    className="text-sm text-primary hover:underline"
-                  >
-                    View all
-                  </Link>
+                  <Button variant="link" size="sm" icon={<Eye />} asChild>
+                    <Link href={`/brands/${store.slug}/products?category=__uncategorized`}>
+                      View all
+                    </Link>
+                  </Button>
                 )}
               </div>
               <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">

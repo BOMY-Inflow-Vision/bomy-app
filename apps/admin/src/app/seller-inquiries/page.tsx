@@ -1,14 +1,17 @@
 import Link from "next/link"
-import { and, asc, desc, eq, ilike, or, type SQL } from "drizzle-orm"
+import { and, asc, desc, eq, ilike, or, sql, type SQL } from "drizzle-orm"
+import { Eye, Search, Trash2 } from "lucide-react"
 
 import { INQUIRY_STATUSES, schema, withAdmin, type InquiryStatus } from "@bomy/db"
 
 import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
+import { pageCount, pageOffset, parsePage, PAGE_SIZE } from "@/lib/pagination"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Pagination } from "@/components/ui/pagination"
 import { deleteInquiry } from "./actions"
 import { RejectButton } from "./reject-button"
 
@@ -28,15 +31,16 @@ function isStatus(v: string | undefined): v is InquiryStatus {
 export default async function SellerInquiriesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string; sort?: string }>
+  searchParams: Promise<{ status?: string; q?: string; sort?: string; page?: string }>
 }) {
   const { id: adminId } = await requireAdmin()
-  const { status, q, sort } = await searchParams
+  const { status, q, sort, page: pageParam } = await searchParams
   const sortKey: SortKey = (SORTS as readonly string[]).includes(sort ?? "")
     ? (sort as SortKey)
     : "created_desc"
+  const page = parsePage(pageParam)
 
-  const rows = await withAdmin(
+  const { rows, total } = await withAdmin(
     getDb(),
     { userId: adminId, reason: "admin list inquiries" },
     async (tx) => {
@@ -58,23 +62,35 @@ export default async function SellerInquiriesPage({
           : sortKey === "status"
             ? asc(schema.sellerInquiries.status)
             : desc(schema.sellerInquiries.createdAt)
+      const where = filters.length ? and(...filters) : undefined
 
-      return tx
+      const rows = await tx
         .select()
         .from(schema.sellerInquiries)
-        .where(filters.length ? and(...filters) : undefined)
+        .where(where)
         .orderBy(orderBy)
+        .limit(PAGE_SIZE)
+        .offset(pageOffset(page))
+      const countRows = await tx
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.sellerInquiries)
+        .where(where)
+      return { rows, total: Number(countRows[0]!.count) }
     },
   )
 
-  const buildHref = (next: { status?: string; q?: string; sort?: string }) => {
+  const buildHref = (next: { status?: string; q?: string; sort?: string; page?: number }) => {
     const params = new URLSearchParams()
     const s = next.status ?? (isStatus(status) ? status : "")
     const query = next.q ?? q ?? ""
     const so = next.sort ?? sortKey
+    // Any filter/sort change (no explicit page) resets to page 1 — staying on the current
+    // page could land past the end of a narrower result set.
+    const p = next.page ?? 1
     if (s) params.set("status", s)
     if (query) params.set("q", query)
     if (so !== "created_desc") params.set("sort", so)
+    if (p > 1) params.set("page", String(p))
     const qs = params.toString()
     return qs ? `/seller-inquiries?${qs}` : "/seller-inquiries"
   }
@@ -85,7 +101,7 @@ export default async function SellerInquiriesPage({
         <h1 className="text-lg font-semibold text-foreground">
           Seller Inquiries
           <Badge variant="secondary" className="ml-2 text-sm font-normal">
-            {rows.length}
+            {total}
           </Badge>
         </h1>
         <div className="flex items-center gap-3">
@@ -119,7 +135,7 @@ export default async function SellerInquiriesPage({
               placeholder="Search…"
               className="h-8 w-40 text-sm"
             />
-            <Button type="submit" variant="outline" size="sm">
+            <Button type="submit" variant="outline" size="sm" icon={<Search />}>
               Search
             </Button>
           </form>
@@ -177,28 +193,29 @@ export default async function SellerInquiriesPage({
                 <div className="flex flex-col items-end gap-2">
                   {row.status === "pending" ? (
                     <>
-                      <Link
-                        href={`/seller-inquiries/${row.id}`}
-                        className="text-sm text-primary hover:underline"
-                      >
-                        Review →
-                      </Link>
+                      <Button asChild variant="link" size="sm" icon={<Eye />} className="text-sm">
+                        <Link href={`/seller-inquiries/${row.id}`}>Review</Link>
+                      </Button>
                       <RejectButton inquiryId={row.id} />
                     </>
                   ) : (
-                    <Link
-                      href={`/seller-inquiries/${row.id}`}
-                      className="text-sm text-muted-foreground hover:underline"
+                    <Button
+                      asChild
+                      variant="link"
+                      size="sm"
+                      icon={<Eye />}
+                      className="text-sm text-muted-foreground"
                     >
-                      View →
-                    </Link>
+                      <Link href={`/seller-inquiries/${row.id}`}>View</Link>
+                    </Button>
                   )}
                   <form action={deleteInquiry.bind(null, row.id)}>
                     <Button
                       type="submit"
                       variant="link"
                       size="sm"
-                      className="h-auto p-0 text-sm text-destructive"
+                      icon={<Trash2 />}
+                      className="text-sm text-destructive"
                     >
                       Delete
                     </Button>
@@ -212,6 +229,11 @@ export default async function SellerInquiriesPage({
           <div className="py-12 text-center text-muted-foreground">No inquiries found.</div>
         )}
       </div>
+      <Pagination
+        page={page}
+        totalPages={pageCount(total)}
+        buildHref={(p) => buildHref({ page: p })}
+      />
     </div>
   )
 }

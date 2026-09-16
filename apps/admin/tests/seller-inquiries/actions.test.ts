@@ -8,16 +8,23 @@ import { makeDb, schema, withAdmin } from "@bomy/db"
 vi.mock("@/auth", () => ({ auth: vi.fn() }))
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 vi.mock("@/notifications/seller-inquiry", () => ({ sendApprovalEmail: vi.fn() }))
+vi.mock("@/lib/flash-toast-server", () => ({ flashToast: vi.fn() }))
 
 import { auth } from "@/auth"
+import { flashToast } from "@/lib/flash-toast-server"
 import { sendApprovalEmail } from "@/notifications/seller-inquiry"
-import { approveInquiry, rejectInquiry } from "../../src/app/seller-inquiries/actions"
+import {
+  approveInquiry,
+  deleteInquiry,
+  rejectInquiry,
+} from "../../src/app/seller-inquiries/actions"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
 const DATABASE_URL = process.env["DATABASE_APP_URL"] ?? process.env["DATABASE_URL"]
 const shouldRun = Boolean(DATABASE_URL) && process.env["BOMY_RLS_READY"] === "1"
 const mockAuth = auth as unknown as Mock
 const mockSendApprovalEmail = sendApprovalEmail as unknown as Mock
+const mockFlashToast = flashToast as unknown as Mock
 const VALID_BODY_HTML =
   "<p>We started making handcrafted candles in a small Penang kitchen in 2019, and today we still hand-pour every single batch ourselves.</p>"
 const VALID_VIDEO_URL = "https://youtu.be/dQw4w9WgXcQ"
@@ -355,5 +362,20 @@ describe.skipIf(!shouldRun)("seller-inquiry review actions", () => {
     expect(res).toEqual({ ok: false, error: "A valid YouTube video URL is required." })
     expect(await readStoresByOwner()).toHaveLength(0)
     expect((await readInquiry())?.status).toBe("pending")
+  })
+
+  it("deleteInquiry: removes the row and flashes a success toast", async () => {
+    await seedInquiry(`delete-${randomUUID()}@test.bomy`, "Delete Me")
+    await deleteInquiry(inquiryId)
+    expect(await readInquiry()).toBeUndefined()
+    expect(mockFlashToast).toHaveBeenCalledWith("success", "Inquiry deleted.")
+  })
+
+  it("deleteInquiry: a demoted admin gets a flashed error, no throw, no delete", async () => {
+    await seedInquiry(`keep-${randomUUID()}@test.bomy`, "Keep Me")
+    mockAuth.mockResolvedValue({ user: { id: adminId, role: "buyer" } })
+    await expect(deleteInquiry(inquiryId)).resolves.toBeUndefined()
+    expect(mockFlashToast).toHaveBeenCalledWith("error", "You don't have permission to do that.")
+    expect(await readInquiry()).toBeDefined()
   })
 })

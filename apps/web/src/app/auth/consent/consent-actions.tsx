@@ -1,7 +1,9 @@
 "use client"
 
 import { useState } from "react"
+import { Ban, CircleCheck } from "lucide-react"
 
+import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
 
 import { acceptConsent, declineConsent } from "./actions"
@@ -21,10 +23,17 @@ function Spinner() {
 
 export function ConsentActions() {
   const [pending, setPending] = useState<"agree" | "decline" | null>(null)
+  const toast = useToast()
 
   const handleAgree = async () => {
     setPending("agree")
-    await acceptConsent()
+    // On success acceptConsent() redirects (throws NEXT_REDIRECT) and never
+    // returns here. It only returns a value on the typed failure path.
+    const result = await acceptConsent()
+    if (result && !result.ok) {
+      toast.error(result.error)
+      setPending(null)
+    }
   }
 
   const handleDecline = async () => {
@@ -34,16 +43,22 @@ export function ConsentActions() {
 
   return (
     <div className="flex flex-col gap-3">
-      <Button onClick={() => void handleAgree()} disabled={pending !== null} className="w-full">
-        {pending === "agree" && <Spinner />}I Agree
+      <Button
+        icon={pending === "agree" ? <Spinner /> : <CircleCheck />}
+        onClick={() => void handleAgree()}
+        disabled={pending !== null}
+        className="w-full"
+      >
+        I Agree
       </Button>
       <Button
         variant="outline"
+        icon={pending === "decline" ? <Spinner /> : <Ban />}
+        arrowOnHover={false}
         onClick={() => void handleDecline()}
         disabled={pending !== null}
         className="w-full"
       >
-        {pending === "decline" && <Spinner />}
         Decline
       </Button>
     </div>

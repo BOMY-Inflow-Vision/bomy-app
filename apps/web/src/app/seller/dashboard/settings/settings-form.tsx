@@ -1,7 +1,9 @@
 "use client"
 
-import { useState, useActionState, useTransition } from "react"
+import { type FormEvent, useEffect, useState, useActionState, useTransition } from "react"
+import { Save } from "lucide-react"
 
+import { useToast } from "@/components/toaster"
 import { BodyEditor } from "@/components/body-editor"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -58,6 +60,29 @@ export function SettingsForm({
   const [selected, setSelected] = useState<Set<string>>(() => new Set(assignedCategoryIds))
   const [catState, setCatState] = useState<State>(null)
   const [catPending, startCatTransition] = useTransition()
+  const [, startTransition] = useTransition()
+  const toast = useToast()
+
+  // Toast on every result. Depend on the whole state object (not a field) —
+  // useActionState returns a fresh object per invocation, but the error string
+  // can repeat across consecutive failures, so a field dependency wouldn't re-fire.
+  useEffect(() => {
+    if (!excerptState) return
+    if (excerptState.ok) toast.success("Store introduction saved")
+    else toast.error(excerptState.error)
+  }, [excerptState, toast])
+
+  useEffect(() => {
+    if (!videoState) return
+    if (videoState.ok) toast.success("Storefront video saved")
+    else toast.error(videoState.error)
+  }, [videoState, toast])
+
+  useEffect(() => {
+    if (!seoState) return
+    if (seoState.ok) toast.success("SEO settings saved")
+    else toast.error(seoState.error)
+  }, [seoState, toast])
 
   function toggleCategory(id: string) {
     setSelected((prev) => {
@@ -72,7 +97,30 @@ export function SettingsForm({
     startCatTransition(async () => {
       const result = await updateStoreCategories([...selected])
       setCatState(result)
+      if (result.ok) toast.success("Categories saved")
+      else toast.error(result.error)
     })
+  }
+
+  // Submitted via onSubmit/startTransition rather than <form action> so React 19
+  // doesn't reset the (uncontrolled) fields when the action returns an error —
+  // see seller/apply/page.tsx for the same pattern.
+  function handleExcerptSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+    startTransition(() => excerptAction(formData))
+  }
+
+  function handleVideoSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+    startTransition(() => videoAction(formData))
+  }
+
+  function handleSeoSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+    startTransition(() => seoAction(formData))
   }
 
   return (
@@ -81,7 +129,7 @@ export function SettingsForm({
       <Card>
         <CardContent className="p-6">
           <h2 className="mb-4 text-sm font-semibold text-foreground">Store Introduction</h2>
-          <form action={excerptAction} className="space-y-4">
+          <form onSubmit={handleExcerptSubmit} className="space-y-4">
             {excerptState && !excerptState.ok && (
               <div
                 role="alert"
@@ -117,7 +165,7 @@ export function SettingsForm({
               />
               <p className="mt-1 text-xs text-muted-foreground">Up to {EXCERPT_MAX} characters.</p>
             </div>
-            <Button type="submit" disabled={excerptPending}>
+            <Button type="submit" icon={<Save />} disabled={excerptPending}>
               {excerptPending ? "Saving…" : "Save"}
             </Button>
           </form>
@@ -171,6 +219,7 @@ export function SettingsForm({
           )}
           <Button
             type="button"
+            icon={<Save />}
             onClick={saveCategories}
             disabled={catPending || allCategories.length === 0}
             className="mt-4"
@@ -184,7 +233,7 @@ export function SettingsForm({
       <Card>
         <CardContent className="p-6">
           <h2 className="mb-4 text-sm font-semibold text-foreground">Storefront Video</h2>
-          <form action={videoAction} className="space-y-4">
+          <form onSubmit={handleVideoSubmit} className="space-y-4">
             {videoState && !videoState.ok && (
               <div
                 role="alert"
@@ -218,7 +267,7 @@ export function SettingsForm({
                 placeholder="https://www.youtube.com/watch?v=..."
               />
             </div>
-            <Button type="submit" disabled={videoPending}>
+            <Button type="submit" icon={<Save />} disabled={videoPending}>
               {videoPending ? "Saving…" : "Save"}
             </Button>
           </form>
@@ -229,7 +278,7 @@ export function SettingsForm({
       <Card>
         <CardContent className="p-6">
           <h2 className="mb-4 text-sm font-semibold text-foreground">SEO</h2>
-          <form action={seoAction} className="space-y-4">
+          <form onSubmit={handleSeoSubmit} className="space-y-4">
             {seoState && !seoState.ok && (
               <div
                 role="alert"
@@ -289,7 +338,7 @@ export function SettingsForm({
                 placeholder="https://…"
               />
             </div>
-            <Button type="submit" disabled={seoPending}>
+            <Button type="submit" icon={<Save />} disabled={seoPending}>
               {seoPending ? "Saving…" : "Save"}
             </Button>
           </form>
@@ -309,6 +358,7 @@ export function SettingsForm({
             saveBody={saveStoreBody}
             getUploadUrl={getStoreBodyImageUploadUrl}
             saveLabel="Save Brand Story"
+            successMessage="Brand story saved"
             conflictNoun="store"
             ariaLabel="Brand story editor"
             contentLabel="brand story"

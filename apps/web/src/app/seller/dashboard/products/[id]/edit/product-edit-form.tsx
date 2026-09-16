@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { type FormEvent, useEffect, useRef, useState, useTransition } from "react"
 import {
   DndContext,
   KeyboardSensor,
@@ -18,15 +18,23 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { GripVertical } from "lucide-react"
+import { Archive, CircleMinus, CirclePlus, GripVertical, Pencil, Plus, Save, X } from "lucide-react"
 
+import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { createSerializedRunner } from "@/lib/serialized-runner"
+
+const STATUS_OPTIONS = [
+  { value: "draft", label: "Draft" },
+  { value: "active", label: "Active" },
+  { value: "archived", label: "Archived" },
+]
 
 import {
   addVariant,
@@ -37,7 +45,6 @@ import {
   updateProduct,
   updateVariant,
 } from "../../actions"
-import { SubmitButton } from "@/components/submit-button"
 
 type Category = { id: string; name: string; isActive: boolean }
 type Product = {
@@ -133,8 +140,14 @@ export function ProductEditForm({
   variants: Variant[]
   categories: Category[]
 }) {
+  const toast = useToast()
   const [editingVariantId, setEditingVariantId] = useState<string | null>(null)
   const [showAddVariant, setShowAddVariant] = useState(false)
+  const [productSaving, startProductTransition] = useTransition()
+  const [archivePending, setArchivePending] = useState(false)
+  const [variantEditPending, startVariantEditTransition] = useTransition()
+  const [addVariantPending, startAddVariantTransition] = useTransition()
+  const [togglingVariantId, setTogglingVariantId] = useState<string | null>(null)
 
   // Fulfillment toggle state for the edit-inline form
   const [editState, setEditState] = useState<EditState>({
@@ -170,10 +183,18 @@ export function ProductEditForm({
   const [runReorderVariants] = useState(() =>
     createSerializedRunner<string[]>(async (orderedIds) => {
       try {
-        await reorderVariants(product.id, orderedIds)
+        const result = await reorderVariants(product.id, orderedIds)
+        if (!result.ok) {
+          setVariantOrderError(result.error)
+          toast.error(result.error)
+          setOrderedVariants(latestVariants.current)
+          return
+        }
         setVariantOrderError(null)
       } catch (err) {
-        setVariantOrderError(err instanceof Error ? err.message : "Failed to save new order")
+        const message = err instanceof Error ? err.message : "Failed to save new order"
+        setVariantOrderError(message)
+        toast.error(message)
         setOrderedVariants(latestVariants.current)
       }
     }),
@@ -202,13 +223,85 @@ export function ProductEditForm({
     setEditingVariantId(v.id)
   }
 
+  // Submitted via onSubmit/startTransition rather than <form action> so React 19
+  // doesn't reset the (uncontrolled) product fields when updateProduct returns
+  // an error — see seller/apply/page.tsx for the same pattern.
+  function handleProductSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+    startProductTransition(async () => {
+      const result = await updateProduct(product.id, formData)
+      if (!result.ok) {
+        toast.error(result.error)
+        return
+      }
+      toast.success("Product details saved")
+    })
+  }
+
+  async function handleArchive() {
+    setArchivePending(true)
+    const result = await archiveProduct(product.id)
+    // On success archiveProduct redirects (throws) before returning here —
+    // only the failure path is reachable below.
+    if (!result.ok) {
+      toast.error(result.error)
+    }
+    setArchivePending(false)
+  }
+
+  // Only closes the edit row on success so a validation error keeps the form open
+  // with the seller's edits intact.
+  function handleVariantEditSubmit(event: FormEvent<HTMLFormElement>, variantId: string) {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+    startVariantEditTransition(async () => {
+      const result = await updateVariant(variantId, formData)
+      if (!result.ok) {
+        toast.error(result.error)
+        return
+      }
+      toast.success("Variant updated")
+      setEditingVariantId(null)
+    })
+  }
+
+  function handleAddVariantSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+    startAddVariantTransition(async () => {
+      const result = await addVariant(product.id, formData)
+      if (!result.ok) {
+        toast.error(result.error)
+        return
+      }
+      toast.success("Variant added")
+      setShowAddVariant(false)
+      setAddFulfillmentChecked(false)
+      setAddLeadDays("")
+    })
+  }
+
+  async function handleToggleVariant(variantId: string, activate: boolean) {
+    setTogglingVariantId(variantId)
+    const result = activate
+      ? await reactivateVariant(variantId)
+      : await deactivateVariant(variantId)
+    if (!result.ok) {
+      toast.error(result.error)
+    } else {
+      toast.success(activate ? "Variant activated" : "Variant deactivated")
+    }
+    setTogglingVariantId(null)
+  }
+
   return (
     <div className="space-y-6">
       {/* ── Product fields ─────────────────────────────────────────── */}
       <Card>
         <CardContent className="p-6">
           <h2 className="mb-4 text-sm font-semibold text-foreground">Product Details</h2>
-          <form action={updateProduct.bind(null, product.id)} className="space-y-4">
+          <form onSubmit={handleProductSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label
@@ -235,20 +328,19 @@ export function ProductEditForm({
                 >
                   Category
                 </Label>
-                <select
+                <Select
                   id="categoryId"
                   name="categoryId"
                   defaultValue={product.categoryId ?? ""}
-                  className="w-full rounded-lg border border-input px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                >
-                  <option value="">No category</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                      {!c.isActive ? " (inactive)" : ""}
-                    </option>
-                  ))}
-                </select>
+                  className="w-full"
+                  options={[
+                    { value: "", label: "No category" },
+                    ...categories.map((c) => ({
+                      value: c.id,
+                      label: `${c.name}${!c.isActive ? " (inactive)" : ""}`,
+                    })),
+                  ]}
+                />
               </div>
               <div>
                 <Label
@@ -257,16 +349,13 @@ export function ProductEditForm({
                 >
                   Status
                 </Label>
-                <select
+                <Select
                   id="status"
                   name="status"
                   defaultValue={product.status}
-                  className="w-full rounded-lg border border-input px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                >
-                  <option value="draft">Draft</option>
-                  <option value="active">Active</option>
-                  <option value="archived">Archived</option>
-                </select>
+                  className="w-full"
+                  options={STATUS_OPTIONS}
+                />
               </div>
               <div className="col-span-2">
                 <Label
@@ -333,19 +422,26 @@ export function ProductEditForm({
             </div>
 
             <div className="flex items-center gap-3">
-              <SubmitButton className="rounded-lg bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-                Save Changes
-              </SubmitButton>
+              <Button
+                type="submit"
+                icon={<Save />}
+                disabled={productSaving}
+                className="bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {productSaving ? "Saving…" : "Save Changes"}
+              </Button>
               {product.status !== "archived" && (
                 <Button
                   type="button"
                   variant="outline"
+                  icon={<Archive />}
+                  disabled={archivePending}
                   onClick={() => {
-                    void archiveProduct(product.id)
+                    void handleArchive()
                   }}
-                  className="border-destructive/50 text-destructive hover:bg-destructive/10"
+                  className="border-destructive/50 text-destructive hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Archive Product
+                  {archivePending ? "Archiving…" : "Archive Product"}
                 </Button>
               )}
             </div>
@@ -362,10 +458,11 @@ export function ProductEditForm({
               type="button"
               variant="outline"
               size="sm"
+              icon={<Plus />}
               onClick={() => setShowAddVariant(true)}
               className="text-xs text-primary border-primary/50 hover:bg-accent"
             >
-              + Add Variant
+              Add Variant
             </Button>
           </div>
 
@@ -391,8 +488,7 @@ export function ProductEditForm({
                     {({ attributes, listeners }) =>
                       editingVariantId === v.id ? (
                         <form
-                          action={updateVariant.bind(null, v.id)}
-                          onSubmit={() => setEditingVariantId(null)}
+                          onSubmit={(event) => handleVariantEditSubmit(event, v.id)}
                           className="space-y-2 rounded-lg bg-accent p-3"
                         >
                           {/* Hidden fulfillment fields driven by client state */}
@@ -523,13 +619,21 @@ export function ProductEditForm({
 
                           {/* Action buttons */}
                           <div className="flex gap-2">
-                            <SubmitButton className="rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">
-                              Save
-                            </SubmitButton>
+                            <Button
+                              type="submit"
+                              size="sm"
+                              icon={<Save />}
+                              disabled={variantEditPending}
+                              className="bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {variantEditPending ? "Saving…" : "Save"}
+                            </Button>
                             <Button
                               type="button"
                               variant="outline"
                               size="sm"
+                              icon={<X />}
+                              arrowOnHover={false}
                               onClick={() => setEditingVariantId(null)}
                               className="text-xs text-muted-foreground"
                             >
@@ -581,33 +685,44 @@ export function ProductEditForm({
                             </div>
                           </div>
                           <div className="flex gap-2">
-                            <button
+                            <Button
                               type="button"
+                              variant="link"
+                              size="sm"
+                              icon={<Pencil />}
                               onClick={() => openEdit(v)}
-                              className="text-xs text-primary hover:underline"
+                              className="text-xs"
                             >
                               Edit
-                            </button>
+                            </Button>
                             {v.isActive ? (
-                              <button
+                              <Button
                                 type="button"
+                                variant="link"
+                                size="sm"
+                                icon={<CircleMinus />}
+                                disabled={togglingVariantId === v.id}
                                 onClick={() => {
-                                  void deactivateVariant(v.id)
+                                  void handleToggleVariant(v.id, false)
                                 }}
-                                className="text-xs text-destructive hover:underline"
+                                className="text-xs text-destructive disabled:cursor-not-allowed disabled:opacity-60"
                               >
-                                Deactivate
-                              </button>
+                                {togglingVariantId === v.id ? "Deactivating…" : "Deactivate"}
+                              </Button>
                             ) : (
-                              <button
+                              <Button
                                 type="button"
+                                variant="link"
+                                size="sm"
+                                icon={<CirclePlus />}
+                                disabled={togglingVariantId === v.id}
                                 onClick={() => {
-                                  void reactivateVariant(v.id)
+                                  void handleToggleVariant(v.id, true)
                                 }}
-                                className="text-xs text-green-600 hover:underline"
+                                className="text-xs text-green-600 disabled:cursor-not-allowed disabled:opacity-60"
                               >
-                                Activate
-                              </button>
+                                {togglingVariantId === v.id ? "Activating…" : "Activate"}
+                              </Button>
                             )}
                           </div>
                         </div>
@@ -622,12 +737,7 @@ export function ProductEditForm({
           {/* Add variant inline form */}
           {showAddVariant && (
             <form
-              action={addVariant.bind(null, product.id)}
-              onSubmit={() => {
-                setShowAddVariant(false)
-                setAddFulfillmentChecked(false)
-                setAddLeadDays("")
-              }}
+              onSubmit={handleAddVariantSubmit}
               className="mt-3 space-y-2 rounded-lg bg-green-50 p-3"
             >
               {/* Hidden fulfillment fields */}
@@ -722,13 +832,21 @@ export function ProductEditForm({
 
               <input type="hidden" name="attrs" value="" />
               <div className="flex gap-2">
-                <SubmitButton className="rounded bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700">
-                  Add
-                </SubmitButton>
+                <Button
+                  type="submit"
+                  size="sm"
+                  icon={<Plus />}
+                  disabled={addVariantPending}
+                  className="bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {addVariantPending ? "Adding…" : "Add"}
+                </Button>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
+                  icon={<X />}
+                  arrowOnHover={false}
                   onClick={() => {
                     setShowAddVariant(false)
                     setAddFulfillmentChecked(false)

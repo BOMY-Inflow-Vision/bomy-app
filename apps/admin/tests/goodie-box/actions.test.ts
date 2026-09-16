@@ -9,8 +9,10 @@ import { afterAll, beforeAll, describe, expect, it, vi, type Mock } from "vitest
 
 vi.mock("@/auth", () => ({ auth: vi.fn() }))
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
+vi.mock("@/lib/flash-toast-server", () => ({ flashToast: vi.fn() }))
 
 import { auth } from "@/auth"
+import { flashToast } from "@/lib/flash-toast-server"
 import { markDispatched } from "../../src/app/goodie-box/actions"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
@@ -20,6 +22,7 @@ const RLS_READY = process.env["BOMY_RLS_READY"] === "1"
 const shouldRun = Boolean(DATABASE_URL) && RLS_READY
 
 const mockAuth = auth as unknown as Mock
+const mockFlashToast = flashToast as unknown as Mock
 
 describe.skipIf(!shouldRun)("markDispatched", () => {
   let testDb: ReturnType<typeof makeDb>
@@ -59,7 +62,8 @@ describe.skipIf(!shouldRun)("markDispatched", () => {
     await testDb.close()
   })
 
-  it("marks a pending dispatch as dispatched with a tracking number", async () => {
+  it("marks a pending dispatch as dispatched with a tracking number, flashes success", async () => {
+    mockFlashToast.mockClear()
     mockAuth.mockResolvedValue({
       user: { id: adminId, role: "bomy_admin", email: "admin@test.bomy" },
     })
@@ -81,9 +85,11 @@ describe.skipIf(!shouldRun)("markDispatched", () => {
     expect(row?.status).toBe("dispatched")
     expect(row?.trackingNumber).toBe("EE123456789MY")
     expect(row?.dispatchedAt).not.toBeNull()
+    expect(mockFlashToast).toHaveBeenCalledWith("success", "Marked dispatched.")
   })
 
-  it("throws when tracking number is missing", async () => {
+  it("flashes a specific error when tracking number is missing, no throw", async () => {
+    mockFlashToast.mockClear()
     mockAuth.mockResolvedValue({
       user: { id: adminId, role: "bomy_admin", email: "admin@test.bomy" },
     })
@@ -91,12 +97,12 @@ describe.skipIf(!shouldRun)("markDispatched", () => {
     const formData = new FormData()
     formData.set("trackingNumber", "  ")
 
-    await expect(markDispatched(dispatchId, formData)).rejects.toThrow(
-      "Tracking number is required",
-    )
+    await expect(markDispatched(dispatchId, formData)).resolves.toBeUndefined()
+    expect(mockFlashToast).toHaveBeenCalledWith("error", "Tracking number is required.")
   })
 
-  it("throws when dispatch is already dispatched", async () => {
+  it("flashes a specific error when dispatch is already dispatched, no throw", async () => {
+    mockFlashToast.mockClear()
     mockAuth.mockResolvedValue({
       user: { id: adminId, role: "bomy_admin", email: "admin@test.bomy" },
     })
@@ -105,8 +111,18 @@ describe.skipIf(!shouldRun)("markDispatched", () => {
     const formData = new FormData()
     formData.set("trackingNumber", "EE999999999MY")
 
-    await expect(markDispatched(dispatchId, formData)).rejects.toThrow(
-      "Cannot dispatch: already 'dispatched'",
-    )
+    await expect(markDispatched(dispatchId, formData)).resolves.toBeUndefined()
+    expect(mockFlashToast).toHaveBeenCalledWith("error", "Cannot dispatch: already 'dispatched'.")
+  })
+
+  it("a demoted admin gets a flashed error, no write", async () => {
+    mockFlashToast.mockClear()
+    mockAuth.mockResolvedValue({ user: { id: adminId, role: "buyer" } })
+
+    const formData = new FormData()
+    formData.set("trackingNumber", "EE555555555MY")
+
+    await expect(markDispatched(dispatchId, formData)).resolves.toBeUndefined()
+    expect(mockFlashToast).toHaveBeenCalledWith("error", "You don't have permission to do that.")
   })
 })

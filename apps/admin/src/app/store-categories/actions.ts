@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache"
 
 import { schema, withAdmin } from "@bomy/db"
 
-import { requireAdminId } from "@/lib/auth"
+import { authorizeAdminAction } from "@/lib/admin-action"
 import { getDb } from "@/lib/db"
 
 function slugify(name: string): string {
@@ -18,7 +18,9 @@ function slugify(name: string): string {
 export async function createStoreCategory(
   formData: FormData,
 ): Promise<{ ok: false; error: string } | { ok: true }> {
-  const adminId = await requireAdminId()
+  const authz = await authorizeAdminAction()
+  if (!authz.ok) return { ok: false, error: authz.error }
+  const adminId = authz.adminId
   const name = (formData.get("name") as string | null)?.trim() ?? ""
   if (!name) return { ok: false, error: "Name is required" }
 
@@ -51,19 +53,29 @@ export async function createStoreCategory(
   return { ok: true }
 }
 
-export async function toggleStoreCategory(id: string, isActive: boolean): Promise<void> {
-  const adminId = await requireAdminId()
-  await withAdmin(
-    getDb(),
-    { userId: adminId, reason: "admin toggle store category" },
-    async (tx) => {
-      await tx
-        .update(schema.storeCategories)
-        .set({ isActive })
-        .where(eq(schema.storeCategories.id, id))
-    },
-  )
+export async function toggleStoreCategory(
+  id: string,
+  isActive: boolean,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const authz = await authorizeAdminAction()
+  if (!authz.ok) return { ok: false, error: authz.error }
+
+  try {
+    await withAdmin(
+      getDb(),
+      { userId: authz.adminId, reason: "admin toggle store category" },
+      async (tx) => {
+        await tx
+          .update(schema.storeCategories)
+          .set({ isActive })
+          .where(eq(schema.storeCategories.id, id))
+      },
+    )
+  } catch {
+    return { ok: false, error: "Could not update category." }
+  }
   revalidatePath("/store-categories")
+  return { ok: true }
 }
 
 export async function updateStoreCategory(
@@ -71,7 +83,9 @@ export async function updateStoreCategory(
   name: string,
   sortOrder: number,
 ): Promise<{ ok: false; error: string } | { ok: true }> {
-  const adminId = await requireAdminId()
+  const authz = await authorizeAdminAction()
+  if (!authz.ok) return { ok: false, error: authz.error }
+  const adminId = authz.adminId
   const trimmed = name.trim()
   if (!trimmed) return { ok: false, error: "Name is required" }
   if (!Number.isSafeInteger(sortOrder) || sortOrder < 0 || sortOrder > 2_147_483_647)
@@ -94,7 +108,9 @@ export async function updateStoreCategory(
 export async function deleteStoreCategory(
   id: string,
 ): Promise<{ ok: false; error: string } | { ok: true }> {
-  const adminId = await requireAdminId()
+  const authz = await authorizeAdminAction()
+  if (!authz.ok) return { ok: false, error: authz.error }
+  const adminId = authz.adminId
 
   try {
     await withAdmin(

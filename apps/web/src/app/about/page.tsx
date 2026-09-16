@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import React from "react"
+import { Search, Store } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -118,7 +119,7 @@ export default function AboutPage() {
               help the world find it.
             </p>
           </div>
-          <Button asChild>
+          <Button asChild icon={<Store />}>
             <Link href="/seller/apply">Become a seller</Link>
           </Button>
         </div>
@@ -134,10 +135,10 @@ export default function AboutPage() {
           </p>
         </div>
         <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <Button asChild>
+          <Button asChild icon={<Search />}>
             <Link href="/products">Shop the marketplace</Link>
           </Button>
-          <Button asChild variant="outline">
+          <Button asChild variant="outline" icon={<Store />}>
             <Link href="/seller/apply">Become a seller</Link>
           </Button>
         </div>

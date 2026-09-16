@@ -1,9 +1,11 @@
 "use client"
 
 import { useState } from "react"
+import { Check, ShoppingCart } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { useToast } from "@/components/toaster"
 import type { CartItem } from "@/lib/cart"
 import { useCart } from "@/lib/cart"
 import { formatMyrSen } from "@/lib/format"
@@ -54,6 +56,7 @@ export function VariantPicker({ product, variants }: VariantPickerProps) {
   const [selectedId, setSelectedId] = useState<string>(variants[0]?.id ?? "")
   const [added, setAdded] = useState(false)
   const { addItem } = useCart()
+  const toast = useToast()
 
   const selected = variants.find((v) => v.id === selectedId)
 
@@ -78,6 +81,7 @@ export function VariantPicker({ product, variants }: VariantPickerProps) {
       coverImageUrl: product.coverImageUrl,
     }
     addItem(item)
+    toast.success(`${product.name} added to cart`)
     setAdded(true)
     setTimeout(() => setAdded(false), 2000)
   }
@@ -144,10 +148,12 @@ export function VariantPicker({ product, variants }: VariantPickerProps) {
         type="button"
         onClick={handleAddToCart}
         disabled={!canAddToCart}
-        className="w-full rounded-xl px-6 py-3 text-sm font-semibold shadow-sm disabled:cursor-not-allowed"
+        icon={added ? <Check /> : <ShoppingCart />}
+        arrowOnHover={!added}
+        className="text-sm font-semibold shadow-sm disabled:cursor-not-allowed"
         size="lg"
       >
-        {added ? "Added to cart ✓" : "Add to cart"}
+        {added ? "Added to cart" : "Add to cart"}
       </Button>
     </div>
   )

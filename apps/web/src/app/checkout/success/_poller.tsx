@@ -1,15 +1,19 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
+import { ArrowLeft, Eye, RefreshCw } from "lucide-react"
 
 import type { CheckoutSessionStatus } from "@bomy/db"
 
+import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
+import { Stepper } from "@/components/ui/stepper"
 import { useCart } from "@/lib/cart"
 
 import { getCheckoutSessionStatus } from "../actions"
+import { CHECKOUT_STEPS } from "../steps"
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const MAX_POLLS = 30
@@ -24,6 +28,7 @@ type PollerState =
 export function SuccessPoller() {
   const router = useRouter()
   const { clearCart } = useCart()
+  const toast = useToast()
   const searchParams = useSearchParams()
   const rawId = searchParams.get("session") ?? ""
   const sessionId = UUID_RE.test(rawId) ? rawId : null
@@ -31,6 +36,19 @@ export function SuccessPoller() {
   const [state, setState] = useState<PollerState>(
     sessionId ? { phase: "polling" } : { phase: "not_found" },
   )
+  const toastedRef = useRef(false)
+
+  // Exactly one toast per terminal status, guarded against StrictMode/effect
+  // re-runs — the full-page copy above is the primary channel; this just
+  // echoes the outcome for consistency with the rest of the site.
+  useEffect(() => {
+    if (state.phase !== "done") return
+    if (toastedRef.current) return
+    toastedRef.current = true
+    if (state.status === "paid") toast.success("Payment confirmed")
+    else if (state.status === "failed") toast.error("Payment failed — please try again")
+    else if (state.status === "expired") toast.warning("Your checkout session expired")
+  }, [state, toast])
 
   useEffect(() => {
     if (!sessionId) return
@@ -78,6 +96,12 @@ export function SuccessPoller() {
   if (state.phase === "polling") {
     return (
       <main className="mx-auto max-w-3xl px-4 py-8 text-center">
+        <Stepper
+          steps={CHECKOUT_STEPS}
+          currentStep={2}
+          aria-label="Checkout progress"
+          className="mb-8 text-left"
+        />
         <div className="mb-6 flex justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-foreground" />
         </div>
@@ -94,7 +118,7 @@ export function SuccessPoller() {
         <p className="mb-6 text-sm text-muted-foreground">
           This checkout session doesn&apos;t exist or has already been processed.
         </p>
-        <Button asChild variant="link">
+        <Button asChild variant="link" icon={<ArrowLeft />} arrowOnHover={false}>
           <Link href="/cart">Back to cart</Link>
         </Button>
       </main>
@@ -120,12 +144,20 @@ function DoneView({ status }: { status: CheckoutSessionStatus }) {
   if (status === "paid") {
     return (
       <main className="mx-auto max-w-3xl px-4 py-8 text-center">
+        {/* currentStep is one past the last index so every step (including
+            Confirmation) renders as completed rather than "still active". */}
+        <Stepper
+          steps={CHECKOUT_STEPS}
+          currentStep={CHECKOUT_STEPS.length}
+          aria-label="Checkout progress"
+          className="mb-8 text-left"
+        />
         <div className="mb-4 text-4xl">✓</div>
         <h1 className="mb-2 text-2xl font-bold text-foreground">Payment confirmed</h1>
         <p className="mb-6 text-sm text-muted-foreground">
           Your order has been placed. You&apos;ll receive a confirmation email shortly.
         </p>
-        <Button asChild>
+        <Button asChild icon={<Eye />}>
           <Link href="/account/orders">View my orders</Link>
         </Button>
       </main>
@@ -139,7 +171,7 @@ function DoneView({ status }: { status: CheckoutSessionStatus }) {
         <p className="mb-6 text-sm text-muted-foreground">
           Your payment was not successful. Please try again.
         </p>
-        <Button asChild>
+        <Button asChild icon={<RefreshCw />}>
           <Link href="/checkout">Try again</Link>
         </Button>
       </main>
@@ -153,7 +185,7 @@ function DoneView({ status }: { status: CheckoutSessionStatus }) {
         <p className="mb-6 text-sm text-muted-foreground">
           Your checkout session has expired. Please return to your cart and try again.
         </p>
-        <Button asChild>
+        <Button asChild icon={<ArrowLeft />} arrowOnHover={false}>
           <Link href="/cart">Back to cart</Link>
         </Button>
       </main>
@@ -167,7 +199,7 @@ function DoneView({ status }: { status: CheckoutSessionStatus }) {
         <p className="mb-6 text-sm text-muted-foreground">
           Your checkout was cancelled. Your cart is still saved.
         </p>
-        <Button asChild>
+        <Button asChild icon={<ArrowLeft />} arrowOnHover={false}>
           <Link href="/cart">Back to cart</Link>
         </Button>
       </main>

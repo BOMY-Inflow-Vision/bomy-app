@@ -1,6 +1,7 @@
 import { desc, eq } from "drizzle-orm"
 import Link from "next/link"
 import { redirect } from "next/navigation"
+import { RefreshCw } from "lucide-react"
 
 import { schema, withTenant } from "@bomy/db"
 
@@ -130,7 +131,13 @@ export default async function AccountSubscriptionsPage() {
                         ) : null}
                       </div>
                       {isExpiredOrCancelled ? (
-                        <Button asChild variant="outline" size="sm" className="shrink-0">
+                        <Button
+                          asChild
+                          variant="outline"
+                          size="sm"
+                          icon={<RefreshCw />}
+                          className="shrink-0"
+                        >
                           <Link href={`/brands/${sub.storeSlug}/subscribe`}>Renew</Link>
                         </Button>
                       ) : null}

@@ -62,34 +62,39 @@ describe("createPlan", () => {
     expect((err as Error).message).toBe("REDIRECT:/account")
   })
 
-  it("invalid term (4) → throws", async () => {
-    await expect(
-      createPlan(makeFormData({ termMonths: "4", priceMyrSen: "50.00", discountPct: "5" })),
-    ).rejects.toThrow("Term must be 3, 6, or 12 months")
+  it("invalid term (4) → returns typed error", async () => {
+    const result = await createPlan(
+      makeFormData({ termMonths: "4", priceMyrSen: "50.00", discountPct: "5" }),
+    )
+    expect(result).toEqual({ ok: false, error: "Term must be 3, 6, or 12 months" })
   })
 
-  it("invalid price format → throws", async () => {
-    await expect(
-      createPlan(makeFormData({ termMonths: "3", priceMyrSen: "abc", discountPct: "5" })),
-    ).rejects.toThrow('Invalid amount: "abc"')
+  it("invalid price format → returns typed error", async () => {
+    const result = await createPlan(
+      makeFormData({ termMonths: "3", priceMyrSen: "abc", discountPct: "5" }),
+    )
+    expect(result).toEqual({ ok: false, error: 'Invalid amount: "abc"' })
   })
 
-  it("zero price → throws", async () => {
-    await expect(
-      createPlan(makeFormData({ termMonths: "3", priceMyrSen: "0", discountPct: "5" })),
-    ).rejects.toThrow("Price must be greater than zero")
+  it("zero price → returns typed error", async () => {
+    const result = await createPlan(
+      makeFormData({ termMonths: "3", priceMyrSen: "0", discountPct: "5" }),
+    )
+    expect(result).toEqual({ ok: false, error: "Price must be greater than zero" })
   })
 
-  it("discount too low (4) → throws", async () => {
-    await expect(
-      createPlan(makeFormData({ termMonths: "3", priceMyrSen: "50.00", discountPct: "4" })),
-    ).rejects.toThrow("Discount must be between 5% and 10%")
+  it("discount too low (4) → returns typed error", async () => {
+    const result = await createPlan(
+      makeFormData({ termMonths: "3", priceMyrSen: "50.00", discountPct: "4" }),
+    )
+    expect(result).toEqual({ ok: false, error: "Discount must be between 5% and 10%" })
   })
 
-  it("discount too high (11) → throws", async () => {
-    await expect(
-      createPlan(makeFormData({ termMonths: "3", priceMyrSen: "50.00", discountPct: "11" })),
-    ).rejects.toThrow("Discount must be between 5% and 10%")
+  it("discount too high (11) → returns typed error", async () => {
+    const result = await createPlan(
+      makeFormData({ termMonths: "3", priceMyrSen: "50.00", discountPct: "11" }),
+    )
+    expect(result).toEqual({ ok: false, error: "Discount must be between 5% and 10%" })
   })
 })
 
@@ -119,33 +124,38 @@ describe("updatePlan", () => {
     expect((err as Error).message).toBe("REDIRECT:/account")
   })
 
-  it("invalid price format → throws", async () => {
-    await expect(
-      updatePlan(PLAN_ID, makeFormData({ priceMyrSen: "bad", discountPct: "5" })),
-    ).rejects.toThrow('Invalid amount: "bad"')
+  it("invalid price format → returns typed error", async () => {
+    const result = await updatePlan(PLAN_ID, makeFormData({ priceMyrSen: "bad", discountPct: "5" }))
+    expect(result).toEqual({ ok: false, error: 'Invalid amount: "bad"' })
   })
 
-  it("discount out of range → throws", async () => {
-    await expect(
-      updatePlan(PLAN_ID, makeFormData({ priceMyrSen: "50.00", discountPct: "3" })),
-    ).rejects.toThrow("Discount must be between 5% and 10%")
+  it("discount out of range → returns typed error", async () => {
+    const result = await updatePlan(
+      PLAN_ID,
+      makeFormData({ priceMyrSen: "50.00", discountPct: "3" }),
+    )
+    expect(result).toEqual({ ok: false, error: "Discount must be between 5% and 10%" })
   })
 
-  it("plan not updated (0 rows returned) → throws not-authorized error", async () => {
+  it("plan not updated (0 rows returned) → returns not-authorized typed error", async () => {
     ;(dbModule.withTenant as unknown as Mock).mockResolvedValue([])
-    await expect(
-      updatePlan(PLAN_ID, makeFormData({ priceMyrSen: "50.00", discountPct: "5" })),
-    ).rejects.toThrow("Plan not found or not authorized")
+    const result = await updatePlan(
+      PLAN_ID,
+      makeFormData({ priceMyrSen: "50.00", discountPct: "5" }),
+    )
+    expect(result).toEqual({ ok: false, error: "Plan not found or not authorized" })
   })
 
-  it("successful update returns id row (mock confirms isActive reset included in set)", async () => {
+  it("successful update returns ok:true (mock confirms isActive reset included in set)", async () => {
     // withTenant mock returns a row — simulates DB accepting the update with isActive=false in set.
-    // Verifies no throw and that withTenant was called once.
+    // Verifies the typed success result and that withTenant was called once.
     const mockWithTenant = dbModule.withTenant as unknown as Mock
     mockWithTenant.mockResolvedValueOnce([{ id: PLAN_ID }])
-    await expect(
-      updatePlan(PLAN_ID, makeFormData({ priceMyrSen: "50.00", discountPct: "5" })),
-    ).resolves.toBeUndefined()
+    const result = await updatePlan(
+      PLAN_ID,
+      makeFormData({ priceMyrSen: "50.00", discountPct: "5" }),
+    )
+    expect(result).toEqual({ ok: true })
     expect(mockWithTenant).toHaveBeenCalledOnce()
   })
 })
@@ -161,21 +171,29 @@ describe("createPlan — duplicate term server-side handling", () => {
     vi.clearAllMocks()
   })
 
-  it("unique violation (23505) → throws controlled duplicate-term error", async () => {
+  it("unique violation (23505) → returns controlled duplicate-term typed error", async () => {
     const uniqueErr = Object.assign(new Error("duplicate key value"), { code: "23505" })
     ;(dbModule.withTenant as unknown as Mock).mockRejectedValueOnce(uniqueErr)
 
-    await expect(
-      createPlan(makeFormData({ termMonths: "3", priceMyrSen: "50.00", discountPct: "5" })),
-    ).rejects.toThrow("A plan for this term length already exists for your store")
+    const result = await createPlan(
+      makeFormData({ termMonths: "3", priceMyrSen: "50.00", discountPct: "5" }),
+    )
+    expect(result).toEqual({
+      ok: false,
+      error: "A plan for this term length already exists for your store",
+    })
   })
 
-  it("other DB error is re-thrown as-is", async () => {
+  it("other (unexpected) DB error → returns a generic typed error, not the raw message", async () => {
+    // Production redacts thrown Server Action messages, and the raw driver error
+    // ("connection timeout") isn't something to show a seller — this is the same
+    // catch-all shape used elsewhere (e.g. settings/actions.ts).
     const dbErr = Object.assign(new Error("connection timeout"), { code: "08006" })
     ;(dbModule.withTenant as unknown as Mock).mockRejectedValueOnce(dbErr)
 
-    await expect(
-      createPlan(makeFormData({ termMonths: "3", priceMyrSen: "50.00", discountPct: "5" })),
-    ).rejects.toThrow("connection timeout")
+    const result = await createPlan(
+      makeFormData({ termMonths: "3", priceMyrSen: "50.00", discountPct: "5" }),
+    )
+    expect(result).toEqual({ ok: false, error: "Something went wrong. Please try again." })
   })
 })

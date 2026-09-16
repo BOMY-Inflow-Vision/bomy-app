@@ -2,7 +2,10 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { LogOut } from "lucide-react"
 
+import { signOutAction } from "@/app/auth/actions"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 const NAV = [
@@ -50,8 +53,20 @@ export function Sidebar({ email }: { email: string }) {
           )
         })}
       </nav>
-      <div className="truncate border-t border-slate-700 px-4 py-3 text-xs text-slate-500">
-        {email}
+      <div className="border-t border-slate-700 px-4 py-3 text-xs text-slate-500">
+        <div className="truncate">{email}</div>
+        <form action={signOutAction}>
+          <Button
+            type="submit"
+            variant="ghost"
+            size="sm"
+            icon={<LogOut />}
+            arrowOnHover={false}
+            className="mt-2 w-full justify-start text-slate-300 hover:bg-transparent hover:text-slate-100"
+          >
+            Sign out
+          </Button>
+        </form>
       </div>
     </aside>
   )

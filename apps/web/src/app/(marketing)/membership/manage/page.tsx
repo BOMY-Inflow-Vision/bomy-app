@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm"
 import { redirect } from "next/navigation"
+import { Ban } from "lucide-react"
 
 import { schema, withTenant } from "@bomy/db"
 
@@ -97,7 +98,11 @@ export default async function MembershipManagePage() {
                   <strong>{formatDate(sub.periodEnd)}</strong>.
                 </p>
                 <form action={cancelMembership}>
-                  <SubmitButton className="w-full rounded-xl border border-destructive/30 bg-background px-6 py-3 text-sm font-semibold text-destructive hover:bg-destructive/10 active:bg-destructive/20 transition-colors">
+                  <SubmitButton
+                    icon={<Ban />}
+                    arrowOnHover={false}
+                    className="w-full border border-destructive/30 bg-background px-6 py-3 text-sm font-semibold text-destructive hover:bg-destructive/10 active:bg-destructive/20 transition-colors"
+                  >
                     Cancel membership
                   </SubmitButton>
                 </form>

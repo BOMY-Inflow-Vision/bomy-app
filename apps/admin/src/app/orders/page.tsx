@@ -1,3 +1,5 @@
+import { Eye } from "lucide-react"
+
 import {
   ORDER_FULFILMENT_STATUSES,
   ORDER_PAYMENT_STATUSES,
@@ -8,9 +10,12 @@ import {
 import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { senToMyr } from "@/lib/money"
+import { pageCount, parsePage } from "@/lib/pagination"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { Pagination } from "@/components/ui/pagination"
 
 import { fetchOrdersFiltered } from "./_queries"
 
@@ -21,12 +26,14 @@ interface Props {
     store_id?: string
     date_from?: string
     date_to?: string
+    page?: string
   }>
 }
 
 export default async function AdminOrdersPage({ searchParams }: Props) {
   const { id: adminId } = await requireAdmin()
   const params = await searchParams
+  const page = parsePage(params.page)
   const filters: {
     paymentStatus?: OrderPaymentStatus
     fulfilmentStatus?: OrderFulfilmentStatus
@@ -49,7 +56,19 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
   if (params.store_id) filters.storeId = params.store_id
   if (params.date_from) filters.dateFrom = params.date_from
   if (params.date_to) filters.dateTo = params.date_to
-  const orders = await fetchOrdersFiltered(adminId, getDb(), filters)
+  const { rows: orders, total } = await fetchOrdersFiltered(adminId, getDb(), filters, page)
+
+  const buildHref = (nextPage: number) => {
+    const qp = new URLSearchParams()
+    if (filters.paymentStatus) qp.set("payment_status", filters.paymentStatus)
+    if (filters.fulfilmentStatus) qp.set("fulfilment_status", filters.fulfilmentStatus)
+    if (filters.storeId) qp.set("store_id", filters.storeId)
+    if (filters.dateFrom) qp.set("date_from", filters.dateFrom)
+    if (filters.dateTo) qp.set("date_to", filters.dateTo)
+    if (nextPage > 1) qp.set("page", String(nextPage))
+    const qs = qp.toString()
+    return qs ? `/orders?${qs}` : "/orders"
+  }
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -104,9 +123,9 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
                   {order.createdAt.toLocaleDateString("en-MY")}
                 </td>
                 <td className="px-4 py-3">
-                  <a href={`/orders/${order.id}`} className="text-primary hover:underline">
-                    View
-                  </a>
+                  <Button asChild variant="link" size="sm" icon={<Eye />}>
+                    <a href={`/orders/${order.id}`}>View</a>
+                  </Button>
                 </td>
               </tr>
             ))}
@@ -119,6 +138,7 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
             )}
           </tbody>
         </table>
+        <Pagination page={page} totalPages={pageCount(total)} buildHref={buildHref} />
       </Card>
     </div>
   )

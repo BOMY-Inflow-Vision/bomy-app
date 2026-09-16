@@ -1,37 +1,55 @@
 "use client"
 
+import { useTransition } from "react"
+import { Save } from "lucide-react"
+
 import { USER_ROLES, type UserRole } from "@bomy/db/types"
 
+import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
+import { Select } from "@/components/ui/select"
 import { updateUserRole } from "./actions"
 
+const ROLE_OPTIONS = USER_ROLES.map((r) => ({ value: r, label: r }))
+
 export function RoleSelector({ userId, currentRole }: { userId: string; currentRole: UserRole }) {
+  const [pending, startTransition] = useTransition()
+  const toast = useToast()
+
+  function submit(formData: FormData) {
+    const role = formData.get("role") as UserRole
+    startTransition(async () => {
+      const res = await updateUserRole(userId, role)
+      if (!res.ok) {
+        toast.error(res.error)
+        return
+      }
+      toast.success(`Role updated to ${role}.`)
+    })
+  }
+
   return (
-    <form
-      action={async (formData) => {
-        const role = formData.get("role") as UserRole
-        await updateUserRole(userId, role)
-      }}
-      className="flex items-center gap-2"
-    >
+    <form action={submit} className="flex items-center gap-2">
       <Label htmlFor={`role-${userId}`} className="sr-only">
         Role
       </Label>
-      <select
+      <Select
         id={`role-${userId}`}
         name="role"
         defaultValue={currentRole}
-        className="rounded border border-input px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+        disabled={pending}
+        options={ROLE_OPTIONS}
+      />
+      <Button
+        type="submit"
+        variant="link"
+        size="sm"
+        icon={<Save />}
+        className="text-xs"
+        disabled={pending}
       >
-        {USER_ROLES.map((r) => (
-          <option key={r} value={r}>
-            {r}
-          </option>
-        ))}
-      </select>
-      <Button type="submit" variant="link" size="sm" className="h-auto p-0 text-xs">
-        Save
+        {pending ? "Saving…" : "Save"}
       </Button>
     </form>
   )

@@ -1,16 +1,30 @@
 "use client"
 
-import { useState } from "react"
+import { type FormEvent, useActionState, useEffect, useState, useTransition } from "react"
+import { Plus, X } from "lucide-react"
 
+import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 
-import { createProduct } from "../actions"
-import { SubmitButton } from "@/components/submit-button"
+import { createProduct, type ProductActionResult } from "../actions"
+
+const STATUS_OPTIONS = [
+  { value: "draft", label: "Draft" },
+  { value: "active", label: "Active" },
+]
+
+async function formAction(
+  _prev: ProductActionResult | null,
+  formData: FormData,
+): Promise<ProductActionResult> {
+  return createProduct(formData)
+}
 
 type Category = { id: string; name: string }
 
@@ -26,6 +40,9 @@ type VariantRow = {
 }
 
 export function ProductForm({ categories }: { categories: Category[] }) {
+  const [state, dispatch, pending] = useActionState(formAction, null)
+  const [, startTransition] = useTransition()
+  const toast = useToast()
   const [variants, setVariants] = useState<VariantRow[]>([
     {
       id: 0,
@@ -74,10 +91,36 @@ export function ProductForm({ categories }: { categories: Category[] }) {
     setVariants((prev) => prev.map((v) => (v.id === id ? { ...v, [field]: value } : v)))
   }
 
+  // Toast on every result. Depend on the whole `state` object (not a field) —
+  // useActionState returns a fresh object per invocation, but the error string
+  // can repeat across consecutive failures, so a field dependency wouldn't re-fire.
+  useEffect(() => {
+    if (!state) return
+    if (!state.ok) toast.error(state.error)
+  }, [state, toast])
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+    // Dispatched manually rather than via <form action>: React 19 resets uncontrolled
+    // fields after a form action completes even when it returns an error, which would
+    // wipe out everything the seller just typed.
+    startTransition(() => dispatch(formData))
+  }
+
   return (
-    <form action={createProduct} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-6">
       {/* Hidden: variant count */}
       <input type="hidden" name="variant_count" value={variants.length} />
+
+      {state && !state.ok && (
+        <div
+          role="alert"
+          className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive"
+        >
+          {state.error}
+        </div>
+      )}
 
       {/* Product fields */}
       <Card>
@@ -121,18 +164,15 @@ export function ProductForm({ categories }: { categories: Category[] }) {
               >
                 Category
               </Label>
-              <select
+              <Select
                 id="categoryId"
                 name="categoryId"
-                className="w-full rounded-lg border border-input px-3 py-2 text-sm focus:border-primary focus:outline-none"
-              >
-                <option value="">No category</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+                className="w-full"
+                options={[
+                  { value: "", label: "No category" },
+                  ...categories.map((c) => ({ value: c.id, label: c.name })),
+                ]}
+              />
             </div>
             <div>
               <Label
@@ -141,15 +181,13 @@ export function ProductForm({ categories }: { categories: Category[] }) {
               >
                 Status
               </Label>
-              <select
+              <Select
                 id="status"
                 name="status"
                 defaultValue="draft"
-                className="w-full rounded-lg border border-input px-3 py-2 text-sm focus:border-primary focus:outline-none"
-              >
-                <option value="draft">Draft</option>
-                <option value="active">Active</option>
-              </select>
+                className="w-full"
+                options={STATUS_OPTIONS}
+              />
             </div>
             <div className="col-span-2">
               <Label
@@ -178,10 +216,11 @@ export function ProductForm({ categories }: { categories: Category[] }) {
               type="button"
               variant="outline"
               size="sm"
+              icon={<Plus />}
               onClick={addVariant}
               className="text-xs text-primary border-primary/50 hover:bg-accent"
             >
-              + Add Variant
+              Add Variant
             </Button>
           </div>
 
@@ -334,15 +373,23 @@ export function ProductForm({ categories }: { categories: Category[] }) {
 
       {/* Actions */}
       <div className="flex gap-3">
-        <SubmitButton className="rounded-lg bg-primary px-6 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-          Create Product
-        </SubmitButton>
-        <a
-          href="/seller/dashboard/products"
-          className="rounded-lg border border-input px-6 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
+        <Button
+          type="submit"
+          icon={<Plus />}
+          disabled={pending}
+          className="bg-primary px-6 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Cancel
-        </a>
+          {pending ? "Creating…" : "Create Product"}
+        </Button>
+        <Button
+          variant="outline"
+          icon={<X />}
+          arrowOnHover={false}
+          className="border-input px-6 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
+          asChild
+        >
+          <a href="/seller/dashboard/products">Cancel</a>
+        </Button>
       </div>
     </form>
   )

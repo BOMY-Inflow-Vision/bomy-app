@@ -1,28 +1,19 @@
 "use client"
 
-import { useState } from "react"
-
-import { Button } from "@/components/ui/button"
+import { useToast } from "@/components/toaster"
+import { ButtonCopy } from "@/components/ui/button-copy"
 
 export function CopyStoreId({ id }: { id: string }) {
-  const [copied, setCopied] = useState(false)
+  const toast = useToast()
 
   return (
     <span className="inline-flex items-center gap-2">
       <span className="font-mono text-sm text-muted-foreground">{id}</span>
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        onClick={() => {
-          void navigator.clipboard.writeText(id)
-          setCopied(true)
-          setTimeout(() => setCopied(false), 1500)
-        }}
-        className="h-auto p-0 text-xs font-medium text-primary hover:underline hover:bg-transparent"
-      >
-        {copied ? "Copied!" : "Copy"}
-      </Button>
+      <ButtonCopy
+        value={id}
+        onCopied={() => toast.success("Store ID copied.")}
+        onError={() => toast.error("Couldn't copy — select and copy it manually.")}
+      />
     </span>
   )
 }

@@ -1,15 +1,18 @@
 import Link from "next/link"
-import { and, asc, desc, eq, ilike, or, type SQL } from "drizzle-orm"
+import { and, asc, desc, eq, ilike, or, sql, type SQL } from "drizzle-orm"
+import { Ban, CircleCheck, Plus, Search } from "lucide-react"
 
 import { schema, withAdmin } from "@bomy/db"
 
 import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
+import { pageCount, pageOffset, parsePage, PAGE_SIZE } from "@/lib/pagination"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Pagination } from "@/components/ui/pagination"
 import { approveStore, suspendStore } from "./actions"
 import { CopyId } from "./copy-id"
 
@@ -32,15 +35,16 @@ function isStoreStatus(v: string | undefined): v is StoreStatusFilter {
 export default async function StoresPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string; sort?: string }>
+  searchParams: Promise<{ status?: string; q?: string; sort?: string; page?: string }>
 }) {
   const { id: adminId } = await requireAdmin()
-  const { status, q, sort } = await searchParams
+  const { status, q, sort, page: pageParam } = await searchParams
   const sortKey: SortKey = (SORTS as readonly string[]).includes(sort ?? "")
     ? (sort as SortKey)
     : "created_desc"
+  const page = parsePage(pageParam)
 
-  const rows = await withAdmin(
+  const { rows, total } = await withAdmin(
     getDb(),
     { userId: adminId, reason: "admin list stores" },
     async (tx) => {
@@ -65,8 +69,9 @@ export default async function StoresPage({
               : sortKey === "status_desc"
                 ? desc(schema.stores.status)
                 : desc(schema.stores.createdAt)
+      const where = filters.length ? and(...filters) : undefined
 
-      return tx
+      const rows = await tx
         .select({
           id: schema.stores.id,
           name: schema.stores.name,
@@ -78,19 +83,31 @@ export default async function StoresPage({
         })
         .from(schema.stores)
         .innerJoin(schema.users, eq(schema.users.id, schema.stores.ownerId))
-        .where(filters.length ? and(...filters) : undefined)
+        .where(where)
         .orderBy(orderBy)
+        .limit(PAGE_SIZE)
+        .offset(pageOffset(page))
+      const countRows = await tx
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.stores)
+        .innerJoin(schema.users, eq(schema.users.id, schema.stores.ownerId))
+        .where(where)
+      return { rows, total: Number(countRows[0]!.count) }
     },
   )
 
-  const buildHref = (next: { status?: string; q?: string; sort?: string }) => {
+  const buildHref = (next: { status?: string; q?: string; sort?: string; page?: number }) => {
     const params = new URLSearchParams()
     const s = next.status ?? (isStoreStatus(status) ? status : "")
     const query = next.q ?? q ?? ""
     const so = next.sort ?? sortKey
+    // Any filter/sort change (no explicit page) resets to page 1 — staying on the current
+    // page could land past the end of a narrower result set.
+    const p = next.page ?? 1
     if (s) params.set("status", s)
     if (query) params.set("q", query)
     if (so !== "created_desc") params.set("sort", so)
+    if (p > 1) params.set("page", String(p))
     const qs = params.toString()
     return qs ? `/stores?${qs}` : "/stores"
   }
@@ -133,12 +150,12 @@ export default async function StoresPage({
               placeholder="Search…"
               className="h-8 w-40 text-sm"
             />
-            <Button type="submit" variant="outline" size="sm">
+            <Button type="submit" variant="outline" size="sm" icon={<Search />}>
               Search
             </Button>
           </form>
-          <Button asChild>
-            <Link href="/stores/new">+ Create Store</Link>
+          <Button asChild icon={<Plus />}>
+            <Link href="/stores/new">Create Store</Link>
           </Button>
         </div>
       </div>
@@ -191,14 +208,20 @@ export default async function StoresPage({
                 <td className="px-4 py-3">
                   {row.status === "pending" && (
                     <form action={approveStore.bind(null, row.id)}>
-                      <Button variant="link" type="submit" className="h-auto p-0">
+                      <Button variant="link" size="sm" type="submit" icon={<CircleCheck />}>
                         Approve
                       </Button>
                     </form>
                   )}
                   {row.status === "active" && (
                     <form action={suspendStore.bind(null, row.id)}>
-                      <Button variant="link" type="submit" className="h-auto p-0 text-destructive">
+                      <Button
+                        variant="link"
+                        size="sm"
+                        type="submit"
+                        icon={<Ban />}
+                        className="text-destructive"
+                      >
                         Suspend
                       </Button>
                     </form>
@@ -215,6 +238,11 @@ export default async function StoresPage({
             )}
           </tbody>
         </table>
+        <Pagination
+          page={page}
+          totalPages={pageCount(total)}
+          buildHref={(p) => buildHref({ page: p })}
+        />
       </Card>
     </div>
   )

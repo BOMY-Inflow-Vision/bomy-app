@@ -1,7 +1,9 @@
 "use client"
 
 import { useState, useTransition } from "react"
+import { CircleCheck, CircleX, Pencil, Save, Trash2, X } from "lucide-react"
 
+import { useToast } from "@/components/toaster"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -23,16 +25,19 @@ export function StoreCategoryRow({ cat }: { cat: StoreCategory }) {
   const [sortOrder, setSortOrder] = useState(cat.sortOrder)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const toast = useToast()
 
   function handleSave() {
     startTransition(async () => {
       const result = await updateStoreCategory(cat.id, name, sortOrder)
       if (!result.ok) {
         setError(result.error)
+        toast.error(result.error)
         return
       }
       setError(null)
       setEditing(false)
+      toast.success("Store category updated.")
     })
   }
 
@@ -44,14 +49,27 @@ export function StoreCategoryRow({ cat }: { cat: StoreCategory }) {
   }
 
   function handleToggle() {
-    startTransition(() => toggleStoreCategory(cat.id, !cat.isActive))
+    startTransition(async () => {
+      const willBeActive = !cat.isActive
+      const result = await toggleStoreCategory(cat.id, willBeActive)
+      if (!result.ok) {
+        toast.error(result.error)
+        return
+      }
+      toast.success(willBeActive ? "Store category activated." : "Store category deactivated.")
+    })
   }
 
   function handleDelete() {
     if (!window.confirm(`Delete "${cat.name}"? This cannot be undone.`)) return
     startTransition(async () => {
       const result = await deleteStoreCategory(cat.id)
-      if (!result.ok) setError(result.error)
+      if (!result.ok) {
+        setError(result.error)
+        toast.error(result.error)
+        return
+      }
+      toast.success("Store category deleted.")
     })
   }
 
@@ -104,10 +122,17 @@ export function StoreCategoryRow({ cat }: { cat: StoreCategory }) {
         <td className="px-4 py-3">{statusBadge}</td>
         <td className="px-4 py-3 text-right">
           <div className="flex items-center justify-end gap-2">
-            <Button size="sm" onClick={handleSave} disabled={isPending}>
+            <Button size="sm" icon={<Save />} onClick={handleSave} disabled={isPending}>
               Save
             </Button>
-            <Button size="sm" variant="outline" onClick={handleCancel} disabled={isPending}>
+            <Button
+              size="sm"
+              variant="outline"
+              icon={<X />}
+              arrowOnHover={false}
+              onClick={handleCancel}
+              disabled={isPending}
+            >
               Cancel
             </Button>
           </div>
@@ -132,7 +157,8 @@ export function StoreCategoryRow({ cat }: { cat: StoreCategory }) {
           <Button
             variant="link"
             size="sm"
-            className="h-auto p-0 text-xs"
+            icon={<Pencil />}
+            className="text-xs"
             onClick={() => {
               setError(null)
               setEditing(true)
@@ -144,7 +170,8 @@ export function StoreCategoryRow({ cat }: { cat: StoreCategory }) {
           <Button
             variant="ghost"
             size="sm"
-            className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
+            icon={cat.isActive ? <CircleX /> : <CircleCheck />}
+            className="text-xs text-muted-foreground hover:text-foreground"
             onClick={handleToggle}
             disabled={isPending}
           >
@@ -153,7 +180,8 @@ export function StoreCategoryRow({ cat }: { cat: StoreCategory }) {
           <Button
             variant="ghost"
             size="sm"
-            className="h-auto p-0 text-xs text-destructive hover:text-destructive"
+            icon={<Trash2 />}
+            className="text-xs text-destructive hover:text-destructive"
             onClick={handleDelete}
             disabled={isPending}
           >

@@ -23,6 +23,11 @@ export const authConfig = {
   pages: {
     signIn: "/auth/sign-in",
     verifyRequest: "/auth/verify-request",
+    // Verification (expired/used magic link) and AccessDenied land here instead
+    // of Auth.js's unstyled /api/auth/error default. authorized() below already
+    // allowlists /auth/sign-in for unconsented users and never gates it behind
+    // login, so ?error=... never loops.
+    error: "/auth/sign-in",
   },
   callbacks: {
     // Propagate custom JWT fields into the session for edge middleware.

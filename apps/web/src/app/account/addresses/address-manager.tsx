@@ -1,13 +1,17 @@
 "use client"
 
 import { useState, useTransition } from "react"
+import { Check, Pencil, Plus, Save, Trash2, X } from "lucide-react"
 
+import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { cn } from "@/lib/utils"
+import { Select } from "@/components/ui/select"
 import { MY_STATES } from "@/lib/shipping-address-schema"
+
+const STATE_OPTIONS = MY_STATES.map((s) => ({ value: s, label: s }))
 
 import { addAddress, deleteAddress, setDefault, updateAddress } from "./actions"
 import type { AddressBookErrors } from "./address-schema"
@@ -37,6 +41,7 @@ const EMPTY = {
 }
 
 export function AddressManager({ initial }: { initial: Row[] }) {
+  const toast = useToast()
   const [adding, setAdding] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState(EMPTY)
@@ -100,9 +105,19 @@ export function AddressManager({ initial }: { initial: Row[] }) {
                         type="button"
                         variant="link"
                         size="sm"
+                        icon={<Check />}
                         disabled={pending}
-                        onClick={() => startTransition(async () => void (await setDefault(a.id)))}
-                        className="h-auto p-0 text-xs"
+                        onClick={() =>
+                          startTransition(async () => {
+                            const res = await setDefault(a.id)
+                            if (res.ok) {
+                              toast.success("Default address updated")
+                            } else {
+                              toast.error(res.errors.form ?? "Couldn't set default address")
+                            }
+                          })
+                        }
+                        className="text-xs"
                       >
                         Set default
                       </Button>
@@ -111,9 +126,10 @@ export function AddressManager({ initial }: { initial: Row[] }) {
                       type="button"
                       variant="link"
                       size="sm"
+                      icon={<Pencil />}
                       disabled={pending}
                       onClick={() => startEdit(a)}
-                      className="h-auto p-0 text-xs"
+                      className="text-xs"
                     >
                       Edit
                     </Button>
@@ -121,9 +137,19 @@ export function AddressManager({ initial }: { initial: Row[] }) {
                       type="button"
                       variant="link"
                       size="sm"
+                      icon={<Trash2 />}
                       disabled={pending}
-                      onClick={() => startTransition(async () => void (await deleteAddress(a.id)))}
-                      className="h-auto p-0 text-xs text-destructive hover:text-destructive"
+                      onClick={() =>
+                        startTransition(async () => {
+                          const res = await deleteAddress(a.id)
+                          if (res.ok) {
+                            toast.success("Address deleted")
+                          } else {
+                            toast.error(res.errors.form ?? "Couldn't delete address")
+                          }
+                        })
+                      }
+                      className="text-xs text-destructive hover:text-destructive"
                     >
                       Delete
                     </Button>
@@ -141,6 +167,7 @@ export function AddressManager({ initial }: { initial: Row[] }) {
       {!formOpen ? (
         <Button
           type="button"
+          icon={<Plus />}
           onClick={() => {
             setForm(EMPTY)
             setAdding(true)
@@ -170,9 +197,13 @@ export function AddressManager({ initial }: { initial: Row[] }) {
                 ? await updateAddress(editingId, input)
                 : await addAddress(input)
               if (res.ok) {
+                toast.success(editingId ? "Address updated" : "Address added")
                 resetForm()
               } else {
                 setErrors(res.errors)
+                toast.error(
+                  res.errors.form ?? "Couldn't save address — check the highlighted fields",
+                )
               }
             })
           }}
@@ -236,29 +267,28 @@ export function AddressManager({ initial }: { initial: Row[] }) {
           />
           <div>
             <Label htmlFor="addr-state">State</Label>
-            <select
+            <Select
               id="addr-state"
               value={form.state}
-              onChange={field("state")}
-              className={cn(
-                "mt-1 w-full rounded-input border border-input bg-background px-3 py-2 text-sm",
-                "focus:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-              )}
-            >
-              <option value="">Select state…</option>
-              {MY_STATES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
+              onValueChange={(v) => setForm((p) => ({ ...p, state: v }))}
+              placeholder="Select state…"
+              className="mt-1 w-full"
+              options={STATE_OPTIONS}
+            />
             {errors.state && <p className="mt-1 text-xs text-destructive">{errors.state}</p>}
           </div>
           <div className="flex gap-2">
-            <Button type="submit" disabled={pending}>
+            <Button type="submit" icon={<Save />} disabled={pending}>
               {pending ? "Saving…" : editingId ? "Save changes" : "Save address"}
             </Button>
-            <Button type="button" variant="ghost" disabled={pending} onClick={resetForm}>
+            <Button
+              type="button"
+              variant="ghost"
+              icon={<X />}
+              arrowOnHover={false}
+              disabled={pending}
+              onClick={resetForm}
+            >
               Cancel
             </Button>
           </div>

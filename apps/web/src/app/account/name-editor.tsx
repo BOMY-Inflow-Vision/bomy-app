@@ -1,7 +1,9 @@
 "use client"
 
 import { useEffect, useState, useTransition } from "react"
+import { Pencil, Save, X } from "lucide-react"
 
+import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -10,6 +12,7 @@ import { updateDisplayName } from "./profile-actions"
 import { validateDisplayName } from "./profile-schema"
 
 export function NameEditor({ name }: { name: string | null }) {
+  const toast = useToast()
   const [editing, setEditing] = useState(false)
   const [displayName, setDisplayName] = useState(name)
   const [value, setValue] = useState(name ?? "")
@@ -26,7 +29,13 @@ export function NameEditor({ name }: { name: string | null }) {
     return (
       <div className="flex items-center gap-2">
         <p className="truncate text-lg font-semibold text-foreground">{displayName ?? "—"}</p>
-        <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(true)}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          icon={<Pencil />}
+          onClick={() => setEditing(true)}
+        >
           Edit
         </Button>
       </div>
@@ -47,6 +56,7 @@ export function NameEditor({ name }: { name: string | null }) {
         <Button
           type="button"
           size="sm"
+          icon={<Save />}
           disabled={pending}
           onClick={() => {
             setError(null)
@@ -60,8 +70,10 @@ export function NameEditor({ name }: { name: string | null }) {
               if (res.ok) {
                 setDisplayName(parsed.value)
                 setEditing(false)
+                toast.success("Name updated")
               } else {
                 setError(res.error)
+                toast.error(res.error)
               }
             })
           }}
@@ -72,6 +84,8 @@ export function NameEditor({ name }: { name: string | null }) {
           type="button"
           variant="ghost"
           size="sm"
+          icon={<X />}
+          arrowOnHover={false}
           disabled={pending}
           onClick={() => {
             setEditing(false)

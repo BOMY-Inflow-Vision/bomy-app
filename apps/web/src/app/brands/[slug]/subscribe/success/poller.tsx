@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { Eye, RefreshCw, RotateCcw } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 
@@ -61,7 +62,7 @@ export function BrandSubscriptionPoller({
         <p className="mb-6 text-sm text-muted-foreground">
           You now get a discount on every order from {storeName}.
         </p>
-        <Button asChild className="w-full">
+        <Button asChild icon={<Eye />} className="w-full">
           <Link href="/account/subscriptions">View my subscriptions</Link>
         </Button>
       </div>
@@ -97,11 +98,22 @@ export function BrandSubscriptionPoller({
           If you completed payment, confirmation can take a moment — check again shortly. If you
           didn&apos;t finish paying, you can start over.
         </p>
-        <Button type="button" className="w-full" onClick={() => router.refresh()}>
+        <Button
+          type="button"
+          icon={<RefreshCw />}
+          className="w-full"
+          onClick={() => router.refresh()}
+        >
           I&apos;ve paid — check again
         </Button>
         <form action={abandon} className="mt-3">
-          <Button type="submit" variant="outline" className="w-full">
+          <Button
+            type="submit"
+            variant="outline"
+            icon={<RotateCcw />}
+            arrowOnHover={false}
+            className="w-full"
+          >
             Start over
           </Button>
         </form>

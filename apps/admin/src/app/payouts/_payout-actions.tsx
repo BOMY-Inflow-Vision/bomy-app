@@ -1,11 +1,14 @@
 "use client"
 
 import { useState } from "react"
+import { CircleCheck, CircleX, Clock, X } from "lucide-react"
 
+import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { humanizePayoutError } from "@/lib/payout-error-copy"
 import { markPayoutCompleted, markPayoutFailed, markPayoutProcessing } from "./actions"
 
 interface Props {
@@ -21,14 +24,21 @@ export function PayoutActions({ payoutId, status }: Props) {
   const [failNotes, setFailNotes] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const toast = useToast()
 
   async function doProcessing() {
     setLoading(true)
     setError(null)
     const r = await markPayoutProcessing(payoutId)
     setLoading(false)
-    if (r.ok) setLocalStatus("processing")
-    else setError(r.error)
+    if (r.ok) {
+      setLocalStatus("processing")
+      toast.success("Payout marked processing.")
+    } else {
+      const copy = humanizePayoutError("markProcessing", r.error)
+      setError(copy.message)
+      toast[copy.toast](copy.message)
+    }
   }
 
   async function doComplete() {
@@ -39,7 +49,12 @@ export function PayoutActions({ payoutId, status }: Props) {
     if (r.ok) {
       setLocalStatus("completed")
       setShowComplete(false)
-    } else setError(r.error)
+      toast.success("Payout marked completed.")
+    } else {
+      const copy = humanizePayoutError("markCompleted", r.error)
+      setError(copy.message)
+      toast[copy.toast](copy.message)
+    }
   }
 
   async function doFail() {
@@ -50,7 +65,12 @@ export function PayoutActions({ payoutId, status }: Props) {
     if (r.ok) {
       setLocalStatus("failed")
       setShowFail(false)
-    } else setError(r.error)
+      toast.success("Payout marked failed.")
+    } else {
+      const copy = humanizePayoutError("markFailed", r.error)
+      setError(copy.message)
+      toast[copy.toast](copy.message)
+    }
   }
 
   if (localStatus === "completed" || localStatus === "failed") {
@@ -65,13 +85,14 @@ export function PayoutActions({ payoutId, status }: Props) {
         <Button
           size="sm"
           variant="secondary"
+          icon={<Clock />}
           onClick={() => {
             void doProcessing()
           }}
           disabled={loading}
           className="bg-blue-100 text-blue-700 hover:bg-blue-200"
         >
-          → Processing
+          Processing
         </Button>
       )}
 
@@ -101,6 +122,7 @@ export function PayoutActions({ payoutId, status }: Props) {
           <div className="flex gap-1">
             <Button
               size="sm"
+              icon={<CircleCheck />}
               onClick={() => {
                 void doComplete()
               }}
@@ -109,7 +131,13 @@ export function PayoutActions({ payoutId, status }: Props) {
             >
               Confirm
             </Button>
-            <Button size="sm" variant="secondary" onClick={() => setShowComplete(false)}>
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={<X />}
+              arrowOnHover={false}
+              onClick={() => setShowComplete(false)}
+            >
               Cancel
             </Button>
           </div>
@@ -144,6 +172,7 @@ export function PayoutActions({ payoutId, status }: Props) {
             <Button
               size="sm"
               variant="destructive"
+              icon={<CircleX />}
               onClick={() => {
                 void doFail()
               }}
@@ -151,7 +180,13 @@ export function PayoutActions({ payoutId, status }: Props) {
             >
               Confirm
             </Button>
-            <Button size="sm" variant="secondary" onClick={() => setShowFail(false)}>
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={<X />}
+              arrowOnHover={false}
+              onClick={() => setShowFail(false)}
+            >
               Cancel
             </Button>
           </div>

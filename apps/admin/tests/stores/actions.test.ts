@@ -17,16 +17,29 @@ import { makeDb, schema, withAdmin } from "@bomy/db"
 
 vi.mock("@/auth", () => ({ auth: vi.fn() }))
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
+vi.mock("@/lib/flash-toast-server", () => ({ flashToast: vi.fn() }))
+vi.mock("next/navigation", () => ({
+  redirect: vi.fn((url: string) => {
+    throw new Error(`REDIRECT:${url}`)
+  }),
+}))
 
 import { auth } from "@/auth"
+import { flashToast } from "@/lib/flash-toast-server"
 import { revalidatePath } from "next/cache"
-import { createStore, updateStoreSeo } from "../../src/app/stores/actions"
+import {
+  approveStore,
+  createStore,
+  suspendStore,
+  updateStoreSeo,
+} from "../../src/app/stores/actions"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
 const DATABASE_URL = process.env["DATABASE_APP_URL"] ?? process.env["DATABASE_URL"]
 const shouldRun = Boolean(DATABASE_URL) && process.env["BOMY_RLS_READY"] === "1"
 const mockAuth = auth as unknown as Mock
 const mockRevalidatePath = revalidatePath as unknown as Mock
+const mockFlashToast = flashToast as unknown as Mock
 const VALID_BODY_HTML =
   "<p>We started making handcrafted candles in a small Penang kitchen in 2019, and today we still hand-pour every single batch ourselves.</p>"
 const VALID_VIDEO_URL = "https://youtu.be/dQw4w9WgXcQ"
@@ -89,12 +102,13 @@ describe.skipIf(!shouldRun)("createStore one-store guard", () => {
     })
   }
 
-  it("happy path: creates a store for an owner with none, with Brand Story + Video set", async () => {
-    await createStore(fd(`fresh-${ownerId}`))
+  it("happy path: creates a store for an owner with none, with Brand Story + Video set, then redirects", async () => {
+    await expect(createStore(null, fd(`fresh-${ownerId}`))).rejects.toThrow("REDIRECT:/stores")
     const stores = await readStores()
     expect(stores).toHaveLength(1)
     expect(stores[0]!.bodyHtml).toContain("handcrafted candles")
     expect(stores[0]!.videoId).toBe("dQw4w9WgXcQ")
+    expect(mockFlashToast).toHaveBeenCalledWith("success", "Store created.")
   })
 
   it("blocks a second store for an owner who already has one", async () => {
@@ -103,28 +117,40 @@ describe.skipIf(!shouldRun)("createStore one-store guard", () => {
         .insert(schema.stores)
         .values({ ownerId, name: "First", slug: `first-${ownerId}`, status: "active" })
     })
-    await expect(createStore(fd(`second-${ownerId}`))).rejects.toThrow("Owner already has a store")
+    const result = await createStore(null, fd(`second-${ownerId}`))
+    expect(result).toEqual({ ok: false, error: "Owner already has a store" })
     expect(await readStores()).toHaveLength(1)
   })
 
-  it("empty Brand Story: throws, creates no store", async () => {
+  it("empty Brand Story: returns an error result, creates no store", async () => {
     const f = fd(`empty-story-${ownerId}`)
     f.set("bodyHtml", "<p></p>")
-    await expect(createStore(f)).rejects.toThrow("Brand Story is required.")
+    const result = await createStore(null, f)
+    expect(result).toEqual({ ok: false, error: "Brand Story is required." })
     expect(await readStores()).toHaveLength(0)
   })
 
-  it("Brand Story under the 20-char text floor: throws, creates no store", async () => {
+  it("Brand Story under the 20-char text floor: returns an error result, creates no store", async () => {
     const f = fd(`short-story-${ownerId}`)
     f.set("bodyHtml", "<p>Hi!</p>")
-    await expect(createStore(f)).rejects.toThrow(/at least 20 characters/)
+    const result = await createStore(null, f)
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toMatch(/at least 20 characters/)
     expect(await readStores()).toHaveLength(0)
   })
 
-  it("missing Video URL: throws, creates no store", async () => {
+  it("missing Video URL: returns an error result, creates no store", async () => {
     const f = fd(`no-video-${ownerId}`)
     f.set("videoUrl", "")
-    await expect(createStore(f)).rejects.toThrow("A valid YouTube video URL is required.")
+    const result = await createStore(null, f)
+    expect(result).toEqual({ ok: false, error: "A valid YouTube video URL is required." })
+    expect(await readStores()).toHaveLength(0)
+  })
+
+  it("a demoted admin gets a typed error, no throw, no store created", async () => {
+    mockAuth.mockResolvedValue({ user: { id: adminId, role: "buyer" } })
+    const result = await createStore(null, fd(`demoted-${ownerId}`))
+    expect(result).toEqual({ ok: false, error: "You don't have permission to do that." })
     expect(await readStores()).toHaveLength(0)
   })
 })
@@ -205,14 +231,13 @@ describe.skipIf(!shouldRun)("updateStoreSeo action", () => {
     expect(result.ok).toBe(false)
   })
 
-  it("rejects a non-admin caller (seller_owner) without writing anything", async () => {
+  it("rejects a non-admin caller (seller_owner) with a typed error, without writing anything", async () => {
     mockAuth.mockResolvedValue({ user: { id: sellerId, role: "seller_owner" } })
-    await expect(
-      updateStoreSeo(
-        storeId,
-        seoFd({ metaTitle: "Hijacked", metaDescription: "", ogImageUrl: "" }),
-      ),
-    ).rejects.toThrow("FORBIDDEN")
+    const result = await updateStoreSeo(
+      storeId,
+      seoFd({ metaTitle: "Hijacked", metaDescription: "", ogImageUrl: "" }),
+    )
+    expect(result).toEqual({ ok: false, error: "You don't have permission to do that." })
 
     const [row] = await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "verify" }, (tx) =>
       tx
@@ -284,5 +309,98 @@ describe.skipIf(!shouldRun)("updateStoreSeo action", () => {
         .where(eq(schema.stores.id, storeId)),
     )
     expect(after).toEqual(before)
+  })
+})
+
+describe.skipIf(!shouldRun)("approveStore / suspendStore server-form actions", () => {
+  let testDb: ReturnType<typeof makeDb>
+  let adminId: string
+  let sellerId: string
+  let storeId: string
+
+  beforeAll(() => {
+    process.env["DATABASE_URL"] = DATABASE_URL as string
+    testDb = makeDb({ url: DATABASE_URL as string })
+  })
+
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    adminId = randomUUID()
+    sellerId = randomUUID()
+    storeId = randomUUID()
+    mockAuth.mockResolvedValue({ user: { id: adminId, role: "bomy_admin" } })
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test seed" }, async (tx) => {
+      await tx.insert(schema.users).values([
+        { id: adminId, email: `admin-${adminId}@test.bomy`, role: "bomy_admin" },
+        { id: sellerId, email: `seller-${sellerId}@test.bomy`, role: "buyer" },
+      ])
+      await tx.insert(schema.stores).values({
+        id: storeId,
+        ownerId: sellerId,
+        name: "Approve Me",
+        slug: `approve-me-${storeId.slice(0, 8)}`,
+        status: "pending",
+      })
+    })
+  })
+
+  afterEach(async () => {
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
+      await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
+    })
+  })
+
+  async function readStoreAndOwnerRole() {
+    return withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "verify" }, async (tx) => {
+      const [store] = await tx
+        .select({ status: schema.stores.status })
+        .from(schema.stores)
+        .where(eq(schema.stores.id, storeId))
+      const [owner] = await tx
+        .select({ role: schema.users.role })
+        .from(schema.users)
+        .where(eq(schema.users.id, sellerId))
+      return { storeStatus: store?.status, ownerRole: owner?.role }
+    })
+  }
+
+  it("approveStore: activates the store, promotes the owner, flashes success", async () => {
+    await approveStore(storeId)
+    const { storeStatus, ownerRole } = await readStoreAndOwnerRole()
+    expect(storeStatus).toBe("active")
+    expect(ownerRole).toBe("seller_owner")
+    expect(mockFlashToast).toHaveBeenCalledWith(
+      "success",
+      "Store approved — owner promoted to seller.",
+    )
+  })
+
+  it("approveStore: unknown store id flashes a specific error, no throw", async () => {
+    await expect(approveStore(randomUUID())).resolves.toBeUndefined()
+    expect(mockFlashToast).toHaveBeenCalledWith("error", "Store not found.")
+  })
+
+  it("approveStore: a demoted admin gets a flashed error, no write", async () => {
+    mockAuth.mockResolvedValue({ user: { id: adminId, role: "buyer" } })
+    await expect(approveStore(storeId)).resolves.toBeUndefined()
+    expect(mockFlashToast).toHaveBeenCalledWith("error", "You don't have permission to do that.")
+    const { storeStatus } = await readStoreAndOwnerRole()
+    expect(storeStatus).toBe("pending")
+  })
+
+  it("suspendStore: suspends an active store, flashes success", async () => {
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test seed active" }, (tx) =>
+      tx.update(schema.stores).set({ status: "active" }).where(eq(schema.stores.id, storeId)),
+    )
+    await suspendStore(storeId)
+    const { storeStatus } = await readStoreAndOwnerRole()
+    expect(storeStatus).toBe("suspended")
+    expect(mockFlashToast).toHaveBeenCalledWith("success", "Store suspended.")
+  })
+
+  it("suspendStore: a demoted admin gets a flashed error, no write", async () => {
+    mockAuth.mockResolvedValue({ user: { id: adminId, role: "buyer" } })
+    await expect(suspendStore(storeId)).resolves.toBeUndefined()
+    expect(mockFlashToast).toHaveBeenCalledWith("error", "You don't have permission to do that.")
   })
 })

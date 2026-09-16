@@ -1,13 +1,16 @@
 import Link from "next/link"
 import { and, desc, eq, sql } from "drizzle-orm"
+import { PackageCheck } from "lucide-react"
 
 import { schema, withAdmin } from "@bomy/db"
 
 import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
+import { pageCount, pageOffset, parsePage, PAGE_SIZE } from "@/lib/pagination"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Pagination } from "@/components/ui/pagination"
 import { markDispatched } from "./actions"
 
 const STATUS_COLORS: Record<string, string> = {
@@ -19,10 +22,11 @@ const STATUS_COLORS: Record<string, string> = {
 export default async function GoodieBoxPage({
   searchParams,
 }: {
-  searchParams: Promise<{ quarter?: string; status?: string }>
+  searchParams: Promise<{ quarter?: string; status?: string; page?: string }>
 }) {
   const { id: adminId } = await requireAdmin()
-  const { quarter, status } = await searchParams
+  const { quarter, status, page: pageParam } = await searchParams
+  const page = parsePage(pageParam)
 
   const quarters = await withAdmin(
     getDb(),
@@ -34,11 +38,20 @@ export default async function GoodieBoxPage({
         .orderBy(desc(sql`${schema.goodieBoxDispatches.quarter}`)),
   )
 
-  const rows = await withAdmin(
+  const { rows, total } = await withAdmin(
     getDb(),
     { userId: adminId, reason: "admin list goodie box dispatches" },
     async (tx) => {
-      const q = tx
+      const conditions = []
+      if (quarter) conditions.push(eq(schema.goodieBoxDispatches.quarter, quarter))
+      if (status && ["pending", "dispatched", "delivered"].includes(status)) {
+        conditions.push(
+          eq(schema.goodieBoxDispatches.status, status as "pending" | "dispatched" | "delivered"),
+        )
+      }
+      const where = conditions.length > 0 ? and(...conditions) : undefined
+
+      const rows = await tx
         .select({
           id: schema.goodieBoxDispatches.id,
           userEmail: schema.users.email,
@@ -51,22 +64,34 @@ export default async function GoodieBoxPage({
         })
         .from(schema.goodieBoxDispatches)
         .innerJoin(schema.users, eq(schema.users.id, schema.goodieBoxDispatches.userId))
+        .where(where)
         .orderBy(
           desc(sql`${schema.goodieBoxDispatches.quarter}`),
           schema.goodieBoxDispatches.shippingName,
         )
-
-      const conditions = []
-      if (quarter) conditions.push(eq(schema.goodieBoxDispatches.quarter, quarter))
-      if (status && ["pending", "dispatched", "delivered"].includes(status)) {
-        conditions.push(
-          eq(schema.goodieBoxDispatches.status, status as "pending" | "dispatched" | "delivered"),
-        )
-      }
-
-      return conditions.length > 0 ? q.where(and(...conditions)) : q
+        .limit(PAGE_SIZE)
+        .offset(pageOffset(page))
+      const countRows = await tx
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.goodieBoxDispatches)
+        .where(where)
+      return { rows, total: Number(countRows[0]!.count) }
     },
   )
+
+  const buildHref = (next: { status?: string; quarter?: string; page?: number }) => {
+    const s = next.status ?? status ?? ""
+    const q = next.quarter ?? quarter ?? ""
+    // Any filter change (no explicit page) resets to page 1 — staying on the current
+    // page could land past the end of a narrower result set.
+    const p = next.page ?? 1
+    const params = new URLSearchParams()
+    if (s) params.set("status", s)
+    if (q) params.set("quarter", q)
+    if (p > 1) params.set("page", String(p))
+    const qs = params.toString()
+    return qs ? `/goodie-box?${qs}` : "/goodie-box"
+  }
 
   return (
     <div className="p-6">
@@ -76,7 +101,7 @@ export default async function GoodieBoxPage({
           {["", "pending", "dispatched", "delivered"].map((s) => (
             <Link
               key={s}
-              href={`/goodie-box?${new URLSearchParams({ ...(s ? { status: s } : {}), ...(quarter ? { quarter } : {}) }).toString()}`}
+              href={buildHref({ status: s })}
               className={cn(
                 "rounded px-3 py-1",
                 status === s || (!status && !s)
@@ -92,7 +117,7 @@ export default async function GoodieBoxPage({
           <div className="ml-auto flex items-center gap-2 text-sm">
             <span className="text-muted-foreground">Quarter:</span>
             <Link
-              href={`/goodie-box?${new URLSearchParams({ ...(status ? { status } : {}) }).toString()}`}
+              href={buildHref({ quarter: "" })}
               className={cn(
                 "rounded px-2 py-1",
                 !quarter
@@ -105,7 +130,7 @@ export default async function GoodieBoxPage({
             {quarters.map((q) => (
               <Link
                 key={q.quarter}
-                href={`/goodie-box?${new URLSearchParams({ quarter: q.quarter, ...(status ? { status } : {}) }).toString()}`}
+                href={buildHref({ quarter: q.quarter })}
                 className={cn(
                   "rounded px-2 py-1",
                   quarter === q.quarter
@@ -168,7 +193,13 @@ export default async function GoodieBoxPage({
                         required
                         className="w-32 text-xs"
                       />
-                      <Button type="submit" variant="link" size="sm" className="text-xs">
+                      <Button
+                        type="submit"
+                        variant="link"
+                        size="sm"
+                        icon={<PackageCheck />}
+                        className="text-xs"
+                      >
                         Mark Dispatched
                       </Button>
                     </form>
@@ -185,6 +216,11 @@ export default async function GoodieBoxPage({
             )}
           </tbody>
         </table>
+        <Pagination
+          page={page}
+          totalPages={pageCount(total)}
+          buildHref={(p) => buildHref({ page: p })}
+        />
       </div>
     </div>
   )

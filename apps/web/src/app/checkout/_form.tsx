@@ -1,10 +1,13 @@
 "use client"
 
 import { useEffect, useState, useTransition } from "react"
+import { CreditCard } from "lucide-react"
 
+import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select } from "@/components/ui/select"
 import { useCart } from "@/lib/cart"
 import { CHECKOUT_USER_COPY } from "@/lib/checkout-errors"
 import { formatMyrSen } from "@/lib/format"
@@ -77,6 +80,8 @@ function savedToState(a: SavedAddress): AddressState {
   }
 }
 
+const STATE_OPTIONS = MY_STATES.map((s) => ({ value: s, label: s }))
+
 const INVALID_LINE_COPY: Record<string, string> = {
   missing: "No longer available",
   variant_inactive: "No longer available",
@@ -87,6 +92,7 @@ const INVALID_LINE_COPY: Record<string, string> = {
 }
 
 export function CheckoutForm({ savedAddresses = [] }: { savedAddresses?: SavedAddress[] }) {
+  const toast = useToast()
   const { items, clearCart, hydrated } = useCart()
   const [preview, setPreview] = useState<PreviewResult | null>(null)
   const [voucherId, setVoucherId] = useState<string | null>(null)
@@ -146,7 +152,10 @@ export function CheckoutForm({ savedAddresses = [] }: { savedAddresses?: SavedAd
       if (selectedId === "new" && saveToBook) {
         const saved = await addAddress({ label: null, ...v.value })
         if (!saved.ok) {
-          setTopError(saved.errors.form ?? "Couldn't save the address. Uncheck save to continue.")
+          const message =
+            saved.errors.form ?? "Couldn't save the address. Uncheck save to continue."
+          setTopError(message)
+          toast.error(message)
           return
         }
       }
@@ -162,8 +171,10 @@ export function CheckoutForm({ savedAddresses = [] }: { savedAddresses?: SavedAd
       }
       if (r.error === "INVALID_ADDRESS" && r.details?.["fieldErrors"]) {
         setFieldErrors(r.details["fieldErrors"] as ShippingAddressErrors)
+        toast.error("Please check the highlighted address fields.")
       } else {
         setTopError(CHECKOUT_USER_COPY[r.error])
+        toast.error(CHECKOUT_USER_COPY[r.error])
       }
     })
   }
@@ -254,18 +265,15 @@ export function CheckoutForm({ savedAddresses = [] }: { savedAddresses?: SavedAd
       {availableVouchers.length > 0 && (
         <section>
           <h2 className="mb-3 text-base font-semibold text-foreground">Voucher</h2>
-          <select
-            className="w-full rounded-lg border border-input px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          <Select
+            className="w-full"
             value={voucherId ?? ""}
-            onChange={(e) => setVoucherId(e.target.value || null)}
-          >
-            <option value="">No voucher</option>
-            {availableVouchers.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.label}
-              </option>
-            ))}
-          </select>
+            onValueChange={(v) => setVoucherId(v || null)}
+            options={[
+              { value: "", label: "No voucher" },
+              ...availableVouchers.map((v) => ({ value: v.id, label: v.label })),
+            ]}
+          />
         </section>
       )}
 
@@ -274,21 +282,18 @@ export function CheckoutForm({ savedAddresses = [] }: { savedAddresses?: SavedAd
         <h2 className="mb-3 text-base font-semibold text-foreground">Shipping address</h2>
         {savedAddresses.length > 0 && (
           <div className="mb-4">
-            <select
+            <Select
+              className="w-full"
               value={selectedId}
-              onChange={(e) => setSelectedId(e.target.value)}
-              className={cn(
-                "w-full rounded-lg border px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2",
-                "border-input focus:ring-ring",
-              )}
-            >
-              {savedAddresses.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {`${a.label ? `${a.label} — ` : ""}${a.line1}${a.isDefault ? " (default)" : ""}`}
-                </option>
-              ))}
-              <option value="new">Use a new address</option>
-            </select>
+              onValueChange={setSelectedId}
+              options={[
+                ...savedAddresses.map((a) => ({
+                  value: a.id,
+                  label: `${a.label ? `${a.label} — ` : ""}${a.line1}${a.isDefault ? " (default)" : ""}`,
+                })),
+                { value: "new", label: "Use a new address" },
+              ]}
+            />
           </div>
         )}
         {selectedId !== "new" ? (
@@ -392,25 +397,14 @@ export function CheckoutForm({ savedAddresses = [] }: { savedAddresses?: SavedAd
             </div>
 
             <Field label="State" fieldId="addr-state" error={fieldErrors.state}>
-              <select
+              <Select
                 id="addr-state"
-                autoComplete="address-level1"
                 value={address.state}
-                onChange={handleAddressField("state")}
-                className={cn(
-                  "w-full rounded-lg border px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2",
-                  fieldErrors.state
-                    ? "border-destructive focus:ring-destructive"
-                    : "border-input focus:ring-ring",
-                )}
-              >
-                <option value="">Select state…</option>
-                {MY_STATES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
+                onValueChange={(v) => setAddress((prev) => ({ ...prev, state: v }))}
+                placeholder="Select state…"
+                className={cn("w-full", fieldErrors.state && "border-destructive")}
+                options={STATE_OPTIONS}
+              />
             </Field>
 
             <label className="flex items-center gap-2 text-sm text-foreground">
@@ -432,8 +426,14 @@ export function CheckoutForm({ savedAddresses = [] }: { savedAddresses?: SavedAd
         </div>
       )}
 
-      <Button type="submit" size="lg" disabled={isPending} className="w-full">
-        {isPending && <Spinner />}
+      <Button
+        type="submit"
+        size="lg"
+        icon={isPending ? <Spinner /> : <CreditCard />}
+        arrowOnHover={!isPending}
+        disabled={isPending}
+        className="w-full"
+      >
         {isPending ? "Processing…" : "Proceed to payment"}
       </Button>
     </form>

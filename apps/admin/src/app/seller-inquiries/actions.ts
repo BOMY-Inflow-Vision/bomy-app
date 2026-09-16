@@ -7,8 +7,9 @@ import { revalidatePath } from "next/cache"
 
 import { schema, withAdmin } from "@bomy/db"
 
-import { requireAdminId } from "@/lib/auth"
+import { authorizeAdminAction } from "@/lib/admin-action"
 import { getDb } from "@/lib/db"
+import { flashToast } from "@/lib/flash-toast-server"
 import { getMailer } from "@/lib/mailer"
 import { validateStoreProvisioning } from "@/lib/brand-story-validation"
 import { sendApprovalEmail } from "@/notifications/seller-inquiry"
@@ -25,16 +26,30 @@ function slugify(name: string): string {
     .replace(/^-|-$/g, "")
 }
 
-export async function deleteInquiry(inquiryId: string) {
-  const adminId = await requireAdminId()
-  await withAdmin(
-    getDb(),
-    { userId: adminId, reason: "admin delete seller inquiry" },
-    async (tx) => {
-      await tx.delete(schema.sellerInquiries).where(eq(schema.sellerInquiries.id, inquiryId))
-    },
-  )
+// Server-form trigger (no client JS runs after submit) — must not throw for an expected
+// failure; flashes a toast for both outcomes itself instead of returning a result.
+export async function deleteInquiry(inquiryId: string): Promise<void> {
+  const authz = await authorizeAdminAction()
+  if (!authz.ok) {
+    await flashToast("error", authz.error)
+    return
+  }
+
+  try {
+    await withAdmin(
+      getDb(),
+      { userId: authz.adminId, reason: "admin delete seller inquiry" },
+      async (tx) => {
+        await tx.delete(schema.sellerInquiries).where(eq(schema.sellerInquiries.id, inquiryId))
+      },
+    )
+  } catch {
+    await flashToast("error", "Could not delete inquiry.")
+    return
+  }
+
   revalidatePath("/seller-inquiries")
+  await flashToast("success", "Inquiry deleted.")
 }
 
 type ApprovePayload = { email: string; name: string | null; storeName: string; finalSlug: string }
@@ -45,7 +60,9 @@ export async function approveInquiry(
   bodyHtml: string,
   videoUrl: string,
 ): Promise<ReviewResult> {
-  const adminId = await requireAdminId()
+  const authz = await authorizeAdminAction()
+  if (!authz.ok) return { ok: false, error: authz.error }
+  const adminId = authz.adminId
 
   const storeId = randomUUID()
   const validated = await validateStoreProvisioning(bodyHtml, videoUrl, storeId)
@@ -189,7 +206,9 @@ export async function approveInquiry(
 }
 
 export async function rejectInquiry(inquiryId: string): Promise<ReviewResult> {
-  const adminId = await requireAdminId()
+  const authz = await authorizeAdminAction()
+  if (!authz.ok) return { ok: false, error: authz.error }
+  const adminId = authz.adminId
 
   const result = await withAdmin(
     getDb(),

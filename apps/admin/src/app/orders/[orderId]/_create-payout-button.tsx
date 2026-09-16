@@ -1,22 +1,29 @@
 "use client"
 
 import { useState } from "react"
+import { Wallet } from "lucide-react"
 
+import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
+import { humanizePayoutError } from "@/lib/payout-error-copy"
 import { createPayoutRecord } from "../../payouts/actions"
 
 export function CreatePayoutButton({ orderId }: { orderId: string }) {
   const [state, setState] = useState<"idle" | "loading" | "done" | "error">("idle")
   const [error, setError] = useState<string | null>(null)
+  const toast = useToast()
 
   async function handleClick() {
     setState("loading")
     const result = await createPayoutRecord(orderId)
     if (result.ok) {
       setState("done")
+      toast.success("Payout record created.")
     } else {
       setState("error")
-      setError(result.error)
+      const copy = humanizePayoutError("createPayout", result.error)
+      setError(copy.message)
+      toast[copy.toast](copy.message)
     }
   }
 
@@ -39,6 +46,7 @@ export function CreatePayoutButton({ orderId }: { orderId: string }) {
         }}
         disabled={state === "loading"}
         size="sm"
+        icon={<Wallet />}
       >
         {state === "loading" ? "Creating…" : "Create Payout Record"}
       </Button>

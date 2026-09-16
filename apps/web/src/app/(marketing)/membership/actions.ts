@@ -8,6 +8,7 @@ import { makeDb, schema, withAdmin, withTenant } from "@bomy/db"
 import { HitPayClient, type HitPayError, type RecurringBillingResponse } from "@bomy/hitpay"
 
 import { auth } from "@/auth"
+import { flashToast } from "@/lib/flash-toast-server"
 import { formatHitPayStartDate } from "@/lib/hitpay-date"
 import { isPendingAbandoned } from "@/lib/membership"
 import { paymentsEnabled } from "@/lib/payments-enabled"
@@ -299,7 +300,13 @@ export async function joinMembership() {
         },
       )
     }
-    throw err
+    // Compensation above has run; surface a retryable error instead of crashing the page.
+    console.error("[joinMembership] checkout could not start", err)
+    await flashToast(
+      "error",
+      "We couldn't start your membership checkout. Please try again in a moment.",
+    )
+    redirect("/membership")
   }
 
   redirect(billing.url)
@@ -332,6 +339,7 @@ export async function abandonPendingMembership() {
     },
   )
 
+  await flashToast("info", "Checkout cancelled — you can join again anytime.")
   redirect("/membership")
 }
 
@@ -361,7 +369,17 @@ export async function cancelMembership() {
   if (!sub) redirect("/membership")
 
   if (sub.hitpayRecurringId) {
-    await hitpayClient().cancelRecurringBilling(sub.hitpayRecurringId)
+    try {
+      await hitpayClient().cancelRecurringBilling(sub.hitpayRecurringId)
+    } catch (err) {
+      // Renewal is still live at HitPay, so don't record the cancellation; let the user retry.
+      console.error("[cancelMembership] HitPay cancel failed", err)
+      await flashToast(
+        "error",
+        "We couldn't cancel your membership right now. Please try again or contact support.",
+      )
+      redirect("/membership/manage")
+    }
   }
 
   // Record cancellation intent only — status stays 'active' until period_end.
@@ -378,5 +396,11 @@ export async function cancelMembership() {
     },
   )
 
+  const activeUntil = sub.periodEnd.toLocaleDateString("en-MY", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  })
+  await flashToast("success", `Membership cancelled — it stays active until ${activeUntil}.`)
   redirect("/membership/manage")
 }

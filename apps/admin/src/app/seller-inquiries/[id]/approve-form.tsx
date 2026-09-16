@@ -1,7 +1,9 @@
 "use client"
 
 import { useState, useTransition } from "react"
+import { CircleCheck, CircleX } from "lucide-react"
 
+import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -30,6 +32,7 @@ export function ApproveForm({
   const [videoUrl, setVideoUrl] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
+  const toast = useToast()
 
   // Client-side gate is UX only — approveInquiry re-validates authoritatively.
   const canApprove = bodyHtml.trim().length > 0 && videoUrl.trim().length > 0 && !pending
@@ -67,12 +70,18 @@ export function ApproveForm({
       <div className="flex gap-2">
         <Button
           type="button"
+          icon={<CircleCheck />}
           disabled={!canApprove}
           onClick={() =>
             startTransition(async () => {
               setError(null)
               const res = await approveInquiry(inquiryId, slug, bodyHtml, videoUrl)
-              if (!res.ok) setError(res.error)
+              if (!res.ok) {
+                setError(res.error)
+                toast.error(res.error)
+                return
+              }
+              toast.success(`Store provisioned for ${defaultSlug}.`)
             })
           }
         >
@@ -81,12 +90,18 @@ export function ApproveForm({
         <Button
           type="button"
           variant="outline"
+          icon={<CircleX />}
           disabled={pending}
           onClick={() =>
             startTransition(async () => {
               setError(null)
               const res = await rejectInquiry(inquiryId)
-              if (!res.ok) setError(res.error)
+              if (!res.ok) {
+                setError(res.error)
+                toast.error(res.error)
+                return
+              }
+              toast.success("Inquiry rejected.")
             })
           }
           className="border-amber-300 text-amber-700 hover:bg-amber-50"

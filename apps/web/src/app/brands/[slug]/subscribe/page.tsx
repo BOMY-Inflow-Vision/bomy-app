@@ -8,6 +8,8 @@ import { getDb } from "@/lib/db"
 import { isPendingAbandoned } from "@/lib/membership"
 import { paymentsEnabled } from "@/lib/payments-enabled"
 import { SubmitButton } from "@/components/submit-button"
+import { Button } from "@/components/ui/button"
+import { CreditCard, LogIn } from "lucide-react"
 import { getStorePlans, subscribeToBrand } from "./actions"
 
 function senToMyr(sen: bigint): string {
@@ -117,17 +119,16 @@ export default async function BrandSubscribePage({ params }: Props) {
                   </div>
                 ) : session ? (
                   <form action={action}>
-                    <SubmitButton className="w-full rounded-xl">
+                    <SubmitButton icon={<CreditCard />} className="w-full">
                       Subscribe — {priceDisplay}
                     </SubmitButton>
                   </form>
                 ) : (
-                  <a
-                    href={`/auth/sign-in?callbackUrl=/brands/${slug}/subscribe`}
-                    className="block w-full rounded-xl bg-primary px-4 py-2.5 text-center text-sm font-semibold text-primary-foreground shadow transition-colors hover:bg-primary/90 active:bg-primary/80"
-                  >
-                    Sign in to subscribe
-                  </a>
+                  <Button asChild icon={<LogIn />} className="w-full">
+                    <a href={`/auth/sign-in?callbackUrl=/brands/${slug}/subscribe`}>
+                      Sign in to subscribe
+                    </a>
+                  </Button>
                 )}
               </li>
             )

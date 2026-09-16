@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { redirect } from "next/navigation"
+import { Pencil, Plus } from "lucide-react"
 
 import { auth } from "@/auth"
 import { Button } from "@/components/ui/button"
@@ -34,7 +35,7 @@ export default async function SellerProductsPage({
     <div className="p-8">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-xl font-semibold text-foreground">Products</h1>
-        <Button asChild>
+        <Button asChild icon={<Plus />}>
           <Link href="/seller/dashboard/products/new">New Product</Link>
         </Button>
       </div>
@@ -60,12 +61,9 @@ export default async function SellerProductsPage({
       {products.length === 0 ? (
         <div className="rounded-xl border border-border bg-background p-12 text-center shadow-sm">
           <p className="text-muted-foreground">No products yet.</p>
-          <Link
-            href="/seller/dashboard/products/new"
-            className="mt-3 inline-block text-sm text-primary hover:underline"
-          >
-            Create your first product →
-          </Link>
+          <Button variant="link" size="sm" icon={<Plus />} className="mt-3" asChild>
+            <Link href="/seller/dashboard/products/new">Create your first product</Link>
+          </Button>
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-border bg-background shadow-sm">
@@ -110,12 +108,9 @@ export default async function SellerProductsPage({
                     {p.createdAt.toLocaleDateString("en-MY")}
                   </td>
                   <td className="px-5 py-3">
-                    <Link
-                      href={`/seller/dashboard/products/${p.id}/edit`}
-                      className="text-xs text-primary hover:underline"
-                    >
-                      Edit
-                    </Link>
+                    <Button variant="link" size="sm" icon={<Pencil />} className="text-xs" asChild>
+                      <Link href={`/seller/dashboard/products/${p.id}/edit`}>Edit</Link>
+                    </Button>
                   </td>
                 </tr>
               ))}

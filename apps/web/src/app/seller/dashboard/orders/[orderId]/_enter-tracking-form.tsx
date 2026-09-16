@@ -1,12 +1,20 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { Save } from "lucide-react"
 
+import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
 import { enterTracking } from "./actions"
+
+const ERROR_COPY: Record<"UNAUTHENTICATED" | "NOT_FOUND", string> = {
+  UNAUTHENTICATED: "Your session has ended. Please sign in again.",
+  NOT_FOUND: "This order can't be updated right now — it may have changed. Refresh and try again.",
+}
 
 function Spinner() {
   return (
@@ -28,6 +36,8 @@ interface Props {
 }
 
 export function EnterTrackingForm({ orderId, currentCarrier, currentTracking }: Props) {
+  const router = useRouter()
+  const toast = useToast()
   const [carrier, setCarrier] = useState(currentCarrier ?? "")
   const [tracking, setTracking] = useState(currentTracking ?? "")
   const [pending, setPending] = useState(false)
@@ -40,9 +50,12 @@ export function EnterTrackingForm({ orderId, currentCarrier, currentTracking }: 
     setError(null)
     const result = await enterTracking(orderId, carrier.trim(), tracking.trim())
     if (result.ok) {
-      window.location.reload()
+      router.refresh()
+      toast.success("Tracking saved — order marked as shipped")
+      setPending(false)
     } else {
       setError("Could not update tracking. Please try again.")
+      toast.error(ERROR_COPY[result.error])
       setPending(false)
     }
   }
@@ -78,8 +91,12 @@ export function EnterTrackingForm({ orderId, currentCarrier, currentTracking }: 
         />
       </div>
       {error && <p className="text-sm text-destructive">{error}</p>}
-      <Button type="submit" disabled={pending} className="flex items-center justify-center gap-2">
-        {pending && <Spinner />}
+      <Button
+        type="submit"
+        icon={pending ? <Spinner /> : <Save />}
+        arrowOnHover={!pending}
+        disabled={pending}
+      >
         {pending ? "Saving…" : "Save tracking"}
       </Button>
     </form>

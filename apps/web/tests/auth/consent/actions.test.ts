@@ -214,11 +214,12 @@ describe.skipIf(!shouldRun)("consent DB-state checks (security)", () => {
 // ─── Action tests ─────────────────────────────────────────────────────────
 
 // Stable mock handles
-const { authMock, signOutMock, updateMock, headersMock } = vi.hoisted(() => ({
+const { authMock, signOutMock, updateMock, headersMock, flashToastMock } = vi.hoisted(() => ({
   authMock: vi.fn(),
   signOutMock: vi.fn(),
   updateMock: vi.fn(),
   headersMock: vi.fn(),
+  flashToastMock: vi.fn(),
 }))
 
 vi.mock("@/auth", () => ({
@@ -231,8 +232,15 @@ vi.mock("next/headers", () => ({
   headers: headersMock,
 }))
 
-// redirect() throws a NEXT_REDIRECT error — capture it
-function catchRedirect(fn: () => Promise<void>): Promise<string> {
+vi.mock("@/lib/flash-toast-server", () => ({
+  flashToast: flashToastMock,
+}))
+
+// redirect() throws a NEXT_REDIRECT error — capture it. Generic because
+// acceptConsent() can also resolve with a typed { ok: false } value on its
+// non-redirecting failure path — callers that expect a redirect still get
+// the "expected redirect, got none" guard below in that case.
+function catchRedirect<T>(fn: () => Promise<T>): Promise<string> {
   return fn().then(
     () => {
       throw new Error("expected redirect, got none")
@@ -262,6 +270,8 @@ describe.skipIf(!shouldRun)("acceptConsent action", () => {
     updateMock.mockResolvedValue(null)
     headersMock.mockReset()
     headersMock.mockResolvedValue(new Headers())
+    flashToastMock.mockReset()
+    flashToastMock.mockResolvedValue(undefined)
   })
 
   afterEach(() => {
@@ -299,6 +309,8 @@ describe.skipIf(!shouldRun)("acceptConsent action", () => {
 
     // JWT re-issued with new version
     expect(updateMock).toHaveBeenCalledWith({ consentVersion: "2026-06-17" })
+    // Success toast flashed before the redirect
+    expect(flashToastMock).toHaveBeenCalledWith("success", "Thanks — you're all set.")
     // Redirected home
     expect(dest).toBe("/")
 

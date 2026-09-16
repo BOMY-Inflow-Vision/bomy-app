@@ -43,11 +43,29 @@ import {
 } from "lucide-react"
 
 import { extractYoutubeVideoId } from "@bomy/shared/youtube"
+import { RefreshCw, Save } from "lucide-react"
 
+import { useToast } from "@/components/toaster"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { YoutubeEmbedExtension } from "./youtube-embed-extension"
 import { ImageUploadExtension } from "./image-upload-extension"
+
+// Maps getUploadUrl's typed error codes to copy a seller can act on.
+function uploadErrorMessage(code?: string): string {
+  switch (code) {
+    case "rate_limited":
+      return "Too many image uploads — try again in a bit."
+    case "invalid_type":
+    case "invalid_size":
+      return "That image can't be used — check the file type and size (max 2 MB)."
+    case "not_found":
+      return "Couldn't upload — the item may have been removed."
+    default:
+      return "Upload failed. Please try again."
+  }
+}
 
 interface Props {
   initialHtml: string | null
@@ -67,6 +85,8 @@ interface Props {
   onUploadStateChange?: (uploading: boolean) => void
   /** Text shown on the submit button. Defaults to the product-editing copy. */
   saveLabel?: string
+  /** Toast message on a successful save. Defaults to a neutral "Saved." */
+  successMessage?: string
   /** Noun used in the optimistic-concurrency conflict message (e.g. "product", "store"). */
   conflictNoun?: string
   /** aria-label on the editor's textbox, announced by screen readers. */
@@ -83,10 +103,12 @@ export function BodyEditor({
   onDirtyChange,
   onUploadStateChange,
   saveLabel = "Save Product Details",
+  successMessage = "Saved.",
   conflictNoun = "product",
   ariaLabel = "Product body editor",
   contentLabel = "product body",
 }: Props) {
+  const toast = useToast()
   const [revision, setRevision] = useState(initialRevision)
   const [dirty, setDirty] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -126,8 +148,9 @@ export function BodyEditor({
             return next
           })
         },
-        onUploadError: () => {
+        onUploadError: (code?: string) => {
           setUploadError(true)
+          toast.error(uploadErrorMessage(code))
           setActiveUploadCount((c) => {
             const next = Math.max(0, c - 1)
             if (next === 0) onUploadStateChange?.(false)
@@ -177,8 +200,10 @@ export function BodyEditor({
       result = await saveBody(html, revision)
     } catch {
       setConflictDetected(false)
-      setSaveError("Save failed: network error. Please try again.")
+      const message = "Save failed: network error. Please try again."
+      setSaveError(message)
       setSaveStatus("idle")
+      toast.error(message)
       return
     }
     if (result.ok) {
@@ -189,17 +214,20 @@ export function BodyEditor({
       setConflictDetected(false)
       savedHtmlRef.current = result.html ?? ""
       editor.commands.setContent(result.html ?? "")
+      toast.success(successMessage)
       setTimeout(() => setSaveStatus("idle"), 2000)
     } else if (result.error === "conflict") {
       setConflictDetected(true)
-      setSaveError(
-        `Another tab or device saved this ${conflictNoun}. Copy your changes, then reload to get the latest version.`,
-      )
+      const message = `Another tab or device saved this ${conflictNoun}. Copy your changes, then reload to get the latest version.`
+      setSaveError(message)
       setSaveStatus("idle")
+      toast.error(message)
     } else {
       setConflictDetected(false)
-      setSaveError(`Save failed: ${result.error}`)
+      const message = `Save failed: ${result.error}`
+      setSaveError(message)
       setSaveStatus("idle")
+      toast.error(message)
     }
   }
 
@@ -208,13 +236,16 @@ export function BodyEditor({
       {dirty && (
         <div className="flex items-center gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
           <span>You have unsaved changes.</span>
-          <button
+          <Button
             type="button"
-            className="font-medium underline"
+            variant="link"
+            size="sm"
+            icon={<Save />}
+            className="font-medium"
             onClick={(e) => void handleSave(e as unknown as React.FormEvent)}
           >
             Save now
-          </button>
+          </Button>
         </div>
       )}
 
@@ -438,13 +469,16 @@ export function BodyEditor({
         <div className="rounded border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {saveError}
           {conflictDetected && (
-            <button
+            <Button
               type="button"
-              className="ml-2 font-medium underline"
+              variant="link"
+              size="sm"
+              icon={<RefreshCw />}
+              className="ml-2 font-medium"
               onClick={() => window.location.reload()}
             >
               Reload page
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -452,13 +486,14 @@ export function BodyEditor({
       <form onSubmit={(e) => void handleSave(e)}>
         <input type="hidden" name="bodyHtml" ref={bodyHtmlRef} defaultValue={initialHtml ?? ""} />
         <input type="hidden" name="bodyRevision" value={revision} readOnly />
-        <button
+        <Button
           type="submit"
+          icon={<Save />}
           disabled={saveStatus === "saving" || isUploading || !dirty}
-          className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
+          className="bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
         >
           {saveStatus === "saving" ? "Saving…" : saveLabel}
-        </button>
+        </Button>
       </form>
     </div>
   )
@@ -484,7 +519,7 @@ function ToolbarButton({
       aria-label={label}
       aria-pressed={active}
       title={title}
-      className={`min-h-[44px] min-w-[44px] rounded px-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
+      className={`inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded px-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
         active ? "bg-accent text-accent-foreground" : "bg-background text-foreground hover:bg-muted"
       }`}
     >
@@ -512,7 +547,7 @@ function LinkButton({ editor }: { editor: Editor | null }) {
       aria-label="Set or unset link"
       aria-pressed={editor?.isActive("link") ?? false}
       title="Link"
-      className={`min-h-[44px] min-w-[44px] rounded px-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
+      className={`inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded px-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
         (editor?.isActive("link") ?? false)
           ? "bg-accent text-accent-foreground"
           : "bg-background text-foreground hover:bg-muted"
@@ -560,7 +595,7 @@ function InsertImageUrlButton({ editor }: { editor: Editor | null }) {
       }}
       aria-label="Insert image by URL"
       title="Insert image by URL"
-      className="min-h-[44px] min-w-[44px] rounded bg-background px-2 text-sm text-foreground hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded bg-background px-2 text-sm text-foreground hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
     >
       <ImageIcon className="h-4 w-4" />
     </button>
@@ -578,7 +613,7 @@ function UploadImageButton({ editor }: { editor: Editor | null }) {
         }}
         aria-label="Upload image"
         title="Upload image"
-        className="min-h-[44px] min-w-[44px] rounded bg-background px-2 text-sm text-foreground hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded bg-background px-2 text-sm text-foreground hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
         <Upload className="h-4 w-4" />
       </button>
@@ -616,14 +651,17 @@ function InsertTableButton({ editor }: { editor: Editor | null }) {
   }, [open])
 
   return (
-    <div ref={ref} className="relative">
+    // flex + h-full on the button: this wrapping div is itself a toolbar flex item that
+    // stretches to the row's height, but its child button won't fill that height on its own
+    // (a lone min-h floor lets it sit shorter than the direct-child sibling buttons).
+    <div ref={ref} className="relative flex">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-label="Insert table"
         aria-expanded={open}
         title="Insert table"
-        className={`min-h-[44px] min-w-[44px] rounded px-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${open ? "bg-accent text-accent-foreground" : "bg-background text-foreground hover:bg-muted"}`}
+        className={`inline-flex h-full min-h-[44px] min-w-[44px] items-center justify-center rounded px-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${open ? "bg-accent text-accent-foreground" : "bg-background text-foreground hover:bg-muted"}`}
       >
         <Table className="h-4 w-4" />
       </button>
@@ -729,7 +767,7 @@ function EmbedYouTubeButton({ editor }: { editor: Editor | null }) {
       }}
       aria-label="Embed YouTube video"
       title="Embed YouTube video"
-      className="min-h-[44px] min-w-[44px] rounded bg-background px-2 text-sm text-foreground hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded bg-background px-2 text-sm text-foreground hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
     >
       <Youtube className="h-4 w-4" />
     </button>

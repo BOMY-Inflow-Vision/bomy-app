@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import { Plus, X } from "lucide-react"
 
 import { extractYoutubeVideoId } from "@bomy/shared/youtube"
 
@@ -64,10 +65,10 @@ export function StoreProvisioningFields() {
         />
       </div>
       <div className="flex gap-3">
-        <Button type="submit" disabled={!canSubmit}>
+        <Button type="submit" disabled={!canSubmit} icon={<Plus />}>
           Create Store
         </Button>
-        <Button variant="outline" asChild>
+        <Button variant="outline" asChild icon={<X />} arrowOnHover={false}>
           <Link href="/stores">Cancel</Link>
         </Button>
       </div>

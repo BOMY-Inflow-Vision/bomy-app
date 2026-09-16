@@ -1,12 +1,13 @@
 import { Fragment } from "react"
 import { redirect } from "next/navigation"
+import { Pencil, X } from "lucide-react"
 
 import { auth } from "@/auth"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { createPlan, getSellerPlansData, updatePlan } from "./actions"
+import { CreatePlanForm } from "./create-plan-form"
+import { EditPlanForm } from "./edit-plan-form"
+import { getSellerPlansData } from "./actions"
 
 function senToMyr(sen: bigint): string {
   const whole = sen / 100n
@@ -95,81 +96,38 @@ export default async function SellerSubscriptionsPage({
                       </td>
                       <td className="px-5 py-3">
                         {isEditing ? (
-                          <a
-                            href="/seller/dashboard/subscriptions"
-                            className="text-xs text-muted-foreground hover:underline"
+                          <Button
+                            variant="link"
+                            size="sm"
+                            icon={<X />}
+                            arrowOnHover={false}
+                            className="text-xs text-muted-foreground"
+                            asChild
                           >
-                            Cancel
-                          </a>
+                            <a href="/seller/dashboard/subscriptions">Cancel</a>
+                          </Button>
                         ) : (
-                          <a
-                            href={`/seller/dashboard/subscriptions?edit=${plan.id}`}
-                            className="text-xs text-primary hover:underline"
+                          <Button
+                            variant="link"
+                            size="sm"
+                            icon={<Pencil />}
+                            className="text-xs"
+                            asChild
                           >
-                            Edit
-                          </a>
+                            <a href={`/seller/dashboard/subscriptions?edit=${plan.id}`}>Edit</a>
+                          </Button>
                         )}
                       </td>
                     </tr>
                     {isEditing && (
                       <tr className="bg-accent">
                         <td colSpan={6} className="px-5 py-4">
-                          <form
-                            action={updatePlan.bind(null, plan.id)}
-                            className="flex flex-wrap items-end gap-3"
-                          >
-                            <div>
-                              <Label
-                                htmlFor={`price_${plan.id}`}
-                                className="mb-1 block text-xs font-medium text-muted-foreground"
-                              >
-                                Price (RM)
-                              </Label>
-                              <Input
-                                id={`price_${plan.id}`}
-                                name="priceMyrSen"
-                                defaultValue={senToMyr(plan.priceMyrSen)}
-                                required
-                                className="w-28"
-                              />
-                            </div>
-                            <div>
-                              <Label
-                                htmlFor={`discount_${plan.id}`}
-                                className="mb-1 block text-xs font-medium text-muted-foreground"
-                              >
-                                Discount (%)
-                              </Label>
-                              <select
-                                id={`discount_${plan.id}`}
-                                name="discountPct"
-                                defaultValue={plan.discountPct}
-                                className="rounded-lg border border-input px-3 py-1.5 text-sm focus:border-primary focus:outline-none"
-                              >
-                                {[5, 6, 7, 8, 9, 10].map((n) => (
-                                  <option key={n} value={n}>
-                                    {n}%
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                            <div className="flex-1">
-                              <Label
-                                htmlFor={`desc_${plan.id}`}
-                                className="mb-1 block text-xs font-medium text-muted-foreground"
-                              >
-                                Description (optional)
-                              </Label>
-                              <Input
-                                id={`desc_${plan.id}`}
-                                name="description"
-                                defaultValue={plan.description ?? ""}
-                              />
-                            </div>
-                            <Button type="submit" size="sm">
-                              Save
-                            </Button>
-                          </form>
+                          <EditPlanForm
+                            planId={plan.id}
+                            defaultPriceMyr={senToMyr(plan.priceMyrSen)}
+                            defaultDiscountPct={plan.discountPct}
+                            defaultDescription={plan.description ?? ""}
+                          />
                           {plan.isActive ? (
                             <p className="mt-2 text-xs text-amber-700">
                               Saving will deactivate this plan — BOMY must re-approve the updated
@@ -270,79 +228,7 @@ export default async function SellerSubscriptionsPage({
             <p className="mb-4 text-xs text-muted-foreground">
               New plans are inactive until BOMY activates them. Contact support after creating.
             </p>
-            <form action={createPlan} className="flex flex-wrap items-end gap-3">
-              <div>
-                <Label
-                  htmlFor="termMonths"
-                  className="mb-1 block text-xs font-medium text-muted-foreground"
-                >
-                  Term length
-                </Label>
-                <select
-                  id="termMonths"
-                  name="termMonths"
-                  required
-                  className="rounded-lg border border-input px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                >
-                  <option value="">Select term</option>
-                  {availableTerms.map((t) => (
-                    <option key={t} value={t}>
-                      {TERM_LABELS[t]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <Label
-                  htmlFor="priceMyrSen"
-                  className="mb-1 block text-xs font-medium text-muted-foreground"
-                >
-                  Price (RM)
-                </Label>
-                <Input
-                  id="priceMyrSen"
-                  name="priceMyrSen"
-                  placeholder="e.g. 50.00"
-                  required
-                  className="w-28"
-                />
-              </div>
-              <div>
-                <Label
-                  htmlFor="discountPct"
-                  className="mb-1 block text-xs font-medium text-muted-foreground"
-                >
-                  Buyer discount (%)
-                </Label>
-                <select
-                  id="discountPct"
-                  name="discountPct"
-                  required
-                  className="rounded-lg border border-input px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                >
-                  <option value="">Select %</option>
-                  {[5, 6, 7, 8, 9, 10].map((n) => (
-                    <option key={n} value={n}>
-                      {n}%
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex-1">
-                <Label
-                  htmlFor="description"
-                  className="mb-1 block text-xs font-medium text-muted-foreground"
-                >
-                  Description (optional)
-                </Label>
-                <Input
-                  id="description"
-                  name="description"
-                  placeholder="Describe subscriber benefits"
-                />
-              </div>
-              <Button type="submit">Create Plan</Button>
-            </form>
+            <CreatePlanForm availableTerms={[...availableTerms]} />
           </CardContent>
         </Card>
       )}

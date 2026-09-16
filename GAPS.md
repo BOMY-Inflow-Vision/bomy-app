@@ -451,3 +451,85 @@ public`, `USAGE, SELECT` on `ALL SEQUENCES IN SCHEMA public`, and `EXECUTE` on `
 
   RLS backstops all three today (no permissive UPDATE/DELETE policy exists where excluded) — not
   exploitable now, but a latent inconsistency baked into the "canonical" reference file.
+
+## 17. Brand-page subscriber avatars: audit write reduced, not eliminated · FRAGILE, LOW
+
+- **What:** PR #145's brand-page subscriber avatar group (`getBrandSubscriberAvatars`,
+  `apps/web/src/app/brands/[slug]/queries.ts`) still runs under an audited `withAdmin` bypass —
+  now gated to signed-in visitors only (`page.tsx` checks `auth()` first), which cut off the
+  highest-volume anonymous/bot/crawler traffic, but every signed-in visit to a brand page still
+  writes an `admin_bypass_audit` row.
+- **Why it matters:** the row volume is much smaller than before (Bob's HIGH 1 finding, PR #145
+  review round 1), but still scales with logged-in browsing traffic rather than being zero. The
+  audit table's forensic value degrades gradually as that traffic grows, not suddenly.
+- **Why not fixed now:** the clean fix — a `SECURITY DEFINER` Postgres function returning only
+  `id`/`image` for active subscribers, called under `withPublicRead` with no audit write at all —
+  would also restore the widget for anonymous visitors. That's new DB-object surface (no precedent
+  in this codebase; every other public read either goes through an RLS policy or an audited
+  bypass) and was judged out of scope for a review-response fix. A broad public-read RLS policy
+  was tried and reverted instead (see gap-adjacent note): it would have exposed
+  `brand_subscriptions`' per-subscriber financial/commission columns (`price_myr_sen`,
+  `hitpay_fee_sen`, `bomy_commission_sen`, `brand_payout_sen`) to any future public-context query,
+  a materially bigger risk than the audit-row volume it would have fixed.
+- **Fix (future task):** either the `SECURITY DEFINER` function above, or a small denormalized
+  public-safe cache table (`store_id`, `user_id`, `rank`, `computed_at`, no financial columns)
+  refreshed by a scheduled job — matching the existing BullMQ job architecture — read via a real
+  RLS policy with zero bypass audit cost.
+- **Also noted (round 2 review) — fixed in the same commit:** the `withAdmin` `reason` string
+  used to read `"read brand subscriber avatars for public brand page"`, stale once the call
+  became signed-in-only — that string is literally what lands in `admin_bypass_audit.reason` and
+  is the table's only forensic breadcrumb for this call site. Now reads
+  `"read brand subscriber avatars for a signed-in visitor's brand page view"`.
+
+## 18. Avatar uploads have no orphan cleanup · HALF-FINISHED, LOW
+
+- **What:** the account avatar upload flow (`apps/web/src/app/account/avatar-actions.ts`,
+  added PR #145) presigns an S3 PUT, then only deletes the _previous_ avatar object once a new
+  upload is confirmed via `updateAvatarImage`. If a client presigns and uploads to S3 but never
+  calls `updateAvatarImage` (tab closed mid-upload, network failure after the PUT but before the
+  confirm call, etc.), the object under `avatars/<uuid>.<ext>` is never referenced by any row and
+  is never cleaned up.
+- **Where it differs from the existing pattern:** product body images have the same
+  presign-then-confirm shape but are covered by a daily `body-image-cleanup` BullMQ job
+  (`apps/api/src/scheduler.ts`) that sweeps unreferenced objects. No equivalent job exists for the
+  `avatars/` prefix.
+- **Why it matters:** unbounded, slow MinIO/S3 storage growth from abandoned uploads. Low severity
+  — no data exposure, no correctness issue, just quietly wasted storage.
+- **Fix (single task):** either extend `body-image-cleanup` to also sweep `avatars/` (same
+  "unreferenced after N hours" logic, different prefix + different referencing table), or add a
+  small dedicated job. Flagged by Bob's PR #145 review (Medium 3), not fixed in that PR — decide
+  whether to extend the existing job or add a new one before scheduling this.
+
+## 19. Admin `parsePage` has no upper bound on requested page number · FRAGILE, LOW
+
+- **What:** `apps/admin/src/lib/pagination.ts`'s `parsePage` clamps a page number to a minimum but
+  not a maximum — a crafted `?page=99999999` produces `OFFSET <huge number>` on every admin list
+  query using it (`fetchOrdersFiltered` and the other admin list pages added in PR #145).
+- **Why it matters:** admin-only surface (`requireAdmin`-gated), so not exploitable by an outside
+  party, but it's a free slow-query lever for a malicious or compromised admin session, and gets
+  worse as `orders`/`products`/etc. grow. Matches every other admin list page's current state —
+  not a regression, just a pre-existing gap this PR's pagination rollout inherited rather than
+  introduced or fixed.
+- **Fix (single task):** clamp `parsePage` to `min(requestedPage, ceil(totalCount / pageSize))`,
+  or a simpler fixed upper bound, at the shared `pagination.ts` helper so every admin list page
+  gets the fix at once. Flagged by Bob's PR #145 review (Low 6).
+
+## 20. `withTenant` commits an early return instead of rolling back — undocumented precondition · FRAGILE, LOW
+
+- **What:** several seller product actions (`apps/web/src/app/seller/dashboard/products/actions.ts`
+  — `updateProduct`, `archiveProduct`, `addVariant`, `updateVariant`, `reactivateVariant`) return a
+  typed `{ ok: false, error }` value from inside a `withTenant` callback after an early
+  precondition check, before any DB write in that callback runs. This is safe today — verified
+  during PR #145's review that every early return in these five functions sits before any DB work
+  — but `withTenant` has no special handling for a "return without writing": the transaction still
+  commits normally. If a future edit moved a write above an early-return check (or added a new
+  early-return path after a write), the transaction would commit whatever had already been written
+  rather than rolling back, silently.
+- **Why it matters:** currently a documentation gap, not a live bug — but it's an easy invariant to
+  break by accident since nothing enforces it. Only `subscriptions/actions.ts::createPlan`
+  documents the precondition inline; the other five call sites rely on it implicitly.
+- **Fix (single task):** either add a one-line comment at each of the five call sites (cheapest,
+  matches `createPlan`'s existing convention), or — better — make the pattern self-documenting by
+  having early-precondition checks happen _before_ `withTenant` is even called wherever the
+  precondition doesn't itself need a DB read inside the same transaction. Flagged by Bob's PR #145
+  review (Low 8).

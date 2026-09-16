@@ -6,6 +6,7 @@ import type { DefaultSession } from "next-auth"
 import { makeAuthDb, schema, type UserRole } from "@bomy/db"
 import { sendMagicLink } from "@bomy/mailer"
 
+import { flashToast } from "@/lib/flash-toast-server"
 import { getMailer } from "@/lib/mailer"
 import { authConfig } from "./auth.config"
 
@@ -160,6 +161,19 @@ function getNextAuth(): ReturnType<typeof NextAuth> {
         session.user.consentVersion = token["consentVersion"] as string | undefined
         session.user.currentTosVersion = token["currentTosVersion"] as string | undefined
         return session
+      },
+    },
+    events: {
+      // Fires once per completed sign-in (Google callback, or magic-link click) —
+      // not on the magic-link *request*. Runs inside the /api/auth/[...nextauth]
+      // route handler, so a cookie write here is allowed. A toast failure must
+      // never break sign-in, so any error is swallowed after a console.warn.
+      async signIn({ user }) {
+        try {
+          await flashToast("success", `Signed in as ${user.email ?? "your account"}`)
+        } catch (err) {
+          console.warn("flashToast failed during signIn event", err)
+        }
       },
     },
   })
