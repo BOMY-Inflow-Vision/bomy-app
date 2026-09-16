@@ -9,9 +9,11 @@ import type { CheckoutSessionStatus } from "@bomy/db"
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
+import { Stepper } from "@/components/ui/stepper"
 import { useCart } from "@/lib/cart"
 
 import { getCheckoutSessionStatus } from "../actions"
+import { CHECKOUT_STEPS } from "../steps"
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const MAX_POLLS = 30
@@ -94,6 +96,12 @@ export function SuccessPoller() {
   if (state.phase === "polling") {
     return (
       <main className="mx-auto max-w-3xl px-4 py-8 text-center">
+        <Stepper
+          steps={CHECKOUT_STEPS}
+          currentStep={2}
+          aria-label="Checkout progress"
+          className="mb-8 text-left"
+        />
         <div className="mb-6 flex justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-foreground" />
         </div>
@@ -136,6 +144,14 @@ function DoneView({ status }: { status: CheckoutSessionStatus }) {
   if (status === "paid") {
     return (
       <main className="mx-auto max-w-3xl px-4 py-8 text-center">
+        {/* currentStep is one past the last index so every step (including
+            Confirmation) renders as completed rather than "still active". */}
+        <Stepper
+          steps={CHECKOUT_STEPS}
+          currentStep={CHECKOUT_STEPS.length}
+          aria-label="Checkout progress"
+          className="mb-8 text-left"
+        />
         <div className="mb-4 text-4xl">✓</div>
         <h1 className="mb-2 text-2xl font-bold text-foreground">Payment confirmed</h1>
         <p className="mb-6 text-sm text-muted-foreground">
