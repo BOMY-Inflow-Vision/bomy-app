@@ -32,6 +32,31 @@
     --radius-input: var(--radius);
     --radius-card: 0.75rem;
   }
+
+  /* Ported from docs/design-system/tokens/colors.css's .dark block — same semantic
+     mapping as web's globals.css, restricted to the tokens admin actually defines
+     (no --popover/--border-subtle here; select.tsx documents why). */
+  .dark {
+    --background: 30 29% 7%; /* sand-950 */
+    --foreground: 40 60% 98%; /* sand-50 */
+    --card: 35 26% 9%; /* surface-card */
+    --card-foreground: 40 60% 98%; /* sand-50 */
+    --primary: 4 64% 51%; /* red-500 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 32 21% 12%; /* surface-raised */
+    --secondary-foreground: 40 60% 98%; /* sand-50 */
+    --muted: 30 29% 5%; /* surface-sunken */
+    --muted-foreground: 35 22% 65%; /* sand-400 */
+    --accent: 358 34% 15%; /* surface-accent */
+    --accent-foreground: 5 74% 75%; /* red-300 */
+    --destructive: 4 70% 62%; /* red-400 */
+    --destructive-foreground: 0 0% 100%;
+    --border: 34 22% 22%; /* border-default */
+    --input: 34 22% 22%; /* border-default */
+    --ring: 4 70% 62%; /* focus-ring (red-400) */
+    --reward: 45 100% 55%; /* gold-400, unchanged in dark */
+    --reward-foreground: 45 100% 15%; /* gold-900, unchanged in dark */
+  }
 }
 
 @layer base {

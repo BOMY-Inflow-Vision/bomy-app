@@ -6,6 +6,7 @@ import { LogOut } from "lucide-react"
 
 import { signOutAction } from "@/app/auth/actions"
 import { Button } from "@/components/ui/button"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { cn } from "@/lib/utils"
 
 const NAV = [
@@ -31,8 +32,9 @@ export function Sidebar({ email }: { email: string }) {
 
   return (
     <aside className="flex w-44 flex-col bg-slate-800 text-sm text-slate-400">
-      <div className="border-b border-slate-700 px-4 py-4 text-sm font-bold text-slate-100">
+      <div className="flex items-center justify-between border-b border-slate-700 px-4 py-4 text-sm font-bold text-slate-100">
         BOMY Admin
+        <ThemeToggle />
       </div>
       <nav className="flex flex-1 flex-col py-2">
         {NAV.map((item) => {

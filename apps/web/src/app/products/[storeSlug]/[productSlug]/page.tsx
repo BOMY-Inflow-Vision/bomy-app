@@ -94,7 +94,7 @@ export default async function ProductDetailPage({ params }: Props) {
       </article>
 
       {product.bodyHtml && (
-        <section aria-labelledby="product-details-heading" className="mt-10">
+        <section aria-labelledby="product-details-heading" className="mt-16">
           <h2 id="product-details-heading" className="mb-4 text-xl font-semibold text-foreground">
             Product Details
           </h2>

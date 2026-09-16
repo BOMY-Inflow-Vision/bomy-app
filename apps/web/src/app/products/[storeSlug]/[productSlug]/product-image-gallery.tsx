@@ -130,26 +130,36 @@ export function ProductImageGallery({
       </div>
 
       {/* Thumbnail strip */}
+      {/* p-1 on all sides, not just pb-1: overflow-x-auto forces the browser to compute
+          overflow-y as auto too (any axis left "visible" next to a non-visible axis becomes
+          "auto" per spec), so this container clips like overflow-hidden on every side, not
+          just horizontally. With zero top/left padding its clip edge sat flush against the
+          first button, cutting off the ring-2's 2px spread on exactly those two sides. */}
       {images.length > 1 && (
-        <div className="flex gap-2 overflow-x-auto pb-1">
+        <div className="flex gap-2 overflow-x-auto p-1">
           {images.map((img, i) => (
             <button
               key={img.id}
               type="button"
               onClick={() => goTo(i)}
               className={cn(
-                "h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-muted ring-2 transition-all",
+                "h-16 w-16 shrink-0 rounded-lg ring-2 transition-all",
                 i === activeIdx ? "ring-primary" : "ring-transparent hover:ring-border",
               )}
               aria-label={`View image ${i + 1}`}
             >
-              <img
-                src={img.url}
-                alt={img.altText ?? ""}
-                width={64}
-                height={64}
-                className="h-full w-full object-cover"
-              />
+              {/* overflow-hidden lives on this inner wrapper, not the button — clipping the
+                  ring-2 itself (a box-shadow) against the same element it's drawn on cuts it
+                  off, since the shadow needs to paint outside the border box */}
+              <span className="block h-full w-full overflow-hidden rounded-lg bg-muted">
+                <img
+                  src={img.url}
+                  alt={img.altText ?? ""}
+                  width={64}
+                  height={64}
+                  className="h-full w-full object-cover"
+                />
+              </span>
             </button>
           ))}
         </div>
