@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useSession } from "next-auth/react"
 import React, { useEffect, useState } from "react"
 
+import { ThemeToggle } from "@/components/theme-toggle"
 import { useCart } from "@/lib/cart"
 import { cn } from "@/lib/utils"
 
@@ -89,10 +90,12 @@ export function NavBar() {
               {link.label}
             </Link>
           ))}
+          <ThemeToggle />
         </div>
 
         {/* Mobile trigger cluster */}
         <div className="flex items-center gap-1 md:hidden">
+          <ThemeToggle />
           <CartLink />
           <button
             type="button"

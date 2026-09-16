@@ -6,6 +6,7 @@ import { cookies } from "next/headers"
 
 import { Footer } from "@/components/footer"
 import { SessionProvider } from "@/components/session-provider"
+import { ThemeProvider } from "@/components/theme-provider"
 import { CartProvider } from "@/lib/cart"
 import { FLASH_TOAST_COOKIE } from "@/lib/flash-toast"
 import { NavBar } from "@/components/nav-bar"
@@ -35,17 +36,23 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const flash = (await cookies()).get(FLASH_TOAST_COOKIE)?.value ?? null
 
   return (
-    <html lang="en" className={`${plusJakartaSans.variable} ${ibmPlexMono.variable}`}>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${plusJakartaSans.variable} ${ibmPlexMono.variable}`}
+    >
       <body className={plusJakartaSans.className}>
-        <SessionProvider>
-          <ToastProvider flash={flash}>
-            <CartProvider>
-              <NavBar />
-              {children}
-              <Footer />
-            </CartProvider>
-          </ToastProvider>
-        </SessionProvider>
+        <ThemeProvider>
+          <SessionProvider>
+            <ToastProvider flash={flash}>
+              <CartProvider>
+                <NavBar />
+                {children}
+                <Footer />
+              </CartProvider>
+            </ToastProvider>
+          </SessionProvider>
+        </ThemeProvider>
       </body>
     </html>
   )
