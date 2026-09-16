@@ -174,11 +174,15 @@ export interface SubscriberAvatar {
 // visitor (see brands/[slug]/page.tsx) — brand_subscriptions carries per-subscriber
 // financial/commission columns, so a real public-read RLS policy here would need to open
 // row-level SELECT on that table to anonymous traffic, a materially bigger exposure than
-// the narrow id/image/initial this function actually returns (PR #145 review, Bob).
+// the narrow id/image/initial this function actually returns (PR #145 review, Bob). The
+// audit write this still costs on every signed-in brand-page view is tracked as GAPS.md #17.
 export const getBrandSubscriberAvatars = cache(async (storeId: string) => {
   return withAdmin(
     getDb(),
-    { userId: SYSTEM_ACTOR, reason: "read brand subscriber avatars for public brand page" },
+    {
+      userId: SYSTEM_ACTOR,
+      reason: "read brand subscriber avatars for a signed-in visitor's brand page view",
+    },
     async (tx) => {
       const rows = await tx
         .select({
