@@ -1,5 +1,4 @@
 import { eq } from "drizzle-orm"
-import Image from "next/image"
 import { redirect } from "next/navigation"
 
 import { makeDb, schema, withTenant } from "@bomy/db"
@@ -8,6 +7,8 @@ import { auth } from "@/auth"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { AccountTabs } from "./account-tabs"
+import { AvatarUploader } from "./avatar-uploader"
+import { CopyUserId } from "./copy-user-id"
 import { NameEditor } from "./name-editor"
 import { SignOutButton } from "./sign-out-button"
 
@@ -23,15 +24,19 @@ export default async function AccountPage() {
 
   const { user } = session
 
-  // Read the name from the DB (not the JWT) so edits reflect immediately and
-  // survive a refresh — the JWT name stays stale until the next sign-in.
-  const name = await withTenant(getDb(), { userId: user.id, userRole: user.role }, async (tx) => {
-    const [row] = await tx
-      .select({ name: schema.users.name })
-      .from(schema.users)
-      .where(eq(schema.users.id, user.id))
-    return row?.name ?? null
-  })
+  // Read name/image from the DB (not the JWT) so edits reflect immediately and
+  // survive a refresh — the JWT copies stay stale until the next sign-in.
+  const { name, image } = await withTenant(
+    getDb(),
+    { userId: user.id, userRole: user.role },
+    async (tx) => {
+      const [row] = await tx
+        .select({ name: schema.users.name, image: schema.users.image })
+        .from(schema.users)
+        .where(eq(schema.users.id, user.id))
+      return { name: row?.name ?? null, image: row?.image ?? null }
+    },
+  )
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
@@ -41,19 +46,7 @@ export default async function AccountPage() {
         <Card className="shadow-sm">
           <CardContent className="p-8">
             <div className="flex items-center gap-4">
-              {user.image ? (
-                <Image
-                  src={user.image}
-                  alt={name ?? "Avatar"}
-                  width={64}
-                  height={64}
-                  className="rounded-full"
-                />
-              ) : (
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted text-2xl font-semibold text-muted-foreground">
-                  {(name ?? user.email ?? "?")[0]?.toUpperCase()}
-                </div>
-              )}
+              <AvatarUploader image={image} name={name} email={user.email ?? ""} />
 
               <div className="min-w-0">
                 <NameEditor name={name} />
@@ -64,7 +57,9 @@ export default async function AccountPage() {
             <dl className="mt-6 divide-y divide-border text-sm">
               <div className="flex justify-between py-2">
                 <dt className="text-muted-foreground">User ID</dt>
-                <dd className="font-mono text-xs text-foreground">{user.id}</dd>
+                <dd>
+                  <CopyUserId id={user.id} />
+                </dd>
               </div>
               <div className="flex justify-between py-2">
                 <dt className="text-muted-foreground">Role</dt>
