@@ -4,10 +4,11 @@ import type { Metadata } from "next"
 import { CreditCard, Eye } from "lucide-react"
 
 import { BodyRenderer } from "@/components/body-renderer"
+import { AvatarGroup } from "@/components/ui/avatar-group"
 import { Button } from "@/components/ui/button"
 import { VideoEmbed } from "@/components/video-embed"
 
-import { getStorePage } from "./queries"
+import { getBrandSubscriberAvatars, getStorePage } from "./queries"
 
 interface Props {
   params: Promise<{ slug: string }>
@@ -77,6 +78,9 @@ export default async function StorePage({ params }: Props) {
   if (!data) notFound()
 
   const { store, categorySections, uncategorized } = data
+  const { avatars: subscriberAvatars, total: subscriberCount } = await getBrandSubscriberAvatars(
+    store.id,
+  )
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-10 px-4 py-8">
@@ -98,6 +102,16 @@ export default async function StorePage({ params }: Props) {
           <Button asChild icon={<CreditCard />} className="self-start">
             <Link href={`/brands/${store.slug}/subscribe`}>Subscribe</Link>
           </Button>
+          {subscriberAvatars.length > 0 && (
+            <div className="flex items-center gap-3">
+              <AvatarGroup avatars={subscriberAvatars} total={subscriberCount} />
+              <p className="text-sm text-muted-foreground">
+                {subscriberCount === 1
+                  ? "1 buyer is subscribed"
+                  : `${subscriberCount} buyers are subscribed`}
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
