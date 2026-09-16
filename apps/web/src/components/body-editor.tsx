@@ -519,7 +519,7 @@ function ToolbarButton({
       aria-label={label}
       aria-pressed={active}
       title={title}
-      className={`min-h-[44px] min-w-[44px] rounded px-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
+      className={`inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded px-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
         active ? "bg-accent text-accent-foreground" : "bg-background text-foreground hover:bg-muted"
       }`}
     >
@@ -547,7 +547,7 @@ function LinkButton({ editor }: { editor: Editor | null }) {
       aria-label="Set or unset link"
       aria-pressed={editor?.isActive("link") ?? false}
       title="Link"
-      className={`min-h-[44px] min-w-[44px] rounded px-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
+      className={`inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded px-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
         (editor?.isActive("link") ?? false)
           ? "bg-accent text-accent-foreground"
           : "bg-background text-foreground hover:bg-muted"
@@ -595,7 +595,7 @@ function InsertImageUrlButton({ editor }: { editor: Editor | null }) {
       }}
       aria-label="Insert image by URL"
       title="Insert image by URL"
-      className="min-h-[44px] min-w-[44px] rounded bg-background px-2 text-sm text-foreground hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded bg-background px-2 text-sm text-foreground hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
     >
       <ImageIcon className="h-4 w-4" />
     </button>
@@ -613,7 +613,7 @@ function UploadImageButton({ editor }: { editor: Editor | null }) {
         }}
         aria-label="Upload image"
         title="Upload image"
-        className="min-h-[44px] min-w-[44px] rounded bg-background px-2 text-sm text-foreground hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded bg-background px-2 text-sm text-foreground hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
         <Upload className="h-4 w-4" />
       </button>
@@ -651,14 +651,17 @@ function InsertTableButton({ editor }: { editor: Editor | null }) {
   }, [open])
 
   return (
-    <div ref={ref} className="relative">
+    // flex + h-full on the button: this wrapping div is itself a toolbar flex item that
+    // stretches to the row's height, but its child button won't fill that height on its own
+    // (a lone min-h floor lets it sit shorter than the direct-child sibling buttons).
+    <div ref={ref} className="relative flex">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-label="Insert table"
         aria-expanded={open}
         title="Insert table"
-        className={`min-h-[44px] min-w-[44px] rounded px-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${open ? "bg-accent text-accent-foreground" : "bg-background text-foreground hover:bg-muted"}`}
+        className={`inline-flex h-full min-h-[44px] min-w-[44px] items-center justify-center rounded px-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${open ? "bg-accent text-accent-foreground" : "bg-background text-foreground hover:bg-muted"}`}
       >
         <Table className="h-4 w-4" />
       </button>
@@ -764,7 +767,7 @@ function EmbedYouTubeButton({ editor }: { editor: Editor | null }) {
       }}
       aria-label="Embed YouTube video"
       title="Embed YouTube video"
-      className="min-h-[44px] min-w-[44px] rounded bg-background px-2 text-sm text-foreground hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded bg-background px-2 text-sm text-foreground hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
     >
       <Youtube className="h-4 w-4" />
     </button>

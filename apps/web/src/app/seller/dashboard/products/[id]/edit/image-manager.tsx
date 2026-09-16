@@ -18,12 +18,13 @@ import {
   useSortable,
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { GripVertical } from "lucide-react"
+import { GripVertical, Upload } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { createSerializedRunner } from "@/lib/serialized-runner"
+import { cn } from "@/lib/utils"
 
 import {
   addProductImage,
@@ -106,7 +107,9 @@ export function ImageManager({
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [isDragOver, setIsDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const dragCounter = useRef(0)
 
   useEffect(() => {
     setImages(initialImages)
@@ -154,10 +157,7 @@ export function ImageManager({
     })
   }
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-
+  async function processFile(file: File) {
     if (!file.type.startsWith("image/")) {
       setError("Only image files are allowed")
       toast.error("Only image files are allowed")
@@ -209,6 +209,37 @@ export function ImageManager({
     }
   }
 
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (file) void processFile(file)
+  }
+
+  function handleDragEnter(e: React.DragEvent) {
+    e.preventDefault()
+    if (uploading) return
+    dragCounter.current += 1
+    setIsDragOver(true)
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    e.preventDefault()
+    dragCounter.current -= 1
+    if (dragCounter.current === 0) setIsDragOver(false)
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault()
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault()
+    dragCounter.current = 0
+    setIsDragOver(false)
+    if (uploading) return
+    const file = e.dataTransfer.files[0]
+    if (file) void processFile(file)
+  }
+
   async function handleRemove(imageId: string) {
     const result = await removeProductImage(imageId)
     if (!result.ok) {
@@ -252,7 +283,18 @@ export function ImageManager({
           </DndContext>
 
           <label
-            className={`relative flex h-24 w-24 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-input text-muted-foreground hover:border-primary hover:text-primary ${uploading ? "pointer-events-none" : ""}`}
+            aria-label="Upload image. Drag and drop or click to browse"
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+            className={cn(
+              "relative flex h-24 w-24 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-lg border-2 border-dashed text-muted-foreground transition-[transform,border-color,background-color] duration-150",
+              isDragOver
+                ? "scale-[1.02] border-primary bg-primary/5 text-primary"
+                : "border-input hover:border-primary hover:text-primary",
+              uploading && "pointer-events-none",
+            )}
           >
             {uploading ? (
               <>
@@ -264,8 +306,14 @@ export function ImageManager({
               </>
             ) : (
               <>
-                <span className="text-2xl">+</span>
-                <span className="text-xs">Add image</span>
+                <Upload
+                  className={cn(
+                    "size-6 transition-transform duration-150",
+                    isDragOver && "-translate-y-1 scale-110",
+                  )}
+                  aria-hidden="true"
+                />
+                <span className="mt-1 text-xs">{isDragOver ? "Drop to upload" : "Add image"}</span>
               </>
             )}
             <input
@@ -273,9 +321,7 @@ export function ImageManager({
               type="file"
               accept="image/*"
               className="hidden"
-              onChange={(e) => {
-                void handleFileChange(e)
-              }}
+              onChange={handleFileChange}
               disabled={uploading}
             />
           </label>
