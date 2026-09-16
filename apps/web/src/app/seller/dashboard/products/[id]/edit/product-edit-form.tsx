@@ -25,9 +25,16 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { createSerializedRunner } from "@/lib/serialized-runner"
+
+const STATUS_OPTIONS = [
+  { value: "draft", label: "Draft" },
+  { value: "active", label: "Active" },
+  { value: "archived", label: "Archived" },
+]
 
 import {
   addVariant,
@@ -321,20 +328,19 @@ export function ProductEditForm({
                 >
                   Category
                 </Label>
-                <select
+                <Select
                   id="categoryId"
                   name="categoryId"
                   defaultValue={product.categoryId ?? ""}
-                  className="w-full rounded-lg border border-input px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                >
-                  <option value="">No category</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                      {!c.isActive ? " (inactive)" : ""}
-                    </option>
-                  ))}
-                </select>
+                  className="w-full"
+                  options={[
+                    { value: "", label: "No category" },
+                    ...categories.map((c) => ({
+                      value: c.id,
+                      label: `${c.name}${!c.isActive ? " (inactive)" : ""}`,
+                    })),
+                  ]}
+                />
               </div>
               <div>
                 <Label
@@ -343,16 +349,13 @@ export function ProductEditForm({
                 >
                   Status
                 </Label>
-                <select
+                <Select
                   id="status"
                   name="status"
                   defaultValue={product.status}
-                  className="w-full rounded-lg border border-input px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                >
-                  <option value="draft">Draft</option>
-                  <option value="active">Active</option>
-                  <option value="archived">Archived</option>
-                </select>
+                  className="w-full"
+                  options={STATUS_OPTIONS}
+                />
               </div>
               <div className="col-span-2">
                 <Label

@@ -7,8 +7,11 @@ import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select } from "@/components/ui/select"
 
 import { updatePlan } from "./actions"
+
+const DISCOUNT_OPTIONS = [5, 6, 7, 8, 9, 10].map((n) => ({ value: String(n), label: `${n}%` }))
 
 export function EditPlanForm({
   planId,
@@ -64,18 +67,12 @@ export function EditPlanForm({
         >
           Discount (%)
         </Label>
-        <select
+        <Select
           id={`discount_${planId}`}
           name="discountPct"
-          defaultValue={defaultDiscountPct}
-          className="rounded-lg border border-input px-3 py-1.5 text-sm focus:border-primary focus:outline-none"
-        >
-          {[5, 6, 7, 8, 9, 10].map((n) => (
-            <option key={n} value={n}>
-              {n}%
-            </option>
-          ))}
-        </select>
+          defaultValue={String(defaultDiscountPct)}
+          options={DISCOUNT_OPTIONS}
+        />
       </div>
       <div className="flex-1">
         <Label

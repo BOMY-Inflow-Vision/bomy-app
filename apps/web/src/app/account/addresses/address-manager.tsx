@@ -8,8 +8,10 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { cn } from "@/lib/utils"
+import { Select } from "@/components/ui/select"
 import { MY_STATES } from "@/lib/shipping-address-schema"
+
+const STATE_OPTIONS = MY_STATES.map((s) => ({ value: s, label: s }))
 
 import { addAddress, deleteAddress, setDefault, updateAddress } from "./actions"
 import type { AddressBookErrors } from "./address-schema"
@@ -265,22 +267,14 @@ export function AddressManager({ initial }: { initial: Row[] }) {
           />
           <div>
             <Label htmlFor="addr-state">State</Label>
-            <select
+            <Select
               id="addr-state"
               value={form.state}
-              onChange={field("state")}
-              className={cn(
-                "mt-1 w-full rounded-input border border-input bg-background px-3 py-2 text-sm",
-                "focus:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-              )}
-            >
-              <option value="">Select state…</option>
-              {MY_STATES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
+              onValueChange={(v) => setForm((p) => ({ ...p, state: v }))}
+              placeholder="Select state…"
+              className="mt-1 w-full"
+              options={STATE_OPTIONS}
+            />
             {errors.state && <p className="mt-1 text-xs text-destructive">{errors.state}</p>}
           </div>
           <div className="flex gap-2">

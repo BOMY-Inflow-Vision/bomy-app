@@ -7,6 +7,7 @@ import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select } from "@/components/ui/select"
 
 import { createPlan } from "./actions"
 
@@ -15,6 +16,8 @@ const TERM_LABELS: Record<number, string> = {
   6: "6 months",
   12: "12 months",
 }
+
+const DISCOUNT_OPTIONS = [5, 6, 7, 8, 9, 10].map((n) => ({ value: String(n), label: `${n}%` }))
 
 export function CreatePlanForm({ availableTerms }: { availableTerms: number[] }) {
   const toast = useToast()
@@ -45,19 +48,16 @@ export function CreatePlanForm({ availableTerms }: { availableTerms: number[] })
         >
           Term length
         </Label>
-        <select
+        <Select
           id="termMonths"
           name="termMonths"
           required
-          className="rounded-lg border border-input px-3 py-2 text-sm focus:border-primary focus:outline-none"
-        >
-          <option value="">Select term</option>
-          {availableTerms.map((t) => (
-            <option key={t} value={t}>
-              {TERM_LABELS[t]}
-            </option>
-          ))}
-        </select>
+          placeholder="Select term"
+          options={availableTerms.map((t) => ({
+            value: String(t),
+            label: TERM_LABELS[t] ?? String(t),
+          }))}
+        />
       </div>
       <div>
         <Label
@@ -81,19 +81,13 @@ export function CreatePlanForm({ availableTerms }: { availableTerms: number[] })
         >
           Buyer discount (%)
         </Label>
-        <select
+        <Select
           id="discountPct"
           name="discountPct"
           required
-          className="rounded-lg border border-input px-3 py-2 text-sm focus:border-primary focus:outline-none"
-        >
-          <option value="">Select %</option>
-          {[5, 6, 7, 8, 9, 10].map((n) => (
-            <option key={n} value={n}>
-              {n}%
-            </option>
-          ))}
-        </select>
+          placeholder="Select %"
+          options={DISCOUNT_OPTIONS}
+        />
       </div>
       <div className="flex-1">
         <Label
