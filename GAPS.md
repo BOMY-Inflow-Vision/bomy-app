@@ -475,10 +475,11 @@ public`, `USAGE, SELECT` on `ALL SEQUENCES IN SCHEMA public`, and `EXECUTE` on `
   public-safe cache table (`store_id`, `user_id`, `rank`, `computed_at`, no financial columns)
   refreshed by a scheduled job — matching the existing BullMQ job architecture — read via a real
   RLS policy with zero bypass audit cost.
-- **Also noted (round 2 review, non-blocking):** the `withAdmin` `reason` string
-  (`"read brand subscriber avatars for public brand page"`) is stale now that the call is
-  signed-in-only — it should say so, since that string is literally what lands in
-  `admin_bypass_audit.reason` and is the table's only forensic breadcrumb for this call site.
+- **Also noted (round 2 review) — fixed in the same commit:** the `withAdmin` `reason` string
+  used to read `"read brand subscriber avatars for public brand page"`, stale once the call
+  became signed-in-only — that string is literally what lands in `admin_bypass_audit.reason` and
+  is the table's only forensic breadcrumb for this call site. Now reads
+  `"read brand subscriber avatars for a signed-in visitor's brand page view"`.
 
 ## 18. Avatar uploads have no orphan cleanup · HALF-FINISHED, LOW
 
