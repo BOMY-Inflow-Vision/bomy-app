@@ -16,7 +16,7 @@ describe("SubmitButton", () => {
     expect(html).toMatch(/^<button[^>]*type="submit"/)
     expect(html).toContain("group/slide")
     expect(html).toContain('data-testid="icon"')
-    expect(html).toContain("<span>Save</span>")
+    expect(html).toContain('<span class="shrink-0 whitespace-nowrap">Save</span>')
   })
 
   it("stays a plain submit button without an icon", () => {

@@ -64,7 +64,10 @@ function SlideContent({
   return (
     <span
       className={cn(
-        "flex translate-x-[var(--slide)] items-center transition-transform duration-500 ease-spring motion-reduce:transition-none",
+        // shrink-0: without it, a long label (e.g. "Join now — RM75/yr") lets this row get
+        // flex-shrunk narrower than its own content inside the overflow-hidden wrapper, clipping
+        // the tail of the visible label instead of just the intended hidden arrow slot.
+        "flex shrink-0 translate-x-[var(--slide)] items-center transition-transform duration-500 ease-spring motion-reduce:transition-none",
         rowClassName,
         arrowOnHover &&
           "group-focus-visible/slide:-translate-x-[var(--slide)] [@media(hover:hover)]:group-hover/slide:-translate-x-[var(--slide)]",
@@ -73,14 +76,14 @@ function SlideContent({
       <span
         aria-hidden="true"
         className={cn(
-          "flex transition-[opacity,transform] duration-500 ease-spring motion-reduce:transition-none",
+          "flex shrink-0 transition-[opacity,transform] duration-500 ease-spring motion-reduce:transition-none",
           arrowOnHover &&
             "group-focus-visible/slide:-translate-x-2.5 group-focus-visible/slide:opacity-0 [@media(hover:hover)]:group-hover/slide:-translate-x-2.5 [@media(hover:hover)]:group-hover/slide:opacity-0",
         )}
       >
         {icon}
       </span>
-      <span>{children}</span>
+      <span className="shrink-0 whitespace-nowrap">{children}</span>
       {arrowOnHover ? (
         <span
           aria-hidden="true"
@@ -114,15 +117,21 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 
     const rootClassName = cn(
       buttonVariants({ variant, size }),
-      "rounded-full transition-[background-color,transform] duration-150 hover:scale-[1.02] active:scale-[0.96] motion-reduce:transform-none",
+      "rounded-full px-0 transition-[background-color,transform] duration-150 hover:scale-[1.02] active:scale-[0.96] motion-reduce:transform-none",
       arrowOnHover && "group/slide",
-      slideSize.root,
       className,
     )
+    // Padding lives on this inner wrapper (not the root) so the sliding icon/arrow line up
+    // inside the pill without affecting the root's focus-visible ring. No overflow-hidden here:
+    // the parked arrow already stays invisible via opacity-0, not clipping, and clipping this
+    // box against its fixed h-full cut off text descenders (e.g. the tail of "y" in "RM75/yr")
+    // whenever a custom font's line-box metrics run tighter than its actual glyph height.
     const slide = (label: React.ReactNode) => (
-      <SlideContent icon={icon} arrowOnHover={arrowOnHover} rowClassName={slideSize.row}>
-        {label}
-      </SlideContent>
+      <span className={cn("flex h-full shrink-0 items-center", slideSize.root)}>
+        <SlideContent icon={icon} arrowOnHover={arrowOnHover} rowClassName={slideSize.row}>
+          {label}
+        </SlideContent>
+      </span>
     )
 
     if (asChild && React.isValidElement<{ children?: React.ReactNode }>(children)) {

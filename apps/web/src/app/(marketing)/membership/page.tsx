@@ -71,7 +71,7 @@ export default async function MembershipPage() {
   return (
     <main className="flex min-h-screen flex-col items-center bg-muted px-4 pt-20">
       <Card className="w-full max-w-lg rounded-2xl text-center">
-        <CardContent className="flex flex-col gap-4 p-10">
+        <CardContent className="flex flex-col gap-4 p-5 sm:p-10">
           <div className="flex flex-col gap-8">
             <div className="flex flex-col gap-2">
               <p className="text-sm font-semibold uppercase tracking-widest text-amber-500">
@@ -119,7 +119,7 @@ export default async function MembershipPage() {
               <form action={joinMembership}>
                 <SubmitButton
                   icon={<CreditCard />}
-                  className="w-full bg-amber-500 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-amber-600 active:bg-amber-700 transition-colors"
+                  className="w-full bg-amber-500 px-3 py-3 text-sm font-semibold text-white shadow hover:bg-amber-600 active:bg-amber-700 transition-colors sm:px-6"
                 >
                   Join now — {priceDisplay}
                 </SubmitButton>
@@ -128,7 +128,7 @@ export default async function MembershipPage() {
               <Button
                 asChild
                 icon={<LogIn />}
-                className="w-full bg-amber-500 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-amber-600 active:bg-amber-700 transition-colors"
+                className="w-full bg-amber-500 px-3 py-3 text-sm font-semibold text-white shadow hover:bg-amber-600 active:bg-amber-700 transition-colors sm:px-6"
               >
                 <Link href="/auth/sign-in?callbackUrl=/membership">
                   Sign in to join — {priceDisplay}
