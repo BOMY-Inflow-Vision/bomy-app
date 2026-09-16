@@ -114,15 +114,19 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 
     const rootClassName = cn(
       buttonVariants({ variant, size }),
-      "rounded-full transition-[background-color,transform] duration-150 hover:scale-[1.02] active:scale-[0.96] motion-reduce:transform-none",
+      "rounded-full px-0 transition-[background-color,transform] duration-150 hover:scale-[1.02] active:scale-[0.96] motion-reduce:transform-none",
       arrowOnHover && "group/slide",
-      slideSize.root,
       className,
     )
+    // Padding + overflow-hidden live on this inner wrapper (not the root) so the sliding
+    // icon/arrow clip to the pill's edge without clipping the root's focus-visible ring
+    // (ring is a box-shadow — overflow-hidden on the same element would hide it too).
     const slide = (label: React.ReactNode) => (
-      <SlideContent icon={icon} arrowOnHover={arrowOnHover} rowClassName={slideSize.row}>
-        {label}
-      </SlideContent>
+      <span className={cn("flex h-full items-center overflow-hidden rounded-full", slideSize.root)}>
+        <SlideContent icon={icon} arrowOnHover={arrowOnHover} rowClassName={slideSize.row}>
+          {label}
+        </SlideContent>
+      </span>
     )
 
     if (asChild && React.isValidElement<{ children?: React.ReactNode }>(children)) {

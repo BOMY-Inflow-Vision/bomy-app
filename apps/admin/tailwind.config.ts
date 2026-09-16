@@ -68,10 +68,35 @@ const config: Config = {
           from: { opacity: "1", transform: "none" },
           to: { opacity: "0", transform: "translateX(50px) scale(0.8)" },
         },
+        "copy-pop": {
+          from: { opacity: "0", transform: "scale(0.5)" },
+          to: { opacity: "1", transform: "scale(1)" },
+        },
+        "select-in": {
+          from: { opacity: "0", transform: "scale(0.95) translateY(-4px)" },
+          to: { opacity: "1", transform: "none" },
+        },
+        "select-out": {
+          from: { opacity: "1", transform: "none" },
+          to: { opacity: "0", transform: "scale(0.95) translateY(-4px)" },
+        },
+        "select-item-in": {
+          from: { opacity: "0", transform: "translateX(-8px)" },
+          to: { opacity: "1", transform: "none" },
+        },
+        "fade-rise-in": {
+          from: { opacity: "0", transform: "translateY(4px)" },
+          to: { opacity: "1", transform: "none" },
+        },
       },
       animation: {
         "toast-in": "toast-in 250ms cubic-bezier(0.22, 1, 0.36, 1)",
         "toast-out": "toast-out 150ms ease-in forwards",
+        "copy-pop": "copy-pop 200ms cubic-bezier(0.22, 1, 0.36, 1)",
+        "select-in": "select-in 150ms cubic-bezier(0.22, 1, 0.36, 1)",
+        "select-out": "select-out 100ms ease-in forwards",
+        "select-item-in": "select-item-in 150ms cubic-bezier(0.22, 1, 0.36, 1) both",
+        "fade-rise-in": "fade-rise-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both",
       },
     },
   },

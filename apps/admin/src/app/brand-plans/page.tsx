@@ -5,19 +5,26 @@ import { schema, withAdmin } from "@bomy/db"
 
 import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
+import { pageCount, pageOffset, parsePage, PAGE_SIZE } from "@/lib/pagination"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { Pagination } from "@/components/ui/pagination"
 import { togglePlanActive } from "./actions"
 
-export default async function BrandPlansPage() {
+export default async function BrandPlansPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>
+}) {
   const { id: adminId } = await requireAdmin()
+  const page = parsePage((await searchParams).page)
 
-  const rows = await withAdmin(
+  const { rows, total } = await withAdmin(
     getDb(),
     { userId: adminId, reason: "admin list brand subscription plans" },
-    async (tx) =>
-      tx
+    async (tx) => {
+      const rows = await tx
         .select({
           id: schema.brandSubscriptionPlans.id,
           storeName: schema.stores.name,
@@ -31,7 +38,14 @@ export default async function BrandPlansPage() {
         })
         .from(schema.brandSubscriptionPlans)
         .innerJoin(schema.stores, eq(schema.stores.id, schema.brandSubscriptionPlans.storeId))
-        .orderBy(schema.stores.name, sql`${schema.brandSubscriptionPlans.termMonths} asc`),
+        .orderBy(schema.stores.name, sql`${schema.brandSubscriptionPlans.termMonths} asc`)
+        .limit(PAGE_SIZE)
+        .offset(pageOffset(page))
+      const countRows = await tx
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.brandSubscriptionPlans)
+      return { rows, total: Number(countRows[0]!.count) }
+    },
   )
 
   return (
@@ -104,6 +118,11 @@ export default async function BrandPlansPage() {
             )}
           </tbody>
         </table>
+        <Pagination
+          page={page}
+          totalPages={pageCount(total)}
+          buildHref={(p) => (p > 1 ? `/brand-plans?page=${p}` : "/brand-plans")}
+        />
       </Card>
     </div>
   )

@@ -8,7 +8,10 @@ import { USER_ROLES, type UserRole } from "@bomy/db/types"
 import { useToast } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
+import { Select } from "@/components/ui/select"
 import { updateUserRole } from "./actions"
+
+const ROLE_OPTIONS = USER_ROLES.map((r) => ({ value: r, label: r }))
 
 export function RoleSelector({ userId, currentRole }: { userId: string; currentRole: UserRole }) {
   const [pending, startTransition] = useTransition()
@@ -31,19 +34,13 @@ export function RoleSelector({ userId, currentRole }: { userId: string; currentR
       <Label htmlFor={`role-${userId}`} className="sr-only">
         Role
       </Label>
-      <select
+      <Select
         id={`role-${userId}`}
         name="role"
         defaultValue={currentRole}
         disabled={pending}
-        className="rounded border border-input px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
-      >
-        {USER_ROLES.map((r) => (
-          <option key={r} value={r}>
-            {r}
-          </option>
-        ))}
-      </select>
+        options={ROLE_OPTIONS}
+      />
       <Button
         type="submit"
         variant="link"

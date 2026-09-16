@@ -4,9 +4,11 @@ import { schema, withAdmin } from "@bomy/db"
 
 import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
+import { pageCount, pageOffset, parsePage, PAGE_SIZE } from "@/lib/pagination"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
+import { Pagination } from "@/components/ui/pagination"
 import { CopyId } from "./copy-id"
 import { RoleSelector } from "./role-selector"
 import { UserEditor } from "./user-editor"
@@ -20,16 +22,21 @@ const ROLE_COLORS: Record<string, string> = {
   bomy_finance: "bg-purple-100 text-purple-700",
 }
 
-export default async function UsersPage() {
+export default async function UsersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>
+}) {
   const { id: adminId, role } = await requireAdmin()
+  const page = parsePage((await searchParams).page)
 
   const canEdit = role === "bomy_admin"
 
-  const rows = await withAdmin(
+  const { rows, total } = await withAdmin(
     getDb(),
     { userId: adminId, reason: "admin list users" },
-    async (tx) =>
-      tx
+    async (tx) => {
+      const rows = await tx
         .select({
           id: schema.users.id,
           name: schema.users.name,
@@ -38,7 +45,12 @@ export default async function UsersPage() {
           createdAt: schema.users.createdAt,
         })
         .from(schema.users)
-        .orderBy(sql`${schema.users.createdAt} desc`),
+        .orderBy(sql`${schema.users.createdAt} desc`)
+        .limit(PAGE_SIZE)
+        .offset(pageOffset(page))
+      const countRows = await tx.select({ count: sql<number>`count(*)` }).from(schema.users)
+      return { rows, total: Number(countRows[0]!.count) }
+    },
   )
 
   return (
@@ -93,6 +105,11 @@ export default async function UsersPage() {
             ))}
           </tbody>
         </table>
+        <Pagination
+          page={page}
+          totalPages={pageCount(total)}
+          buildHref={(p) => (p > 1 ? `/users?page=${p}` : "/users")}
+        />
       </Card>
     </div>
   )

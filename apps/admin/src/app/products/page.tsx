@@ -1,25 +1,28 @@
 import Link from "next/link"
-import { and, asc, eq, ilike, or, type SQL } from "drizzle-orm"
+import { and, asc, eq, ilike, or, sql, type SQL } from "drizzle-orm"
 import { Search } from "lucide-react"
 
 import { schema, withAdmin } from "@bomy/db"
 
 import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
+import { pageCount, pageOffset, parsePage, PAGE_SIZE } from "@/lib/pagination"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Pagination } from "@/components/ui/pagination"
 
 export default async function ProductsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>
+  searchParams: Promise<{ q?: string; page?: string }>
 }) {
   const { id: adminId } = await requireAdmin()
-  const { q } = await searchParams
+  const { q, page: pageParam } = await searchParams
+  const page = parsePage(pageParam)
 
-  const rows = await withAdmin(
+  const { rows, total } = await withAdmin(
     getDb(),
     { userId: adminId, reason: "admin list products" },
     async (tx) => {
@@ -29,7 +32,9 @@ export default async function ProductsPage({
         const search = or(ilike(schema.products.name, like), ilike(schema.stores.name, like))
         if (search) filters.push(search)
       }
-      return tx
+      const where = filters.length ? and(...filters) : undefined
+
+      const rows = await tx
         .select({
           id: schema.products.id,
           name: schema.products.name,
@@ -42,10 +47,30 @@ export default async function ProductsPage({
         .from(schema.products)
         .innerJoin(schema.stores, eq(schema.stores.id, schema.products.storeId))
         .innerJoin(schema.users, eq(schema.users.id, schema.stores.ownerId))
-        .where(filters.length ? and(...filters) : undefined)
+        .where(where)
         .orderBy(asc(schema.stores.name), asc(schema.products.name))
+        .limit(PAGE_SIZE)
+        .offset(pageOffset(page))
+      const countRows = await tx
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.products)
+        .innerJoin(schema.stores, eq(schema.stores.id, schema.products.storeId))
+        .innerJoin(schema.users, eq(schema.users.id, schema.stores.ownerId))
+        .where(where)
+      return { rows, total: Number(countRows[0]!.count) }
     },
   )
+
+  const buildHref = (next: { q?: string; page?: number }) => {
+    const params = new URLSearchParams()
+    const query = next.q ?? q ?? ""
+    // A filter change (no explicit page) resets to page 1.
+    const p = next.page ?? 1
+    if (query) params.set("q", query)
+    if (p > 1) params.set("page", String(p))
+    const qs = params.toString()
+    return qs ? `/products?${qs}` : "/products"
+  }
 
   return (
     <div className="p-6">
@@ -110,6 +135,11 @@ export default async function ProductsPage({
             )}
           </tbody>
         </table>
+        <Pagination
+          page={page}
+          totalPages={pageCount(total)}
+          buildHref={(p) => buildHref({ page: p })}
+        />
       </Card>
     </div>
   )

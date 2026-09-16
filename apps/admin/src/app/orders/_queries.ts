@@ -3,6 +3,8 @@ import { and, desc, eq, gte, lte, sql } from "drizzle-orm"
 import { schema, withAdmin, type Database } from "@bomy/db"
 import type { OrderFulfilmentStatus, OrderPaymentStatus } from "@bomy/db"
 
+import { pageOffset, PAGE_SIZE } from "@/lib/pagination"
+
 export interface OrderFilters {
   paymentStatus?: string
   fulfilmentStatus?: string
@@ -22,11 +24,17 @@ export type AdminOrderListItem = {
   createdAt: Date
 }
 
+export interface AdminOrderListResult {
+  rows: AdminOrderListItem[]
+  total: number
+}
+
 export async function fetchOrdersFiltered(
   actorId: string,
   db: Database,
   filters: OrderFilters,
-): Promise<AdminOrderListItem[]> {
+  page = 1,
+): Promise<AdminOrderListResult> {
   return withAdmin(db, { userId: actorId, reason: "admin fetchOrdersFiltered" }, async (tx) => {
     const conditions = []
     if (filters.paymentStatus) {
@@ -46,8 +54,9 @@ export async function fetchOrdersFiltered(
     if (filters.dateTo) {
       conditions.push(lte(schema.orders.createdAt, new Date(filters.dateTo)))
     }
+    const where = conditions.length > 0 ? and(...conditions) : undefined
 
-    return tx
+    const rows = await tx
       .select({
         id: schema.orders.id,
         storeName: schema.stores.name,
@@ -60,8 +69,16 @@ export async function fetchOrdersFiltered(
       })
       .from(schema.orders)
       .innerJoin(schema.stores, eq(schema.orders.storeId, schema.stores.id))
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .where(where)
       .orderBy(desc(schema.orders.createdAt))
+      .limit(PAGE_SIZE)
+      .offset(pageOffset(page))
+    const countRows = await tx
+      .select({ count: sql<number>`count(*)` })
+      .from(schema.orders)
+      .where(where)
+
+    return { rows, total: Number(countRows[0]!.count) }
   })
 }
 
