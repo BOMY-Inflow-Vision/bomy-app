@@ -28,7 +28,9 @@ const MAX_AVATAR_BYTES = 2 * 1024 * 1024
 export async function getAvatarUploadUrl(
   contentType: string,
   contentLength: number,
-): Promise<{ ok: true; uploadUrl: string; key: string } | { ok: false; error: string }> {
+): Promise<
+  { ok: true; uploadUrl: string; key: string; claim: string } | { ok: false; error: string }
+> {
   const session = await auth()
   if (!session?.user?.id) throw new Error("Unauthorized")
 
@@ -50,13 +52,15 @@ export async function getAvatarUploadUrl(
   // copy of the old avatar from the same URL right after a re-upload; the old object is deleted
   // in updateAvatarImage once the new one is confirmed saved.
   const key = `avatars/${randomUUID()}.${ext}`
-  const { createBodyPresignedPutUrl } = await import("@/lib/s3")
+  const { createBodyPresignedPutUrl, signUploadClaim } = await import("@/lib/s3")
   const { url } = await createBodyPresignedPutUrl(key, contentType, contentLength)
-  return { ok: true, uploadUrl: url, key }
+  const claim = signUploadClaim(session.user.id, key)
+  return { ok: true, uploadUrl: url, key, claim }
 }
 
 export async function updateAvatarImage(
   key: string,
+  claim: string,
 ): Promise<{ ok: true; image: string } | { ok: false; error: string }> {
   const session = await auth()
   if (!session?.user?.id) throw new Error("Unauthorized")
@@ -66,7 +70,14 @@ export async function updateAvatarImage(
     return { ok: false, error: "Invalid image key" }
   }
 
-  const { buildPublicUrl, keyFromPublicUrl, deleteObject } = await import("@/lib/s3")
+  const { buildPublicUrl, keyFromPublicUrl, deleteObject, verifyUploadClaim } =
+    await import("@/lib/s3")
+  // Binds this key to the user the presigned PUT was originally issued to — without it,
+  // any signed-in user could call updateAvatarImage with another user's key (guessing a v4
+  // UUID) and point their users.image at that object.
+  if (!verifyUploadClaim(userId, key, claim)) {
+    return { ok: false, error: "Invalid upload claim" }
+  }
   const image = buildPublicUrl(key)
 
   const [previous] = await withTenant(

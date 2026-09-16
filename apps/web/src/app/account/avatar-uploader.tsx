@@ -55,7 +55,7 @@ export function AvatarUploader({
         xhr.send(file)
       })
 
-      const result = await updateAvatarImage(presign.key)
+      const result = await updateAvatarImage(presign.key, presign.claim)
       if (!result.ok) {
         toast.error(result.error)
         return
