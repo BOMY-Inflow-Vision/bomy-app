@@ -58,22 +58,26 @@ const TOAST_STYLES: Record<
   ToastType,
   { icon: React.ReactNode; className: string; srLabel?: string }
 > = {
+  // Each banner keeps a fixed light background in both themes (a floating toast reads better as a
+  // consistent, un-themed surface than one that flips dark), so its text is a fixed dark shade
+  // paired to that background — never text-foreground, which flips near-white in dark mode and
+  // becomes unreadable against these same light pastels.
   success: {
     icon: <CircleCheck className="size-5 text-emerald-600" aria-hidden="true" />,
-    className: "border-emerald-100 bg-emerald-50",
+    className: "border-emerald-100 bg-emerald-50 text-emerald-800",
   },
   info: {
     icon: <Info className="size-5 text-blue-600" aria-hidden="true" />,
-    className: "border-blue-100 bg-blue-50",
+    className: "border-blue-100 bg-blue-50 text-blue-800",
   },
   warning: {
     icon: <CircleAlert className="size-5 text-amber-600" aria-hidden="true" />,
-    className: "border-amber-100 bg-amber-50",
+    className: "border-amber-100 bg-amber-50 text-amber-800",
     srLabel: "Warning",
   },
   error: {
     icon: <CircleX className="size-5 text-red-600" aria-hidden="true" />,
-    className: "border-red-100 bg-red-50",
+    className: "border-red-100 bg-red-50 text-red-800",
     srLabel: "Error",
   },
 }
@@ -178,7 +182,7 @@ function ToastRow({
             onFocus={() => setPaused(true)}
             onBlur={() => setPaused(false)}
             className={cn(
-              "pointer-events-auto flex animate-toast-in items-center gap-3 rounded-lg border p-4 text-foreground shadow-lg motion-reduce:animate-none",
+              "pointer-events-auto flex animate-toast-in items-center gap-3 rounded-lg border p-4 shadow-lg motion-reduce:animate-none",
               style.className,
               leaving && "animate-toast-out",
             )}

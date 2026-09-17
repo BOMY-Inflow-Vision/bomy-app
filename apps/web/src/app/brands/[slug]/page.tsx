@@ -102,7 +102,7 @@ export default async function StorePage({ params }: Props) {
           {store.bodyHtml && (
             <>
               <h2 className="mb-4 text-lg font-semibold text-foreground">Our Story</h2>
-              <div className="prose prose-sm max-w-none text-foreground">
+              <div className="prose prose-sm max-w-none dark:prose-invert">
                 <BodyRenderer html={store.bodyHtml} />
               </div>
             </>
