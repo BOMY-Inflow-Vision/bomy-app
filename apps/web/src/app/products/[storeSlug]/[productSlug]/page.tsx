@@ -98,7 +98,7 @@ export default async function ProductDetailPage({ params }: Props) {
           <h2 id="product-details-heading" className="mb-4 text-xl font-semibold text-foreground">
             Product Details
           </h2>
-          <div className="prose max-w-3xl">
+          <div className="prose max-w-3xl dark:prose-invert">
             <BodyRenderer html={product.bodyHtml} />
           </div>
         </section>
