@@ -170,13 +170,13 @@ export default async function SellerSubscriptionsPage({
                 const plan = plans.find((p) => p.id === row.planId)
                 return (
                   <tr key={row.id} className="bg-amber-50">
-                    <td className="px-5 py-3 text-foreground">
+                    <td className="px-5 py-3 text-amber-800">
                       {TERM_LABELS[plan?.termMonths ?? 0] ?? "—"}
                     </td>
-                    <td className="px-5 py-3 text-muted-foreground">
+                    <td className="px-5 py-3 text-amber-700">
                       {row.periodEnd.toLocaleDateString("en-MY")}
                     </td>
-                    <td className="px-5 py-3 text-right font-medium text-foreground">
+                    <td className="px-5 py-3 text-right font-medium text-amber-800">
                       RM {senToMyr(row.brandPayoutSen)}
                     </td>
                     <td className="px-5 py-3">

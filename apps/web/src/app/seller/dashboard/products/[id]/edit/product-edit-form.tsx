@@ -756,7 +756,7 @@ export function ProductEditForm({
 
               <div className="flex items-end gap-2">
                 <div className="flex-1">
-                  <Label htmlFor="add_name" className="mb-1 block text-xs text-muted-foreground">
+                  <Label htmlFor="add_name" className="mb-1 block text-xs text-green-700">
                     Name *
                   </Label>
                   <Input
@@ -769,7 +769,7 @@ export function ProductEditForm({
                   />
                 </div>
                 <div className="w-24">
-                  <Label htmlFor="add_price" className="mb-1 block text-xs text-muted-foreground">
+                  <Label htmlFor="add_price" className="mb-1 block text-xs text-green-700">
                     Price (RM) *
                   </Label>
                   <Input
@@ -781,7 +781,7 @@ export function ProductEditForm({
                   />
                 </div>
                 <div className="w-16">
-                  <Label htmlFor="add_stock" className="mb-1 block text-xs text-muted-foreground">
+                  <Label htmlFor="add_stock" className="mb-1 block text-xs text-green-700">
                     Stock
                   </Label>
                   <Input
@@ -794,7 +794,7 @@ export function ProductEditForm({
                   />
                 </div>
                 <div className="w-24">
-                  <Label htmlFor="add_sku" className="mb-1 block text-xs text-muted-foreground">
+                  <Label htmlFor="add_sku" className="mb-1 block text-xs text-green-700">
                     SKU
                   </Label>
                   <Input id="add_sku" name="sku" placeholder="optional" className="h-8 text-sm" />
@@ -802,7 +802,7 @@ export function ProductEditForm({
               </div>
 
               <div className="flex items-center gap-3">
-                <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <label className="flex items-center gap-1.5 text-xs text-green-700">
                   <input
                     type="checkbox"
                     checked={addFulfillmentChecked}
@@ -813,7 +813,7 @@ export function ProductEditForm({
                 </label>
                 {addFulfillmentChecked && (
                   <div className="flex items-center gap-1.5">
-                    <Label htmlFor="lead-days-add" className="text-xs text-muted-foreground">
+                    <Label htmlFor="lead-days-add" className="text-xs text-green-700">
                       Lead days (optional):
                     </Label>
                     <Input
@@ -825,7 +825,7 @@ export function ProductEditForm({
                       placeholder="e.g. 14"
                       className="w-20 text-xs"
                     />
-                    <span className="text-xs text-muted-foreground">days</span>
+                    <span className="text-xs text-green-700">days</span>
                   </div>
                 )}
               </div>
