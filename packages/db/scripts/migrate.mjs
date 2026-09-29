@@ -160,6 +160,14 @@ const MIGRATIONS = [
     name: "0030_seo_fields",
     file: join(__dirname, "../drizzle/0030_seo_fields.sql"),
   },
+  {
+    name: "0031_service_categories",
+    file: join(__dirname, "../drizzle/0031_service_categories.sql"),
+  },
+  {
+    name: "0032_service_provider_applications",
+    file: join(__dirname, "../drizzle/0032_service_provider_applications.sql"),
+  },
 ]
 
 try {
