@@ -22,6 +22,21 @@ vi.mock("@/notifications/service-provider-application", () => ({
   sendOpsAlert: sendOpsAlertMock,
 }))
 
+// Capture after() callbacks so tests can flush them deterministically —
+// matches the same mock in tests/seller-products/actions.test.ts. Without
+// this, calling the real next/server after() outside an active Next.js
+// request scope throws.
+const afterCallbacks: Array<() => void | Promise<void>> = []
+vi.mock("next/server", () => ({
+  after: vi.fn((fn: () => void | Promise<void>) => {
+    afterCallbacks.push(fn)
+  }),
+}))
+async function flushAfter() {
+  const fns = afterCallbacks.splice(0)
+  await Promise.all(fns.map((fn) => Promise.resolve(fn())))
+}
+
 import { auth } from "@/auth"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
@@ -106,6 +121,7 @@ describe.skipIf(!shouldRun)("submitProviderApplication — server action", () =>
     sendApplicantAckMock.mockReset().mockResolvedValue(undefined)
     sendOpsAlertMock.mockReset().mockResolvedValue(undefined)
     mockAuth.mockReset()
+    afterCallbacks.length = 0
   })
 
   it("unauthenticated → returns a form error, inserts nothing", async () => {
@@ -143,6 +159,9 @@ describe.skipIf(!shouldRun)("submitProviderApplication — server action", () =>
     const result = await submitProviderApplication(makeFormData())
     expect(result).toEqual({ ok: true })
 
+    // The send is dispatched via after(), not awaited inline — flush the
+    // captured callback before asserting on the mock.
+    await flushAfter()
     expect(sendApplicantAckMock).toHaveBeenCalledOnce()
     expect(sendApplicantAckMock.mock.calls[0]![1]).toMatchObject({ email: accountEmail })
   })

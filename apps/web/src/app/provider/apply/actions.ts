@@ -1,6 +1,7 @@
 "use server"
 
 import { and, eq } from "drizzle-orm"
+import { after } from "next/server"
 
 import { checkActionRateLimit, makeDb, schema, withTenant } from "@bomy/db"
 import { parseOpsEmails } from "@bomy/mailer"
@@ -139,20 +140,28 @@ export async function submitProviderApplication(
       },
     )
 
-    // Fire-and-forget: this is a request path (a server action returning to the
-    // signed-in browser), so SMTP must never add to the response latency — the
-    // request-path/background-worker dispatch axis (app/CLAUDE.md; established
-    // PR #34/#35) reserves `await` for background workers, which need a
-    // deterministic per-row summary log. Neither email's outcome changes the
-    // `{ ok: true }` returned below, so awaiting bought nothing but latency.
+    // Dispatch after the response returns: this is a request path (a server
+    // action returning to the signed-in browser), so SMTP must never add to
+    // the response latency, and neither email's outcome changes the
+    // `{ ok: true }` returned below. A bare `void sendX(...).catch(log)` is
+    // NOT enough on Vercel — once the response is sent, the invocation can be
+    // frozen or torn down before an unawaited promise finishes (see
+    // https://vercel.com/kb/guide/troubleshooting-inconsistent-logs-in-vercel-functions).
+    // `after()` extends the invocation via `waitUntil` so the send actually
+    // completes, matching the existing precedent in
+    // seller/dashboard/products/actions.ts and .../settings/body-actions.ts.
     const mailer = getMailer()
-    void sendApplicantAck(mailer, { name: input.name, email }).catch((err: unknown) => {
-      console.error({
-        event: "email_notification_failed",
-        recipientType: "applicant",
-        applicationId,
-        message: err instanceof Error ? err.message : String(err),
-      })
+    after(async () => {
+      try {
+        await sendApplicantAck(mailer, { name: input.name, email })
+      } catch (err) {
+        console.error({
+          event: "email_notification_failed",
+          recipientType: "applicant",
+          applicationId,
+          message: err instanceof Error ? err.message : String(err),
+        })
+      }
     })
 
     const opsEmails = parseOpsEmails(process.env)
@@ -165,25 +174,29 @@ export async function submitProviderApplication(
       return { ok: true }
     }
 
-    void sendOpsAlert(
-      mailer,
-      {
-        applicationId,
-        name: input.name,
-        contactEmail: input.contactEmail,
-        contactNumber: input.contactNumber,
-        companyName: input.companyName,
-        category: categoryLabel,
-        businessDescription: input.businessDescription,
-      },
-      { opsEmails },
-    ).catch((err: unknown) => {
-      console.error({
-        event: "email_notification_failed",
-        recipientType: "ops",
-        applicationId,
-        message: err instanceof Error ? err.message : String(err),
-      })
+    after(async () => {
+      try {
+        await sendOpsAlert(
+          mailer,
+          {
+            applicationId,
+            name: input.name,
+            contactEmail: input.contactEmail,
+            contactNumber: input.contactNumber,
+            companyName: input.companyName,
+            category: categoryLabel,
+            businessDescription: input.businessDescription,
+          },
+          { opsEmails },
+        )
+      } catch (err) {
+        console.error({
+          event: "email_notification_failed",
+          recipientType: "ops",
+          applicationId,
+          message: err instanceof Error ? err.message : String(err),
+        })
+      }
     })
 
     return { ok: true }

@@ -179,11 +179,21 @@ must include explicit narrow `GRANT` statements for the `bomy_app` role on both 
   automated-email destination.
 - **Ops alert** → sent to the existing ops alert address via `@bomy/mailer`, same content shape as
   `seller/apply`'s ops alert (dispatch mechanism corrected below — do not copy that file's `await`).
-- **Dispatch: fire-and-forget** (`void sendX(...).catch(log)`), matching `app/CLAUDE.md`'s
-  documented request-path convention exactly ("request path = `void`-ed fire-and-forget with
-  `.catch` logging; background worker = `await` + per-row try/catch + deterministic summary log").
-  This is a server action returning to a signed-in browser — a request path, not a background
-  worker — so SMTP must never add to the response latency.
+- **Dispatch: fire-and-forget via `after()`** (`import { after } from "next/server"`; each send
+  wrapped in `after(async () => { try { await sendX(...) } catch (err) { console.error(...) } })`),
+  matching `app/CLAUDE.md`'s documented request-path convention ("request path = `void`-ed
+  fire-and-forget with `.catch` logging; background worker = `await` + per-row try/catch +
+  deterministic summary log") **and** this codebase's existing `apps/web` precedent for the same
+  problem (`seller/dashboard/products/actions.ts`, `.../settings/body-actions.ts`). This is a
+  server action returning to a signed-in browser — a request path, not a background worker — so
+  SMTP must never add to the response latency. A bare `void sendX(...).catch(log)` is **not**
+  sufficient on Vercel: once the response is sent, the serverless invocation can be frozen or torn
+  down before an unawaited promise finishes
+  (https://vercel.com/kb/guide/troubleshooting-inconsistent-logs-in-vercel-functions) — `after()`
+  extends the invocation via `waitUntil` so the send actually completes. The HitPay webhook's
+  `void dispatch(...).catch(log)` (`apps/api/src/routes/webhooks/hitpay.ts`) is a different,
+  correctly-plain-void case: `apps/api` is a persistent Fastify server (not a Vercel serverless
+  function per request), so there is no invocation to be torn down.
 - **Correction history:** an earlier revision of this bullet said "fire-and-forget," a 2026-09-29
   review then "corrected" it to `await` because `seller/apply/actions.ts` awaits both emails and
   this spec said "same shape as" that file — but that correction conflated _content_ shape (which
@@ -191,13 +201,15 @@ must include explicit narrow `GRANT` statements for the `bomy_app` role on both 
   awaiting actually bought anything. It doesn't: `seller/apply`'s own action returns `{ ok: true }`
   unconditionally after both try/catches regardless of email outcome (confirmed by reading
   `apps/web/src/app/seller/apply/actions.ts` directly, not assumed) — so awaiting there adds pure
-  SMTP latency to the user's wait for zero informational benefit to the result they see. This PR's
-  action has the identical shape (the DB insert already committed before either email is
-  attempted; neither email's outcome changes the returned `{ ok: true }`), so the same reasoning
-  applies here even more directly than to `seller/apply`. Fixed 2026-09-29 (Bob's PR #147 review)
-  to follow the documented convention. **`seller/apply/actions.ts` itself still awaits its two
-  emails and was NOT changed by this PR** — same latent issue, out of scope here, flagged to
-  Charlie as a separate follow-up.
+  SMTP latency to the user's wait for zero informational benefit to the result they see. Fixed
+  2026-09-29 to bare `void` (Bob's PR #147 review, round 1) — then fixed again the same day to
+  `after()` (Bob's PR #147 review, round 2) after Bob caught that bare `void` doesn't survive a
+  Vercel serverless response on its own, only inside a persistent server like `apps/api`.
+  **`seller/apply/actions.ts` itself still awaits its two emails and was NOT changed by this PR**
+  — same latent latency issue (and, per this same Vercel behavior, a live-in-production
+  under-tested assumption that its awaited sends always finish before the response — they do,
+  specifically because they're awaited, so this is a latency bug, not a delivery-reliability bug)
+  — out of scope here, flagged to Charlie as a separate follow-up.
 
 ## 7. Testing
 

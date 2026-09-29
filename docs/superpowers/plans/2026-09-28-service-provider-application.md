@@ -1452,6 +1452,7 @@ Expected: FAIL — `src/app/provider/apply/actions.ts` does not exist.
 "use server"
 
 import { and, eq } from "drizzle-orm"
+import { after } from "next/server"
 
 import { checkActionRateLimit, makeDb, schema, withTenant } from "@bomy/db"
 import { parseOpsEmails } from "@bomy/mailer"
@@ -1473,7 +1474,13 @@ function getDb() {
 
 export type SubmitProviderApplicationResult =
   | { ok: true }
-  | { ok: false; errors: ServiceProviderApplicationErrors & { form?: string } }
+  | {
+      ok: false
+      errors: ServiceProviderApplicationErrors & {
+        form?: string
+        code?: "already_applied" | "rate_limited" | "inactive_category"
+      }
+    }
 
 const INACTIVE_CATEGORY_CODE = "INACTIVE_CATEGORY"
 
@@ -1517,7 +1524,7 @@ export async function submitProviderApplication(
     ACTION_RATE_LIMITS.serviceProviderApply,
   )
   if (!limit.allowed) {
-    return { ok: false, errors: { form: RATE_LIMIT_USER_MESSAGE } }
+    return { ok: false, errors: { form: RATE_LIMIT_USER_MESSAGE, code: "rate_limited" } }
   }
 
   const categoryRaw = readFormString(formData, "serviceCategoryId")
@@ -1584,17 +1591,29 @@ export async function submitProviderApplication(
       },
     )
 
+    // Dispatch after the response returns: this is a request path (a server
+    // action returning to the signed-in browser), so SMTP must never add to
+    // the response latency, and neither email's outcome changes the
+    // `{ ok: true }` returned below. A bare `void sendX(...).catch(log)` is
+    // NOT enough on Vercel — once the response is sent, the invocation can be
+    // frozen or torn down before an unawaited promise finishes (see
+    // https://vercel.com/kb/guide/troubleshooting-inconsistent-logs-in-vercel-functions).
+    // `after()` extends the invocation via `waitUntil` so the send actually
+    // completes, matching the existing precedent in
+    // seller/dashboard/products/actions.ts and .../settings/body-actions.ts.
     const mailer = getMailer()
-    try {
-      await sendApplicantAck(mailer, { name: input.name, email })
-    } catch (err) {
-      console.error({
-        event: "email_notification_failed",
-        recipientType: "applicant",
-        applicationId,
-        message: err instanceof Error ? err.message : String(err),
-      })
-    }
+    after(async () => {
+      try {
+        await sendApplicantAck(mailer, { name: input.name, email })
+      } catch (err) {
+        console.error({
+          event: "email_notification_failed",
+          recipientType: "applicant",
+          applicationId,
+          message: err instanceof Error ? err.message : String(err),
+        })
+      }
+    })
 
     const opsEmails = parseOpsEmails(process.env)
     if (opsEmails.length === 0) {
@@ -1606,37 +1625,46 @@ export async function submitProviderApplication(
       return { ok: true }
     }
 
-    try {
-      await sendOpsAlert(
-        mailer,
-        {
+    after(async () => {
+      try {
+        await sendOpsAlert(
+          mailer,
+          {
+            applicationId,
+            name: input.name,
+            contactEmail: input.contactEmail,
+            contactNumber: input.contactNumber,
+            companyName: input.companyName,
+            category: categoryLabel,
+            businessDescription: input.businessDescription,
+          },
+          { opsEmails },
+        )
+      } catch (err) {
+        console.error({
+          event: "email_notification_failed",
+          recipientType: "ops",
           applicationId,
-          name: input.name,
-          contactEmail: input.contactEmail,
-          contactNumber: input.contactNumber,
-          companyName: input.companyName,
-          category: categoryLabel,
-        },
-        { opsEmails },
-      )
-    } catch (err) {
-      console.error({
-        event: "email_notification_failed",
-        recipientType: "ops",
-        applicationId,
-        message: err instanceof Error ? err.message : String(err),
-      })
-    }
+          message: err instanceof Error ? err.message : String(err),
+        })
+      }
+    })
 
     return { ok: true }
   } catch (err) {
     if (isUniqueViolation(err)) {
-      return { ok: false, errors: { form: "You already have an application on file." } }
+      return {
+        ok: false,
+        errors: { form: "You already have an application on file.", code: "already_applied" },
+      }
     }
     if (isInactiveCategory(err)) {
       return {
         ok: false,
-        errors: { serviceCategoryId: "That category is no longer available. Please pick another." },
+        errors: {
+          serviceCategoryId: "That category is no longer available. Please pick another.",
+          code: "inactive_category",
+        },
       }
     }
     throw err
