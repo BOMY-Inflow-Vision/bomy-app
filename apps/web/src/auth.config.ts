@@ -64,7 +64,8 @@ export const authConfig = {
         nextUrl.pathname.startsWith("/account") ||
         nextUrl.pathname.startsWith("/dashboard") ||
         nextUrl.pathname.startsWith("/membership/manage") ||
-        nextUrl.pathname.startsWith("/membership/success")
+        nextUrl.pathname.startsWith("/membership/success") ||
+        nextUrl.pathname.startsWith("/provider")
       if (requiresLogin && !isLoggedIn) return false
 
       // Seller dashboard requires seller_owner role

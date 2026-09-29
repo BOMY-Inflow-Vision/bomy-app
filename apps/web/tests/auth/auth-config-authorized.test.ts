@@ -43,7 +43,7 @@ describe("authConfig.authorized — public routes", () => {
 })
 
 describe("authConfig.authorized — login-required routes", () => {
-  it.each(["/account", "/dashboard", "/membership/manage", "/membership/success"])(
+  it.each(["/account", "/dashboard", "/membership/manage", "/membership/success", "/provider"])(
     "blocks an anonymous visitor to %s",
     (path) => {
       expect(authorize(path, null)).toBe(false)
@@ -129,5 +129,15 @@ describe("authConfig.authorized — nested (prefix) route matching", () => {
 
   it("allows a consented seller_owner into a nested seller route (/seller/dashboard/products)", () => {
     expect(authorize("/seller/dashboard/products", seller)).toBe(true)
+  })
+
+  it("blocks an anonymous visitor from a nested login-required route (/provider/apply)", () => {
+    expect(authorize("/provider/apply", null)).toBe(false)
+  })
+
+  it("allows any consented, signed-in role into /provider/apply — no role restriction", () => {
+    const seller: TestUser = { role: "seller_owner", consentVersion: TOS, currentTosVersion: TOS }
+    expect(authorize("/provider/apply", seller)).toBe(true)
+    expect(authorize("/provider/apply", consented)).toBe(true)
   })
 })
