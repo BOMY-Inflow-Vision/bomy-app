@@ -22,6 +22,7 @@ describe.skipIf(!shouldRun)("service_categories RLS", () => {
   // tests/scripts/platform-config-flip-integration.test.ts. The read under
   // test still goes through `handle` (bomy_app), unchanged.
   let ownerHandle: Db
+  const createdCategoryIds: string[] = []
 
   beforeAll(() => {
     handle = makeDb({ url: DATABASE_URL as string })
@@ -29,6 +30,15 @@ describe.skipIf(!shouldRun)("service_categories RLS", () => {
   })
 
   afterAll(async () => {
+    await withAdmin(
+      ownerHandle.db,
+      { userId: SYSTEM_ACTOR, reason: "test cleanup" },
+      async (tx) => {
+        for (const categoryId of createdCategoryIds) {
+          await tx.delete(serviceCategories).where(sql`${serviceCategories.id} = ${categoryId}`)
+        }
+      },
+    )
     await handle.close()
     await ownerHandle.close()
   })
@@ -51,6 +61,7 @@ describe.skipIf(!shouldRun)("service_categories RLS", () => {
         { id: inactiveId, name: "Inactive Cat", slug: `inactive-${inactiveId}`, isActive: false },
       ])
     })
+    createdCategoryIds.push(activeId, inactiveId)
 
     const rows = await withTenant(handle.db, { userId, userRole: "buyer" }, (tx) =>
       tx

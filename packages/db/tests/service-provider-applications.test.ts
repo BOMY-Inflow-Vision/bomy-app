@@ -39,7 +39,10 @@ function pgErrorCode(err: unknown): string | undefined {
     : undefined
 }
 
-async function seedUser(handle: Db, role: "buyer" | "bomy_finance" | "bomy_ops" = "buyer") {
+async function seedUser(
+  handle: Db,
+  role: "buyer" | "bomy_finance" | "bomy_ops" | "bomy_admin" = "buyer",
+) {
   const userId = randomUUID()
   await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "test seed user" }, async (tx) => {
     await tx.insert(users).values({ id: userId, email: `${userId}@test.bomy`, role })
@@ -69,6 +72,8 @@ async function seedCategory(ownerHandle: Db, userId: string, isActive: boolean) 
 describe.skipIf(!shouldRun)("service_provider_applications RLS", () => {
   let handle: Db
   let ownerHandle: Db
+  const createdUserIds: string[] = []
+  const createdCategoryIds: string[] = []
 
   beforeAll(() => {
     handle = makeDb({ url: DATABASE_URL as string })
@@ -76,13 +81,29 @@ describe.skipIf(!shouldRun)("service_provider_applications RLS", () => {
   })
 
   afterAll(async () => {
+    await withAdmin(
+      ownerHandle.db,
+      { userId: SYSTEM_ACTOR, reason: "test cleanup" },
+      async (tx) => {
+        for (const userId of createdUserIds) {
+          await tx
+            .delete(serviceProviderApplications)
+            .where(sql`${serviceProviderApplications.applicantUserId} = ${userId}`)
+        }
+        for (const categoryId of createdCategoryIds) {
+          await tx.delete(serviceCategories).where(sql`${serviceCategories.id} = ${categoryId}`)
+        }
+      },
+    )
     await handle.close()
     await ownerHandle.close()
   })
 
   it("an applicant can insert their own pending application naming an active category", async () => {
     const userId = await seedUser(handle)
+    createdUserIds.push(userId)
     const categoryId = await seedCategory(ownerHandle, userId, true)
+    createdCategoryIds.push(categoryId)
 
     const rows = await withTenant(handle.db, { userId, userRole: "buyer" }, (tx) =>
       tx
@@ -95,7 +116,9 @@ describe.skipIf(!shouldRun)("service_provider_applications RLS", () => {
 
   it("rejects an insert naming a DEACTIVATED category — via RLS, not the CHECK constraint", async () => {
     const userId = await seedUser(handle)
+    createdUserIds.push(userId)
     const inactiveCategoryId = await seedCategory(ownerHandle, userId, false)
+    createdCategoryIds.push(inactiveCategoryId)
 
     let caught: unknown
     try {
@@ -116,6 +139,7 @@ describe.skipIf(!shouldRun)("service_provider_applications RLS", () => {
 
   it("rejects an insert trying to set status to 'approved' directly — via RLS, not the CHECK constraint", async () => {
     const userId = await seedUser(handle)
+    createdUserIds.push(userId)
 
     let caught: unknown
     try {
@@ -134,6 +158,7 @@ describe.skipIf(!shouldRun)("service_provider_applications RLS", () => {
 
   it("rejects a second open application from the same account (race-safe duplicate prevention)", async () => {
     const userId = await seedUser(handle)
+    createdUserIds.push(userId)
 
     const firstInsert = await withTenant(handle.db, { userId, userRole: "buyer" }, (tx) =>
       tx
@@ -160,6 +185,7 @@ describe.skipIf(!shouldRun)("service_provider_applications RLS", () => {
 
   it("rejects TWO CONCURRENT submissions from the same account — exactly one wins (genuine race, not sequential)", async () => {
     const userId = await seedUser(handle)
+    createdUserIds.push(userId)
 
     const results = await Promise.allSettled([
       withTenant(handle.db, { userId, userRole: "buyer" }, (tx) =>
@@ -179,6 +205,7 @@ describe.skipIf(!shouldRun)("service_provider_applications RLS", () => {
 
   it("the CHECK constraint rejects NULL category + empty description, even under withAdmin", async () => {
     const userId = await seedUser(handle)
+    createdUserIds.push(userId)
 
     let caught: unknown
     try {
@@ -201,7 +228,9 @@ describe.skipIf(!shouldRun)("service_provider_applications RLS", () => {
 
   it("an applicant cannot see another applicant's row", async () => {
     const ownerId = await seedUser(handle)
+    createdUserIds.push(ownerId)
     const otherId = await seedUser(handle)
+    createdUserIds.push(otherId)
 
     await withTenant(handle.db, { userId: ownerId, userRole: "buyer" }, (tx) =>
       tx.insert(serviceProviderApplications).values({ ...BASE_FIELDS, applicantUserId: ownerId }),
@@ -216,10 +245,15 @@ describe.skipIf(!shouldRun)("service_provider_applications RLS", () => {
     expect(rows).toHaveLength(0)
   })
 
-  it("bomy_finance cannot see ANY application row; bomy_ops can see all", async () => {
+  it("bomy_finance cannot see ANY application row; bomy_ops and bomy_admin can see all", async () => {
     const applicantId = await seedUser(handle)
+    createdUserIds.push(applicantId)
     const financeId = await seedUser(handle, "bomy_finance")
+    createdUserIds.push(financeId)
     const opsId = await seedUser(handle, "bomy_ops")
+    createdUserIds.push(opsId)
+    const adminId = await seedUser(handle, "bomy_admin")
+    createdUserIds.push(adminId)
 
     await withTenant(handle.db, { userId: applicantId, userRole: "buyer" }, (tx) =>
       tx
@@ -245,5 +279,16 @@ describe.skipIf(!shouldRun)("service_provider_applications RLS", () => {
         .where(sql`${serviceProviderApplications.applicantUserId} = ${applicantId}`),
     )
     expect(opsRows).toHaveLength(1)
+
+    const adminRows = await withTenant(
+      handle.db,
+      { userId: adminId, userRole: "bomy_admin" },
+      (tx) =>
+        tx
+          .select()
+          .from(serviceProviderApplications)
+          .where(sql`${serviceProviderApplications.applicantUserId} = ${applicantId}`),
+    )
+    expect(adminRows).toHaveLength(1)
   })
 })

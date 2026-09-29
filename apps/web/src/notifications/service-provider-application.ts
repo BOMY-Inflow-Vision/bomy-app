@@ -24,21 +24,25 @@ export async function sendOpsAlert(
     contactNumber: string
     companyName: string
     category: string
+    businessDescription: string | null
   },
   env: { opsEmails: string[] },
 ): Promise<void> {
   // No admin link — the admin review page doesn't exist yet (spec §8). Don't
   // invent a placeholder URL; a future admin-review PR adds a real link here
-  // once that page exists (Charlie's review, 2026-09-29).
+  // once that page exists (spec §6/§8).
+  const descriptionLine = application.businessDescription ?? "(none)"
   await mailer.sendMail({
     to: env.opsEmails,
     subject: `[BOMY Ops] New service provider application — ${application.companyName}`,
     text:
       `New service provider application received.\n\n` +
-      `Name:     ${application.name}\n` +
-      `Email:    ${application.contactEmail}\n` +
-      `Contact:  ${application.contactNumber}\n` +
-      `Company:  ${application.companyName}\n` +
-      `Category: ${application.category}`,
+      `Application ID: ${application.applicationId}\n` +
+      `Name:        ${application.name}\n` +
+      `Email:       ${application.contactEmail}\n` +
+      `Contact:     ${application.contactNumber}\n` +
+      `Company:     ${application.companyName}\n` +
+      `Category:    ${application.category}\n` +
+      `Description: ${descriptionLine}`,
   })
 }

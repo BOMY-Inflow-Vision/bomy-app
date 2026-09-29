@@ -54,6 +54,7 @@ describe.skipIf(!shouldRun)("submitProviderApplication — server action", () =>
   // uses `testDb` exactly as specified.
   let ownerDb: ReturnType<typeof makeDb>
   const createdUserIds: string[] = []
+  const createdCategoryIds: string[] = []
 
   // Every test seeds its OWN applicant — they must NOT share one. The table
   // allows only one open (pending/approved) application per account, so a
@@ -92,6 +93,9 @@ describe.skipIf(!shouldRun)("submitProviderApplication — server action", () =>
         await tx
           .delete(schema.serviceProviderApplications)
           .where(eq(schema.serviceProviderApplications.applicantUserId, id))
+      }
+      for (const categoryId of createdCategoryIds) {
+        await tx.delete(schema.serviceCategories).where(eq(schema.serviceCategories.id, categoryId))
       }
     })
     await testDb.close()
@@ -158,7 +162,10 @@ describe.skipIf(!shouldRun)("submitProviderApplication — server action", () =>
 
     const second = await submitProviderApplication(makeFormData())
     expect(second.ok).toBe(false)
-    if (!second.ok) expect(second.errors.form).toBeTruthy()
+    if (!second.ok) {
+      expect(second.errors.form).toBeTruthy()
+      expect(second.errors.code).toBe("already_applied")
+    }
   })
 
   it("two CONCURRENT submissions from the same account — exactly one succeeds (genuine race, not sequential awaits)", async () => {
@@ -177,6 +184,7 @@ describe.skipIf(!shouldRun)("submitProviderApplication — server action", () =>
     const fails = [a, b].filter((r) => !r.ok)
     expect(oks).toHaveLength(1)
     expect(fails).toHaveLength(1)
+    expect(fails[0]!.errors.code).toBe("already_applied")
   })
 
   it("naming a deactivated category is rejected with a field-level error, not a 500", async () => {
@@ -191,6 +199,7 @@ describe.skipIf(!shouldRun)("submitProviderApplication — server action", () =>
         .insert(schema.serviceCategories)
         .values({ id: categoryId, name: "Retired", slug: `retired-${categoryId}`, isActive: false })
     })
+    createdCategoryIds.push(categoryId)
 
     const { submitProviderApplication } = await import("../../src/app/provider/apply/actions.js")
     const result = await submitProviderApplication(
@@ -200,7 +209,7 @@ describe.skipIf(!shouldRun)("submitProviderApplication — server action", () =>
     if (!result.ok) expect(result.errors.serviceCategoryId).toBeTruthy()
   })
 
-  it("'Other' with no description returns a validator error, no DB call at all", async () => {
+  it("'Other' with no description returns a validator error, no insert, no email", async () => {
     const { userId } = await seedApplicant()
     mockAuth.mockResolvedValue({
       user: { id: userId, role: "buyer", email: "STALE-session-email@test.bomy" },

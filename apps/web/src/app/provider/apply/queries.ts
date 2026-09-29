@@ -24,7 +24,7 @@ export async function getActiveServiceCategories(
 export async function getMyOpenApplication(
   userId: string,
   userRole: UserRole,
-): Promise<{ status: "pending" | "approved" | "rejected" } | null> {
+): Promise<{ status: "pending" | "approved" } | null> {
   const rows = await withTenant(getDb(), { userId, userRole }, (tx) =>
     tx
       .select({ status: schema.serviceProviderApplications.status })
@@ -37,5 +37,10 @@ export async function getMyOpenApplication(
       )
       .limit(1),
   )
-  return rows[0] ?? null
+  // The inArray filter above guarantees only "pending"/"approved" rows come
+  // back at runtime, but Drizzle's select() infers the column's full
+  // inquiry_status enum ("pending" | "approved" | "rejected") regardless of
+  // the WHERE clause — the type system can't see through the runtime filter,
+  // so this assertion just makes the (already-true) narrowing explicit.
+  return (rows[0] as { status: "pending" | "approved" } | undefined) ?? null
 }

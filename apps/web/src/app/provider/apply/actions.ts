@@ -22,7 +22,13 @@ function getDb() {
 
 export type SubmitProviderApplicationResult =
   | { ok: true }
-  | { ok: false; errors: ServiceProviderApplicationErrors & { form?: string } }
+  | {
+      ok: false
+      errors: ServiceProviderApplicationErrors & {
+        form?: string
+        code?: "already_applied" | "rate_limited" | "inactive_category"
+      }
+    }
 
 const INACTIVE_CATEGORY_CODE = "INACTIVE_CATEGORY"
 
@@ -66,7 +72,7 @@ export async function submitProviderApplication(
     ACTION_RATE_LIMITS.serviceProviderApply,
   )
   if (!limit.allowed) {
-    return { ok: false, errors: { form: RATE_LIMIT_USER_MESSAGE } }
+    return { ok: false, errors: { form: RATE_LIMIT_USER_MESSAGE, code: "rate_limited" } }
   }
 
   const categoryRaw = readFormString(formData, "serviceCategoryId")
@@ -165,6 +171,7 @@ export async function submitProviderApplication(
           contactNumber: input.contactNumber,
           companyName: input.companyName,
           category: categoryLabel,
+          businessDescription: input.businessDescription,
         },
         { opsEmails },
       )
@@ -180,12 +187,18 @@ export async function submitProviderApplication(
     return { ok: true }
   } catch (err) {
     if (isUniqueViolation(err)) {
-      return { ok: false, errors: { form: "You already have an application on file." } }
+      return {
+        ok: false,
+        errors: { form: "You already have an application on file.", code: "already_applied" },
+      }
     }
     if (isInactiveCategory(err)) {
       return {
         ok: false,
-        errors: { serviceCategoryId: "That category is no longer available. Please pick another." },
+        errors: {
+          serviceCategoryId: "That category is no longer available. Please pick another.",
+          code: "inactive_category",
+        },
       }
     }
     throw err

@@ -18,8 +18,8 @@ export const ACTION_RATE_LIMITS = {
   profileEdit: { max: 10, windowMs: ONE_MINUTE_MS },
   /**
    * Low-frequency by nature — a real applicant submits once, maybe twice.
-   * max is 10, not tighter, to leave headroom for Task 6's own test suite
-   * (multiple submissions from the same seeded user inside one fixed window).
+   * max is 10 rather than tighter, to leave headroom for retries after a
+   * transient failure without needing a separate retry-budget mechanism.
    */
   serviceProviderApply: { max: 10, windowMs: ONE_MINUTE_MS },
 } as const satisfies Record<string, RateLimitConfig>

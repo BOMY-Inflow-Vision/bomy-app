@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto"
 
 import { makeDb, schema, withAdmin } from "@bomy/db"
+import { sql } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
@@ -13,6 +14,8 @@ describe.skipIf(!shouldRun)("provider-apply queries", () => {
   let testDb: ReturnType<typeof makeDb>
   let ownerDb: ReturnType<typeof makeDb>
   let userId: string
+  const createdCategoryIds: string[] = []
+  const createdApplicantUserIds: string[] = []
 
   beforeAll(async () => {
     process.env["DATABASE_URL"] = DATABASE_URL as string
@@ -27,6 +30,18 @@ describe.skipIf(!shouldRun)("provider-apply queries", () => {
   })
 
   afterAll(async () => {
+    await withAdmin(ownerDb.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
+      for (const id of createdApplicantUserIds) {
+        await tx
+          .delete(schema.serviceProviderApplications)
+          .where(sql`${schema.serviceProviderApplications.applicantUserId} = ${id}`)
+      }
+      for (const categoryId of createdCategoryIds) {
+        await tx
+          .delete(schema.serviceCategories)
+          .where(sql`${schema.serviceCategories.id} = ${categoryId}`)
+      }
+    })
     await testDb.close()
     await ownerDb.close()
   })
@@ -46,6 +61,7 @@ describe.skipIf(!shouldRun)("provider-apply queries", () => {
         },
       ])
     })
+    createdCategoryIds.push(activeId, inactiveId)
 
     const { getActiveServiceCategories } = await import("../../src/app/provider/apply/queries.js")
     const rows = await getActiveServiceCategories(userId, "buyer")
@@ -55,6 +71,7 @@ describe.skipIf(!shouldRun)("provider-apply queries", () => {
 
   it("getMyOpenApplication returns null when there is no application, then the row once one exists", async () => {
     const freshUserId = randomUUID()
+    createdApplicantUserIds.push(freshUserId)
     await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test seed" }, async (tx) => {
       await tx
         .insert(schema.users)
