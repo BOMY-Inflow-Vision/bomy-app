@@ -104,6 +104,9 @@ const GRANT_MATRIX: Record<string, TableGrant> = {
 
   // origin: 0026
   action_rate_limits: FULL_CRUD,
+
+  // origin: 0031
+  service_categories: { select: true, insert: false, update: false, delete: false },
 }
 
 const GRANT_MATRIX_ROWS: Array<[table: string, verb: keyof TableGrant, expected: boolean]> =
