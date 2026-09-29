@@ -523,6 +523,9 @@ BEGIN
     -- origin: 0031
     EXECUTE 'GRANT SELECT ON "service_categories" TO bomy_app';
 
+    -- origin: 0032
+    EXECUTE 'GRANT SELECT, INSERT ON "service_provider_applications" TO bomy_app';
+
     -- app.* function execute (named individually, not ON ALL FUNCTIONS)
     EXECUTE 'GRANT EXECUTE ON FUNCTION app.assert_tenant_context() TO bomy_app';
     EXECUTE 'GRANT EXECUTE ON FUNCTION app.current_user_id() TO bomy_app';
@@ -1262,3 +1265,40 @@ CREATE POLICY service_categories_default_deny ON service_categories
 CREATE POLICY service_categories_active_read ON service_categories
   FOR SELECT
   USING (is_active = true OR app.is_bomy_staff() OR app.is_admin_bypass());
+
+-- ── service_provider_applications (Service Provider Application; migration 0032) ──
+-- Applicant self-insert (own row, pending only, active-category-only); read
+-- narrowed to owner + bomy_ops/bomy_admin (NOT bomy_finance). No UPDATE/DELETE
+-- policy this round — approving/rejecting is a future, separate PR.
+
+ALTER TABLE service_provider_applications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE service_provider_applications FORCE  ROW LEVEL SECURITY;
+
+CREATE POLICY service_provider_applications_default_deny ON service_provider_applications
+  AS RESTRICTIVE
+  USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
+
+CREATE POLICY service_provider_applications_self_insert ON service_provider_applications
+  FOR INSERT
+  WITH CHECK (
+    (
+      applicant_user_id = app.current_user_id()
+      AND status = 'pending'
+      AND (
+        service_category_id IS NULL
+        OR EXISTS (
+          SELECT 1 FROM service_categories sc
+          WHERE sc.id = service_category_id AND sc.is_active
+        )
+      )
+    )
+    OR app.is_admin_bypass()
+  );
+
+CREATE POLICY service_provider_applications_read ON service_provider_applications
+  FOR SELECT
+  USING (
+    applicant_user_id = app.current_user_id()
+    OR app.current_user_role() IN ('bomy_ops', 'bomy_admin')
+    OR app.is_admin_bypass()
+  );
