@@ -16,6 +16,15 @@ export type ServiceCategoryOption = { id: string; name: string }
 
 const OTHER_VALUE = "__other__"
 
+function FieldError({ id, message }: { id: string; message: string | undefined }) {
+  if (!message) return null
+  return (
+    <p id={id} role="alert" className="mt-1 text-sm text-destructive">
+      {message}
+    </p>
+  )
+}
+
 async function formAction(
   _prev: SubmitProviderApplicationResult | null,
   formData: FormData,
@@ -84,17 +93,28 @@ export function ProviderApplyForm({ categories }: { categories: ServiceCategoryO
           <Label htmlFor="name" className="mb-1 block text-sm font-medium">
             Full Name *
           </Label>
-          <Input id="name" name="name" required />
-          {errors?.name && <p className="mt-1 text-sm text-destructive">{errors.name}</p>}
+          <Input
+            id="name"
+            name="name"
+            required
+            aria-invalid={errors?.name ? true : undefined}
+            aria-describedby={errors?.name ? "name-error" : undefined}
+          />
+          <FieldError id="name-error" message={errors?.name} />
         </div>
         <div>
           <Label htmlFor="contactEmail" className="mb-1 block text-sm font-medium">
             Contact Email *
           </Label>
-          <Input id="contactEmail" name="contactEmail" type="email" required />
-          {errors?.contactEmail && (
-            <p className="mt-1 text-sm text-destructive">{errors.contactEmail}</p>
-          )}
+          <Input
+            id="contactEmail"
+            name="contactEmail"
+            type="email"
+            required
+            aria-invalid={errors?.contactEmail ? true : undefined}
+            aria-describedby={errors?.contactEmail ? "contactEmail-error" : undefined}
+          />
+          <FieldError id="contactEmail-error" message={errors?.contactEmail} />
         </div>
         <div>
           <Label htmlFor="contactNumber" className="mb-1 block text-sm font-medium">
@@ -106,19 +126,23 @@ export function ProviderApplyForm({ categories }: { categories: ServiceCategoryO
             type="tel"
             required
             placeholder="+60 12-345 6789"
+            aria-invalid={errors?.contactNumber ? true : undefined}
+            aria-describedby={errors?.contactNumber ? "contactNumber-error" : undefined}
           />
-          {errors?.contactNumber && (
-            <p className="mt-1 text-sm text-destructive">{errors.contactNumber}</p>
-          )}
+          <FieldError id="contactNumber-error" message={errors?.contactNumber} />
         </div>
         <div>
           <Label htmlFor="companyName" className="mb-1 block text-sm font-medium">
             Company Name *
           </Label>
-          <Input id="companyName" name="companyName" required />
-          {errors?.companyName && (
-            <p className="mt-1 text-sm text-destructive">{errors.companyName}</p>
-          )}
+          <Input
+            id="companyName"
+            name="companyName"
+            required
+            aria-invalid={errors?.companyName ? true : undefined}
+            aria-describedby={errors?.companyName ? "companyName-error" : undefined}
+          />
+          <FieldError id="companyName-error" message={errors?.companyName} />
         </div>
         <div>
           <Label htmlFor="serviceCategoryChoice" className="mb-1 block text-sm font-medium">
@@ -131,6 +155,8 @@ export function ProviderApplyForm({ categories }: { categories: ServiceCategoryO
             value={categoryChoice}
             onChange={(e) => setCategoryChoice(e.target.value)}
             className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            aria-invalid={errors?.serviceCategoryId ? true : undefined}
+            aria-describedby={errors?.serviceCategoryId ? "serviceCategoryId-error" : undefined}
           >
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
@@ -139,9 +165,7 @@ export function ProviderApplyForm({ categories }: { categories: ServiceCategoryO
             ))}
             <option value={OTHER_VALUE}>Other</option>
           </select>
-          {errors?.serviceCategoryId && (
-            <p className="mt-1 text-sm text-destructive">{errors.serviceCategoryId}</p>
-          )}
+          <FieldError id="serviceCategoryId-error" message={errors?.serviceCategoryId} />
         </div>
         <div>
           <Label htmlFor="businessDescription" className="mb-1 block text-sm font-medium">
@@ -154,10 +178,10 @@ export function ProviderApplyForm({ categories }: { categories: ServiceCategoryO
             rows={3}
             required={isOther}
             placeholder="Tell us about the services you offer..."
+            aria-invalid={errors?.businessDescription ? true : undefined}
+            aria-describedby={errors?.businessDescription ? "businessDescription-error" : undefined}
           />
-          {errors?.businessDescription && (
-            <p className="mt-1 text-sm text-destructive">{errors.businessDescription}</p>
-          )}
+          <FieldError id="businessDescription-error" message={errors?.businessDescription} />
         </div>
 
         <Button type="submit" icon={<Send />} disabled={pending} className="w-full">
