@@ -16,6 +16,12 @@ export const ACTION_RATE_LIMITS = {
   /** add/update/delete/setDefault share one bucket — all mutate the same resource. */
   addressWrite: { max: 20, windowMs: ONE_MINUTE_MS },
   profileEdit: { max: 10, windowMs: ONE_MINUTE_MS },
+  /**
+   * Low-frequency by nature — a real applicant submits once, maybe twice.
+   * max is 10, not tighter, to leave headroom for Task 6's own test suite
+   * (multiple submissions from the same seeded user inside one fixed window).
+   */
+  serviceProviderApply: { max: 10, windowMs: ONE_MINUTE_MS },
 } as const satisfies Record<string, RateLimitConfig>
 
 export const RATE_LIMIT_USER_MESSAGE = "Too many requests — please wait a moment and try again."
