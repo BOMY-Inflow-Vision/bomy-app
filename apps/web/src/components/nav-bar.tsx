@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { LogIn } from "lucide-react"
 import { useSession } from "next-auth/react"
 import React, { useEffect, useState } from "react"
 
@@ -13,7 +14,10 @@ const NAV_LINKS = [
   { href: "/products", label: "Products" },
   { href: "/membership", label: "Membership" },
   { href: "/seller/apply", label: "Sell with us" },
+  { href: "/provider/apply", label: "Become a provider" },
 ] as const
+
+const SIGN_IN_HREF = "/auth/sign-in"
 
 function CartLink() {
   const { itemCount, hydrated } = useCart()
@@ -66,7 +70,7 @@ export function NavBar() {
           : []),
         { href: "/account", label: "Account" },
       ]
-    : [{ href: "/auth/sign-in", label: "Sign in" }]
+    : [{ href: SIGN_IN_HREF, label: "Sign in" }]
 
   const desktopLinkClass = "text-sm text-muted-foreground hover:text-foreground"
 
@@ -85,11 +89,22 @@ export function NavBar() {
             </Link>
           ))}
           <CartLink />
-          {authLinks.map((link) => (
-            <Link key={link.href} href={link.href} className={desktopLinkClass}>
-              {link.label}
-            </Link>
-          ))}
+          {authLinks.map((link) =>
+            link.href === SIGN_IN_HREF ? (
+              <Link
+                key={link.href}
+                href={link.href}
+                aria-label={link.label}
+                className="flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <LogIn aria-hidden="true" className="size-5" />
+              </Link>
+            ) : (
+              <Link key={link.href} href={link.href} className={desktopLinkClass}>
+                {link.label}
+              </Link>
+            ),
+          )}
           <ThemeToggle />
         </div>
 
