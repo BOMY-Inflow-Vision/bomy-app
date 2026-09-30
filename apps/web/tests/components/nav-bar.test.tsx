@@ -58,11 +58,17 @@ describe("NavBar responsive structure", () => {
     expect(html).toContain('inert=""') // closed panel removed from a11y tree + tab order
   })
 
-  it("always exposes the public links (Brands, Products, Membership, Sell with us)", () => {
+  it("always exposes the public links (Brands, Products, Membership, Sell with us, Become a provider)", () => {
     const html = render(null)
     expect(html).toContain('href="/brands"')
     expect(html).toContain('href="/products"')
     expect(html).toContain('href="/membership"')
     expect(html).toContain('href="/seller/apply"')
+    expect(html).toContain('href="/provider/apply"')
+  })
+
+  it("signed out: the sign-in link is an accessible icon button, not bare unlabeled text", () => {
+    const html = render(null)
+    expect(html).toContain('aria-label="Sign in"')
   })
 })
