@@ -1,10 +1,12 @@
 "use client"
 
 import Link from "next/link"
-import { LogIn } from "lucide-react"
+import { MoreHorizontal, User } from "lucide-react"
 import { useSession } from "next-auth/react"
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 
+import { Button } from "@/components/ui/button"
+import { ButtonGroup } from "@/components/ui/button-group"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { useCart } from "@/lib/cart"
 import { cn } from "@/lib/utils"
@@ -42,11 +44,88 @@ function CartLink() {
         />
       </svg>
       {hydrated && itemCount > 0 && (
-        <span className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+        <span
+          key={itemCount}
+          className="absolute -right-2 -top-2 flex h-4 w-4 animate-avatar-pop-in items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground motion-reduce:animate-none"
+        >
           {itemCount > 99 ? "99+" : itemCount}
         </span>
       )}
     </Link>
+  )
+}
+
+/** Account icon (links to /account) joined with a "..." button that click-toggles the seller menu. */
+function SellerAccountMenu({
+  accountHref,
+  accountLabel,
+  sellerHref,
+  sellerLabel,
+}: {
+  accountHref: string
+  accountLabel: string
+  sellerHref: string
+  sellerLabel: string
+}) {
+  const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false)
+    }
+    function onPointerDown(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    window.addEventListener("keydown", onKey)
+    document.addEventListener("mousedown", onPointerDown)
+    return () => {
+      window.removeEventListener("keydown", onKey)
+      document.removeEventListener("mousedown", onPointerDown)
+    }
+  }, [open])
+
+  return (
+    <div ref={containerRef} className="relative">
+      <ButtonGroup>
+        <Button variant="outline" size="icon" aria-label={accountLabel} asChild>
+          <Link href={accountHref}>
+            <User aria-hidden="true" />
+          </Link>
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          aria-label="Seller menu"
+          aria-haspopup="true"
+          aria-expanded={open}
+          onClick={() => setOpen((value) => !value)}
+        >
+          <MoreHorizontal aria-hidden="true" />
+        </Button>
+      </ButtonGroup>
+      <div
+        inert={!open}
+        className={cn(
+          "absolute right-0 top-full z-10 pt-1 transition-opacity duration-150",
+          open ? "visible opacity-100" : "invisible opacity-0",
+        )}
+      >
+        <div className="min-w-32 rounded-md border border-subtle bg-popover p-1 text-popover-foreground shadow-lg">
+          <Link
+            href={sellerHref}
+            className="flex items-center rounded-sm px-2 py-1.5 text-sm hover:bg-muted"
+            onClick={() => setOpen(false)}
+          >
+            {sellerLabel}
+          </Link>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -63,16 +142,18 @@ export function NavBar() {
     return () => window.removeEventListener("keydown", onKey)
   }, [open])
 
-  const authLinks = session?.user
-    ? [
-        ...(session.user.role === "seller_owner"
-          ? [{ href: "/seller/dashboard", label: "Seller" }]
-          : []),
-        { href: "/account", label: "Account" },
-      ]
-    : [{ href: SIGN_IN_HREF, label: "Sign in" }]
+  const sellerLink =
+    session?.user?.role === "seller_owner" ? { href: "/seller/dashboard", label: "Seller" } : null
+
+  const accountLink = session?.user
+    ? { href: "/account", label: "Account" }
+    : { href: SIGN_IN_HREF, label: "Sign in" }
+
+  const mobileAuthLinks = [...(sellerLink ? [sellerLink] : []), accountLink]
 
   const desktopLinkClass = "text-sm text-muted-foreground hover:text-foreground"
+  const iconButtonClass =
+    "flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
 
   return (
     <nav className="sticky top-0 z-50 border-b border-subtle bg-card shadow-sm">
@@ -89,21 +170,21 @@ export function NavBar() {
             </Link>
           ))}
           <CartLink />
-          {authLinks.map((link) =>
-            link.href === SIGN_IN_HREF ? (
-              <Link
-                key={link.href}
-                href={link.href}
-                aria-label={link.label}
-                className="flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                <LogIn aria-hidden="true" className="size-5" />
-              </Link>
-            ) : (
-              <Link key={link.href} href={link.href} className={desktopLinkClass}>
-                {link.label}
-              </Link>
-            ),
+          {sellerLink ? (
+            <SellerAccountMenu
+              accountHref={accountLink.href}
+              accountLabel={accountLink.label}
+              sellerHref={sellerLink.href}
+              sellerLabel={sellerLink.label}
+            />
+          ) : (
+            <Link
+              href={accountLink.href}
+              aria-label={accountLink.label}
+              className={iconButtonClass}
+            >
+              <User aria-hidden="true" className="size-5" />
+            </Link>
           )}
           <ThemeToggle />
         </div>
@@ -120,24 +201,26 @@ export function NavBar() {
             aria-controls="mobile-menu"
             className="inline-flex items-center justify-center rounded-md p-2.5 text-muted-foreground hover:bg-muted hover:text-foreground"
           >
-            <svg
-              className="h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={1.5}
-              aria-hidden="true"
-            >
-              {open ? (
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-              ) : (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5"
-                />
-              )}
-            </svg>
+            <span className="relative flex h-6 w-6 items-center justify-center" aria-hidden="true">
+              <span
+                className={cn(
+                  "absolute h-0.5 w-4 rounded-full bg-current transition-transform duration-300 ease-spring motion-reduce:transition-none",
+                  open ? "translate-y-0 rotate-45" : "-translate-y-1.5 rotate-0",
+                )}
+              />
+              <span
+                className={cn(
+                  "absolute h-0.5 w-4 rounded-full bg-current transition-opacity duration-150 motion-reduce:transition-none",
+                  open ? "opacity-0" : "opacity-100",
+                )}
+              />
+              <span
+                className={cn(
+                  "absolute h-0.5 w-4 rounded-full bg-current transition-transform duration-300 ease-spring motion-reduce:transition-none",
+                  open ? "translate-y-0 -rotate-45" : "translate-y-1.5 rotate-0",
+                )}
+              />
+            </span>
           </button>
         </div>
       </div>
@@ -152,7 +235,7 @@ export function NavBar() {
         )}
       >
         <div className="flex flex-col gap-0.5 p-2">
-          {[...NAV_LINKS, ...authLinks].map((link) => (
+          {[...NAV_LINKS, ...mobileAuthLinks].map((link) => (
             <Link
               key={link.href}
               href={link.href}
