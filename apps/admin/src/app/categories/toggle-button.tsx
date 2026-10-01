@@ -2,7 +2,7 @@
 
 import { useTransition } from "react"
 
-import { Button } from "@/components/ui/button"
+import { Button } from "@bomy/ui/button"
 import { toggleCategory } from "./actions"
 
 export function ToggleButton({ id, isActive }: { id: string; isActive: boolean }) {

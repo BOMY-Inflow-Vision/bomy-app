@@ -4,7 +4,7 @@ import { useState } from "react"
 import { CircleCheck, CircleX, Clock, X } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
-import { Button } from "@/components/ui/button"
+import { Button } from "@bomy/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"

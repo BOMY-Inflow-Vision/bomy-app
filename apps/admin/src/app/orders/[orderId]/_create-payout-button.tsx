@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Wallet } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
-import { Button } from "@/components/ui/button"
+import { Button } from "@bomy/ui/button"
 import { humanizePayoutError } from "@/lib/payout-error-copy"
 import { createPayoutRecord } from "../../payouts/actions"
 

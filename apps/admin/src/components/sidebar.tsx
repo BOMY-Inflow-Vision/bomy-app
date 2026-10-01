@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation"
 import { LogOut } from "lucide-react"
 
 import { signOutAction } from "@/app/auth/actions"
-import { Button } from "@/components/ui/button"
+import { Button } from "@bomy/ui/button"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { cn } from "@/lib/utils"
 

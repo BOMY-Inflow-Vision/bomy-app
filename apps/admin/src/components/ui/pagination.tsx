@@ -2,7 +2,7 @@ import Link from "next/link"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { Button } from "@bomy/ui/button"
 
 const ELLIPSIS = "ellipsis" as const
 type PageItem = number | typeof ELLIPSIS
