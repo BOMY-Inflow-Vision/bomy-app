@@ -4,7 +4,7 @@ import { type FormEvent, useActionState, useEffect, useState, useTransition } fr
 import { Plus, X } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
-import { Button } from "@/components/ui/button"
+import { Button } from "@bomy/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"

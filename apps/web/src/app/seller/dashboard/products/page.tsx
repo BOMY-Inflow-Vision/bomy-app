@@ -3,7 +3,7 @@ import { redirect } from "next/navigation"
 import { Pencil, Plus } from "lucide-react"
 
 import { auth } from "@/auth"
-import { Button } from "@/components/ui/button"
+import { Button } from "@bomy/ui/button"
 import { cn } from "@/lib/utils"
 import { getSellerProducts } from "./actions"
 

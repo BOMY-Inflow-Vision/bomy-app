@@ -8,7 +8,7 @@ import { ArrowLeft, Eye, RefreshCw } from "lucide-react"
 import type { CheckoutSessionStatus } from "@bomy/db"
 
 import { useToast } from "@/components/toaster"
-import { Button } from "@/components/ui/button"
+import { Button } from "@bomy/ui/button"
 import { Stepper } from "@/components/ui/stepper"
 import { useCart } from "@/lib/cart"
 

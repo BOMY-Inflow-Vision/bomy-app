@@ -7,7 +7,7 @@ import { schema, withTenant } from "@bomy/db"
 
 import { auth } from "@/auth"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Button } from "@bomy/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { getDb } from "@/lib/db"
 import { AccountTabs } from "../account-tabs"

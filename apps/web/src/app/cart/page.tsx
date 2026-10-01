@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { CreditCard, Minus, Plus, Search, Trash2 } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
+import { Button } from "@bomy/ui/button"
 import { useToast } from "@/components/toaster"
 import { formatMyrSen } from "@/lib/format"
 import { useCart, type CartItem } from "@/lib/cart"

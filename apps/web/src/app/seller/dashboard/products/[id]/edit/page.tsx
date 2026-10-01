@@ -3,7 +3,7 @@ import { ArrowLeft } from "lucide-react"
 
 import { auth } from "@/auth"
 import { BodyEditor } from "@/components/body-editor"
-import { Button } from "@/components/ui/button"
+import { Button } from "@bomy/ui/button"
 import { getBodyImageUploadUrl, getProductForEdit, saveProductBody } from "../../actions"
 import { ImageManager } from "./image-manager"
 import { ProductEditForm } from "./product-edit-form"

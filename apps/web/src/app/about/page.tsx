@@ -3,7 +3,7 @@ import Link from "next/link"
 import React from "react"
 import { Search, Store } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
+import { Button } from "@bomy/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 
 export const metadata: Metadata = {

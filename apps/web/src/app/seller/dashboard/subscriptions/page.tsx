@@ -3,7 +3,7 @@ import { redirect } from "next/navigation"
 import { Pencil, X } from "lucide-react"
 
 import { auth } from "@/auth"
-import { Button } from "@/components/ui/button"
+import { Button } from "@bomy/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { CreatePlanForm } from "./create-plan-form"
 import { EditPlanForm } from "./edit-plan-form"

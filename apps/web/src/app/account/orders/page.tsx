@@ -3,7 +3,7 @@ import { Eye } from "lucide-react"
 
 import { auth } from "@/auth"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Button } from "@bomy/ui/button"
 import { senToMyr } from "@/lib/money"
 
 import { AccountTabs } from "../account-tabs"

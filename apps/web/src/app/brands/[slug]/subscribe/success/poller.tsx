@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Eye, RefreshCw, RotateCcw } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
+import { Button } from "@bomy/ui/button"
 
 import { abandonPendingBrandSubscription } from "../actions"
 

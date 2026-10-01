@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
-import { Button } from "@/components/ui/button"
+import { Button } from "@bomy/ui/button"
 
 import { cancelPendingCheckout } from "../actions"
 
