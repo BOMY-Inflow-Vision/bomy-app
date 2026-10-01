@@ -253,6 +253,9 @@ importers:
       '@bomy/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@bomy/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       '@dnd-kit/core':
         specifier: ^6.3.1
         version: 6.3.1(react-dom@19.2.5(react@19.2.5))(react@19.2.5)

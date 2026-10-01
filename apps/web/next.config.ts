@@ -34,7 +34,7 @@ const config: NextConfig = {
   // `.js → .ts` extensionAlias mapping. The dev script in package.json
   // uses plain `next dev` (webpack) for that reason. Revisit once
   // Turbopack ships an equivalent.
-  transpilePackages: ["@bomy/db", "@bomy/mailer", "@bomy/hitpay", "@bomy/shared"],
+  transpilePackages: ["@bomy/db", "@bomy/mailer", "@bomy/hitpay", "@bomy/shared", "@bomy/ui"],
   webpack: (webpackConfig: unknown): unknown => {
     const cfg = webpackConfig as WebpackConfigLike
     const resolve: WebpackResolveLike = cfg.resolve ?? {}
