@@ -3,7 +3,7 @@ import { Search, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Button } from "@bomy/ui/button"
 
 import { getBrands, getStoreCategories } from "./queries"
 

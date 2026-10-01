@@ -9,7 +9,7 @@ import { schema, withAdmin, type InquiryStatus } from "@bomy/db"
 import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Button } from "@bomy/ui/button"
 import { ApproveForm } from "./approve-form"
 
 const STATUS_COLORS: Record<InquiryStatus, string> = {

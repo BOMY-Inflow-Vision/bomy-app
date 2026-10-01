@@ -5,7 +5,7 @@ import Link from "next/link"
 import { ArrowLeft, RefreshCw } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
-import { Button } from "@/components/ui/button"
+import { Button } from "@bomy/ui/button"
 
 // Catches unexpected errors from any admin page, including Server Action failures thrown inside a
 // client transition, so the admin gets a toast and a way to recover instead of a blank crash.

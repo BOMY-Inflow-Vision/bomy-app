@@ -2,7 +2,7 @@ import React from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vitest"
 
-import { Button } from "@/components/ui/button"
+import { Button } from "@bomy/ui/button"
 
 function Icon() {
   return <svg data-testid="icon" />
@@ -22,7 +22,7 @@ describe("Button", () => {
     expect(html).toContain("rounded-full")
     expect(html).toContain('data-testid="icon"')
     expect(html).toContain("lucide-arrow-right")
-    expect(html).toContain("<span>Save</span>")
+    expect(html).toContain('<span class="shrink-0 whitespace-nowrap">Save</span>')
   })
 
   it("keeps the icon and pill but drops the arrow when arrowOnHover is false", () => {
@@ -45,7 +45,7 @@ describe("Button", () => {
     )
     expect(html).toMatch(/^<a[^>]*href="\/products"/)
     expect(html).toMatch(/^<a[^>]*class="[^"]*group\/slide/)
-    expect(html).toContain("<span>Browse products</span>")
+    expect(html).toContain('<span class="shrink-0 whitespace-nowrap">Browse products</span>')
     expect(html).toContain("lucide-arrow-right")
   })
 

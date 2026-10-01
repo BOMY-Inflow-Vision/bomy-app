@@ -9,7 +9,7 @@ import { senToMyr } from "@/lib/money"
 import { pageCount, pageOffset, parsePage, PAGE_SIZE } from "@/lib/pagination"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Button } from "@bomy/ui/button"
 import { Card } from "@/components/ui/card"
 import { Pagination } from "@/components/ui/pagination"
 

@@ -3,7 +3,7 @@
 import { useFormStatus } from "react-dom"
 import { LogOut } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
+import { Button } from "@bomy/ui/button"
 
 import { signOutAction } from "./actions"
 

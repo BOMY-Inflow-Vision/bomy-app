@@ -2,7 +2,7 @@ import React from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vitest"
 
-import { Button } from "@/components/ui/button"
+import { Button } from "@bomy/ui/button"
 
 describe("Button reward variant", () => {
   it("renders with the reward background/foreground classes", () => {

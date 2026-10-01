@@ -4,8 +4,13 @@ import { fontFamily } from "tailwindcss/defaultTheme"
 
 const config: Config = {
   darkMode: ["class"],
-  content: ["./src/**/*.{ts,tsx}"],
+  content: ["./src/**/*.{ts,tsx}", "../../packages/ui/src/**/*.{ts,tsx}"],
   theme: {
+    container: {
+      center: true,
+      padding: "2rem",
+      screens: { "2xl": "1400px" },
+    },
     extend: {
       colors: {
         border: "hsl(var(--border))",
@@ -33,6 +38,10 @@ const config: Config = {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
         },
+        popover: {
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))",
+        },
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
@@ -41,6 +50,7 @@ const config: Config = {
           DEFAULT: "hsl(var(--reward))",
           foreground: "hsl(var(--reward-foreground))",
         },
+        subtle: "hsl(var(--border-subtle))",
       },
       borderRadius: {
         lg: "var(--radius)",

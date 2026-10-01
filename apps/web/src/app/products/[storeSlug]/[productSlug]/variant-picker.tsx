@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Check, ShoppingCart } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { Button } from "@bomy/ui/button"
 import { useToast } from "@/components/toaster"
 import type { CartItem } from "@/lib/cart"
 import { useCart } from "@/lib/cart"

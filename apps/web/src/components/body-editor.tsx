@@ -46,7 +46,7 @@ import { extractYoutubeVideoId } from "@bomy/shared/youtube"
 import { RefreshCw, Save } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
-import { Button } from "@/components/ui/button"
+import { Button } from "@bomy/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { YoutubeEmbedExtension } from "./youtube-embed-extension"

@@ -21,7 +21,7 @@ import { CSS } from "@dnd-kit/utilities"
 import { Archive, CircleMinus, CirclePlus, GripVertical, Pencil, Plus, Save, X } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
-import { Button } from "@/components/ui/button"
+import { Button } from "@bomy/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"

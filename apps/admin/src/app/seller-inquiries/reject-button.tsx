@@ -4,7 +4,7 @@ import { useState, useTransition } from "react"
 import { CircleX } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
-import { Button } from "@/components/ui/button"
+import { Button } from "@bomy/ui/button"
 import { rejectInquiry } from "./actions"
 
 export function RejectButton({ inquiryId }: { inquiryId: string }) {

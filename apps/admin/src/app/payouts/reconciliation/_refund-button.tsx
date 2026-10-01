@@ -4,7 +4,7 @@ import { useState, useTransition } from "react"
 import { Undo2 } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
-import { Button } from "@/components/ui/button"
+import { Button } from "@bomy/ui/button"
 import { humanizePayoutError } from "@/lib/payout-error-copy"
 import { refundDuplicateCharge } from "./actions"
 

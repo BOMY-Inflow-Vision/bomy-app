@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Ban, CircleCheck } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
-import { Button } from "@/components/ui/button"
+import { Button } from "@bomy/ui/button"
 
 import { acceptConsent, declineConsent } from "./actions"
 

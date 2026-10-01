@@ -1,7 +1,7 @@
 import { LogIn } from "lucide-react"
 
 import { signIn } from "@/auth"
-import { Button } from "@/components/ui/button"
+import { Button } from "@bomy/ui/button"
 import { ToastOnMount } from "@/components/toast-on-mount"
 import { authErrorMessage } from "@/lib/auth-error-messages"
 

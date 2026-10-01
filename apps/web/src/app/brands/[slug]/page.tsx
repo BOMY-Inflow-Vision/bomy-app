@@ -6,7 +6,7 @@ import { CreditCard, Eye } from "lucide-react"
 import { auth } from "@/auth"
 import { BodyRenderer } from "@/components/body-renderer"
 import { AvatarGroup } from "@/components/ui/avatar-group"
-import { Button } from "@/components/ui/button"
+import { Button } from "@bomy/ui/button"
 import { VideoEmbed } from "@/components/video-embed"
 
 import { getBrandSubscriberAvatars, getStorePage } from "./queries"

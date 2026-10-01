@@ -7,7 +7,7 @@ import { schema, withAdmin } from "@bomy/db"
 import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Button } from "@bomy/ui/button"
 import { Card } from "@/components/ui/card"
 
 import { ResolveForm } from "./_resolve-form"

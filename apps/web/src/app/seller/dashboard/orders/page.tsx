@@ -5,7 +5,7 @@ import { Eye } from "lucide-react"
 import { makeDb, schema, withTenant } from "@bomy/db"
 
 import { auth } from "@/auth"
-import { Button } from "@/components/ui/button"
+import { Button } from "@bomy/ui/button"
 import { senToMyr } from "@/lib/money"
 import { cn } from "@/lib/utils"
 

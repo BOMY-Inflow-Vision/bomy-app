@@ -8,7 +8,7 @@ import { getDb } from "@/lib/db"
 import { isPendingAbandoned } from "@/lib/membership"
 import { paymentsEnabled } from "@/lib/payments-enabled"
 import { SubmitButton } from "@/components/submit-button"
-import { Button } from "@/components/ui/button"
+import { Button } from "@bomy/ui/button"
 import { CreditCard, LogIn } from "lucide-react"
 import { getStorePlans, subscribeToBrand } from "./actions"
 
