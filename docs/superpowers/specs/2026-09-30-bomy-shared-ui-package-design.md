@@ -65,7 +65,10 @@ packages/ui/
 └── tsconfig.json
 ```
 
-`package.json` (shape matches `packages/shared`):
+`package.json` (shape matches `packages/shared`). This is PR 1's actual shipped shape — it exports
+only `button` (and the `lib/utils` entry components import internally); `button-group` is not part
+of PR 1 and stays out of this file's `exports` until whichever future PR actually moves it into
+`@bomy/ui`:
 
 ```json
 {
@@ -75,22 +78,21 @@ packages/ui/
   "type": "module",
   "exports": {
     "./lib/utils": "./src/lib/utils.ts",
-    "./button": "./src/components/button.tsx",
-    "./button-group": "./src/components/button-group.tsx"
+    "./button": "./src/components/button.tsx"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.1.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "tailwind-merge": "^2.5.5"
+    "lucide-react": "^0.511.0",
+    "tailwind-merge": "^3.3.0"
   },
   "peerDependencies": {
     "react": "^19.0.0"
   },
   "devDependencies": {
     "@bomy/config": "workspace:*",
-    "@types/react": "^19.0.0",
-    "lucide-react": "^0.468.0",
+    "@types/react": "^19.1.0",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.32.1"
   }
@@ -98,8 +100,9 @@ packages/ui/
 ```
 
 (exact dependency versions confirmed against each app's own `package.json` at implementation time,
-not guessed here — `lucide-react` moves to a `peerDependency` once an icon-using component like
-`Button` needs it.)
+not guessed here. `lucide-react` is a real `dependency`, not a `peerDependency` or
+`devDependency` — `Button` renders its `ArrowRight` icon at runtime, so the package that ships
+`Button` must declare it as code it actually runs.)
 
 `tsconfig.json` (shape matches `packages/shared`, plus JSX since components live here now):
 
@@ -119,9 +122,10 @@ not guessed here — `lucide-react` moves to a `peerDependency` once an icon-usi
 }
 ```
 
-Inside `packages/ui`, components import `cn` via a **relative path** (`../lib/utils`), not an
-`@/*` alias — the package has no alias configuration of its own, keeping it simple and avoiding a
-second alias convention to maintain.
+Inside `packages/ui`, components import `cn` via a **relative path with a `.js` specifier**
+(`../lib/utils.js`, resolving to the `.ts` source — required under this package's `NodeNext`
+module resolution), not an `@/*` alias — the package has no alias configuration of its own,
+keeping it simple and avoiding a second alias convention to maintain.
 
 ## Required changes in both consuming apps (PR 1)
 

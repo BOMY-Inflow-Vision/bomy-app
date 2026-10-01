@@ -478,9 +478,8 @@ Follow the existing log-entry convention (see any recent file under `log/` for t
 what shipped, what was verified, and any follow-ups carried forward (PRs 2–5 of the
 shared-UI-package roadmap, per the spec).
 
-- [ ] **Step 2: Commit**
+- [ ] **Step 2: Do not commit**
 
-```bash
-git add log
-git commit -m "docs: log PR<N> — @bomy/ui package + Button migration"
-```
+`log/` is gitignored on purpose (`app/CLAUDE.md`: synced across machines via
+`bomy-export`/`bomy-import`, never committed). Just write the file to disk and leave it untracked
+— there is no `git add`/`git commit` step for this task.
