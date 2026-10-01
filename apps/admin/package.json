@@ -17,6 +17,7 @@
     "@bomy/hitpay": "workspace:*",
     "@bomy/mailer": "workspace:*",
     "@bomy/shared": "workspace:*",
+    "@bomy/ui": "workspace:*",
     "drizzle-orm": "^0.36.4",
     "@radix-ui/react-label": "^2.1.0",
     "@radix-ui/react-slot": "^1.1.0",

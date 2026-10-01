@@ -56,6 +56,9 @@ importers:
       '@bomy/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@bomy/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       '@radix-ui/react-label':
         specifier: ^2.1.0
         version: 2.1.11(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)

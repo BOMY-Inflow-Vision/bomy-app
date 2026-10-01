@@ -8,6 +8,8 @@
     --foreground: 231 49% 15%; /* navy-900 */
     --card: 0 0% 100%;
     --card-foreground: 231 49% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 231 49% 15%;
     --primary: 4 71% 43%; /* red-600 */
     --primary-foreground: 0 0% 100%;
     --secondary: 37 45% 94%; /* sand-100 */
@@ -31,16 +33,18 @@
     --radius-control: var(--radius);
     --radius-input: var(--radius);
     --radius-card: 0.75rem;
+    --border-subtle: 36 36% 89%; /* sand-200 */
   }
 
   /* Ported from docs/design-system/tokens/colors.css's .dark block — same semantic
-     mapping as web's globals.css, restricted to the tokens admin actually defines
-     (no --popover/--border-subtle here; select.tsx documents why). */
+     mapping (and values) as web's globals.css — one shared token set across both apps. */
   .dark {
     --background: 30 29% 7%; /* sand-950 */
     --foreground: 40 60% 98%; /* sand-50 */
     --card: 35 26% 9%; /* surface-card */
     --card-foreground: 40 60% 98%; /* sand-50 */
+    --popover: 32 21% 12%; /* surface-raised */
+    --popover-foreground: 40 60% 98%; /* sand-50 */
     --primary: 4 64% 51%; /* red-500 */
     --primary-foreground: 0 0% 100%;
     --secondary: 32 21% 12%; /* surface-raised */
@@ -56,6 +60,7 @@
     --ring: 4 70% 62%; /* focus-ring (red-400) */
     --reward: 45 100% 55%; /* gold-400, unchanged in dark */
     --reward-foreground: 45 100% 15%; /* gold-900, unchanged in dark */
+    --border-subtle: 32 23% 16%;
   }
 }
 
