@@ -5,7 +5,7 @@ import { MoreHorizontal, User } from "lucide-react"
 import { useSession } from "next-auth/react"
 import React, { useEffect, useRef, useState } from "react"
 
-import { Button } from "@/components/ui/button"
+import { Button } from "@bomy/ui/button"
 import { ButtonGroup } from "@/components/ui/button-group"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { useCart } from "@/lib/cart"
