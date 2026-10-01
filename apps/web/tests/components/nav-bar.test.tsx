@@ -40,6 +40,31 @@ describe("NavBar auth gating", () => {
     expect(html).toContain('href="/seller/dashboard"')
     expect(html).toContain('href="/account"')
   })
+
+  it("seller_owner: desktop row places Seller after the cart icon, nested under the account icon", () => {
+    const html = render({ user: { role: "seller_owner" } })
+    const desktopRow = html.slice(
+      html.indexOf("hidden items-center gap-4 md:flex"),
+      html.indexOf("flex items-center gap-1 md:hidden"),
+    )
+    const cartIdx = desktopRow.indexOf('href="/cart"')
+    const sellerIdx = desktopRow.indexOf('href="/seller/dashboard"')
+    expect(cartIdx).toBeGreaterThan(-1)
+    expect(sellerIdx).toBeGreaterThan(-1)
+    expect(cartIdx).toBeLessThan(sellerIdx)
+  })
+
+  it("seller_owner: the seller-menu trigger is a disclosure wired to its panel, buyer's isn't present", () => {
+    const sellerHtml = render({ user: { role: "seller_owner" } })
+    expect(sellerHtml).toContain('aria-controls="seller-menu-panel"')
+    expect(sellerHtml).toContain('id="seller-menu-panel"')
+    // Disclosure, not a menu — aria-haspopup would announce an ARIA menu this panel doesn't implement.
+    expect(sellerHtml).not.toContain("aria-haspopup")
+
+    const buyerHtml = render({ user: { role: "buyer" } })
+    expect(buyerHtml).not.toContain('aria-controls="seller-menu-panel"')
+    expect(buyerHtml).not.toContain('href="/seller/dashboard"')
+  })
 })
 
 describe("NavBar responsive structure", () => {
@@ -70,5 +95,10 @@ describe("NavBar responsive structure", () => {
   it("signed out: the sign-in link is an accessible icon button, not bare unlabeled text", () => {
     const html = render(null)
     expect(html).toContain('aria-label="Sign in"')
+  })
+
+  it("signed in: Account is an accessible icon button, not bare unlabeled text", () => {
+    const html = render({ user: { role: "buyer" } })
+    expect(html).toContain('aria-label="Account"')
   })
 })
