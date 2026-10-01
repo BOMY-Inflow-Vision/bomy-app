@@ -46,7 +46,7 @@ function CartLink() {
       {hydrated && itemCount > 0 && (
         <span
           key={itemCount}
-          className="absolute -right-2 -top-2 flex h-4 w-4 animate-avatar-pop-in items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground motion-reduce:animate-none"
+          className="absolute -right-2 -top-2 flex h-4 w-4 animate-badge-pop items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground motion-reduce:animate-none"
         >
           {itemCount > 99 ? "99+" : itemCount}
         </span>
@@ -69,11 +69,17 @@ function SellerAccountMenu({
 }) {
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (!open) return
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false)
+      if (e.key === "Escape") {
+        setOpen(false)
+        // Disclosure pattern: Escape returns focus to the trigger, since the link that
+        // may currently hold focus is about to become inert.
+        triggerRef.current?.focus()
+      }
     }
     function onPointerDown(e: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
@@ -97,18 +103,20 @@ function SellerAccountMenu({
           </Link>
         </Button>
         <Button
+          ref={triggerRef}
           type="button"
           variant="outline"
           size="icon"
           aria-label="Seller menu"
-          aria-haspopup="true"
           aria-expanded={open}
+          aria-controls="seller-menu-panel"
           onClick={() => setOpen((value) => !value)}
         >
           <MoreHorizontal aria-hidden="true" />
         </Button>
       </ButtonGroup>
       <div
+        id="seller-menu-panel"
         inert={!open}
         className={cn(
           "absolute right-0 top-full z-10 pt-1 transition-opacity duration-150",

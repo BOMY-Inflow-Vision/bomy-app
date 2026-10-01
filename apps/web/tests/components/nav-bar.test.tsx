@@ -54,12 +54,15 @@ describe("NavBar auth gating", () => {
     expect(cartIdx).toBeLessThan(sellerIdx)
   })
 
-  it("seller_owner: the account icon signals a hoverable menu, buyer's doesn't", () => {
+  it("seller_owner: the seller-menu trigger is a disclosure wired to its panel, buyer's isn't present", () => {
     const sellerHtml = render({ user: { role: "seller_owner" } })
-    expect(sellerHtml).toContain('aria-haspopup="true"')
+    expect(sellerHtml).toContain('aria-controls="seller-menu-panel"')
+    expect(sellerHtml).toContain('id="seller-menu-panel"')
+    // Disclosure, not a menu — aria-haspopup would announce an ARIA menu this panel doesn't implement.
+    expect(sellerHtml).not.toContain("aria-haspopup")
 
     const buyerHtml = render({ user: { role: "buyer" } })
-    expect(buyerHtml).not.toContain('aria-haspopup="true"')
+    expect(buyerHtml).not.toContain('aria-controls="seller-menu-panel"')
     expect(buyerHtml).not.toContain('href="/seller/dashboard"')
   })
 })
