@@ -26,8 +26,8 @@ import {
 
 import { extractYoutubeVideoId } from "@bomy/shared/youtube"
 
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Input } from "@bomy/ui/input"
+import { Label } from "@bomy/ui/label"
 import { StaticImageNode } from "./static-image-node"
 import { YoutubeEmbedExtension } from "./youtube-embed-extension"
 

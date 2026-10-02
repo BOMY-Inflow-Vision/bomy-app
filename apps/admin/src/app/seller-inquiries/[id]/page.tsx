@@ -8,7 +8,7 @@ import { schema, withAdmin, type InquiryStatus } from "@bomy/db"
 
 import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
-import { Badge } from "@/components/ui/badge"
+import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
 import { ApproveForm } from "./approve-form"
 

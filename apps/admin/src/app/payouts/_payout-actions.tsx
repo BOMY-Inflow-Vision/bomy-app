@@ -5,9 +5,9 @@ import { CircleCheck, CircleX, Clock, X } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@bomy/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@bomy/ui/input"
+import { Label } from "@bomy/ui/label"
+import { Textarea } from "@bomy/ui/textarea"
 import { humanizePayoutError } from "@/lib/payout-error-copy"
 import { markPayoutCompleted, markPayoutFailed, markPayoutProcessing } from "./actions"
 

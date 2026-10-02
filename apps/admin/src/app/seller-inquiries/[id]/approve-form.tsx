@@ -5,8 +5,8 @@ import { CircleCheck, CircleX } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@bomy/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Input } from "@bomy/ui/input"
+import { Label } from "@bomy/ui/label"
 import { BrandStoryField } from "@/components/brand-story-field"
 import { approveInquiry, rejectInquiry } from "../actions"
 

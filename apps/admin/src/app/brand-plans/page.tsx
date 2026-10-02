@@ -8,7 +8,7 @@ import { getDb } from "@/lib/db"
 import { pageCount, pageOffset, parsePage, PAGE_SIZE } from "@/lib/pagination"
 import { cn } from "@/lib/utils"
 import { Button } from "@bomy/ui/button"
-import { Card } from "@/components/ui/card"
+import { Card } from "@bomy/ui/card"
 import { Pagination } from "@/components/ui/pagination"
 import { togglePlanActive } from "./actions"
 

@@ -7,8 +7,8 @@ import { Plus, X } from "lucide-react"
 import { extractYoutubeVideoId } from "@bomy/shared/youtube"
 
 import { Button } from "@bomy/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Input } from "@bomy/ui/input"
+import { Label } from "@bomy/ui/label"
 import { BrandStoryField } from "@/components/brand-story-field"
 
 const BRAND_STORY_MIN_CHARS = 20

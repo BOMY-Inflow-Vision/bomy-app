@@ -3,9 +3,9 @@
 import { type FormEvent, useActionState, useEffect, useTransition } from "react"
 
 import { useToast } from "@/components/toaster"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@bomy/ui/input"
+import { Label } from "@bomy/ui/label"
+import { Textarea } from "@bomy/ui/textarea"
 import { createStore, type CreateStoreResult } from "../actions"
 import { StoreProvisioningFields } from "./store-provisioning-fields"
 
