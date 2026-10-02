@@ -6,8 +6,8 @@ import { CircleCheck } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@bomy/ui/button"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@bomy/ui/label"
+import { Textarea } from "@bomy/ui/textarea"
 import { resolvePaymentReview } from "./actions"
 
 export function ResolveForm({ sessionId }: { sessionId: string }) {

@@ -4,7 +4,7 @@ import { schema, withAdmin } from "@bomy/db"
 
 import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
-import { Card } from "@/components/ui/card"
+import { Card } from "@bomy/ui/card"
 import { CategoryRow } from "./category-row"
 import { NewCategoryForm } from "./new-category-form"
 

@@ -22,7 +22,7 @@ import { GripVertical, Upload } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@bomy/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent } from "@bomy/ui/card"
 import { createSerializedRunner } from "@/lib/serialized-runner"
 import { cn } from "@/lib/utils"
 

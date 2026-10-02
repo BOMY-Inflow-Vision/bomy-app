@@ -2,7 +2,7 @@ import { redirect } from "next/navigation"
 import { Eye } from "lucide-react"
 
 import { auth } from "@/auth"
-import { Badge } from "@/components/ui/badge"
+import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
 import { senToMyr } from "@/lib/money"
 

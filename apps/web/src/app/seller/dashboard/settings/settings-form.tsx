@@ -6,10 +6,10 @@ import { Save } from "lucide-react"
 import { useToast } from "@/components/toaster"
 import { BodyEditor } from "@/components/body-editor"
 import { Button } from "@bomy/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
+import { Card, CardContent } from "@bomy/ui/card"
+import { Input } from "@bomy/ui/input"
+import { Label } from "@bomy/ui/label"
+import { Textarea } from "@bomy/ui/textarea"
 
 import {
   updateStoreCategories,

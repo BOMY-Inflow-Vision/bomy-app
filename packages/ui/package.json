@@ -5,9 +5,15 @@
   "type": "module",
   "exports": {
     "./lib/utils": "./src/lib/utils.ts",
-    "./button": "./src/components/button.tsx"
+    "./button": "./src/components/button.tsx",
+    "./badge": "./src/components/badge.tsx",
+    "./card": "./src/components/card.tsx",
+    "./input": "./src/components/input.tsx",
+    "./label": "./src/components/label.tsx",
+    "./textarea": "./src/components/textarea.tsx"
   },
   "dependencies": {
+    "@radix-ui/react-label": "^2.1.0",
     "@radix-ui/react-slot": "^1.1.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

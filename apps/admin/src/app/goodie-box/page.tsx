@@ -9,7 +9,7 @@ import { getDb } from "@/lib/db"
 import { pageCount, pageOffset, parsePage, PAGE_SIZE } from "@/lib/pagination"
 import { cn } from "@/lib/utils"
 import { Button } from "@bomy/ui/button"
-import { Input } from "@/components/ui/input"
+import { Input } from "@bomy/ui/input"
 import { Pagination } from "@/components/ui/pagination"
 import { markDispatched } from "./actions"
 

@@ -7,10 +7,10 @@ import { schema, withAdmin } from "@bomy/db"
 import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { pageCount, pageOffset, parsePage, PAGE_SIZE } from "@/lib/pagination"
-import { Badge } from "@/components/ui/badge"
+import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
-import { Card } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
+import { Card } from "@bomy/ui/card"
+import { Input } from "@bomy/ui/input"
 import { Pagination } from "@/components/ui/pagination"
 
 export default async function ProductsPage({

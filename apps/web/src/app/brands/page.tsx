@@ -2,7 +2,7 @@ import Link from "next/link"
 import { Search, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { Badge } from "@/components/ui/badge"
+import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
 
 import { getBrands, getStoreCategories } from "./queries"

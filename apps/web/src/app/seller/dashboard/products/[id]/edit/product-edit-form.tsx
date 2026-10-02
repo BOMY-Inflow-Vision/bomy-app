@@ -22,11 +22,11 @@ import { Archive, CircleMinus, CirclePlus, GripVertical, Pencil, Plus, Save, X }
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@bomy/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Card, CardContent } from "@bomy/ui/card"
+import { Input } from "@bomy/ui/input"
+import { Label } from "@bomy/ui/label"
 import { Select } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
+import { Textarea } from "@bomy/ui/textarea"
 import { cn } from "@/lib/utils"
 import { createSerializedRunner } from "@/lib/serialized-runner"
 
