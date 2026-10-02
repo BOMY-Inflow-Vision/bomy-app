@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { Eye, RefreshCw, RotateCcw } from "lucide-react"
 
 import { Button } from "@bomy/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent } from "@bomy/ui/card"
 import { abandonPendingMembership } from "../actions"
 
 interface Props {

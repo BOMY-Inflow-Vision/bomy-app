@@ -47,8 +47,8 @@ import { RefreshCw, Save } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@bomy/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Input } from "@bomy/ui/input"
+import { Label } from "@bomy/ui/label"
 import { YoutubeEmbedExtension } from "./youtube-embed-extension"
 import { ImageUploadExtension } from "./image-upload-extension"
 

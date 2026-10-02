@@ -5,9 +5,9 @@ import { Check, Pencil, Plus, Save, Trash2, X } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@bomy/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Card, CardContent } from "@bomy/ui/card"
+import { Input } from "@bomy/ui/input"
+import { Label } from "@bomy/ui/label"
 import { Select } from "@/components/ui/select"
 import { MY_STATES } from "@/lib/shipping-address-schema"
 

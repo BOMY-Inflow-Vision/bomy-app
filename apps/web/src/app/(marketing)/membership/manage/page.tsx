@@ -7,8 +7,8 @@ import { schema, withTenant } from "@bomy/db"
 import { auth } from "@/auth"
 import { getDb } from "@/lib/db"
 import { SubmitButton } from "@/components/submit-button"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@bomy/ui/badge"
+import { Card, CardContent } from "@bomy/ui/card"
 import { cancelMembership } from "../actions"
 
 function formatDate(d: Date): string {

@@ -4,7 +4,7 @@ import { Pencil, X } from "lucide-react"
 
 import { auth } from "@/auth"
 import { Button } from "@bomy/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent } from "@bomy/ui/card"
 import { CreatePlanForm } from "./create-plan-form"
 import { EditPlanForm } from "./edit-plan-form"
 import { getSellerPlansData } from "./actions"

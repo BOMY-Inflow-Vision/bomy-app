@@ -11,7 +11,7 @@ import { isPendingAbandoned } from "@/lib/membership"
 import { paymentsEnabled } from "@/lib/payments-enabled"
 import { SubmitButton } from "@/components/submit-button"
 import { Button } from "@bomy/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent } from "@bomy/ui/card"
 import { joinMembership } from "./actions"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001" as const

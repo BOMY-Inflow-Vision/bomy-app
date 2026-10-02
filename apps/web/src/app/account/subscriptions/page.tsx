@@ -6,9 +6,9 @@ import { RefreshCw } from "lucide-react"
 import { schema, withTenant } from "@bomy/db"
 
 import { auth } from "@/auth"
-import { Badge } from "@/components/ui/badge"
+import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent } from "@bomy/ui/card"
 import { getDb } from "@/lib/db"
 import { AccountTabs } from "../account-tabs"
 
