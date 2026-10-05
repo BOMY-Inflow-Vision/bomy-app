@@ -347,6 +347,7 @@ function InsertTableButton({ editor }: { editor: Editor | null }) {
   const [cols, setCols] = useState(3)
   // Radix returns focus to the trigger on close; after a SUCCESSFUL insert it must stay in the editor.
   const insertedRef = useRef(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
 
   function handleInsert() {
     const opts = { rows, cols, withHeaderRow: true }
@@ -374,6 +375,7 @@ function InsertTableButton({ editor }: { editor: Editor | null }) {
     >
       <PopoverTrigger asChild>
         <button
+          ref={triggerRef}
           type="button"
           aria-label="Insert table"
           title="Insert table"
@@ -392,9 +394,10 @@ function InsertTableButton({ editor }: { editor: Editor | null }) {
           }
         }}
         onKeyDown={(e) => {
-          // The panel is portaled to the end of <body>, so Tab off its last control (or
-          // Shift+Tab off its first) would leave the page and strand the panel open.
-          // Close it instead; Radix then returns focus to the toolbar button.
+          // Deliberate choice: Tab off the last control (or Shift+Tab off the first) closes the
+          // panel and returns focus to the toolbar button. Radix's FocusScope would otherwise
+          // loop focus to the opposite edge, so move focus to the trigger first (its edge check
+          // then no longer matches and does nothing).
           if (e.key !== "Tab") return
           const items = Array.from(
             e.currentTarget.querySelectorAll<HTMLElement>("input, button:not([disabled])"),
@@ -402,6 +405,7 @@ function InsertTableButton({ editor }: { editor: Editor | null }) {
           const edge = e.shiftKey ? items[0] : items[items.length - 1]
           if (document.activeElement === edge) {
             e.preventDefault()
+            triggerRef.current?.focus()
             setOpen(false)
           }
         }}
