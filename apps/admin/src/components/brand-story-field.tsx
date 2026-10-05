@@ -386,6 +386,7 @@ function InsertTableButton({ editor }: { editor: Editor | null }) {
       </PopoverTrigger>
       <PopoverContent
         align="start"
+        aria-label="Insert table"
         className="w-52 p-3"
         onCloseAutoFocus={(e) => {
           if (insertedRef.current) {
