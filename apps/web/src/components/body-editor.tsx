@@ -49,6 +49,7 @@ import { useToast } from "@/components/toaster"
 import { Button } from "@bomy/ui/button"
 import { Input } from "@bomy/ui/input"
 import { Label } from "@bomy/ui/label"
+import { Popover, PopoverContent, PopoverTrigger } from "@bomy/ui/popover"
 import { YoutubeEmbedExtension } from "./youtube-embed-extension"
 import { ImageUploadExtension } from "./image-upload-extension"
 
@@ -639,79 +640,113 @@ function InsertTableButton({ editor }: { editor: Editor | null }) {
   const [open, setOpen] = useState(false)
   const [rows, setRows] = useState(2)
   const [cols, setCols] = useState(3)
-  const ref = useRef<HTMLDivElement>(null)
+  // Radix returns focus to the trigger on close; after a SUCCESSFUL insert it must stay in the editor.
+  const insertedRef = useRef(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
 
-  useEffect(() => {
-    if (!open) return
-    function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+  function handleInsert() {
+    const opts = { rows, cols, withHeaderRow: true }
+    // Tiptap's chain().focus() moves focus into the editor BEFORE insertTable runs, so a failed
+    // insert cannot be undone afterwards: check first, and on failure close without touching the
+    // editor so Radix returns focus to the toolbar button.
+    if (!editor || !editor.can().insertTable(opts)) {
+      setOpen(false)
+      return
     }
-    document.addEventListener("mousedown", handler)
-    return () => document.removeEventListener("mousedown", handler)
-  }, [open])
+    insertedRef.current = true // set synchronously, before React processes the close
+    editor.chain().focus().insertTable(opts).run()
+    setOpen(false)
+  }
 
   return (
-    // flex + h-full on the button: this wrapping div is itself a toolbar flex item that
-    // stretches to the row's height, but its child button won't fill that height on its own
-    // (a lone min-h floor lets it sit shorter than the direct-child sibling buttons).
-    <div ref={ref} className="relative flex">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        // Reopening during the exit animation keeps the old content mounted, so
+        // onCloseAutoFocus never fires; clear a stale flag whenever the popover opens.
+        if (next) insertedRef.current = false
+        setOpen(next)
+      }}
+    >
+      <PopoverTrigger asChild>
+        <button
+          ref={triggerRef}
+          type="button"
+          aria-label="Insert table"
+          title="Insert table"
+          className="inline-flex h-full min-h-[44px] min-w-[44px] items-center justify-center rounded bg-background px-2 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring data-[state=open]:bg-accent data-[state=open]:text-accent-foreground"
+        >
+          <Table className="h-4 w-4" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
         aria-label="Insert table"
-        aria-expanded={open}
-        title="Insert table"
-        className={`inline-flex h-full min-h-[44px] min-w-[44px] items-center justify-center rounded px-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${open ? "bg-accent text-accent-foreground" : "bg-background text-foreground hover:bg-muted"}`}
+        className="w-52 p-3"
+        onCloseAutoFocus={(e) => {
+          if (insertedRef.current) {
+            e.preventDefault()
+            insertedRef.current = false
+          }
+        }}
+        onKeyDown={(e) => {
+          // Deliberate choice: Tab off the last control (or Shift+Tab off the first) closes the
+          // panel and returns focus to the toolbar button. Radix's FocusScope would otherwise
+          // loop focus to the opposite edge, so move focus to the trigger first (its edge check
+          // then no longer matches and does nothing).
+          if (e.key !== "Tab") return
+          const items = Array.from(
+            e.currentTarget.querySelectorAll<HTMLElement>("input, button:not([disabled])"),
+          )
+          const edge = e.shiftKey ? items[0] : items[items.length - 1]
+          if (document.activeElement === edge) {
+            e.preventDefault()
+            triggerRef.current?.focus()
+            setOpen(false)
+          }
+        }}
       >
-        <Table className="h-4 w-4" />
-      </button>
-
-      {open && (
-        <div className="absolute left-0 top-full z-20 mt-1 w-52 rounded-lg border border-border bg-background p-3 shadow-lg">
-          <p className="mb-2 text-xs font-semibold text-foreground">Insert table</p>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label htmlFor="table-rows" className="mb-0.5 block text-xs text-muted-foreground">
-                Rows
-              </Label>
-              <Input
-                id="table-rows"
-                type="number"
-                min={1}
-                max={20}
-                value={rows}
-                onChange={(e) => setRows(Math.min(20, Math.max(1, Number(e.target.value))))}
-                className="w-full text-sm"
-              />
-            </div>
-            <div>
-              <Label htmlFor="table-cols" className="mb-0.5 block text-xs text-muted-foreground">
-                Columns
-              </Label>
-              <Input
-                id="table-cols"
-                type="number"
-                min={1}
-                max={10}
-                value={cols}
-                onChange={(e) => setCols(Math.min(10, Math.max(1, Number(e.target.value))))}
-                className="w-full text-sm"
-              />
-            </div>
+        <p className="mb-2 text-xs font-semibold text-foreground">Insert table</p>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <Label htmlFor="table-rows" className="mb-0.5 block text-xs text-muted-foreground">
+              Rows
+            </Label>
+            <Input
+              id="table-rows"
+              type="number"
+              min={1}
+              max={20}
+              value={rows}
+              onChange={(e) => setRows(Math.min(20, Math.max(1, Number(e.target.value))))}
+              className="w-full text-sm"
+            />
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              editor?.chain().focus().insertTable({ rows, cols, withHeaderRow: true }).run()
-              setOpen(false)
-            }}
-            className="mt-2 w-full rounded bg-primary py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-          >
-            Insert {rows} × {cols} table
-          </button>
+          <div>
+            <Label htmlFor="table-cols" className="mb-0.5 block text-xs text-muted-foreground">
+              Columns
+            </Label>
+            <Input
+              id="table-cols"
+              type="number"
+              min={1}
+              max={10}
+              value={cols}
+              onChange={(e) => setCols(Math.min(10, Math.max(1, Number(e.target.value))))}
+              className="w-full text-sm"
+            />
+          </div>
         </div>
-      )}
-    </div>
+        <button
+          type="button"
+          disabled={!editor}
+          onClick={handleInsert}
+          className="mt-2 w-full rounded bg-primary py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Insert {rows} × {cols} table
+        </button>
+      </PopoverContent>
+    </Popover>
   )
 }
 

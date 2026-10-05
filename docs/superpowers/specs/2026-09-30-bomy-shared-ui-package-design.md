@@ -174,11 +174,13 @@ pattern as PR 1, without the token-alignment or scaffolding work (already done i
 - Per Bob's correction: **only the primitives move to `@bomy/ui`.** The feature components that
   use them stay local to their own app, rebuilt to consume the shared primitive instead of
   hand-rolled state:
-  - `apps/web/src/components/nav-bar.tsx` — the seller account menu
-  - `apps/web/.../body-editor.tsx` — the toolbar dropdown
-  - `apps/admin/.../brand-story-field.tsx` — the hint/preview popover
+  - `apps/web/src/components/nav-bar.tsx` — the seller account menu (→ `DropdownMenu`)
+  - `apps/web/src/components/body-editor.tsx` — `InsertTableButton` (→ `Popover`)
+  - `apps/admin/src/components/brand-story-field.tsx` — `InsertTableButton` (→ `Popover`)
     This matches the same "navigation and feature composition stay local" boundary as the mobile nav
     panel, which was never in scope to move.
+- No admin hint popover exists; the earlier "hint/preview popover" claim was wrong. Corrected
+  2026-10-02.
 
 ### PR 4 — Rebuild Select
 

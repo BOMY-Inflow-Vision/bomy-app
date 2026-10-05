@@ -3,9 +3,15 @@
 import Link from "next/link"
 import { MoreHorizontal, User } from "lucide-react"
 import { useSession } from "next-auth/react"
-import React, { useEffect, useRef, useState } from "react"
+import React, { useEffect, useState } from "react"
 
 import { Button } from "@bomy/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@bomy/ui/dropdown-menu"
 import { ButtonGroup } from "@/components/ui/button-group"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { useCart } from "@/lib/cart"
@@ -55,7 +61,7 @@ function CartLink() {
   )
 }
 
-/** Account icon (links to /account) joined with a "..." button that click-toggles the seller menu. */
+/** Account icon (links to /account) joined with a "..." button that opens the seller menu. */
 function SellerAccountMenu({
   accountHref,
   accountLabel,
@@ -67,73 +73,26 @@ function SellerAccountMenu({
   sellerHref: string
   sellerLabel: string
 }) {
-  const [open, setOpen] = useState(false)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const triggerRef = useRef<HTMLButtonElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        setOpen(false)
-        // Disclosure pattern: Escape returns focus to the trigger, since the link that
-        // may currently hold focus is about to become inert.
-        triggerRef.current?.focus()
-      }
-    }
-    function onPointerDown(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    window.addEventListener("keydown", onKey)
-    document.addEventListener("mousedown", onPointerDown)
-    return () => {
-      window.removeEventListener("keydown", onKey)
-      document.removeEventListener("mousedown", onPointerDown)
-    }
-  }, [open])
-
   return (
-    <div ref={containerRef} className="relative">
-      <ButtonGroup>
-        <Button variant="outline" size="icon" aria-label={accountLabel} asChild>
-          <Link href={accountHref}>
-            <User aria-hidden="true" />
-          </Link>
-        </Button>
-        <Button
-          ref={triggerRef}
-          type="button"
-          variant="outline"
-          size="icon"
-          aria-label="Seller menu"
-          aria-expanded={open}
-          aria-controls="seller-menu-panel"
-          onClick={() => setOpen((value) => !value)}
-        >
-          <MoreHorizontal aria-hidden="true" />
-        </Button>
-      </ButtonGroup>
-      <div
-        id="seller-menu-panel"
-        inert={!open}
-        className={cn(
-          "absolute right-0 top-full z-10 pt-1 transition-opacity duration-150",
-          open ? "visible opacity-100" : "invisible opacity-0",
-        )}
-      >
-        <div className="min-w-32 rounded-md border border-subtle bg-popover p-1 text-popover-foreground shadow-lg">
-          <Link
-            href={sellerHref}
-            className="flex items-center rounded-sm px-2 py-1.5 text-sm hover:bg-muted"
-            onClick={() => setOpen(false)}
-          >
-            {sellerLabel}
-          </Link>
-        </div>
-      </div>
-    </div>
+    <ButtonGroup>
+      <Button variant="outline" size="icon" aria-label={accountLabel} asChild>
+        <Link href={accountHref}>
+          <User aria-hidden="true" />
+        </Link>
+      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button type="button" variant="outline" size="icon" aria-label="Seller menu">
+            <MoreHorizontal aria-hidden="true" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="min-w-32">
+          <DropdownMenuItem asChild>
+            <Link href={sellerHref}>{sellerLabel}</Link>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </ButtonGroup>
   )
 }
 
