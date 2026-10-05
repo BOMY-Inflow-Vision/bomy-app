@@ -48,21 +48,21 @@ describe("NavBar auth gating", () => {
       html.indexOf("flex items-center gap-1 md:hidden"),
     )
     const cartIdx = desktopRow.indexOf('href="/cart"')
-    const sellerIdx = desktopRow.indexOf('href="/seller/dashboard"')
+    // The "Seller" link lives in the menu content, which is not rendered while the menu is closed.
+    const sellerMenuIdx = desktopRow.indexOf('aria-label="Seller menu"')
     expect(cartIdx).toBeGreaterThan(-1)
-    expect(sellerIdx).toBeGreaterThan(-1)
-    expect(cartIdx).toBeLessThan(sellerIdx)
+    expect(sellerMenuIdx).toBeGreaterThan(-1)
+    expect(cartIdx).toBeLessThan(sellerMenuIdx)
   })
 
-  it("seller_owner: the seller-menu trigger is a disclosure wired to its panel, buyer's isn't present", () => {
+  it("seller_owner: the seller-menu trigger is a real ARIA menu, buyer's isn't present", () => {
     const sellerHtml = render({ user: { role: "seller_owner" } })
-    expect(sellerHtml).toContain('aria-controls="seller-menu-panel"')
-    expect(sellerHtml).toContain('id="seller-menu-panel"')
-    // Disclosure, not a menu — aria-haspopup would announce an ARIA menu this panel doesn't implement.
-    expect(sellerHtml).not.toContain("aria-haspopup")
+    expect(sellerHtml).toContain('aria-label="Seller menu"')
+    expect(sellerHtml).toContain('aria-haspopup="menu"')
 
     const buyerHtml = render({ user: { role: "buyer" } })
-    expect(buyerHtml).not.toContain('aria-controls="seller-menu-panel"')
+    expect(buyerHtml).not.toContain('aria-label="Seller menu"')
+    expect(buyerHtml).not.toContain('aria-haspopup="menu"')
     expect(buyerHtml).not.toContain('href="/seller/dashboard"')
   })
 })
