@@ -589,6 +589,7 @@ function form(): HTMLFormElement {
 async function submit(f: HTMLFormElement = form()) {
   await act(async () => {
     f.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }))
+    await Promise.resolve()
   })
   await act(async () => {
     await new Promise((r) => setTimeout(r, 0))
@@ -711,6 +712,7 @@ describe("W11 AddressManager", () => {
     if (!add) throw new Error("no Add address button")
     await act(async () => {
       add.click()
+      await Promise.resolve()
     })
     expect(byId("addr-state").hasAttribute("data-placeholder")).toBe(true)
     await typeahead("addr-state", "Pah")
@@ -733,6 +735,8 @@ globalThis.ResizeObserver ??= class {
 ```
 
 If it still fails for a non-Select reason, remove only the W3/W4 `describe`, cover W3/W4 in the browser (Task 5), and say so in the PR.
+
+- [ ] **Step 1b: Vitest JSX transform (found while running Step 2; approved by Charlie, to be shown in Bob's diff review).** The first run failed all 8 tests with `ReferenceError: React is not defined`, which has nothing to do with Select: `apps/web/tsconfig.json` has `"jsx": "preserve"` (Next compiles JSX), so source forms such as `product-form.tsx`, `create-plan-form.tsx` and `address-manager.tsx` do not import React, and `apps/web/vitest.config.ts` set no JSX option, so esbuild used the classic transform. Fix at the source: add `esbuild: { jsx: "automatic" }` to `apps/web/vitest.config.ts` (with the two-line comment saying why). It applies to every web test; files that do import React are unaffected. After it, run the full web suite and report only the 2 DATABASE_URL files as not evaluated. Admin needs the same line in `apps/admin/vitest.config.ts` (Task 4 Step 0, on the PR 4b branch). Do not use a `globalThis.React` shim in the test file. Verified 2026-10-06: full web suite 269 passed, with only the 4 intended reds below and the 2 DATABASE_URL files failing.
 
 - [ ] **Step 2: Run them; they must FAIL against the old Select.** Run `pnpm --filter @bomy/web test tests/components/ui/select-forms.test.tsx --run`. Expected red: the typeahead cases fail (the old Select has no typeahead, so values do not change), and the `aria-required` / `data-placeholder` assertions may fail too. The "without interaction" cases may already pass, because the hidden input posts the same values; that is fine, since they pin parity. If a case fails for any other reason (e.g. a mock path is wrong), fix the test before migrating.
 
@@ -961,7 +965,7 @@ git branch --show-current                    # expected: feat/bomy-ui-package-pr
 git switch -c feat/bomy-ui-package-pr4b-admin
 ```
 
-Add `"jsdom": "^28.1.0"` to `devDependencies` in `apps/admin/package.json`, run `pnpm install`, then `grep -n "jsdom@" pnpm-lock.yaml | head -3` (expected: still `28.1.0`, no new download). Commit explicit paths: `git add apps/admin/package.json pnpm-lock.yaml`, message `chore(admin): add jsdom devDependency for Select form tests`. All of Task 4's remaining commits go on `feat/bomy-ui-package-pr4b-admin`; `feat/bomy-ui-package-pr4` stays at the Task 3 tip until Task 5 Step 6 decides what happens next.
+Add `"jsdom": "^28.1.0"` to `devDependencies` in `apps/admin/package.json`, run `pnpm install`, then `grep -n "jsdom@" pnpm-lock.yaml | head -3` (expected: still `28.1.0`, no new download). **Also add `esbuild: { jsx: "automatic" }` to `apps/admin/vitest.config.ts`** (same reason as Task 3 Step 1b; admin's tsconfig is also `"jsx": "preserve"`; confirm with `grep jsx apps/admin/tsconfig.json`), and run the full admin suite once to confirm nothing else changes. Commit explicit paths: `git add apps/admin/package.json apps/admin/vitest.config.ts pnpm-lock.yaml`, message `chore(admin): add jsdom devDependency and automatic JSX for Select form tests`. All of Task 4's remaining commits go on `feat/bomy-ui-package-pr4b-admin`; `feat/bomy-ui-package-pr4` stays at the Task 3 tip until Task 5 Step 6 decides what happens next.
 
 - [ ] **Step 1: Write the tests**
 
@@ -1044,6 +1048,7 @@ async function typeahead(id: string, text: string) {
 async function submit(f: HTMLFormElement) {
   await act(async () => {
     f.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }))
+    await Promise.resolve()
   })
   await act(async () => {
     await new Promise((r) => setTimeout(r, 0))
