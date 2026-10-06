@@ -8,7 +8,7 @@ import { Button } from "@bomy/ui/button"
 import { Card, CardContent } from "@bomy/ui/card"
 import { Input } from "@bomy/ui/input"
 import { Label } from "@bomy/ui/label"
-import { Select } from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@bomy/ui/select"
 import { MY_STATES } from "@/lib/shipping-address-schema"
 
 const STATE_OPTIONS = MY_STATES.map((s) => ({ value: s, label: s }))
@@ -267,14 +267,18 @@ export function AddressManager({ initial }: { initial: Row[] }) {
           />
           <div>
             <Label htmlFor="addr-state">State</Label>
-            <Select
-              id="addr-state"
-              value={form.state}
-              onValueChange={(v) => setForm((p) => ({ ...p, state: v }))}
-              placeholder="Select state…"
-              className="mt-1 w-full"
-              options={STATE_OPTIONS}
-            />
+            <Select value={form.state} onValueChange={(v) => setForm((p) => ({ ...p, state: v }))}>
+              <SelectTrigger id="addr-state" className="mt-1">
+                <SelectValue placeholder="Select state…" />
+              </SelectTrigger>
+              <SelectContent>
+                {STATE_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {errors.state && <p className="mt-1 text-xs text-destructive">{errors.state}</p>}
           </div>
           <div className="flex gap-2">

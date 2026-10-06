@@ -25,7 +25,7 @@ import { Button } from "@bomy/ui/button"
 import { Card, CardContent } from "@bomy/ui/card"
 import { Input } from "@bomy/ui/input"
 import { Label } from "@bomy/ui/label"
-import { Select } from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@bomy/ui/select"
 import { Textarea } from "@bomy/ui/textarea"
 import { cn } from "@/lib/utils"
 import { createSerializedRunner } from "@/lib/serialized-runner"
@@ -328,19 +328,19 @@ export function ProductEditForm({
                 >
                   Category
                 </Label>
-                <Select
-                  id="categoryId"
-                  name="categoryId"
-                  defaultValue={product.categoryId ?? ""}
-                  className="w-full"
-                  options={[
-                    { value: "", label: "No category" },
-                    ...categories.map((c) => ({
-                      value: c.id,
-                      label: `${c.name}${!c.isActive ? " (inactive)" : ""}`,
-                    })),
-                  ]}
-                />
+                <Select name="categoryId" defaultValue={product.categoryId ?? ""}>
+                  <SelectTrigger id="categoryId">
+                    <SelectValue placeholder="No category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">No category</SelectItem>
+                    {categories.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {`${c.name}${!c.isActive ? " (inactive)" : ""}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label
@@ -349,13 +349,18 @@ export function ProductEditForm({
                 >
                   Status
                 </Label>
-                <Select
-                  id="status"
-                  name="status"
-                  defaultValue={product.status}
-                  className="w-full"
-                  options={STATUS_OPTIONS}
-                />
+                <Select name="status" defaultValue={product.status}>
+                  <SelectTrigger id="status">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STATUS_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="col-span-2">
                 <Label

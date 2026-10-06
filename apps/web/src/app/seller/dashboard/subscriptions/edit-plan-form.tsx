@@ -7,7 +7,7 @@ import { useToast } from "@/components/toaster"
 import { Button } from "@bomy/ui/button"
 import { Input } from "@bomy/ui/input"
 import { Label } from "@bomy/ui/label"
-import { Select } from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@bomy/ui/select"
 
 import { updatePlan } from "./actions"
 
@@ -67,12 +67,18 @@ export function EditPlanForm({
         >
           Discount (%)
         </Label>
-        <Select
-          id={`discount_${planId}`}
-          name="discountPct"
-          defaultValue={String(defaultDiscountPct)}
-          options={DISCOUNT_OPTIONS}
-        />
+        <Select name="discountPct" defaultValue={String(defaultDiscountPct)}>
+          <SelectTrigger id={`discount_${planId}`} className="w-auto">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {DISCOUNT_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <div className="flex-1">
         <Label

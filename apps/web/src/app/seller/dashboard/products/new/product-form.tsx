@@ -8,7 +8,7 @@ import { Button } from "@bomy/ui/button"
 import { Card, CardContent } from "@bomy/ui/card"
 import { Input } from "@bomy/ui/input"
 import { Label } from "@bomy/ui/label"
-import { Select } from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@bomy/ui/select"
 import { Textarea } from "@bomy/ui/textarea"
 import { cn } from "@/lib/utils"
 
@@ -164,15 +164,19 @@ export function ProductForm({ categories }: { categories: Category[] }) {
               >
                 Category
               </Label>
-              <Select
-                id="categoryId"
-                name="categoryId"
-                className="w-full"
-                options={[
-                  { value: "", label: "No category" },
-                  ...categories.map((c) => ({ value: c.id, label: c.name })),
-                ]}
-              />
+              <Select name="categoryId">
+                <SelectTrigger id="categoryId">
+                  <SelectValue placeholder="No category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">No category</SelectItem>
+                  {categories.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label
@@ -181,13 +185,18 @@ export function ProductForm({ categories }: { categories: Category[] }) {
               >
                 Status
               </Label>
-              <Select
-                id="status"
-                name="status"
-                defaultValue="draft"
-                className="w-full"
-                options={STATUS_OPTIONS}
-              />
+              <Select name="status" defaultValue="draft">
+                <SelectTrigger id="status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUS_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="col-span-2">
               <Label
