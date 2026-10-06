@@ -48,7 +48,10 @@ export function CreatePlanForm({ availableTerms }: { availableTerms: number[] })
         >
           Term length
         </Label>
-        <Select name="termMonths">
+        {/* Keyed by the available terms: after a create, the used term leaves the list. Without
+            the key, Radix keeps the stale value, shows a blank trigger, and its hidden select
+            posts the first remaining option. The key remounts it to the placeholder and "". */}
+        <Select key={availableTerms.join(",")} name="termMonths">
           <SelectTrigger id="termMonths" aria-required="true" className="w-auto">
             <SelectValue placeholder="Select term" />
           </SelectTrigger>

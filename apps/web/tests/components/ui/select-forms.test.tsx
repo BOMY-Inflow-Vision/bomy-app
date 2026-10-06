@@ -205,6 +205,28 @@ describe("W5/W6 CreatePlanForm", () => {
     expect(fd.get("termMonths")).toBe("6")
     expect(fd.get("discountPct")).toBe("7")
   })
+
+  // After a successful create the page re-renders with the used term removed. The Select must
+  // reset to its placeholder and post "" (not the first remaining option, with a blank trigger).
+  it('resets the term to the placeholder and posts "" when the available terms change', async () => {
+    await render(<CreatePlanForm availableTerms={[3, 6, 12]} />)
+    await typeahead("termMonths", "3")
+    expect(byId("termMonths").textContent).toBe("3 months")
+    await render(<CreatePlanForm availableTerms={[6, 12]} />)
+    expect(byId("termMonths").textContent).toBe("Select term")
+    expect(byId("termMonths").hasAttribute("data-placeholder")).toBe(true)
+    await submit()
+    expect(sentFormData(actions.createPlan).get("termMonths")).toBe("")
+  })
+
+  it("keeps the chosen term when the available terms do not change (a failed create)", async () => {
+    await render(<CreatePlanForm availableTerms={[3, 6, 12]} />)
+    await typeahead("termMonths", "6")
+    await render(<CreatePlanForm availableTerms={[3, 6, 12]} />)
+    expect(byId("termMonths").textContent).toBe("6 months")
+    await submit()
+    expect(sentFormData(actions.createPlan).get("termMonths")).toBe("6")
+  })
 })
 
 describe("W7 EditPlanForm", () => {
