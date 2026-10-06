@@ -6,7 +6,7 @@
 
 **Architecture:** The primitive lives in `packages/ui` (shared). Every call site switches to shadcn's compositional API (`Select` / `SelectTrigger` / `SelectValue` / `SelectContent` / `SelectItem`) directly. There is no local options-based wrapper and no re-export shim (PR 1 convention; Open decision 1). The forms stay in their apps. Open/close animation reuses BOMY's `select-in`/`select-out` keyframes, as in PR 3.
 
-**Tech Stack:** React 19.2.5, Next.js 15, Tailwind 3.4, `@radix-ui/react-select` **2.3.7** (pinned `^2.3.7`, see Global Constraints), Vitest 2.1.9 with a per-file `jsdom` environment (new for these tests), Playwright 1.62.1 (browser tool only).
+**Tech Stack:** React 19.2.5, Next.js 15, Tailwind 3.4, `@radix-ui/react-select` (range `^2.3.7`, see Global Constraints; **analysed on 2.3.7, installed 2.3.8**, see the Version note in §2), Vitest 2.1.9 with a per-file `jsdom` environment (new for these tests), Playwright 1.62.1 (browser tool only).
 
 **Spec:** `docs/superpowers/specs/2026-09-30-bomy-shared-ui-package-design.md` (§ "PR 4 — Rebuild Select"; § "Motion" leaves the `select-*` keyframes decision to this PR). No spec correction needed.
 
@@ -49,9 +49,11 @@ Not in scope: 3 raw native `<select>` elements elsewhere in the apps (`grep -rn 
 
 ---
 
-## 2. Radix Select form semantics (resolved version 2.3.7)
+## 2. Radix Select form semantics (analysed on 2.3.7; installed 2.3.8)
 
 **Version.** The `^2.1.0` range the other Radix deps use would resolve to **2.3.7**, the current `latest` (published 2026-07-24). Its pinned dependencies (`react-popper 1.3.7`, `react-focus-scope 1.1.16`, …) match versions already in the lockfile from PR 3. Source read: `npm pack @radix-ui/react-select@2.3.7` into the scratchpad, `dist/index.mjs`. Line numbers below refer to that file.
+
+**Version note (added after Task 1, 2026-10-06).** Everything in this section, including the source references and experiments E1–E5, was **analysed on 2.3.7**, the `latest` when the plan was drafted. Task 1 installed **2.3.8** (the range `^2.3.7` now resolves to it). Radix's `@radix-ui/react-select` changelog for 2.3.8 lists a disabled-item fix and dependency updates and **does not list a production typeahead fix**, so the #4097 risk is neither fixed nor ruled out: **the Task 5 Step 4b production-build check stays required.** Source line references (`:1140-1142` and the like) were read from 2.3.7 and may be offset in 2.3.8. Task 2's characterization tests run against the **installed 2.3.8**; if one fails, stop and report (do not adjust the assertion), because the analysis would then be wrong for the installed version. The PR body records both versions: "analysed on 2.3.7, shipped on 2.3.8".
 
 | Behaviour                 | Radix 2.3.7, with source reference                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -248,7 +250,7 @@ pnpm --filter @bomy/ui typecheck
 pnpm --filter @bomy/ui lint
 ```
 
-Expected: the lockfile shows `@radix-ui/react-select@2.3.7`, and typecheck and lint are clean. Record the version, plus any new transitive `@radix-ui/*` packages (e.g. `react-visually-hidden`, `react-use-previous`, `number`), for the PR.
+Expected: the lockfile shows `@radix-ui/react-select@2.3.7` or newer (2.3.8 was installed on 2026-10-06; see the Version note in §2), and typecheck and lint are clean. Record the version, plus any new transitive `@radix-ui/*` packages (e.g. `react-visually-hidden`, `react-use-previous`, `number`), for the PR.
 
 - [ ] **Step 5: Commit (explicit paths)**
 
