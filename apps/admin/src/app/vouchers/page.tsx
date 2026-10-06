@@ -13,7 +13,7 @@ import { Card } from "@bomy/ui/card"
 import { Input } from "@bomy/ui/input"
 import { Label } from "@bomy/ui/label"
 import { Pagination } from "@/components/ui/pagination"
-import { Select } from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@bomy/ui/select"
 import { triggerVoucherIssuance, updateVoucherConfig } from "./actions"
 
 const VOUCHER_TYPE_OPTIONS = [
@@ -86,12 +86,21 @@ export default async function VouchersPage({
               <Label htmlFor="voucher-type" className="w-32 text-sm font-medium text-foreground">
                 Type
               </Label>
-              <Select
-                id="voucher-type"
-                name="type"
-                defaultValue={currentType}
-                options={VOUCHER_TYPE_OPTIONS}
-              />
+              {/* key: remount when the saved type changes. React resets this form after the server
+                  action, and Radix Select resets to the value it mounted with, so without the key the
+                  trigger would show the pre-save type after a successful save. */}
+              <Select key={currentType} name="type" defaultValue={currentType}>
+                <SelectTrigger id="voucher-type" className="w-auto">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {VOUCHER_TYPE_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             {/* All three field groups are always rendered so the form is
                 submittable after changing the type dropdown without JS.

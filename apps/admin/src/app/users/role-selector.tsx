@@ -1,6 +1,6 @@
 "use client"
 
-import { useTransition } from "react"
+import { type FormEvent, useTransition } from "react"
 import { Save } from "lucide-react"
 
 import { USER_ROLES, type UserRole } from "@bomy/db/types"
@@ -8,7 +8,7 @@ import { USER_ROLES, type UserRole } from "@bomy/db/types"
 import { useToast } from "@/components/toaster"
 import { Button } from "@bomy/ui/button"
 import { Label } from "@bomy/ui/label"
-import { Select } from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@bomy/ui/select"
 import { updateUserRole } from "./actions"
 
 const ROLE_OPTIONS = USER_ROLES.map((r) => ({ value: r, label: r }))
@@ -17,8 +17,12 @@ export function RoleSelector({ userId, currentRole }: { userId: string; currentR
   const [pending, startTransition] = useTransition()
   const toast = useToast()
 
-  function submit(formData: FormData) {
-    const role = formData.get("role") as UserRole
+  // Submitted via onSubmit rather than <form action>: React 19 resets a form after a function
+  // action completes, and Radix Select reverts to its mount value on that reset, so the selector
+  // would show (and a second Save would send) the old role after a successful save.
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const role = new FormData(event.currentTarget).get("role") as UserRole
     startTransition(async () => {
       const res = await updateUserRole(userId, role)
       if (!res.ok) {
@@ -30,17 +34,22 @@ export function RoleSelector({ userId, currentRole }: { userId: string; currentR
   }
 
   return (
-    <form action={submit} className="flex items-center gap-2">
+    <form onSubmit={handleSubmit} className="flex items-center gap-2">
       <Label htmlFor={`role-${userId}`} className="sr-only">
         Role
       </Label>
-      <Select
-        id={`role-${userId}`}
-        name="role"
-        defaultValue={currentRole}
-        disabled={pending}
-        options={ROLE_OPTIONS}
-      />
+      <Select name="role" defaultValue={currentRole} disabled={pending}>
+        <SelectTrigger id={`role-${userId}`} className="w-auto">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {ROLE_OPTIONS.map((o) => (
+            <SelectItem key={o.value} value={o.value}>
+              {o.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       <Button
         type="submit"
         variant="link"
