@@ -331,6 +331,7 @@ afterEach(() => {
 async function render(ui: React.ReactNode) {
   await act(async () => {
     root.render(ui)
+    await Promise.resolve()
   })
 }
 
@@ -343,6 +344,7 @@ function byId(id: string): HTMLElement {
 async function press(el: HTMLElement, key: string) {
   await act(async () => {
     el.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }))
+    await Promise.resolve()
   })
 }
 
@@ -354,7 +356,7 @@ async function typeahead(el: HTMLElement, text: string) {
 function fields(formId: string): [string, string][] {
   const form = byId(formId)
   if (!(form instanceof HTMLFormElement)) throw new Error(`#${formId} is not a form`)
-  return [...new FormData(form).entries()].map(([k, v]) => [k, String(v)])
+  return [...new FormData(form).entries()].map(([k, v]) => [k, typeof v === "string" ? v : v.name])
 }
 
 describe("@bomy/ui Select — form contract", () => {
@@ -427,6 +429,7 @@ describe("@bomy/ui Select — form contract", () => {
     expect(fields("f")).toEqual([["categoryId", "c-2"]])
     await act(async () => {
       ;(byId("f") as HTMLFormElement).reset()
+      await Promise.resolve()
     })
     expect(fields("f")).toEqual([["categoryId", "c-1"]])
     expect(byId("cat").textContent).toBe("Apparel")
@@ -463,7 +466,7 @@ describe("@bomy/ui Select — form contract", () => {
 })
 ```
 
-- [ ] **Step 3: Run it.** `pnpm --filter @bomy/web test tests/components/ui/select.test.tsx --run`. Expected: 8 passed. Then `pnpm --filter @bomy/web typecheck` (tests are type-checked; they are not linted).
+- [ ] **Step 3: Run it.** `pnpm --filter @bomy/web test tests/components/ui/select.test.tsx --run`. Expected: 8 passed. Then `pnpm --filter @bomy/web typecheck` (tests are type-checked **and linted by the pre-commit hook** (`eslint --fix` on staged files): `@typescript-eslint/require-await` flags an `async` arrow with no `await`, so the `act(async () => …)` helpers end with `await Promise.resolve()`, and `no-base-to-string` flags `String(v)` on a `FormDataEntryValue`, so use `typeof v === "string" ? v : v.name`; run `pnpm --filter @bomy/web exec eslint tests/components/ui` before committing a test file).
 
 - [ ] **Step 4: Commit** `apps/web/package.json pnpm-lock.yaml apps/web/tests/components/ui/select.test.tsx`. Message: `test(ui): pin Select form-submission contract (jsdom)`.
 
@@ -553,6 +556,7 @@ afterEach(() => {
 async function render(ui: React.ReactNode) {
   await act(async () => {
     root.render(ui)
+    await Promise.resolve()
   })
 }
 
@@ -569,6 +573,7 @@ async function typeahead(id: string, text: string) {
   for (const key of text) {
     await act(async () => {
       el.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }))
+      await Promise.resolve()
     })
   }
 }
@@ -1015,6 +1020,7 @@ afterEach(() => {
 async function render(ui: React.ReactNode) {
   await act(async () => {
     root.render(ui)
+    await Promise.resolve()
   })
 }
 
@@ -1030,6 +1036,7 @@ async function typeahead(id: string, text: string) {
   for (const key of text) {
     await act(async () => {
       el.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }))
+      await Promise.resolve()
     })
   }
 }
