@@ -190,6 +190,10 @@ pattern as PR 1, without the token-alignment or scaffolding work (already done i
 - Highest-risk PR in the sequence — tackled last, on purpose. Both apps' current custom `Select`
   relies on a hidden `<input>` for form-submission semantics; the replacement's form behavior needs
   explicit testing in both apps, not just a visual check.
+- **Status (2026-10-07):** PR 4 ships **web-only** (#154). The admin Select migration is pending **PR 4b**,
+  behind Charlie's own Google-session check on the admin forms (the role selector and the voucher
+  type). `@radix-ui/react-select` is pinned to exactly `2.3.3`, because 2.3.4 to 2.3.8 break
+  multi-letter typeahead in a minified production build (radix-ui/primitives#4097); see the PR 4 plan.
 
 ### PR 5 — Page-level consistency pass
 

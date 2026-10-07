@@ -2,11 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans (inline). Steps use checkbox (`- [ ]`) syntax. **Plan v6.** v1 was drafted on Opus 5.5 (the Radix form-semantics analysis below is the Opus part of this PR). v2 folded in Bob's two Medium findings on v1; v3 folded in Bob's two Medium findings and one Low on v2; v4 folded in Bob's three Medium and two Low findings on v3; v5 folded in Bob's one Medium on v4, the lockfile-aware branch parity check; v6 folds in Bob's one finding on v5, the lockfile inspection (see "Bob v1 review" through "Bob v5 review" below). **Do not start Task 0 until Charlie approves v6.**
 
+> **Current state (2026-10-07).** PR 4 (#154) is **web-only**. The admin Select migration (Task 4) is on the local branch `feat/bomy-ui-package-pr4b-admin` and is pending PR 4b, behind Charlie's own Google-session check (Task 5 Step 6). `@radix-ui/react-select` is pinned to **exactly `2.3.3`** (no caret). The plan text below was written for `^2.3.7` and for both apps; where it still says so, read it as history. The `2.3.8` result and why it was dropped are in the Task 5 findings in §2.
+
 **Goal:** Add shadcn's real `Select` (Radix-based) to `@bomy/ui`, move every `Select` call site in both apps onto it, and delete both hand-rolled `components/ui/select.tsx` files, **without changing what any form sends to its server action**.
 
 **Architecture:** The primitive lives in `packages/ui` (shared). Every call site switches to shadcn's compositional API (`Select` / `SelectTrigger` / `SelectValue` / `SelectContent` / `SelectItem`) directly. There is no local options-based wrapper and no re-export shim (PR 1 convention; Open decision 1). The forms stay in their apps. Open/close animation reuses BOMY's `select-in`/`select-out` keyframes, as in PR 3.
 
-**Tech Stack:** React 19.2.5, Next.js 15, Tailwind 3.4, `@radix-ui/react-select` (range `^2.3.7`, see Global Constraints; **analysed on 2.3.7, installed 2.3.8**, see the Version note in §2), Vitest 2.1.9 with a per-file `jsdom` environment (new for these tests), Playwright 1.62.1 (browser tool only).
+**Tech Stack:** React 19.2.5, Next.js 15, Tailwind 3.4, `@radix-ui/react-select` (**current: exact pin `2.3.3`**, web-only PR 4; history: planned as `^2.3.7`, **analysed on 2.3.7, resolved 2.3.8, which failed the production typeahead check**, see the Version note and the Task 5 findings in §2), Vitest 2.1.9 with a per-file `jsdom` environment (new for these tests), Playwright 1.62.1 (browser tool only).
 
 **Spec:** `docs/superpowers/specs/2026-09-30-bomy-shared-ui-package-design.md` (§ "PR 4 — Rebuild Select"; § "Motion" leaves the `select-*` keyframes decision to this PR). No spec correction needed.
 
@@ -124,7 +126,7 @@ Not in scope: 3 raw native `<select>` elements elsewhere in the apps (`grep -rn 
   Everything else stays upstream on purpose, including the trigger's `focus:ring-1` (today: `focus-visible:ring-1`; Radix refocuses the trigger after every close), `bg-popover` in both apps, `min-w-[8rem]`, and the scroll buttons.
 
 - **No `tailwind.config.ts` change.** `select-in`/`select-out` exist in both configs (web :85-92/118-119, admin :85-92/106-107). `select-item-in` stays (still used by `apps/web/src/components/ui/stepper.tsx:37`). `animate` and `rounded` are already registered with tailwind-merge in `packages/ui/src/lib/utils.ts:13-27`. If a build is missing a class, stop and report.
-- **New `@bomy/ui` dependency: `"@radix-ui/react-select": "^2.3.7"`.** It is not `^2.1.0` like its siblings, because ≤2.3.0 throws on the `""` items W1/W3/W8 need, and the form-reset listener the A2 `key` fix relies on arrives in 2.3.3. Apps do not add Radix directly. Record the resolved version and the new transitive packages from `pnpm-lock.yaml` in the PR.
+- **New `@bomy/ui` dependency: `"@radix-ui/react-select": "^2.3.7"` (superseded: shipped as the exact pin `"2.3.3"`, see the Task 5 findings in §2).** It is not `^2.1.0` like its siblings, because ≤2.3.0 throws on the `""` items W1/W3/W8 need, and the form-reset listener the A2 `key` fix relies on arrives in 2.3.3. Apps do not add Radix directly. Record the resolved version and the new transitive packages from `pnpm-lock.yaml` in the PR.
 - **Test-only devDependency: `"jsdom": "^28.1.0"` in `apps/web` and `apps/admin`.** jsdom 28.1.0 is already in the lockfile as vitest's auto-installed optional peer, and E5 ran against it. Declaring it makes the `// @vitest-environment jsdom` tests independent of `autoInstallPeers`. No other test tooling is added. (The default environment stays `node`; only the new files opt in.)
 - **Every call site migrates to the shadcn API.** Keep each file's existing option constants (`STATUS_OPTIONS`, `DISCOUNT_OPTIONS`, `STATE_OPTIONS`, `ROLE_OPTIONS`, `VOUCHER_TYPE_OPTIONS`, `TERM_LABELS`) and map over them. `id` moves to `SelectTrigger`; `name`/`defaultValue`/`value`/`onValueChange`/`disabled` stay on `Select`; `placeholder` moves to `SelectValue`.
 - **Forms stay local.** No shared form helpers and no local `Select` wrapper.
@@ -1430,7 +1432,7 @@ The first two commands must each print their "identical" line (a non-zero exit i
   - the inventory table (short form) and the per-call-site contract;
   - the §2 behaviour changes and their adaptations;
   - the five primitive edits, with the transform-snap reason;
-  - the resolved Radix version and the `^2.3.7` reason;
+  - the resolved Radix version and the reason for the pin (shipped as exact `2.3.3`; the original `^2.3.7` range resolved 2.3.8, which failed Step 4b);
   - the jsdom devDependency (web only in a web-only PR 4; admin's arrives with PR 4b);
   - **if web-only:** the sentence "The admin Select migration (`role-selector.tsx`, `vouchers/page.tsx`, admin `select.tsx` deletion, admin jsdom devDependency) is deferred to PR 4b because Charlie's real Google-session check has not yet passed", and the PR 4b link or branch name;
   - the Step 4b production-build typeahead result with the resolved Radix version;
@@ -1544,7 +1546,7 @@ Bob agreed with all four open-decision picks and requested two changes (both Med
 3. **Motion: drop the per-item `select-item-in` stagger (recommended), keep `select-in`/`select-out` on the panel.** The spec left this for this PR. Radix renders the items, so a stagger would need per-item inline delays. The panel animation matches PR 3's menus. The keyframe stays in config for `stepper.tsx`.
 4. **Admin browser coverage: Charlie runs Task 5 Step 6 himself, and it is a merge gate** (Bob v1: required, not just recommended). If it cannot run, the admin migration splits into PR 4b (Task 5 Step 6 fallback); the admin Select change is never merged on "not evaluated" alone.
 
-Decided here, not open: `^2.3.7` pin; A1 → `onSubmit`, A2 → `key`; `aria-label`s on W8/W9; `w-auto` on inline triggers; the five primitive edits; the A2 pre-hydration limitation accepted and documented.
+Decided here, not open: `^2.3.7` pin (superseded 2026-10-07 by the exact `2.3.3` pin); A1 → `onSubmit`, A2 → `key`; `aria-label`s on W8/W9; `w-auto` on inline triggers; the five primitive edits; the A2 pre-hydration limitation accepted and documented.
 
 ## Model split
 
