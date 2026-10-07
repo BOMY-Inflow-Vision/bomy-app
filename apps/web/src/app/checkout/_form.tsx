@@ -7,7 +7,7 @@ import { useToast } from "@/components/toaster"
 import { Button } from "@bomy/ui/button"
 import { Input } from "@bomy/ui/input"
 import { Label } from "@bomy/ui/label"
-import { Select } from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@bomy/ui/select"
 import { useCart } from "@/lib/cart"
 import { CHECKOUT_USER_COPY } from "@/lib/checkout-errors"
 import { formatMyrSen } from "@/lib/format"
@@ -265,15 +265,19 @@ export function CheckoutForm({ savedAddresses = [] }: { savedAddresses?: SavedAd
       {availableVouchers.length > 0 && (
         <section>
           <h2 className="mb-3 text-base font-semibold text-foreground">Voucher</h2>
-          <Select
-            className="w-full"
-            value={voucherId ?? ""}
-            onValueChange={(v) => setVoucherId(v || null)}
-            options={[
-              { value: "", label: "No voucher" },
-              ...availableVouchers.map((v) => ({ value: v.id, label: v.label })),
-            ]}
-          />
+          <Select value={voucherId ?? ""} onValueChange={(v) => setVoucherId(v || null)}>
+            <SelectTrigger aria-label="Voucher">
+              <SelectValue placeholder="No voucher" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">No voucher</SelectItem>
+              {availableVouchers.map((v) => (
+                <SelectItem key={v.id} value={v.id}>
+                  {v.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </section>
       )}
 
@@ -282,18 +286,19 @@ export function CheckoutForm({ savedAddresses = [] }: { savedAddresses?: SavedAd
         <h2 className="mb-3 text-base font-semibold text-foreground">Shipping address</h2>
         {savedAddresses.length > 0 && (
           <div className="mb-4">
-            <Select
-              className="w-full"
-              value={selectedId}
-              onValueChange={setSelectedId}
-              options={[
-                ...savedAddresses.map((a) => ({
-                  value: a.id,
-                  label: `${a.label ? `${a.label} — ` : ""}${a.line1}${a.isDefault ? " (default)" : ""}`,
-                })),
-                { value: "new", label: "Use a new address" },
-              ]}
-            />
+            <Select value={selectedId} onValueChange={setSelectedId}>
+              <SelectTrigger aria-label="Saved address">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {savedAddresses.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    {`${a.label ? `${a.label} — ` : ""}${a.line1}${a.isDefault ? " (default)" : ""}`}
+                  </SelectItem>
+                ))}
+                <SelectItem value="new">Use a new address</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         )}
         {selectedId !== "new" ? (
@@ -398,13 +403,23 @@ export function CheckoutForm({ savedAddresses = [] }: { savedAddresses?: SavedAd
 
             <Field label="State" fieldId="addr-state" error={fieldErrors.state}>
               <Select
-                id="addr-state"
                 value={address.state}
                 onValueChange={(v) => setAddress((prev) => ({ ...prev, state: v }))}
-                placeholder="Select state…"
-                className={cn("w-full", fieldErrors.state && "border-destructive")}
-                options={STATE_OPTIONS}
-              />
+              >
+                <SelectTrigger
+                  id="addr-state"
+                  className={cn(fieldErrors.state && "border-destructive")}
+                >
+                  <SelectValue placeholder="Select state…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATE_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </Field>
 
             <label className="flex items-center gap-2 text-sm text-foreground">

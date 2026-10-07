@@ -7,7 +7,7 @@ import { useToast } from "@/components/toaster"
 import { Button } from "@bomy/ui/button"
 import { Input } from "@bomy/ui/input"
 import { Label } from "@bomy/ui/label"
-import { Select } from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@bomy/ui/select"
 
 import { createPlan } from "./actions"
 
@@ -48,16 +48,21 @@ export function CreatePlanForm({ availableTerms }: { availableTerms: number[] })
         >
           Term length
         </Label>
-        <Select
-          id="termMonths"
-          name="termMonths"
-          required
-          placeholder="Select term"
-          options={availableTerms.map((t) => ({
-            value: String(t),
-            label: TERM_LABELS[t] ?? String(t),
-          }))}
-        />
+        {/* Keyed by the available terms: after a create, the used term leaves the list. Without
+            the key, Radix keeps the stale value, shows a blank trigger, and its hidden select
+            posts the first remaining option. The key remounts it to the placeholder and "". */}
+        <Select key={availableTerms.join(",")} name="termMonths">
+          <SelectTrigger id="termMonths" aria-required="true" className="w-auto">
+            <SelectValue placeholder="Select term" />
+          </SelectTrigger>
+          <SelectContent>
+            {availableTerms.map((t) => (
+              <SelectItem key={t} value={String(t)}>
+                {TERM_LABELS[t] ?? String(t)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <div>
         <Label
@@ -81,13 +86,18 @@ export function CreatePlanForm({ availableTerms }: { availableTerms: number[] })
         >
           Buyer discount (%)
         </Label>
-        <Select
-          id="discountPct"
-          name="discountPct"
-          required
-          placeholder="Select %"
-          options={DISCOUNT_OPTIONS}
-        />
+        <Select name="discountPct">
+          <SelectTrigger id="discountPct" aria-required="true" className="w-auto">
+            <SelectValue placeholder="Select %" />
+          </SelectTrigger>
+          <SelectContent>
+            {DISCOUNT_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <div className="flex-1">
         <Label
