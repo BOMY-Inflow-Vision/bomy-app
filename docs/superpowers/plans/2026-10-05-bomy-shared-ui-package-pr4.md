@@ -10,7 +10,7 @@
 
 **Tech Stack:** React 19.2.5, Next.js 15, Tailwind 3.4, `@radix-ui/react-select` (**current: exact pin `2.3.3`**, web-only PR 4; history: planned as `^2.3.7`, **analysed on 2.3.7, resolved 2.3.8, which failed the production typeahead check**, see the Version note and the Task 5 findings in §2), Vitest 2.1.9 with a per-file `jsdom` environment (new for these tests), Playwright 1.62.1 (browser tool only).
 
-**Spec:** `docs/superpowers/specs/2026-09-30-bomy-shared-ui-package-design.md` (§ "PR 4 — Rebuild Select"; § "Motion" leaves the `select-*` keyframes decision to this PR). No spec correction needed.
+**Spec:** `docs/superpowers/specs/2026-09-30-bomy-shared-ui-package-design.md` (§ "PR 4 — Rebuild Select"; § "Motion" leaves the `select-*` keyframes decision to this PR). The original plan needed no spec correction. **Update 2026-10-07:** one spec edit was made after Task 5: a PR 4 status sentence (web-only, admin pending PR 4b, exact `2.3.3` pin).
 
 ---
 
@@ -51,11 +51,11 @@ Not in scope: 3 raw native `<select>` elements elsewhere in the apps (`grep -rn 
 
 ---
 
-## 2. Radix Select form semantics (analysed on 2.3.7; installed 2.3.8)
+## 2. Radix Select form semantics (analysed on 2.3.7; resolved 2.3.8 in Task 1; **shipped: exact 2.3.3**)
 
 **Version.** The `^2.1.0` range the other Radix deps use would resolve to **2.3.7**, the current `latest` (published 2026-07-24). Its pinned dependencies (`react-popper 1.3.7`, `react-focus-scope 1.1.16`, …) match versions already in the lockfile from PR 3. Source read: `npm pack @radix-ui/react-select@2.3.7` into the scratchpad, `dist/index.mjs`. Line numbers below refer to that file.
 
-**Version note (added after Task 1, 2026-10-06).** Everything in this section, including the source references and experiments E1–E5, was **analysed on 2.3.7**, the `latest` when the plan was drafted. Task 1 installed **2.3.8** (the range `^2.3.7` now resolves to it). Radix's `@radix-ui/react-select` changelog for 2.3.8 lists a disabled-item fix and dependency updates and **does not list a production typeahead fix**, so the #4097 risk is neither fixed nor ruled out: **the Task 5 Step 4b production-build check stays required.** Source line references (`:1140-1142` and the like) were read from 2.3.7 and may be offset in 2.3.8. Task 2's characterization tests run against the **installed 2.3.8**; if one fails, stop and report (do not adjust the assertion), because the analysis would then be wrong for the installed version. The PR body records both versions: "analysed on 2.3.7, shipped on 2.3.8".
+**Version note (HISTORICAL: written after Task 1, 2026-10-06; superseded, PR 4 ships exact `2.3.3`, see the Task 5 findings below).** Everything in this section, including the source references and experiments E1–E5, was **analysed on 2.3.7**, the `latest` when the plan was drafted. Task 1 installed **2.3.8** (the range `^2.3.7` now resolves to it). Radix's `@radix-ui/react-select` changelog for 2.3.8 lists a disabled-item fix and dependency updates and **does not list a production typeahead fix**, so the #4097 risk is neither fixed nor ruled out: **the Task 5 Step 4b production-build check stays required.** Source line references (`:1140-1142` and the like) were read from 2.3.7 and may be offset in 2.3.8. Task 2's characterization tests run against the **installed 2.3.8**; if one fails, stop and report (do not adjust the assertion), because the analysis would then be wrong for the installed version. The PR body, as written at that time, was to record "analysed on 2.3.7, shipped on 2.3.8". **That is no longer true: 2.3.8 failed Step 4b, and PR 4 ships exact `2.3.3`.** The 2.3.8 wording is kept here only as history.
 
 **Task 5 findings (2026-10-06): the Radix pin, the Term reset, and recorded differences.**
 
