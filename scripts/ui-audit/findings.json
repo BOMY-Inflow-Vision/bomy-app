@@ -180,42 +180,48 @@
     "kind": "overflow",
     "route": "/account",
     "description": "scrollWidth 398 px at a 390 px viewport; account tabs nav is wider than the content (account-tabs.tsx:13)",
-    "status": "open"
+    "status": "resolved",
+    "evidence": "Re-measured 2026-10-08 at a 390 px viewport after account-tabs.tsx got overflow-x-auto and whitespace-nowrap on its links: document scrollWidth is 390 (was 398); the four tabs scroll inside the nav (382 px of content in a 358 px box); at 1440 px the nav shows no scrollbar."
   },
   {
     "id": "ov-web-account-addresses",
     "kind": "overflow",
     "route": "/account/addresses",
     "description": "scrollWidth 398 px at a 390 px viewport; account tabs nav is wider than the content (account-tabs.tsx:13)",
-    "status": "open"
+    "status": "resolved",
+    "evidence": "Re-measured 2026-10-08 at a 390 px viewport after account-tabs.tsx got overflow-x-auto and whitespace-nowrap on its links: document scrollWidth is 390 (was 398); the four tabs scroll inside the nav (382 px of content in a 358 px box); at 1440 px the nav shows no scrollbar."
   },
   {
     "id": "ov-web-account-orders",
     "kind": "overflow",
     "route": "/account/orders",
     "description": "scrollWidth 398 px at a 390 px viewport; account tabs nav is wider than the content (account-tabs.tsx:13)",
-    "status": "open"
+    "status": "resolved",
+    "evidence": "Re-measured 2026-10-08 at a 390 px viewport after account-tabs.tsx got overflow-x-auto and whitespace-nowrap on its links: document scrollWidth is 390 (was 398); the four tabs scroll inside the nav (382 px of content in a 358 px box); at 1440 px the nav shows no scrollbar."
   },
   {
     "id": "ov-web-account-subscriptions",
     "kind": "overflow",
     "route": "/account/subscriptions",
     "description": "scrollWidth 398 px at a 390 px viewport; account tabs nav is wider than the content (account-tabs.tsx:13)",
-    "status": "open"
+    "status": "resolved",
+    "evidence": "Re-measured 2026-10-08 at a 390 px viewport after account-tabs.tsx got overflow-x-auto and whitespace-nowrap on its links: document scrollWidth is 390 (was 398); the four tabs scroll inside the nav (382 px of content in a 358 px box); at 1440 px the nav shows no scrollbar."
   },
   {
     "id": "ov-web-brands",
     "kind": "overflow",
     "route": "/brands",
-    "description": "scrollWidth 392 px at a 390 px viewport; search input has no min-w-0 (brands/page.tsx:57), 2 px over",
-    "status": "open"
+    "description": "scrollWidth 392 px at a 390 px viewport (2 px). PR 5 fixed the real cause for a search in progress: the search input had no min-w-0 and the page measured 417 px with ?q= set; it now measures 390. The remaining 2 px is the parked hover arrow of the shared Search Button (a different cause from the one first diagnosed), not page layout.",
+    "status": "deferred",
+    "followUp": "PR 5c: shared Button parks its hover arrow outside its right edge (opacity-0, no clipping, by design), which adds 2 px of scroll width when an icon Button ends at a px-4 page edge; fix once in packages/ui button.tsx (overflow-x-clip on the slide root, check the descender-clipping note there) instead of per page"
   },
   {
     "id": "ov-web-products",
     "kind": "overflow",
     "route": "/products",
-    "description": "scrollWidth 469 px at a 390 px viewport; pagination renders every page and the results column lacks min-w-0 (products/page.tsx:157,105)",
-    "status": "open"
+    "description": "scrollWidth was 469 px at a 390 px viewport (pagination rendered every page and the results column lacked min-w-0). PR 5 fixed both: pagination now wraps (25 links on 4 rows) and the page measures 392 px, 417 to 390 with ?q= set. The remaining 2 px is the parked hover arrow of the shared Search Button, not page layout.",
+    "status": "deferred",
+    "followUp": "PR 5c: shared Button parks its hover arrow outside its right edge (opacity-0, no clipping, by design), which adds 2 px of scroll width when an icon Button ends at a px-4 page edge; fix once in packages/ui button.tsx (overflow-x-clip on the slide root, check the descender-clipping note there) instead of per page"
   },
   {
     "id": "ov-web-seller-dashboard",

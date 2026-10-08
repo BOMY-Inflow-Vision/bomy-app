@@ -838,5 +838,12 @@
     "text": "icon: <CircleX className=\"size-5 text-red-600\" aria-hidden=\"true\" />,",
     "reason": "Contrast below 4.5:1 (dark: red-600 on theme surface (worst: popover) = 3.38:1). Was a status-colour exception. PR 5a re-triages this if it adds matching tokens.",
     "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
+  },
+  {
+    "rule": "R1-button",
+    "file": "apps/admin/src/components/brand-story-field.tsx",
+    "text": "<button",
+    "reason": "TableControlButton: not swapped in PR 5. Button's ghost variant forces hover:text-accent-foreground, which would lose the blue/red hover text that marks Delete vs other table actions; its palette colours are PR 5a work, so the swap moves with them.",
+    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
   }
 ]

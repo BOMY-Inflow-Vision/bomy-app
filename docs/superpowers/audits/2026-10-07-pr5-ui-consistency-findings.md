@@ -299,3 +299,35 @@ Deferred overflow findings (29): 22 admin pages and 7 seller dashboard pages, li
 - Only the states present in the local data were measured; dark mode, 1440 px and touch behaviour were not part of this sweep (they are part of Task 4 for changed routes).
 - The 90,856 px figure is a local-data effect (about 1,500 seeded brand subscriptions across many stores); production would be smaller but the row still does not wrap.
 - The triage and manual findings were produced by read-only agents. I re-read the code for the claims this doc relies on (Orders nav bug, admin `main`, account tabs, `brand-subscriptions` filter row, R2-hex false positives); the other triage rows are the agents' judgement and are open to review at the gate.
+
+## (h) Task 3 outcome (2026-10-08)
+
+**Fixed in this PR (9 files):** `Label` for 6 raw labels (4 admin pages, `brands`, `products`); `Input` for the 2 web search boxes; `Button` for the 2 "Insert table" buttons; `min-h-11`/`min-w-11` for 22 arbitrary 44 px values (web `body-editor.tsx`, admin `brand-story-field.tsx`); and the overflow fixes: `account-tabs.tsx` (tabs scroll inside their nav), `products/page.tsx` (pagination wraps, results column `min-w-0`), `brands/page.tsx` and `products/page.tsx` (search `Input` has `min-w-0`).
+
+**One change to the approved lists.** The `TableControlButton` swap (`brand-story-field.tsx`, R1-button) moved from FIX to DEFERRED (PR 5a): the `ghost` variant forces `hover:text-accent-foreground`, which would lose the red and blue hover text that tells Delete from the other table actions, and those palette colours are PR 5a work. Plan Task 2 Step 2 allows this when a fix cannot stay equivalent. Scanner: 281 hits (313 before), covered 160, deferred 121, open 0, stale 0, invalid 0. Ledger: open 0, deferred 87, resolved 7.
+
+**Overflow results (re-measured at 390 px, same method as the audit):**
+
+| Page                                                                          | Before | After | Status           |
+| ----------------------------------------------------------------------------- | -----: | ----: | ---------------- |
+| `/account`, `/account/addresses`, `/account/orders`, `/account/subscriptions` |    398 |   390 | resolved         |
+| `/brands?q=ab` (search in progress)                                           |    417 |   390 | page cause fixed |
+| `/products?q=ab`                                                              |    417 |   390 | page cause fixed |
+| `/brands`                                                                     |    392 |   392 | deferred (PR 5c) |
+| `/products` (25 pagination links)                                             |    469 |   392 | deferred (PR 5c) |
+
+The residual 2 px on `/brands` and `/products` is not page layout. The shared `Button` parks its hover arrow outside its right edge (`opacity-0`, no clipping, by design) and a `Search` button that ends at the `px-4` page edge adds 2 px of scroll width (measured: the only element past the edge is that arrow, left 376, right 392). The audit's first diagnosis for `/brands` (search input without `min-w-0`) was right only for the search-in-progress case. The fix belongs in `packages/ui` once (PR 5c), not page by page.
+
+**Equivalence checks (web, Playwright, 20 page states: 5 routes, 1440 and 390 px, light and dark):**
+
+- `FormData` of the two search forms (`q`, hidden `category`) is identical before and after in all 20 states. The admin `Label` swaps post nothing.
+- Every other control on the five measured pages (205 per state) is identical except the ones listed here. The 16 editor toolbar buttons are still 44 × 44 px.
+- Admin, in Charlie's Chrome: the 15 toolbar buttons are 44 × 44 px; the 4 swapped labels (26 labels on `/goodie-box`) are still `label` elements wired to their input and still invisible (1 × 1 px, absolute).
+
+**Visible differences (the shared look replacing the one-off look):**
+
+- Search input: height 38 to 36 px; background from solid white to transparent; shadow added; focus ring from a 2 px ring with offset to the shared 1 px ring; narrower beside the buttons on a phone. **In dark theme the old input was a white field with near-white text, so typed text was invisible; it is now readable** (confirmed in screenshots, light and dark).
+- "Insert table" button: 28 to 32 px high, corner radius 4 to 10 px, shadow added; colours unchanged; the disabled cursor no longer shows (disabled buttons ignore the pointer).
+- Account tabs scroll sideways inside their bar on a phone (the last tab is partly clipped until scrolled); unchanged at 1440 px. Product pagination wraps to 4 rows on a phone.
+
+**Not evaluated:** admin "before" values (the admin pages were measured after the change only; the admin editor code and classes are the same as web's, whose before values were captured); keyboard focus rings (programmatic focus does not trigger `:focus-visible`); the pagination at 1440 px; admin pages in dark theme; touch behaviour; checkout; the 2 web test files that need `DATABASE_URL` (reported as not evaluated, not counted in any pass total) and the 13 admin files that skip without it.
