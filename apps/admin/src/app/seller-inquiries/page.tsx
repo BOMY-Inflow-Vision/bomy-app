@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils"
 import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
 import { Input } from "@bomy/ui/input"
+import { Label } from "@bomy/ui/label"
 import { Pagination } from "@/components/ui/pagination"
 import { deleteInquiry } from "./actions"
 import { RejectButton } from "./reject-button"
@@ -124,9 +125,9 @@ export default async function SellerInquiriesPage({
           <form method="get" className="flex items-center gap-1">
             {isStatus(status) && <input type="hidden" name="status" value={status} />}
             {sortKey !== "created_desc" && <input type="hidden" name="sort" value={sortKey} />}
-            <label htmlFor="inquiries-search" className="sr-only">
+            <Label htmlFor="inquiries-search" className="sr-only">
               Search inquiries
-            </label>
+            </Label>
             <Input
               id="inquiries-search"
               type="text"

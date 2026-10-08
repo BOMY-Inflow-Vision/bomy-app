@@ -11,6 +11,7 @@ import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
 import { Card } from "@bomy/ui/card"
 import { Input } from "@bomy/ui/input"
+import { Label } from "@bomy/ui/label"
 import { Pagination } from "@/components/ui/pagination"
 
 export default async function ProductsPage({
@@ -77,9 +78,9 @@ export default async function ProductsPage({
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-lg font-semibold text-foreground">Products</h1>
         <form method="get" className="flex items-center gap-1">
-          <label htmlFor="products-search" className="sr-only">
+          <Label htmlFor="products-search" className="sr-only">
             Search products
-          </label>
+          </Label>
           <Input
             id="products-search"
             type="text"

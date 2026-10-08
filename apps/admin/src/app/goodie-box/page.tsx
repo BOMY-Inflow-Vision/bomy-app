@@ -10,6 +10,7 @@ import { pageCount, pageOffset, parsePage, PAGE_SIZE } from "@/lib/pagination"
 import { cn } from "@/lib/utils"
 import { Button } from "@bomy/ui/button"
 import { Input } from "@bomy/ui/input"
+import { Label } from "@bomy/ui/label"
 import { Pagination } from "@/components/ui/pagination"
 import { markDispatched } from "./actions"
 
@@ -183,9 +184,9 @@ export default async function GoodieBoxPage({
                       action={markDispatched.bind(null, row.id)}
                       className="flex items-center gap-2"
                     >
-                      <label htmlFor={`tracking-${row.id}`} className="sr-only">
+                      <Label htmlFor={`tracking-${row.id}`} className="sr-only">
                         Tracking number
-                      </label>
+                      </Label>
                       <Input
                         id={`tracking-${row.id}`}
                         name="trackingNumber"
