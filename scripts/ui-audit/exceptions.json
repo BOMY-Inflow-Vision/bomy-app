@@ -1,1 +1,962 @@
-[]
+[
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/web/src/app/(marketing)/membership/manage/page.tsx",
+    "text": "<Badge className=\"bg-amber-100 text-amber-700 border-transparent\">",
+    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/web/src/app/(marketing)/membership/manage/page.tsx",
+    "text": "<Badge className=\"bg-green-100 text-green-700 border-transparent\">Active</Badge>",
+    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/web/src/app/(marketing)/membership/manage/page.tsx",
+    "text": "<div className=\"rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800\">",
+    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/web/src/app/account/addresses/address-manager.tsx",
+    "text": "<span className=\"rounded bg-green-100 px-2 py-0.5 text-xs text-green-700\">",
+    "reason": "status pair \"Default\" pill (hand-made; see MANUAL)"
+  },
+  {
+    "rule": "R1-input",
+    "file": "apps/web/src/app/account/avatar-uploader.tsx",
+    "text": "<input",
+    "reason": "type checkbox/file/hidden (no shared primitive)"
+  },
+  {
+    "rule": "R1-label",
+    "file": "apps/web/src/app/account/avatar-uploader.tsx",
+    "text": "<label",
+    "reason": "label wraps checkbox/file input (no shared primitive)"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/web/src/app/account/subscriptions/page.tsx",
+    "text": "? \"bg-green-100 text-green-700 border-transparent hover:bg-green-100\"",
+    "reason": "status pair override on Badge (active/pending)"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/web/src/app/account/subscriptions/page.tsx",
+    "text": "? \"bg-amber-100 text-amber-700 border-transparent hover:bg-amber-100\"",
+    "reason": "status pair override on Badge (active/pending)"
+  },
+  {
+    "rule": "R1-input",
+    "file": "apps/web/src/app/auth/sign-in/magic-link-form.tsx",
+    "text": "<input type=\"hidden\" name=\"cf-turnstile-response\" value={token} />",
+    "reason": "type=hidden; no shared primitive"
+  },
+  {
+    "rule": "R2-hex",
+    "file": "apps/web/src/app/auth/sign-in/page.tsx",
+    "text": "fill=\"#4285F4\"",
+    "reason": "Google brand logo SVG fill (brand artwork)"
+  },
+  {
+    "rule": "R2-hex",
+    "file": "apps/web/src/app/auth/sign-in/page.tsx",
+    "text": "fill=\"#34A853\"",
+    "reason": "Google brand logo SVG fill (brand artwork)"
+  },
+  {
+    "rule": "R2-hex",
+    "file": "apps/web/src/app/auth/sign-in/page.tsx",
+    "text": "fill=\"#FBBC05\"",
+    "reason": "Google brand logo SVG fill (brand artwork)"
+  },
+  {
+    "rule": "R2-hex",
+    "file": "apps/web/src/app/auth/sign-in/page.tsx",
+    "text": "fill=\"#EA4335\"",
+    "reason": "Google brand logo SVG fill (brand artwork)"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/web/src/app/auth/sign-in/page.tsx",
+    "text": "<div className=\"mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-200\">",
+    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
+  },
+  {
+    "rule": "R2-hex",
+    "file": "apps/web/src/app/brands/[slug]/page.tsx",
+    "text": "// (PR #145 review, Bob). Signed-in browsing traffic is a small enough fraction to keep",
+    "reason": "false positive: \"#NNN\" is a PR/id reference inside a comment, not a colour"
+  },
+  {
+    "rule": "R2-hex",
+    "file": "apps/web/src/app/brands/[slug]/queries.ts",
+    "text": "// the narrow id/image/initial this function actually returns (PR #145 review, Bob). The",
+    "reason": "false positive: \"#NNN\" is a PR/id reference inside a comment, not a colour"
+  },
+  {
+    "rule": "R1-input",
+    "file": "apps/web/src/app/brands/page.tsx",
+    "text": "{category && <input type=\"hidden\" name=\"category\" value={category} />}",
+    "reason": "type=hidden; no shared primitive"
+  },
+  {
+    "rule": "R1-button",
+    "file": "apps/web/src/app/cart/page.tsx",
+    "text": "<button",
+    "reason": "compact 24px icon-only stepper buttons; Button icon size is 36px and no variant matches"
+  },
+  {
+    "rule": "R1-button",
+    "file": "apps/web/src/app/cart/page.tsx",
+    "text": "<button",
+    "reason": "compact 24px icon-only stepper buttons; Button icon size is 36px and no variant matches"
+  },
+  {
+    "rule": "R1-input",
+    "file": "apps/web/src/app/checkout/_form.tsx",
+    "text": "<input",
+    "reason": "type checkbox/file/hidden (no shared primitive)"
+  },
+  {
+    "rule": "R1-label",
+    "file": "apps/web/src/app/checkout/_form.tsx",
+    "text": "<label className=\"flex items-center gap-2 text-sm text-foreground\">",
+    "reason": "label wraps checkbox/file input (no shared primitive)"
+  },
+  {
+    "rule": "R3b-bg-without-literal-text",
+    "file": "apps/web/src/app/checkout/_form.tsx",
+    "text": "<div className=\"rounded-lg border border-yellow-200 bg-yellow-50 p-4\">",
+    "reason": "warning box, same-family yellow pair (bg on 202; text on 203/206)"
+  },
+  {
+    "rule": "R2-hex",
+    "file": "apps/web/src/app/checkout/queries.ts",
+    "text": "* Tied labels get a short id suffix `(#abc12345)` for disambiguation.",
+    "reason": "false positive: \"#NNN\" is a PR/id reference inside a comment, not a colour"
+  },
+  {
+    "rule": "R1-button",
+    "file": "apps/web/src/app/products/[storeSlug]/[productSlug]/product-image-gallery.tsx",
+    "text": "<button",
+    "reason": "gallery thumbnail button (ring selection state)"
+  },
+  {
+    "rule": "R5-inline-style",
+    "file": "apps/web/src/app/products/[storeSlug]/[productSlug]/product-image-gallery.tsx",
+    "text": "style={{",
+    "reason": "dynamic: backgroundImage url / zoom-driven backgroundPosition"
+  },
+  {
+    "rule": "R1-button",
+    "file": "apps/web/src/app/products/[storeSlug]/[productSlug]/variant-picker.tsx",
+    "text": "<button",
+    "reason": "radio-like variant chooser"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/web/src/app/products/[storeSlug]/[productSlug]/variant-picker.tsx",
+    "text": "<span className=\"inline-block rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-700\">",
+    "reason": "status pair pill (hand-made; see MANUAL)"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/web/src/app/products/[storeSlug]/[productSlug]/variant-picker.tsx",
+    "text": "<span className=\"inline-block rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700\">",
+    "reason": "status pair pill (hand-made; see MANUAL)"
+  },
+  {
+    "rule": "R1-input",
+    "file": "apps/web/src/app/products/page.tsx",
+    "text": "{category && <input type=\"hidden\" name=\"category\" value={category} />}",
+    "reason": "type=hidden; no shared primitive"
+  },
+  {
+    "rule": "R1-input",
+    "file": "apps/web/src/app/seller/apply/page.tsx",
+    "text": "<input type=\"hidden\" name=\"cf-turnstile-response\" value={token} />",
+    "reason": "type=hidden; no shared primitive"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/web/src/app/seller/apply/page.tsx",
+    "text": "<div className=\"rounded-lg bg-yellow-50 px-4 py-3 text-sm text-yellow-800\">",
+    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/web/src/app/seller/dashboard/page.tsx",
+    "text": "active: \"bg-green-100 text-green-700\",",
+    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/web/src/app/seller/dashboard/page.tsx",
+    "text": "pending: \"bg-amber-100 text-amber-700\",",
+    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/web/src/app/seller/dashboard/page.tsx",
+    "text": "suspended: \"bg-red-100 text-red-700\",",
+    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
+  },
+  {
+    "rule": "R1-button",
+    "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/image-manager.tsx",
+    "text": "<button",
+    "reason": "icon-only drag-handle button (dnd-kit listeners)"
+  },
+  {
+    "rule": "R1-input",
+    "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/image-manager.tsx",
+    "text": "<input",
+    "reason": "type checkbox/file/hidden (no shared primitive)"
+  },
+  {
+    "rule": "R1-label",
+    "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/image-manager.tsx",
+    "text": "<label",
+    "reason": "label wraps checkbox/file input (no shared primitive)"
+  },
+  {
+    "rule": "R5-inline-style",
+    "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/image-manager.tsx",
+    "text": "style={{ width: `${progress}%` }}",
+    "reason": "dynamic: width from upload progress %"
+  },
+  {
+    "rule": "R1-button",
+    "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/product-edit-form.tsx",
+    "text": "<button",
+    "reason": "icon-only drag-handle button (dnd-kit listeners)"
+  },
+  {
+    "rule": "R1-input",
+    "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/product-edit-form.tsx",
+    "text": "<input",
+    "reason": "type checkbox/file/hidden (no shared primitive)"
+  },
+  {
+    "rule": "R1-input",
+    "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/product-edit-form.tsx",
+    "text": "<input",
+    "reason": "type checkbox/file/hidden (no shared primitive)"
+  },
+  {
+    "rule": "R1-input",
+    "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/product-edit-form.tsx",
+    "text": "<input",
+    "reason": "type checkbox/file/hidden (no shared primitive)"
+  },
+  {
+    "rule": "R1-input",
+    "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/product-edit-form.tsx",
+    "text": "<input type=\"hidden\" name=\"attrs\" value=\"\" />",
+    "reason": "type=hidden; no shared primitive"
+  },
+  {
+    "rule": "R1-input",
+    "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/product-edit-form.tsx",
+    "text": "<input",
+    "reason": "type checkbox/file/hidden (no shared primitive)"
+  },
+  {
+    "rule": "R1-input",
+    "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/product-edit-form.tsx",
+    "text": "<input",
+    "reason": "type checkbox/file/hidden (no shared primitive)"
+  },
+  {
+    "rule": "R1-input",
+    "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/product-edit-form.tsx",
+    "text": "<input",
+    "reason": "type checkbox/file/hidden (no shared primitive)"
+  },
+  {
+    "rule": "R1-input",
+    "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/product-edit-form.tsx",
+    "text": "<input type=\"hidden\" name=\"attrs\" value=\"\" />",
+    "reason": "type=hidden; no shared primitive"
+  },
+  {
+    "rule": "R1-label",
+    "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/product-edit-form.tsx",
+    "text": "<label className=\"flex items-center gap-1.5 text-xs text-muted-foreground\">",
+    "reason": "label wraps checkbox/file input (no shared primitive)"
+  },
+  {
+    "rule": "R1-label",
+    "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/product-edit-form.tsx",
+    "text": "<label className=\"flex items-center gap-1.5 text-xs text-green-700\">",
+    "reason": "label wraps checkbox/file input (no shared primitive)"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/product-edit-form.tsx",
+    "text": "<span className=\"rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-700\">",
+    "reason": "status pair pill (hand-made; see MANUAL)"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/product-edit-form.tsx",
+    "text": "<span className=\"rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700\">",
+    "reason": "status pair pill (hand-made; see MANUAL)"
+  },
+  {
+    "rule": "R1-input",
+    "file": "apps/web/src/app/seller/dashboard/products/new/product-form.tsx",
+    "text": "<input type=\"hidden\" name=\"variant_count\" value={variants.length} />",
+    "reason": "type=hidden; no shared primitive"
+  },
+  {
+    "rule": "R1-input",
+    "file": "apps/web/src/app/seller/dashboard/products/new/product-form.tsx",
+    "text": "<input type=\"hidden\" name={`variant_attrs_${idx}`} value={v.attrs} />",
+    "reason": "type=hidden; no shared primitive"
+  },
+  {
+    "rule": "R1-input",
+    "file": "apps/web/src/app/seller/dashboard/products/new/product-form.tsx",
+    "text": "<input",
+    "reason": "type checkbox/file/hidden (no shared primitive)"
+  },
+  {
+    "rule": "R1-input",
+    "file": "apps/web/src/app/seller/dashboard/products/new/product-form.tsx",
+    "text": "<input",
+    "reason": "type checkbox/file/hidden (no shared primitive)"
+  },
+  {
+    "rule": "R1-input",
+    "file": "apps/web/src/app/seller/dashboard/products/new/product-form.tsx",
+    "text": "<input",
+    "reason": "type checkbox/file/hidden (no shared primitive)"
+  },
+  {
+    "rule": "R1-label",
+    "file": "apps/web/src/app/seller/dashboard/products/new/product-form.tsx",
+    "text": "<label className=\"flex items-center gap-1.5 text-xs text-muted-foreground\">",
+    "reason": "label wraps checkbox/file input (no shared primitive)"
+  },
+  {
+    "rule": "R6-table",
+    "file": "apps/web/src/app/seller/dashboard/products/page.tsx",
+    "text": "<table className=\"w-full text-sm\">",
+    "reason": "no @bomy/ui Table primitive exists"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/web/src/app/seller/dashboard/products/page.tsx",
+    "text": "active: \"bg-green-100 text-green-700\",",
+    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
+  },
+  {
+    "rule": "R1-input",
+    "file": "apps/web/src/app/seller/dashboard/settings/settings-form.tsx",
+    "text": "<input",
+    "reason": "type checkbox/file/hidden (no shared primitive)"
+  },
+  {
+    "rule": "R1-label",
+    "file": "apps/web/src/app/seller/dashboard/settings/settings-form.tsx",
+    "text": "<label",
+    "reason": "label wraps checkbox/file input (no shared primitive)"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/web/src/app/seller/dashboard/settings/settings-form.tsx",
+    "text": "className=\"rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700\"",
+    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/web/src/app/seller/dashboard/settings/settings-form.tsx",
+    "text": "className=\"mb-4 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700\"",
+    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/web/src/app/seller/dashboard/settings/settings-form.tsx",
+    "text": "className=\"rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700\"",
+    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/web/src/app/seller/dashboard/settings/settings-form.tsx",
+    "text": "className=\"rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700\"",
+    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
+  },
+  {
+    "rule": "R6-table",
+    "file": "apps/web/src/app/seller/dashboard/subscriptions/page.tsx",
+    "text": "<table className=\"w-full text-sm\">",
+    "reason": "no @bomy/ui Table primitive exists"
+  },
+  {
+    "rule": "R6-table",
+    "file": "apps/web/src/app/seller/dashboard/subscriptions/page.tsx",
+    "text": "<table className=\"w-full text-sm\">",
+    "reason": "no @bomy/ui Table primitive exists"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/web/src/app/seller/dashboard/subscriptions/page.tsx",
+    "text": "<span className=\"rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700\">",
+    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/web/src/app/seller/dashboard/subscriptions/page.tsx",
+    "text": "<span className=\"rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700\">",
+    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
+  },
+  {
+    "rule": "R3b-bg-without-literal-text",
+    "file": "apps/web/src/app/seller/dashboard/subscriptions/page.tsx",
+    "text": "<tr key={row.id} className=\"bg-amber-50\">",
+    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/web/src/app/seller/dashboard/subscriptions/page.tsx",
+    "text": "<span className=\"rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700\">",
+    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
+  },
+  {
+    "rule": "R1-button",
+    "file": "apps/web/src/components/body-editor.tsx",
+    "text": "<button",
+    "reason": "toolbar toggle button (aria-pressed)"
+  },
+  {
+    "rule": "R1-button",
+    "file": "apps/web/src/components/body-editor.tsx",
+    "text": "<button",
+    "reason": "toolbar toggle button (aria-pressed)"
+  },
+  {
+    "rule": "R1-button",
+    "file": "apps/web/src/components/body-editor.tsx",
+    "text": "<button",
+    "reason": "icon-only toolbar button (44px target); Button icon size is 36px, no identical variant"
+  },
+  {
+    "rule": "R1-button",
+    "file": "apps/web/src/components/body-editor.tsx",
+    "text": "<button",
+    "reason": "icon-only toolbar button (44px target); Button icon size is 36px, no identical variant"
+  },
+  {
+    "rule": "R1-button",
+    "file": "apps/web/src/components/body-editor.tsx",
+    "text": "<button",
+    "reason": "popover menu-trigger icon-only toolbar button (data-state styling)"
+  },
+  {
+    "rule": "R1-button",
+    "file": "apps/web/src/components/body-editor.tsx",
+    "text": "<button",
+    "reason": "toolbar toggle with icon+label (aria-pressed), contextual colours"
+  },
+  {
+    "rule": "R1-button",
+    "file": "apps/web/src/components/body-editor.tsx",
+    "text": "<button",
+    "reason": "icon-only toolbar button (44px target); Button icon size is 36px, no identical variant"
+  },
+  {
+    "rule": "R1-input",
+    "file": "apps/web/src/components/body-editor.tsx",
+    "text": "<input type=\"hidden\" name=\"bodyHtml\" ref={bodyHtmlRef} defaultValue={initialHtml ?? \"\"} />",
+    "reason": "type=hidden; no shared primitive"
+  },
+  {
+    "rule": "R1-input",
+    "file": "apps/web/src/components/body-editor.tsx",
+    "text": "<input type=\"hidden\" name=\"bodyRevision\" value={revision} readOnly />",
+    "reason": "type=hidden; no shared primitive"
+  },
+  {
+    "rule": "R1-input",
+    "file": "apps/web/src/components/body-editor.tsx",
+    "text": "<input",
+    "reason": "type checkbox/file/hidden (no shared primitive)"
+  },
+  {
+    "rule": "R4-arbitrary",
+    "file": "apps/web/src/components/body-editor.tsx",
+    "text": "className=\"[&_.ProseMirror]:prose [&_.ProseMirror]:max-w-none [&_.ProseMirror]:min-h-[200px] [&_.ProseMirror]:rounded [&_.ProseMirror]:border [&_.ProseMirror]:border-border [&_.ProseMirror]:p-3 [&_.ProseMirror]:focus:outline-none [&_.ProseMirror]:focus:ring-2 [&_.ProseMirror]:focus:ring-ring dark:[&_.ProseMirror]:prose-invert\"",
+    "reason": "prose min-height 200px; no scale step (48=192, 52=208); intentional editor height"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/web/src/components/body-editor.tsx",
+    "text": "<div className=\"flex items-center gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800\">",
+    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
+  },
+  {
+    "rule": "R6-table",
+    "file": "apps/web/src/components/body-renderer.tsx",
+    "text": "<table",
+    "reason": "no @bomy/ui Table primitive exists"
+  },
+  {
+    "rule": "R1-button",
+    "file": "apps/web/src/components/nav-bar.tsx",
+    "text": "<button",
+    "reason": "menu-trigger hamburger with animated bars"
+  },
+  {
+    "rule": "R1-button",
+    "file": "apps/web/src/components/nav-bar.tsx",
+    "text": "<button",
+    "reason": "full-screen backdrop scrim button, not a visible control"
+  },
+  {
+    "rule": "R4-arbitrary",
+    "file": "apps/web/src/components/nav-bar.tsx",
+    "text": "className=\"absolute -right-2 -top-2 flex h-4 w-4 animate-badge-pop items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground motion-reduce:animate-none\"",
+    "reason": "cart badge 10px digit; no text-* step (xs=12px); specific px"
+  },
+  {
+    "rule": "R3b-bg-without-literal-text",
+    "file": "apps/web/src/components/nav-bar.tsx",
+    "text": "className=\"fixed inset-x-0 bottom-0 top-14 -z-10 cursor-default bg-gray-900/20 md:hidden\"",
+    "reason": "overlay scrim with no text; must stay dark in both themes (bg-foreground would invert)"
+  },
+  {
+    "rule": "R1-button",
+    "file": "apps/web/src/components/theme-toggle.tsx",
+    "text": "<button",
+    "reason": "icon-only toggle; ghost/icon Button is rounded-control h-9 w-9 hover:bg-accent, not identical (rounded-full, hover:bg-muted, animated icons)"
+  },
+  {
+    "rule": "R1-button",
+    "file": "apps/web/src/components/toaster.tsx",
+    "text": "<button",
+    "reason": "icon-only dismiss button"
+  },
+  {
+    "rule": "R4-arbitrary",
+    "file": "apps/web/src/components/toaster.tsx",
+    "text": "className=\"pointer-events-none fixed inset-x-4 top-[4.5rem] z-[60] sm:left-auto sm:w-80\"",
+    "reason": "top offset 4.5rem (nav height + gap); no spacing step 18 in Tailwind 3 default scale"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/web/src/components/toaster.tsx",
+    "text": "className: \"border-emerald-100 bg-emerald-50 text-emerald-800\",",
+    "reason": "documented design decision: toasts keep fixed light pastel surface with paired fixed dark text; status colours"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/web/src/components/toaster.tsx",
+    "text": "className: \"border-blue-100 bg-blue-50 text-blue-800\",",
+    "reason": "documented design decision: toasts keep fixed light pastel surface with paired fixed dark text; status colours"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/web/src/components/toaster.tsx",
+    "text": "className: \"border-amber-100 bg-amber-50 text-amber-800\",",
+    "reason": "documented design decision: toasts keep fixed light pastel surface with paired fixed dark text; status colours"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/web/src/components/toaster.tsx",
+    "text": "className: \"border-red-100 bg-red-50 text-red-800\",",
+    "reason": "documented design decision: toasts keep fixed light pastel surface with paired fixed dark text; status colours"
+  },
+  {
+    "rule": "R1-button",
+    "file": "apps/web/src/components/video-embed.tsx",
+    "text": "<button",
+    "reason": "full-bleed poster/play overlay button"
+  },
+  {
+    "rule": "R2-hex",
+    "file": "apps/web/src/lib/utils.ts",
+    "text": "// the stylesheet rather than on cn()'s call order (PR #124, recurred in PR #145 review \u2014 Bob).",
+    "reason": "false positive: \"#NNN\" is a PR/id reference inside a comment, not a colour"
+  },
+  {
+    "rule": "R2-hex",
+    "file": "apps/web/src/lib/utils.ts",
+    "text": "// the stylesheet rather than on cn()'s call order (PR #124, recurred in PR #145 review \u2014 Bob).",
+    "reason": "false positive: \"#NNN\" is a PR/id reference inside a comment, not a colour"
+  },
+  {
+    "rule": "R6-table",
+    "file": "apps/admin/src/app/brand-plans/page.tsx",
+    "text": "<table className=\"w-full text-sm\">",
+    "reason": "no @bomy/ui Table primitive exists"
+  },
+  {
+    "rule": "R6-table",
+    "file": "apps/admin/src/app/brand-subscriptions/page.tsx",
+    "text": "<table className=\"w-full text-sm\">",
+    "reason": "no @bomy/ui Table primitive exists"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/admin/src/app/categories/category-row.tsx",
+    "text": "? \"border-transparent bg-green-100 text-green-700\"",
+    "reason": "status pair (green-100 bg + green-700 text, same family) on Badge for Active state"
+  },
+  {
+    "rule": "R6-table",
+    "file": "apps/admin/src/app/categories/page.tsx",
+    "text": "<table className=\"w-full text-sm\">",
+    "reason": "no @bomy/ui Table primitive exists"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/admin/src/app/checkout-sessions/[sessionId]/page.tsx",
+    "text": "<p className=\"rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-yellow-800\">",
+    "reason": "status pair, yellow family (border/bg/text) warning box"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/admin/src/app/checkout-sessions/[sessionId]/page.tsx",
+    "text": "<Card className=\"mb-6 border-green-200 bg-green-50 p-6 text-sm text-green-800\">",
+    "reason": "status pair, green family success Card"
+  },
+  {
+    "rule": "R6-table",
+    "file": "apps/admin/src/app/config/page.tsx",
+    "text": "<table className=\"w-full text-sm\">",
+    "reason": "no @bomy/ui Table primitive exists"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/admin/src/app/config/page.tsx",
+    "text": "<span className=\"rounded bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700\">",
+    "reason": "status pair yellow-100/yellow-700; see MANUAL: hand-made pill should be Badge"
+  },
+  {
+    "rule": "R6-table",
+    "file": "apps/admin/src/app/goodie-box/page.tsx",
+    "text": "<table className=\"w-full text-sm\">",
+    "reason": "no @bomy/ui Table primitive exists"
+  },
+  {
+    "rule": "R6-table",
+    "file": "apps/admin/src/app/memberships/page.tsx",
+    "text": "<table className=\"w-full text-sm\">",
+    "reason": "no @bomy/ui Table primitive exists"
+  },
+  {
+    "rule": "R6-table",
+    "file": "apps/admin/src/app/orders/[orderId]/page.tsx",
+    "text": "<table className=\"w-full text-sm text-foreground\">",
+    "reason": "no @bomy/ui Table primitive exists"
+  },
+  {
+    "rule": "R6-table",
+    "file": "apps/admin/src/app/orders/page.tsx",
+    "text": "<table className=\"w-full text-sm text-foreground\">",
+    "reason": "no @bomy/ui Table primitive exists"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/admin/src/app/payouts/_payout-actions.tsx",
+    "text": "className=\"bg-blue-100 text-blue-700 hover:bg-blue-200\"",
+    "reason": "status pair (same-family bg/text/hover) override on Button secondary conveying payout state"
+  },
+  {
+    "rule": "R6-table",
+    "file": "apps/admin/src/app/payouts/page.tsx",
+    "text": "<table className=\"w-full text-sm text-foreground\">",
+    "reason": "no @bomy/ui Table primitive exists"
+  },
+  {
+    "rule": "R6-table",
+    "file": "apps/admin/src/app/payouts/reconciliation/page.tsx",
+    "text": "<table className=\"w-full text-sm text-foreground\">",
+    "reason": "no @bomy/ui Table primitive exists"
+  },
+  {
+    "rule": "R6-table",
+    "file": "apps/admin/src/app/payouts/reconciliation/page.tsx",
+    "text": "<table className=\"w-full text-sm text-foreground\">",
+    "reason": "no @bomy/ui Table primitive exists"
+  },
+  {
+    "rule": "R3b-bg-without-literal-text",
+    "file": "apps/admin/src/app/payouts/reconciliation/page.tsx",
+    "text": "className=\"flex items-center justify-between rounded-xl border border-yellow-200 bg-yellow-50 px-6 py-4\"",
+    "reason": "status box; text colour is on child lines 124-125 (yellow-800/700)"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/admin/src/app/products/[id]/product-seo-form.tsx",
+    "text": "className=\"rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700\"",
+    "reason": "status pair green-50/green-700 success message"
+  },
+  {
+    "rule": "R6-table",
+    "file": "apps/admin/src/app/products/page.tsx",
+    "text": "<table className=\"w-full text-sm\">",
+    "reason": "no @bomy/ui Table primitive exists"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/admin/src/app/seller-inquiries/[id]/page.tsx",
+    "text": "pending: \"bg-amber-100 text-amber-700 border-transparent\",",
+    "reason": "status pair (bg+text same family) used as Badge className"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/admin/src/app/seller-inquiries/[id]/page.tsx",
+    "text": "approved: \"bg-green-100 text-green-700 border-transparent\",",
+    "reason": "status pair (bg+text same family) used as Badge className"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/admin/src/app/seller-inquiries/[id]/page.tsx",
+    "text": "rejected: \"bg-red-100 text-red-700 border-transparent\",",
+    "reason": "status pair (bg+text same family) used as Badge className"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/admin/src/app/seller-inquiries/[id]/page.tsx",
+    "text": "<div className=\"rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-800\">",
+    "reason": "status pair green-200/50/800 success box"
+  },
+  {
+    "rule": "R1-input",
+    "file": "apps/admin/src/app/seller-inquiries/page.tsx",
+    "text": "{isStatus(status) && <input type=\"hidden\" name=\"status\" value={status} />}",
+    "reason": "type=hidden: no shared primitive"
+  },
+  {
+    "rule": "R1-input",
+    "file": "apps/admin/src/app/seller-inquiries/page.tsx",
+    "text": "{sortKey !== \"created_desc\" && <input type=\"hidden\" name=\"sort\" value={sortKey} />}",
+    "reason": "type=hidden: no shared primitive"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/admin/src/app/seller-inquiries/page.tsx",
+    "text": "pending: \"bg-amber-100 text-amber-700 border-transparent\",",
+    "reason": "status pair (bg+text same family) used as Badge className"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/admin/src/app/seller-inquiries/page.tsx",
+    "text": "approved: \"bg-green-100 text-green-700 border-transparent\",",
+    "reason": "status pair (bg+text same family) used as Badge className"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/admin/src/app/seller-inquiries/page.tsx",
+    "text": "rejected: \"bg-red-100 text-red-700 border-transparent\",",
+    "reason": "status pair (bg+text same family) used as Badge className"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/admin/src/app/store-categories/category-row.tsx",
+    "text": "? \"border-transparent bg-green-100 text-green-700\"",
+    "reason": "status pair (green-100 bg + green-700 text, same family) on Badge for Active state"
+  },
+  {
+    "rule": "R6-table",
+    "file": "apps/admin/src/app/store-categories/page.tsx",
+    "text": "<table className=\"w-full text-sm\">",
+    "reason": "no @bomy/ui Table primitive exists"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/admin/src/app/stores/[id]/store-seo-form.tsx",
+    "text": "className=\"rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700\"",
+    "reason": "status pair green-50/green-700 success message"
+  },
+  {
+    "rule": "R4-arbitrary",
+    "file": "apps/admin/src/app/stores/copy-id.tsx",
+    "text": "<span className=\"font-mono text-[10px] text-muted-foreground\">{id.slice(0, 8)}\u2026</span>",
+    "reason": "text-[10px] intentional; no scale step (xs is 12px)"
+  },
+  {
+    "rule": "R1-input",
+    "file": "apps/admin/src/app/stores/new/store-provisioning-fields.tsx",
+    "text": "<input type=\"hidden\" name=\"bodyHtml\" value={html} readOnly />",
+    "reason": "type=hidden: no shared primitive"
+  },
+  {
+    "rule": "R1-input",
+    "file": "apps/admin/src/app/stores/page.tsx",
+    "text": "{isStoreStatus(status) && <input type=\"hidden\" name=\"status\" value={status} />}",
+    "reason": "type=hidden: no shared primitive"
+  },
+  {
+    "rule": "R1-input",
+    "file": "apps/admin/src/app/stores/page.tsx",
+    "text": "{sortKey !== \"created_desc\" && <input type=\"hidden\" name=\"sort\" value={sortKey} />}",
+    "reason": "type=hidden: no shared primitive"
+  },
+  {
+    "rule": "R6-table",
+    "file": "apps/admin/src/app/stores/page.tsx",
+    "text": "<table className=\"w-full text-sm\">",
+    "reason": "no @bomy/ui Table primitive exists"
+  },
+  {
+    "rule": "R4-arbitrary",
+    "file": "apps/admin/src/app/users/copy-id.tsx",
+    "text": "<span className=\"font-mono text-[10px] text-muted-foreground\">{id.slice(0, 8)}\u2026</span>",
+    "reason": "text-[10px] intentional; no scale step (xs is 12px)"
+  },
+  {
+    "rule": "R6-table",
+    "file": "apps/admin/src/app/users/page.tsx",
+    "text": "<table className=\"w-full text-sm\">",
+    "reason": "no @bomy/ui Table primitive exists"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/admin/src/app/users/page.tsx",
+    "text": "seller_owner: \"bg-green-100 text-green-700\",",
+    "reason": "role badge pair green-100/700"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/admin/src/app/users/page.tsx",
+    "text": "seller_staff: \"bg-emerald-100 text-emerald-700\",",
+    "reason": "role badge pair emerald-100/700"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/admin/src/app/users/page.tsx",
+    "text": "bomy_ops: \"bg-blue-100 text-blue-700\",",
+    "reason": "role badge pair blue-100/700"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/admin/src/app/users/page.tsx",
+    "text": "bomy_finance: \"bg-purple-100 text-purple-700\",",
+    "reason": "role badge pair purple-100/700"
+  },
+  {
+    "rule": "R6-table",
+    "file": "apps/admin/src/app/vouchers/page.tsx",
+    "text": "<table className=\"w-full text-sm\">",
+    "reason": "no @bomy/ui Table primitive exists"
+  },
+  {
+    "rule": "R6-table",
+    "file": "apps/admin/src/app/vouchers/page.tsx",
+    "text": "<table className=\"w-full text-sm\">",
+    "reason": "no @bomy/ui Table primitive exists"
+  },
+  {
+    "rule": "R1-button",
+    "file": "apps/admin/src/components/brand-story-field.tsx",
+    "text": "<button",
+    "reason": "icon-only toggle (aria-pressed) toolbar button; no identical Button variant (44px target)"
+  },
+  {
+    "rule": "R1-button",
+    "file": "apps/admin/src/components/brand-story-field.tsx",
+    "text": "<button",
+    "reason": "icon-only toggle (aria-pressed) link button in toolbar"
+  },
+  {
+    "rule": "R1-button",
+    "file": "apps/admin/src/components/brand-story-field.tsx",
+    "text": "<button",
+    "reason": "icon-only toolbar button (insert image)"
+  },
+  {
+    "rule": "R1-button",
+    "file": "apps/admin/src/components/brand-story-field.tsx",
+    "text": "<button",
+    "reason": "icon-only popover trigger (PopoverTrigger asChild, ref used for focus return)"
+  },
+  {
+    "rule": "R1-button",
+    "file": "apps/admin/src/components/brand-story-field.tsx",
+    "text": "<button",
+    "reason": "icon-only toolbar button (embed YouTube)"
+  },
+  {
+    "rule": "R4-arbitrary",
+    "file": "apps/admin/src/components/brand-story-field.tsx",
+    "text": "className=\"[&_.ProseMirror]:prose [&_.ProseMirror]:max-w-none [&_.ProseMirror]:min-h-[200px] [&_.ProseMirror]:rounded [&_.ProseMirror]:border [&_.ProseMirror]:border-border [&_.ProseMirror]:p-3 [&_.ProseMirror]:focus:outline-none [&_.ProseMirror]:focus:ring-2 [&_.ProseMirror]:focus:ring-ring dark:[&_.ProseMirror]:prose-invert\"",
+    "reason": "min-h-[200px] on ProseMirror editor area; no scale step (48=192px, 52=208px)"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/admin/src/components/sidebar.tsx",
+    "text": "<aside className=\"flex w-44 flex-col bg-slate-800 text-sm text-slate-400\">",
+    "reason": "sidebar is deliberately always-dark chrome with fixed literal bg+text pairs; no sidebar tokens exist"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/admin/src/components/sidebar.tsx",
+    "text": "? \"border-l-2 border-primary bg-slate-700 text-slate-100\"",
+    "reason": "sidebar is deliberately always-dark chrome with fixed literal bg+text pairs; no sidebar tokens exist"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/admin/src/components/sidebar.tsx",
+    "text": ": \"hover:bg-slate-700 hover:text-slate-100\",",
+    "reason": "sidebar is deliberately always-dark chrome with fixed literal bg+text pairs; no sidebar tokens exist"
+  },
+  {
+    "rule": "R1-button",
+    "file": "apps/admin/src/components/theme-toggle.tsx",
+    "text": "<button",
+    "reason": "icon-only theme toggle with two animated icons (spring transition); no identical Button variant"
+  },
+  {
+    "rule": "R1-button",
+    "file": "apps/admin/src/components/toaster.tsx",
+    "text": "<button",
+    "reason": "icon-only dismiss button in toast (p-1 rounded-full); Button icon size is 36px, not identical"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/admin/src/components/toaster.tsx",
+    "text": "className: \"border-emerald-100 bg-emerald-50 text-emerald-800\",",
+    "reason": "status pair (border/bg/text same family), deliberate fixed light surface in both themes"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/admin/src/components/toaster.tsx",
+    "text": "className: \"border-blue-100 bg-blue-50 text-blue-800\",",
+    "reason": "status pair (border/bg/text same family), deliberate fixed light surface in both themes"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/admin/src/components/toaster.tsx",
+    "text": "className: \"border-amber-100 bg-amber-50 text-amber-800\",",
+    "reason": "status pair (border/bg/text same family), deliberate fixed light surface in both themes"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/admin/src/components/toaster.tsx",
+    "text": "className: \"border-red-100 bg-red-50 text-red-800\",",
+    "reason": "status pair (border/bg/text same family), deliberate fixed light surface in both themes"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/admin/src/components/youtube-embed-extension.ts",
+    "text": "\"relative flex aspect-video w-full cursor-default items-center justify-center rounded bg-gray-900 text-white\"",
+    "reason": "TipTap node-view placeholder: fixed dark bg-gray-900 paired with literal text-white; plain DOM string, not React"
+  },
+  {
+    "rule": "R2-hex",
+    "file": "apps/admin/src/lib/utils.ts",
+    "text": "// the stylesheet rather than on cn()'s call order (PR #124, recurred in PR #145 review \u2014 Bob).",
+    "reason": "false positive: \"#124\"/\"#145\" are PR numbers in a comment, not colours"
+  },
+  {
+    "rule": "R2-hex",
+    "file": "apps/admin/src/lib/utils.ts",
+    "text": "// the stylesheet rather than on cn()'s call order (PR #124, recurred in PR #145 review \u2014 Bob).",
+    "reason": "false positive: \"#124\"/\"#145\" are PR numbers in a comment, not colours"
+  }
+]
