@@ -10,7 +10,7 @@
 // file-wide or line-number entries, so a new hit of the same rule in the same file stays open.
 // findings.json is a second ledger for what no regex can see: browser overflow and manual-review
 // findings. Each entry is open, deferred or resolved (resolved needs evidence; deferred needs a followUp).
-// Exit code 0 needs: no open hits, no stale or invalid entries, no open ledger findings, and no deferred
+// Exit code 0 needs: all three list files present and valid arrays, no open hits, no stale or invalid entries, no open ledger findings, and no deferred
 // hits or deferred ledger findings (unless --allow-deferred, which the PR gate uses while follow-ups are
 // still pending). Open ledger findings fail even with --allow-deferred.
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs"
@@ -101,9 +101,28 @@ function scanFile(abs) {
   return hits
 }
 
+// All three lists must exist and hold a JSON array. A missing or broken list is a hard failure:
+// treating it as empty would hide every entry it was meant to track (a deleted findings.json would
+// pass the gate with its deferred findings gone).
+const listErrors = []
 function readEntries(name) {
   const p = join(here, name)
-  return existsSync(p) ? JSON.parse(readFileSync(p, "utf8")) : []
+  if (!existsSync(p)) {
+    listErrors.push(`${name}: file is missing`)
+    return []
+  }
+  let value
+  try {
+    value = JSON.parse(readFileSync(p, "utf8"))
+  } catch {
+    listErrors.push(`${name}: not valid JSON`)
+    return []
+  }
+  if (!Array.isArray(value)) {
+    listErrors.push(`${name}: must contain a JSON array`)
+    return []
+  }
+  return value
 }
 const isStr = (v, min = 1) => typeof v === "string" && v.trim().length >= min
 const validException = (e) =>
@@ -301,6 +320,7 @@ if (wantRoutes) {
         stale: [...ex.stale, ...df.stale],
         invalid: [...ex.invalid, ...df.invalid],
         ledger,
+        listErrors,
         hits,
       },
       null,
@@ -334,8 +354,10 @@ if (wantRoutes) {
   for (const e of findings.filter((x) => x?.status === "open"))
     console.log(`open finding: ${e.id} [${e.kind}] ${e.route} :: ${e.description}`)
   for (const e of ledger.invalid) console.log(`invalid finding: ${JSON.stringify(e)}`)
+  for (const e of listErrors) console.log(`list error: ${e}`)
 }
 const clean =
+  listErrors.length === 0 &&
   summary.open === 0 &&
   summary.stale === 0 &&
   summary.invalid === 0 &&

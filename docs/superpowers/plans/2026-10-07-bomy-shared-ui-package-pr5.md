@@ -106,7 +106,7 @@ Sonnet for the scanner, the triage agents and the swaps. Opus read-only review o
 - Produces: `node scripts/ui-audit/scan.mjs [--json] [--allow-deferred] [--routes] [--root <dir>]`. Default output: a per-rule table and a totals line (`total … covered … deferred … OPEN … stale … invalid …`). `--json`: every hit with `rule`, `file`, `line`, `text`, `status`. `--routes`: every page with `app`, `url`, `dynamic`, `page`, `shell`, `shellClosure` (everything the shell files import), `files`, `covered`, `deferred`, `open`, `zeroHit`, plus `excluded` (API handlers), `shells` (each shell file once, with its imports and hit count) and `unreached` (files with hits that no page or shell imports).
 - Entry shape (both files): `{ "rule": "R1-input", "file": "apps/web/src/app/x.tsx", "text": "<input type=\"checkbox\" />", "reason": "checkbox: no shared Checkbox primitive exists" }`. `deferred.json` entries also need `"followUp": "PR 5a: Checkbox primitive"`. `text` is the trimmed source line of the hit (copy it from `--json`). A `reason` under 10 characters is invalid. Each entry covers **one** hit.
 - Ledger entry shape (`findings.json`): `{ "id": "ov-1", "kind": "overflow" | "manual", "route": "/seller/dashboard/products/new", "description": "form is 637 px wide at a 390 px viewport", "status": "open" | "deferred" | "resolved", "evidence": "...", "followUp": "..." }`. `id` is unique. `resolved` needs `evidence` (at least 10 characters: what was re-measured or re-read, and where). `deferred` needs `followUp`. Anything else is invalid.
-- Exit code 0 only when: zero open hits, zero stale entries, zero invalid entries (hit entries and ledger entries), **zero open ledger findings**, and (zero deferred hits and zero deferred ledger findings **or** `--allow-deferred`). An open ledger finding fails the run even with `--allow-deferred`, and even when every scanner hit is clear.
+- Exit code 0 only when: **all three list files exist and each holds a JSON array** (a missing or broken list is a hard failure, never an empty list; `--json` reports it under `listErrors`), zero open hits, zero stale entries, zero invalid entries (hit entries and ledger entries), **zero open ledger findings**, and (zero deferred hits and zero deferred ledger findings **or** `--allow-deferred`). An open ledger finding fails the run even with `--allow-deferred`, and even when every scanner hit is clear.
 
 - [ ] **Step 1: Write `scripts/ui-audit/scan.mjs`.** This code was written and run against `origin/main` `0367271` on 2026-10-07 (313 hits, 64 pages), extended with the ledger and the shell closure (v3), and formatted with the repo's Prettier:
 
@@ -123,7 +123,7 @@ Sonnet for the scanner, the triage agents and the swaps. Opus read-only review o
 // file-wide or line-number entries, so a new hit of the same rule in the same file stays open.
 // findings.json is a second ledger for what no regex can see: browser overflow and manual-review
 // findings. Each entry is open, deferred or resolved (resolved needs evidence; deferred needs a followUp).
-// Exit code 0 needs: no open hits, no stale or invalid entries, no open ledger findings, and no deferred
+// Exit code 0 needs: all three list files present and valid arrays, no open hits, no stale or invalid entries, no open ledger findings, and no deferred
 // hits or deferred ledger findings (unless --allow-deferred, which the PR gate uses while follow-ups are
 // still pending). Open ledger findings fail even with --allow-deferred.
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs"
@@ -214,9 +214,28 @@ function scanFile(abs) {
   return hits
 }
 
+// All three lists must exist and hold a JSON array. A missing or broken list is a hard failure:
+// treating it as empty would hide every entry it was meant to track (a deleted findings.json would
+// pass the gate with its deferred findings gone).
+const listErrors = []
 function readEntries(name) {
   const p = join(here, name)
-  return existsSync(p) ? JSON.parse(readFileSync(p, "utf8")) : []
+  if (!existsSync(p)) {
+    listErrors.push(`${name}: file is missing`)
+    return []
+  }
+  let value
+  try {
+    value = JSON.parse(readFileSync(p, "utf8"))
+  } catch {
+    listErrors.push(`${name}: not valid JSON`)
+    return []
+  }
+  if (!Array.isArray(value)) {
+    listErrors.push(`${name}: must contain a JSON array`)
+    return []
+  }
+  return value
 }
 const isStr = (v, min = 1) => typeof v === "string" && v.trim().length >= min
 const validException = (e) =>
@@ -414,6 +433,7 @@ if (wantRoutes) {
         stale: [...ex.stale, ...df.stale],
         invalid: [...ex.invalid, ...df.invalid],
         ledger,
+        listErrors,
         hits,
       },
       null,
@@ -447,8 +467,10 @@ if (wantRoutes) {
   for (const e of findings.filter((x) => x?.status === "open"))
     console.log(`open finding: ${e.id} [${e.kind}] ${e.route} :: ${e.description}`)
   for (const e of ledger.invalid) console.log(`invalid finding: ${JSON.stringify(e)}`)
+  for (const e of listErrors) console.log(`list error: ${e}`)
 }
 const clean =
+  listErrors.length === 0 &&
   summary.open === 0 &&
   summary.stale === 0 &&
   summary.invalid === 0 &&
@@ -458,7 +480,7 @@ const clean =
 process.exitCode = clean ? 0 : 1
 ```
 
-- [ ] **Step 2: Write `scripts/ui-audit/scan.test.mjs`** (node's built-in runner, no dependency; 14 tests):
+- [ ] **Step 2: Write `scripts/ui-audit/scan.test.mjs`** (node's built-in runner, no dependency; 17 tests):
 
 ```js
 // Run: node --test scripts/ui-audit/scan.test.mjs   (node's built-in runner, no dependencies)
@@ -473,16 +495,21 @@ import { fileURLToPath } from "node:url"
 const here = fileURLToPath(new URL(".", import.meta.url))
 
 // Builds a throwaway repo root with its own copy of the scanner, so the entry files can vary per test.
-function fixture(files, { exceptions, deferred, findings } = {}) {
+// All three lists are written (empty by default) because the scanner requires them; `omit` leaves a
+// list out and `raw` writes exact text, to test the missing and broken cases.
+function fixture(files, { exceptions, deferred, findings, omit = [], raw = {} } = {}) {
   const root = mkdtempSync(join(tmpdir(), "ui-audit-"))
   mkdirSync(join(root, "scripts/ui-audit"), { recursive: true })
   copyFileSync(join(here, "scan.mjs"), join(root, "scripts/ui-audit/scan.mjs"))
-  if (exceptions)
-    writeFileSync(join(root, "scripts/ui-audit/exceptions.json"), JSON.stringify(exceptions))
-  if (deferred)
-    writeFileSync(join(root, "scripts/ui-audit/deferred.json"), JSON.stringify(deferred))
-  if (findings)
-    writeFileSync(join(root, "scripts/ui-audit/findings.json"), JSON.stringify(findings))
+  const lists = {
+    "exceptions.json": exceptions,
+    "deferred.json": deferred,
+    "findings.json": findings,
+  }
+  for (const [name, value] of Object.entries(lists)) {
+    if (omit.includes(name)) continue
+    writeFileSync(join(root, "scripts/ui-audit", name), raw[name] ?? JSON.stringify(value ?? []))
+  }
   for (const [rel, body] of Object.entries(files)) {
     mkdirSync(join(root, rel, ".."), { recursive: true })
     writeFileSync(join(root, rel), body)
@@ -708,6 +735,53 @@ test("route review includes what layouts import (NavBar) and reports unreached f
   }
 })
 
+test("a missing list file fails the run instead of counting as empty, even with --allow-deferred", () => {
+  const files = { "apps/web/src/app/ok.tsx": "<main>ok</main>\n" }
+  for (const name of ["exceptions.json", "deferred.json", "findings.json"]) {
+    const root = fixture(files, { omit: [name] })
+    try {
+      for (const flags of [[], ["--allow-deferred"]]) {
+        const { code, out } = run(root, flags)
+        assert.equal(code, 1, `${name} missing, flags ${flags}`)
+        assert.deepEqual(out.listErrors, [`${name}: file is missing`])
+      }
+    } finally {
+      cleanup(root)
+    }
+  }
+})
+
+test("a list that is not valid JSON or not an array fails the run", () => {
+  const files = { "apps/web/src/app/ok.tsx": "<main>ok</main>\n" }
+  const cases = [
+    ["findings.json", "{", "not valid JSON"],
+    ["findings.json", "{}", "must contain a JSON array"],
+    ["deferred.json", "null", "must contain a JSON array"],
+    ["exceptions.json", '"[]"', "must contain a JSON array"],
+  ]
+  for (const [name, text, why] of cases) {
+    const root = fixture(files, { raw: { [name]: text } })
+    try {
+      const { code, out } = run(root, ["--allow-deferred"])
+      assert.equal(code, 1, `${name} = ${text}`)
+      assert.deepEqual(out.listErrors, [`${name}: ${why}`])
+    } finally {
+      cleanup(root)
+    }
+  }
+})
+
+test("three empty lists on a clean tree exit 0", () => {
+  const root = fixture({ "apps/web/src/app/ok.tsx": "<main>ok</main>\n" })
+  try {
+    const { code, out } = run(root)
+    assert.equal(code, 0)
+    assert.deepEqual(out.listErrors, [])
+  } finally {
+    cleanup(root)
+  }
+})
+
 test("large output is not truncated when piped", () => {
   const body = Array.from({ length: 4000 }, (_, i) => `<button key={${i}}>x</button>`).join("\n")
   const root = fixture({ "apps/web/src/app/big.tsx": body })
@@ -749,20 +823,24 @@ test("route map: groups dropped, dynamic segments kept, API handlers excluded, c
 
 - [ ] **Step 3: Write `scripts/ui-audit/exceptions.json`, `scripts/ui-audit/deferred.json` and `scripts/ui-audit/findings.json`** with exactly `[]` and a newline each.
 - [ ] **Step 4: Add two root scripts** to `package.json`: `"ui:audit": "node scripts/ui-audit/scan.mjs"` and `"ui:audit:test": "node --test scripts/ui-audit/scan.test.mjs"`. They are not part of `pnpm test` (turbo) on purpose.
-- [ ] **Step 5: Run the tests.** `pnpm ui:audit:test`. Expected: 14 tests pass.
+- [ ] **Step 5: Run the tests.** `pnpm ui:audit:test`. Expected: 17 tests pass.
 - [ ] **Step 6: Mutation checks (each must make exactly the named test fail; restore after each).** Work on a copy or `git restore` the file between runs.
 
-| Mutation in `scan.mjs`                                                                                                              | Test that must fail                                                                         |
-| ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| In `classify`, drop `&& e.text === h.text` and the `!used.has(k)` guard (file-wide, reusable entries)                               | "a second hit of the same rule in the same file stays open"                                 |
-| In `classify`, drop only the `!used.has(k)` guard (one entry covers many)                                                           | "a second hit of the same rule in the same file stays open"                                 |
-| In the last lines, remove `summary.stale === 0 &&`                                                                                  | "a stale exception (matches nothing) fails the run"                                         |
-| In the last lines, replace `(allowDeferred \|\| (summary.deferred === 0 && ledger.deferred === 0))` with `true`                     | "deferred hits keep the plain run failing; --allow-deferred accepts them"                   |
-| Replace `process.exitCode = …` with `process.exit(clean ? 0 : 1)`                                                                   | "large output is not truncated when piped" (piped output was cut at 64 KB in the draft run) |
-| Remove `ledger.open === 0 &&`                                                                                                       | "an open ledger finding fails the run even when every scanner hit is clear…"                |
-| Remove `ledger.invalid.length === 0 &&`                                                                                             | "ledger: resolved needs evidence, deferred needs a followUp…"                               |
-| Replace `(allowDeferred \|\| (summary.deferred === 0 && ledger.deferred === 0))` with `(allowDeferred \|\| summary.deferred === 0)` | "ledger: resolved needs evidence, deferred needs a followUp…"                               |
-| Replace the `shellClosure` expression `shell.flatMap((f) => closure(app, join(ROOT, f))).map(rel)` with `[]`                        | "route review includes what layouts import (NavBar)…"                                       |
+| Mutation in `scan.mjs`                                                                                                              | Test that must fail                                                                                    |
+| ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| In `classify`, drop `&& e.text === h.text` and the `!used.has(k)` guard (file-wide, reusable entries)                               | "a second hit of the same rule in the same file stays open"                                            |
+| In `classify`, drop only the `!used.has(k)` guard (one entry covers many)                                                           | "a second hit of the same rule in the same file stays open"                                            |
+| In the last lines, remove `summary.stale === 0 &&`                                                                                  | "a stale exception (matches nothing) fails the run"                                                    |
+| In the last lines, replace `(allowDeferred \|\| (summary.deferred === 0 && ledger.deferred === 0))` with `true`                     | "deferred hits keep the plain run failing; --allow-deferred accepts them"                              |
+| Replace `process.exitCode = …` with `process.exit(clean ? 0 : 1)`                                                                   | "large output is not truncated when piped" (piped output was cut at 64 KB in the draft run)            |
+| Remove `ledger.open === 0 &&`                                                                                                       | "an open ledger finding fails the run even when every scanner hit is clear…"                           |
+| Remove `ledger.invalid.length === 0 &&`                                                                                             | "ledger: resolved needs evidence, deferred needs a followUp…"                                          |
+| Replace `(allowDeferred \|\| (summary.deferred === 0 && ledger.deferred === 0))` with `(allowDeferred \|\| summary.deferred === 0)` | "ledger: resolved needs evidence, deferred needs a followUp…"                                          |
+| Replace the `shellClosure` expression `shell.flatMap((f) => closure(app, join(ROOT, f))).map(rel)` with `[]`                        | "route review includes what layouts import (NavBar)…"                                                  |
+| Replace `listErrors.push(`${name}: file is missing`)` with `void 0` (the reported bug: a missing list counts as empty)              | "a missing list file fails the run instead of counting as empty…"                                      |
+| Remove `listErrors.length === 0 &&` from the exit expression                                                                        | "a missing list file fails the run…" and "a list that is not valid JSON or not an array fails the run" |
+| Replace `if (!Array.isArray(value)) {` with `if (false) {`                                                                          | "a list that is not valid JSON or not an array fails the run"                                          |
+| Delete the `listErrors.push(`${name}: not valid JSON`)` line                                                                        | "a list that is not valid JSON or not an array fails the run"                                          |
 
 - [ ] **Step 7: Format.** `pnpm exec prettier --check scripts/ui-audit package.json`. ESLint's root config ignores `scripts/`, so ESLint has nothing to check there (`scripts/check-integration-env.mjs` is the precedent).
 - [ ] **Step 8: Run the scanner.** `pnpm ui:audit`. Expected: the baseline table (the admin `/users` and `/vouchers` rows differ now that #155 is merged), `OPEN` about 313, exit code 1. `pnpm ui:audit --routes` lists 64 pages, the shell files (6 on `main`: admin `error`, admin `layout`, web `error`, web `layout`, web `products/loading`, web `seller/dashboard/layout`) with the files they import, and any unreached files with hits (none on `main`). The ledger line reads `open 0 deferred 0 resolved 0`.

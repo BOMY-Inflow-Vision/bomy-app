@@ -10,16 +10,21 @@ import { fileURLToPath } from "node:url"
 const here = fileURLToPath(new URL(".", import.meta.url))
 
 // Builds a throwaway repo root with its own copy of the scanner, so the entry files can vary per test.
-function fixture(files, { exceptions, deferred, findings } = {}) {
+// All three lists are written (empty by default) because the scanner requires them; `omit` leaves a
+// list out and `raw` writes exact text, to test the missing and broken cases.
+function fixture(files, { exceptions, deferred, findings, omit = [], raw = {} } = {}) {
   const root = mkdtempSync(join(tmpdir(), "ui-audit-"))
   mkdirSync(join(root, "scripts/ui-audit"), { recursive: true })
   copyFileSync(join(here, "scan.mjs"), join(root, "scripts/ui-audit/scan.mjs"))
-  if (exceptions)
-    writeFileSync(join(root, "scripts/ui-audit/exceptions.json"), JSON.stringify(exceptions))
-  if (deferred)
-    writeFileSync(join(root, "scripts/ui-audit/deferred.json"), JSON.stringify(deferred))
-  if (findings)
-    writeFileSync(join(root, "scripts/ui-audit/findings.json"), JSON.stringify(findings))
+  const lists = {
+    "exceptions.json": exceptions,
+    "deferred.json": deferred,
+    "findings.json": findings,
+  }
+  for (const [name, value] of Object.entries(lists)) {
+    if (omit.includes(name)) continue
+    writeFileSync(join(root, "scripts/ui-audit", name), raw[name] ?? JSON.stringify(value ?? []))
+  }
   for (const [rel, body] of Object.entries(files)) {
     mkdirSync(join(root, rel, ".."), { recursive: true })
     writeFileSync(join(root, rel), body)
@@ -240,6 +245,53 @@ test("route review includes what layouts import (NavBar) and reports unreached f
     const sh = out.shells.find((s) => s.file === "apps/web/src/app/layout.tsx")
     assert.equal(sh.hits, 1)
     assert.deepEqual(out.unreached, ["apps/web/src/lib/orphan.tsx"])
+  } finally {
+    cleanup(root)
+  }
+})
+
+test("a missing list file fails the run instead of counting as empty, even with --allow-deferred", () => {
+  const files = { "apps/web/src/app/ok.tsx": "<main>ok</main>\n" }
+  for (const name of ["exceptions.json", "deferred.json", "findings.json"]) {
+    const root = fixture(files, { omit: [name] })
+    try {
+      for (const flags of [[], ["--allow-deferred"]]) {
+        const { code, out } = run(root, flags)
+        assert.equal(code, 1, `${name} missing, flags ${flags}`)
+        assert.deepEqual(out.listErrors, [`${name}: file is missing`])
+      }
+    } finally {
+      cleanup(root)
+    }
+  }
+})
+
+test("a list that is not valid JSON or not an array fails the run", () => {
+  const files = { "apps/web/src/app/ok.tsx": "<main>ok</main>\n" }
+  const cases = [
+    ["findings.json", "{", "not valid JSON"],
+    ["findings.json", "{}", "must contain a JSON array"],
+    ["deferred.json", "null", "must contain a JSON array"],
+    ["exceptions.json", '"[]"', "must contain a JSON array"],
+  ]
+  for (const [name, text, why] of cases) {
+    const root = fixture(files, { raw: { [name]: text } })
+    try {
+      const { code, out } = run(root, ["--allow-deferred"])
+      assert.equal(code, 1, `${name} = ${text}`)
+      assert.deepEqual(out.listErrors, [`${name}: ${why}`])
+    } finally {
+      cleanup(root)
+    }
+  }
+})
+
+test("three empty lists on a clean tree exit 0", () => {
+  const root = fixture({ "apps/web/src/app/ok.tsx": "<main>ok</main>\n" })
+  try {
+    const { code, out } = run(root)
+    assert.equal(code, 0)
+    assert.deepEqual(out.listErrors, [])
   } finally {
     cleanup(root)
   }
