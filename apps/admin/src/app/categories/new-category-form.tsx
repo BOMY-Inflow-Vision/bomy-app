@@ -30,7 +30,7 @@ export function NewCategoryForm() {
   }
 
   return (
-    <form ref={ref} action={submit} className="flex items-center gap-2">
+    <form ref={ref} action={submit} className="flex flex-wrap items-center gap-2">
       <Label htmlFor="new-category-name" className="sr-only">
         New category name
       </Label>

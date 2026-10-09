@@ -159,7 +159,7 @@ export default async function BrandSubscriptionsPage({
           </div>
         )}
       </div>
-      <Card className="overflow-hidden">
+      <Card className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted text-left text-xs font-semibold text-muted-foreground">

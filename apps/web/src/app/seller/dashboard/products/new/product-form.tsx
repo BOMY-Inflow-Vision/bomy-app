@@ -381,7 +381,7 @@ export function ProductForm({ categories }: { categories: Category[] }) {
       </Card>
 
       {/* Actions */}
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         <Button
           type="submit"
           icon={<Plus />}

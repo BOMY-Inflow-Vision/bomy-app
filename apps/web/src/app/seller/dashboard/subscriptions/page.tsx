@@ -57,7 +57,7 @@ export default async function SellerSubscriptionsPage({
           No plans yet. Create your first plan below.
         </p>
       ) : (
-        <div className="mb-8 overflow-hidden rounded-xl border border-border bg-background shadow-sm">
+        <div className="mb-8 overflow-x-auto rounded-xl border border-border bg-background shadow-sm">
           <table className="w-full text-sm">
             <thead className="border-b border-border bg-muted text-xs font-medium uppercase text-muted-foreground">
               <tr>
@@ -152,7 +152,7 @@ export default async function SellerSubscriptionsPage({
 
       {/* ── Payout history ────────────────────────────────────────── */}
       {(paidPayouts.length > 0 || pendingPayouts.length > 0) && (
-        <div className="mb-8 rounded-xl border border-border bg-background shadow-sm">
+        <div className="mb-8 overflow-x-auto rounded-xl border border-border bg-background shadow-sm">
           <div className="border-b border-border px-5 py-3">
             <h2 className="text-sm font-semibold text-foreground">Payout History</h2>
           </div>

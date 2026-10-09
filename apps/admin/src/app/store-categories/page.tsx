@@ -29,12 +29,12 @@ export default async function StoreCategoriesPage() {
 
   return (
     <div className="p-8">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-y-2">
         <h1 className="text-xl font-semibold text-foreground">Store Categories</h1>
         <NewStoreCategoryForm />
       </div>
 
-      <Card className="overflow-hidden">
+      <Card className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="border-b border-border bg-muted text-left">
             <tr>

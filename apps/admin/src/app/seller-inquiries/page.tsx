@@ -98,15 +98,15 @@ export default async function SellerInquiriesPage({
 
   return (
     <div className="p-6">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-y-2">
         <h1 className="text-lg font-semibold text-foreground">
           Seller Inquiries
           <Badge variant="secondary" className="ml-2 text-sm font-normal">
             {total}
           </Badge>
         </h1>
-        <div className="flex items-center gap-3">
-          <div className="flex gap-1 text-sm">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap gap-1 text-sm">
             {["", ...INQUIRY_STATUSES].map((s) => (
               <Link
                 key={s || "all"}
@@ -122,7 +122,7 @@ export default async function SellerInquiriesPage({
               </Link>
             ))}
           </div>
-          <form method="get" className="flex items-center gap-1">
+          <form method="get" className="flex flex-wrap items-center gap-1">
             {isStatus(status) && <input type="hidden" name="status" value={status} />}
             {sortKey !== "created_desc" && <input type="hidden" name="sort" value={sortKey} />}
             <Label htmlFor="inquiries-search" className="sr-only">
@@ -166,9 +166,9 @@ export default async function SellerInquiriesPage({
                 dimmed && "opacity-50",
               )}
             >
-              <div className="flex items-start justify-between">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0 space-y-1">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                     <Link
                       href={`/seller-inquiries/${row.id}`}
                       className="font-medium text-foreground hover:underline"
