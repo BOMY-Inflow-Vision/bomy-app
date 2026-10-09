@@ -190,8 +190,8 @@ pattern as PR 1, without the token-alignment or scaffolding work (already done i
 - Highest-risk PR in the sequence — tackled last, on purpose. Both apps' current custom `Select`
   relies on a hidden `<input>` for form-submission semantics; the replacement's form behavior needs
   explicit testing in both apps, not just a visual check.
-- **Status (2026-10-07):** PR 4 ships **web-only** (#154). The admin Select migration is pending **PR 4b**,
-  behind Charlie's own Google-session check on the admin forms (the role selector and the voucher
+- **Status (2026-10-07):** PR 4 ships **web-only** (#154). The admin Select migration shipped as **PR 4b** (#155, merged 2026-10-07)
+  after Charlie's own Google-session check on the admin forms (the role selector and the voucher
   type). `@radix-ui/react-select` is pinned to exactly `2.3.3`, because 2.3.4 to 2.3.8 break
   multi-letter typeahead in a minified production build (radix-ui/primitives#4097); see the PR 4 plan.
 
@@ -204,6 +204,14 @@ visual inconsistency the earlier PRs didn't touch. Produces a findings list; if 
 it splits into further small follow-up PRs rather than one large sweep — decided once the audit
 actually runs, not estimated here. "Done" for this pass means: every route in both apps either uses
 a `@bomy/ui` primitive where one exists, or has a documented, deliberate reason it doesn't.
+
+- **Status (2026-10-08):** the audit ran (scanner `scripts/ui-audit/scan.mjs`, 64 pages, 313 hits;
+  findings in `docs/superpowers/audits/2026-10-07-pr5-ui-consistency-findings.md`). PR 5 ships the
+  scanner, the lists and 9 files of mechanical fixes; the rest is tracked in `deferred.json` and
+  `findings.json` as PR 5a (colour tokens and contrast), 5b (provider Select), 5c (responsive admin
+  and seller shells, shared `Button` parked-arrow overflow) and 5d (hand-made pills, boxes, tabs).
+  This pass is **complete only when plain `pnpm ui:audit` exits 0**, so the styling roadmap stays
+  pending until those merge.
 
 ## What stays local, never moves into `@bomy/ui`
 

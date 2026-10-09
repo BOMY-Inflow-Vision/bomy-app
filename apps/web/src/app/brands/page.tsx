@@ -4,6 +4,8 @@ import { Search, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
+import { Input } from "@bomy/ui/input"
+import { Label } from "@bomy/ui/label"
 
 import { getBrands, getStoreCategories } from "./queries"
 
@@ -46,15 +48,15 @@ export default async function BrandsPage({ searchParams }: Props) {
 
       {/* Search */}
       <form method="get" className="mb-6 flex gap-2">
-        <label htmlFor="brands-search" className="sr-only">
+        <Label htmlFor="brands-search" className="sr-only">
           Search brands
-        </label>
-        <input
+        </Label>
+        <Input
           id="brands-search"
           name="q"
           defaultValue={q}
           placeholder="Search brands…"
-          className="flex-1 rounded-lg border border-input px-4 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+          className="min-w-0 flex-1"
         />
         {category && <input type="hidden" name="category" value={category} />}
         <Button type="submit" icon={<Search />}>

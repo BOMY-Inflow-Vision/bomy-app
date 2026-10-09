@@ -13,6 +13,8 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test --concurrency=1",
+    "ui:audit": "node scripts/ui-audit/scan.mjs",
+    "ui:audit:test": "node --test scripts/ui-audit/scan.test.mjs",
     "test:integration": "node scripts/check-integration-env.mjs && turbo run test --concurrency=1",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,mjs,cjs,json,md,yaml,yml,css}\" --ignore-path .prettierignore",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mjs,cjs,json,md,yaml,yml,css}\" --ignore-path .prettierignore",

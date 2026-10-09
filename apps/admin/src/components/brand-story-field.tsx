@@ -26,6 +26,7 @@ import {
 
 import { extractYoutubeVideoId } from "@bomy/shared/youtube"
 
+import { Button } from "@bomy/ui/button"
 import { Input } from "@bomy/ui/input"
 import { Label } from "@bomy/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@bomy/ui/popover"
@@ -259,7 +260,7 @@ function ToolbarButton({
       aria-label={label}
       aria-pressed={active}
       title={label}
-      className={`min-h-[44px] min-w-[44px] rounded px-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
+      className={`min-h-11 min-w-11 rounded px-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
         active ? "bg-accent text-accent-foreground" : "bg-background text-foreground hover:bg-muted"
       }`}
     >
@@ -286,7 +287,7 @@ function LinkButton({ editor }: { editor: Editor | null }) {
       aria-label="Set or unset link"
       aria-pressed={editor?.isActive("link") ?? false}
       title="Link"
-      className={`min-h-[44px] min-w-[44px] rounded px-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
+      className={`min-h-11 min-w-11 rounded px-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
         (editor?.isActive("link") ?? false)
           ? "bg-accent text-accent-foreground"
           : "bg-background text-foreground hover:bg-muted"
@@ -334,7 +335,7 @@ function InsertImageUrlButton({ editor }: { editor: Editor | null }) {
       }}
       aria-label="Insert image by URL"
       title="Insert image by URL"
-      className="min-h-[44px] min-w-[44px] rounded bg-background px-2 text-sm text-foreground hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      className="min-h-11 min-w-11 rounded bg-background px-2 text-sm text-foreground hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
     >
       <ImageIcon className="h-4 w-4" />
     </button>
@@ -379,7 +380,7 @@ function InsertTableButton({ editor }: { editor: Editor | null }) {
           type="button"
           aria-label="Insert table"
           title="Insert table"
-          className="min-h-[44px] min-w-[44px] rounded bg-background px-2 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring data-[state=open]:bg-accent data-[state=open]:text-accent-foreground"
+          className="min-h-11 min-w-11 rounded bg-background px-2 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring data-[state=open]:bg-accent data-[state=open]:text-accent-foreground"
         >
           <Table className="h-4 w-4" />
         </button>
@@ -442,14 +443,15 @@ function InsertTableButton({ editor }: { editor: Editor | null }) {
             />
           </div>
         </div>
-        <button
+        <Button
           type="button"
+          size="sm"
           disabled={!editor}
           onClick={handleInsert}
-          className="mt-2 w-full rounded bg-primary py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-2 w-full"
         >
           Insert {rows} × {cols} table
-        </button>
+        </Button>
       </PopoverContent>
     </Popover>
   )
@@ -497,7 +499,7 @@ function EmbedYouTubeButton({ editor }: { editor: Editor | null }) {
       }}
       aria-label="Embed YouTube video"
       title="Embed YouTube video"
-      className="min-h-[44px] min-w-[44px] rounded bg-background px-2 text-sm text-foreground hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      className="min-h-11 min-w-11 rounded bg-background px-2 text-sm text-foreground hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
     >
       <Youtube className="h-4 w-4" />
     </button>

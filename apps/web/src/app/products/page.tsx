@@ -4,6 +4,8 @@ import { Search, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
+import { Input } from "@bomy/ui/input"
+import { Label } from "@bomy/ui/label"
 
 import { formatMyrSen, getCategories, getProducts } from "./queries"
 
@@ -32,15 +34,15 @@ export default async function ProductsPage({ searchParams }: Props) {
       <h1 className="mb-6 text-2xl font-bold text-foreground">Products</h1>
       {/* Search bar */}
       <form method="get" className="mb-6 flex gap-2">
-        <label htmlFor="products-search" className="sr-only">
+        <Label htmlFor="products-search" className="sr-only">
           Search products
-        </label>
-        <input
+        </Label>
+        <Input
           id="products-search"
           name="q"
           defaultValue={q}
           placeholder="Search products…"
-          className="flex-1 rounded-lg border border-input px-4 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+          className="min-w-0 flex-1"
         />
         {category && <input type="hidden" name="category" value={category} />}
         <Button type="submit" icon={<Search />}>
@@ -101,7 +103,7 @@ export default async function ProductsPage({ searchParams }: Props) {
         </aside>
 
         {/* Product grid */}
-        <section aria-label="Product results" className="flex-1">
+        <section aria-label="Product results" className="min-w-0 flex-1">
           <p className="mb-4 text-sm text-muted-foreground">
             {total} product{total !== 1 ? "s" : ""}
             {q ? ` for "${q}"` : ""}
@@ -154,7 +156,10 @@ export default async function ProductsPage({ searchParams }: Props) {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <nav aria-label="Products pagination" className="mt-8 flex justify-center gap-2">
+            <nav
+              aria-label="Products pagination"
+              className="mt-8 flex flex-wrap justify-center gap-2"
+            >
               {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
                 const params = new URLSearchParams()
                 if (q) params.set("q", q)
