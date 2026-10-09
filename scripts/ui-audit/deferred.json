@@ -198,7 +198,7 @@
   {
     "rule": "R3a-palette-class",
     "file": "apps/web/src/app/seller/dashboard/layout.tsx",
-    "text": "<aside className=\"flex w-52 flex-col bg-slate-800 text-sm text-slate-400\">",
+    "text": "<aside className=\"flex w-full flex-col bg-slate-800 text-sm text-slate-400 md:w-52 md:shrink-0\">",
     "reason": "Proposed deferral: slate palette sidebar (literal bg+text pair but not a status colour); no sidebar token | action: move to tokens (bg-card/border-border/text-muted-foreground; active bg-muted text-foreground) or add a sidebar token; needs design decision on dark sidebar",
     "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
   },
@@ -212,7 +212,7 @@
   {
     "rule": "R3a-palette-class",
     "file": "apps/web/src/app/seller/dashboard/layout.tsx",
-    "text": "? \"border-l-2 border-primary bg-slate-700 text-slate-100\"",
+    "text": "? \"border-b-2 border-primary bg-slate-700 text-slate-100 md:border-b-0 md:border-l-2\"",
     "reason": "Proposed deferral: slate palette sidebar (literal bg+text pair but not a status colour); no sidebar token | action: move to tokens (bg-card/border-border/text-muted-foreground; active bg-muted text-foreground) or add a sidebar token; needs design decision on dark sidebar",
     "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
   },

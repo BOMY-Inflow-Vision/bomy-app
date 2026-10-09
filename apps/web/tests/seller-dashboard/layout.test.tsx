@@ -76,4 +76,14 @@ describe("seller dashboard sidebar", () => {
     expect(link("Overview").className).toContain("border-primary")
     expect(link("Orders").className).not.toContain("border-primary")
   })
+
+  it("collapses into a scrolling strip on small screens and never forces the page wider", () => {
+    render("/seller/dashboard")
+    const aside = container.querySelector("aside")!
+    expect(aside.className).toContain("w-full")
+    expect(aside.className).toContain("md:w-52")
+    expect(container.querySelector("aside nav")!.className).toContain("overflow-x-auto")
+    expect(link("Orders").className).toContain("whitespace-nowrap")
+    expect(container.querySelector("main")!.className).toContain("min-w-0")
+  })
 })
