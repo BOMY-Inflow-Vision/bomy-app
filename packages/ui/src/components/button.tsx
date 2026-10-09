@@ -122,12 +122,13 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       className,
     )
     // Padding lives on this inner wrapper (not the root) so the sliding icon/arrow line up
-    // inside the pill without affecting the root's focus-visible ring. No overflow-hidden here:
-    // the parked arrow already stays invisible via opacity-0, not clipping, and clipping this
-    // box against its fixed h-full cut off text descenders (e.g. the tail of "y" in "RM75/yr")
-    // whenever a custom font's line-box metrics run tighter than its actual glyph height.
+    // inside the pill without affecting the root's focus-visible ring. It clips the x axis only:
+    // the parked arrow sits outside the right edge (opacity-0) and would otherwise add its width
+    // to the page's scroll width. The y axis stays visible because clipping it against the fixed
+    // h-full cut off text descenders (e.g. the tail of "y" in "RM75/yr") whenever a custom
+    // font's line-box metrics run tighter than its actual glyph height.
     const slide = (label: React.ReactNode) => (
-      <span className={cn("flex h-full shrink-0 items-center", slideSize.root)}>
+      <span className={cn("flex h-full shrink-0 items-center overflow-x-clip", slideSize.root)}>
         <SlideContent icon={icon} arrowOnHover={arrowOnHover} rowClassName={slideSize.row}>
           {label}
         </SlideContent>
