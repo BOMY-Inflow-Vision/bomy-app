@@ -35,11 +35,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       suppressHydrationWarning
       className={`${plusJakartaSans.variable} ${ibmPlexMono.variable}`}
     >
-      <body className={`flex min-h-screen ${plusJakartaSans.className}`}>
+      <body className={`flex min-h-screen flex-col md:flex-row ${plusJakartaSans.className}`}>
         <ThemeProvider>
           <ToastProvider flash={flash}>
             {session?.user && <Sidebar email={session.user.email ?? ""} />}
-            <main className="flex-1 bg-muted">{children}</main>
+            <main className="min-w-0 flex-1 bg-muted">{children}</main>
           </ToastProvider>
         </ThemeProvider>
       </body>

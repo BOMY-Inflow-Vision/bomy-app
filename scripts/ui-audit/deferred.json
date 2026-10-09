@@ -779,6 +779,13 @@
   {
     "rule": "R3a-palette-class",
     "file": "apps/admin/src/components/sidebar.tsx",
+    "text": "<div className=\"flex items-center justify-between border-b border-slate-700 px-4 py-2 text-sm font-bold text-slate-100\">",
+    "reason": "Contrast below 4.5:1 (light: slate-100 on theme surface (worst: background) = 1.06:1). Was a status-colour exception. PR 5a re-triages this if it adds matching tokens.",
+    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/admin/src/components/sidebar.tsx",
     "text": "<div className=\"border-t border-slate-700 px-4 py-3 text-xs text-slate-500\">",
     "reason": "Contrast below 4.5:1 (dark: slate-500 on theme surface (worst: popover) = 3.43:1). Was a status-colour exception. PR 5a re-triages this if it adds matching tokens.",
     "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
@@ -786,7 +793,21 @@
   {
     "rule": "R3a-palette-class",
     "file": "apps/admin/src/components/sidebar.tsx",
+    "text": "className=\"max-h-[calc(100dvh-3.25rem)] overflow-y-auto border-b border-slate-700\"",
+    "reason": "Contrast below 4.5:1 (dark: slate-500 on theme surface (worst: popover) = 3.43:1). Was a status-colour exception. PR 5a re-triages this if it adds matching tokens.",
+    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/admin/src/components/sidebar.tsx",
     "text": "className=\"mt-2 w-full justify-start text-slate-300 hover:bg-transparent hover:text-slate-100\"",
+    "reason": "Contrast below 4.5:1 (light: slate-300 on theme surface (worst: background) = 1.44:1). Was a status-colour exception. PR 5a re-triages this if it adds matching tokens.",
+    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/admin/src/components/sidebar.tsx",
+    "text": "className=\"size-8 rounded-full text-slate-400 hover:bg-slate-700 hover:text-slate-100\"",
     "reason": "Contrast below 4.5:1 (light: slate-300 on theme surface (worst: background) = 1.44:1). Was a status-colour exception. PR 5a re-triages this if it adds matching tokens.",
     "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
   },
