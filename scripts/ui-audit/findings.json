@@ -356,14 +356,14 @@
     "kind": "manual",
     "route": "app/seller/dashboard/layout.tsx",
     "description": "app/seller/dashboard/layout.tsx line 51: \"soon\" pill span (should be Badge)",
-    "status": "deferred",
-    "followUp": "PR 5d: hand-made pills, boxes, tabs and nav onto Badge, Card, Button (and any new shared piece)"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-09 in 3428492: the 'soon' pill span is deleted (not converted to a Badge), so there is nothing left to convert. tests/seller-dashboard/layout.test.tsx test 1 asserts no 'soon' text."
   },
   {
     "id": "man-t11",
     "kind": "manual",
     "route": "app/seller/dashboard/layout.tsx",
-    "description": "app/seller/dashboard/layout.tsx line 32-48: Link nav items with ad-hoc active/disabled styling and href=\"#\" + preventDefault for coming-soon (disabled link hack; a11y: use aria-disabled or non-link)",
+    "description": "app/seller/dashboard/layout.tsx: Link nav items with ad-hoc active and hover styling (hand-made nav; should use shared Button/nav pieces). The coming-soon hack (href=\"#\" + preventDefault) was removed 2026-10-09 in 3428492.",
     "status": "deferred",
     "followUp": "PR 5d: hand-made pills, boxes, tabs and nav onto Badge, Card, Button (and any new shared piece)"
   },
@@ -692,24 +692,24 @@
     "kind": "manual",
     "route": "seller layout.tsx:34-48",
     "description": "seller layout.tsx:34-48: \"Soon\" items are `Link href=\"#\" onClick=preventDefault` (fake link, not a real disabled control; announced as a link) -> render a `span aria-disabled=\"true\"`; the badge below",
-    "status": "deferred",
-    "followUp": "PR 5d: hand-made pills, boxes, tabs and nav onto Badge, Card, Button (and any new shared piece)"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-09 in 3428492: layout.tsx has no fake # link or click blocker any more; every nav item is a real link. tests/seller-dashboard/layout.test.tsx (tests 1 and 2, mutation-checked) pins it; browser before: Orders href=#, click stayed on the page."
   },
   {
     "id": "man-b13",
     "kind": "manual",
     "route": "seller layout.tsx:51-53",
     "description": "seller layout.tsx:51-53: `span.rounded.bg-slate-700.px-1.5.py-0.5.text-xs.text-primary/70` \"soon\" pill -> `Badge variant=\"secondary\"`",
-    "status": "deferred",
-    "followUp": "PR 5d: hand-made pills, boxes, tabs and nav onto Badge, Card, Button (and any new shared piece)"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-09 in 3428492: the 'soon' pill is deleted, because no nav item is coming soon any more. tests/seller-dashboard/layout.test.tsx test 1 asserts no 'soon' text; mutation-checked."
   },
   {
     "id": "man-b14",
     "kind": "manual",
     "route": "seller layout.tsx:28-32",
     "description": "seller layout.tsx:28-32: Logic bug: only `/orders` is treated as \"coming soon\", but `seller/dashboard/orders/page.tsx` exists and is built, so Orders nav is dead (href `#`, preventDefault) -> remove `isComingSoon` for Orders",
-    "status": "deferred",
-    "followUp": "separate bug-fix PR (functional, not styling): seller nav Orders link"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-09 in 3428492: Orders is a real link to /seller/dashboard/orders and is active on /seller/dashboard/orders/<id>. tests/seller-dashboard/layout.test.tsx tests 1 to 3 pin it; mutation-checked; browser before/after compared."
   },
   {
     "id": "man-b15",
