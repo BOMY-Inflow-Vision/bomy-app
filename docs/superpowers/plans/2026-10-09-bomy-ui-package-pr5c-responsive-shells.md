@@ -1,6 +1,6 @@
 # PR 5c: Responsive Admin and Seller Shells Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans (inline). Steps use checkbox (`- [ ]`) syntax. **Plan v2, DRAFT** (v1 was reviewed by Bob and Charlie, who approved the design choices and asked for four plan changes; see "Changes from v1"). Local only; do not start Task 1 until Bob and Charlie approve this plan.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans (inline). Steps use checkbox (`- [ ]`) syntax. **Plan v3, DRAFT** (v1 was reviewed by Bob and Charlie, who approved the design choices and asked for four plan changes; v2 was held for four execution corrections; see "Changes from v1" and "Changes from v2"). Local only; do not start Task 1 until Bob and Charlie approve this plan.
 
 **Goal:** At a 390 px viewport, no admin or seller-dashboard page scrolls sideways, and the shared `Button` no longer adds 2 px of scroll width. Desktop (768 px and up) looks exactly as it does today.
 
@@ -15,11 +15,18 @@
 Both design choices were approved: the admin top bar with a menu, and the `Select` for the store filter (the latter provided the large-list check passes). Four plan changes:
 
 1. **Task 5 is a diagnosis, not a list of table fixes.** It covers tables in plain `Card`s and bare tables as well as `overflow-hidden` ones, and finds overflow caused by forms, headers and long text. **31 of 31 route measurements are a gate**; a route that cannot pass needs explicit re-scope approval (Task 5 Step 5, Task 7 Step 2).
-2. **Task 4: Escape returns focus to the admin menu button**, with a keyboard test and two mutation checks. A real-keyboard walkthrough is added to Task 4 and Task 7.
+2. **Task 4: Escape returns focus to the admin menu button**, with keyboard tests and mutation checks. A real-keyboard walkthrough is added to Task 4 and Task 7.
 3. **Admin role safety.** Task 1 records Charlie's original local role, and every admin browser session restores it afterwards, including after an interrupted check (new section "Admin role safety").
-4. **Task 6 gets a large-list check and input normalisation.** Real-key navigation to a late store, an opening and scrolling timing check on 100 and 1,000 generated stores (dev server, then a production build), and an unknown or malformed `storeId` is ignored so the trigger is never blank.
+4. **Task 6 gets a large-list check and input normalisation.** Real-key navigation to a late store, an opening and scrolling timing check on 100 and 1,000 generated stores (dev server, then the required production build), and an unknown or malformed `storeId` is ignored so the trigger is never blank.
 
 Also: ledger resolution moved **after** the final measurements. Task 7 is now the full verification and Task 8 resolves the ledger, so the task order matches the dependency.
+
+## Changes from v2 (review by Bob and Charlie, 2026-10-09; Task 1 held for these)
+
+1. **Admin menu focus.** `headerRef` also contained the theme toggle. Focus now returns to the menu button **only when it was inside the menu panel** (`panelRef`); a new test covers Escape while the theme toggle is focused.
+2. **Production Select check.** The admin app builds with `output: "standalone"`, so `next start` was wrong. Step 8c now uses the working PR 4 `server.js` recipe, with the static files and the auth environment settings. **A production pass is required** for the Select choice; if it cannot run or fails, Task 6 stops and asks for re-scope approval.
+3. **Large-list measurement.** The Event Timing observer could report nothing and still look like a pass. A probe now records one timing per key or pointer press, and **a missing record is a failure**. Long tasks are measured separately. The whole real-key sequence, including type-ahead, runs inside one `browser_run_code_unsafe` call.
+4. **Mutation check (f)** replaces the whole focus guard with unconditional focus, which is what actually breaks the stated behaviour.
 
 ## Global Constraints
 
@@ -38,16 +45,16 @@ Also: ledger resolution moved **after** the final measurements. Task 7 is now th
 ## Decisions (approved by Bob and Charlie, 2026-10-09)
 
 1. **Admin small-screen pattern.** Recommended: a sticky top bar (title, theme toggle, menu button) with a menu panel holding the 15 links and the account footer, the same pattern as the site nav bar. Alternative: a horizontally scrolling strip like the seller one; with 15 links it needs a lot of sideways scrolling. The seller sidebar has 5 links, so it uses the strip.
-2. **`/brand-subscriptions` store filter.** Recommended: a `Select` (the list of stores is unbounded: it measured 90,856 px wide). Alternative: a paged list of store links, which needs new query and paging code. The Select is a small client component that navigates with `router.push`. **Approved on the condition that the large-list check in Task 6 Step 8 passes**; if it fails, the paged list needs explicit re-scope approval.
+2. **`/brand-subscriptions` store filter.** Recommended: a `Select` (the list of stores is unbounded: it measured 90,856 px wide). Alternative: a paged list of store links, which needs new query and paging code. The Select is a small client component that navigates with `router.push`. **Approved on the condition that the large-list check in Task 6 Step 8 passes, including the production-build pass**; if it fails or the production pass cannot run, the paged list needs explicit re-scope approval.
 
 ## Review Focus
 
 1. **Overflow from any cause.** Wide tables in plain or `overflow-hidden` cards, but also forms, headers, button rows and long text. The pass rule covers all 31 routes (Task 5, Task 7).
 2. **Desktop unchanged at the boundary.** Check 767 px (mobile layout) and 768 px (desktop layout) and compare 1440 px screenshots with the baseline.
-3. **Admin menu accessibility.** `aria-expanded` and `aria-controls` on the button, Escape closes **and returns focus to the button**, choosing a link closes, the panel scrolls on a short phone. Pinned by tests and by a real-keyboard walkthrough.
+3. **Admin menu accessibility.** `aria-expanded` and `aria-controls` on the button, Escape closes **and returns focus to the button only if focus was inside the menu panel** (the theme toggle keeps its focus), choosing a link closes, the panel scrolls on a short phone. Pinned by tests and by a real-keyboard walkthrough.
 4. **Button fix side effects.** The hover arrow must still slide in; the label descenders ("y" in "RM75/yr") must not be cut (the file's own comment warns about this); focus ring unchanged. Only the x axis is clipped.
 5. **Re-keyed audit entries.** Every edited line that carried a deferral keeps its deferral under the new text (Task 3, Task 4, Task 5, Task 6, Task 8).
-6. **Store filter.** The "All" choice needs a non-empty sentinel value (Radix `Select.Item` cannot have `value=""`); a `storeId` in the URL that is not in the list is ignored, so the trigger is never blank. The Select must stay fast with 1,000 stores (Task 6 Step 8).
+6. **Store filter.** The "All" choice needs a non-empty sentinel value (Radix `Select.Item` cannot have `value=""`); a `storeId` in the URL that is not in the list is ignored, so the trigger is never blank. The Select must stay fast with 1,000 stores, proved on a production build with one timing record per action (Task 6 Step 8).
 7. **Admin role restored.** The local role of the admin user is back to its original value after every admin session, including an interrupted one.
 
 ## Model routing
@@ -266,7 +273,9 @@ vi.mock("next/link", () => ({
   ),
 }))
 vi.mock("@/app/auth/actions", () => ({ signOutAction: async () => {} }))
-vi.mock("@/components/theme-toggle", () => ({ ThemeToggle: () => <span data-testid="theme" /> }))
+vi.mock("@/components/theme-toggle", () => ({
+  ThemeToggle: () => <button type="button" data-testid="theme" />,
+}))
 
 import { Sidebar } from "@/components/sidebar"
 
@@ -331,6 +340,18 @@ describe("admin sidebar", () => {
     })
     expect(panel().hidden).toBe(true)
     expect(document.activeElement).toBe(toggle())
+  })
+
+  it("leaves focus on the theme toggle when Escape closes the menu", () => {
+    const theme = container.querySelector<HTMLButtonElement>('header [data-testid="theme"]')!
+    act(() => toggle().click())
+    act(() => theme.focus())
+    expect(document.activeElement).toBe(theme)
+    act(() => {
+      theme.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))
+    })
+    expect(panel().hidden).toBe(true)
+    expect(document.activeElement).toBe(theme)
   })
 
   it("does not take focus when Escape closes the menu while focus is elsewhere", () => {
@@ -446,7 +467,7 @@ function AccountFooter({ email }: { email: string }) {
 export function Sidebar({ email }: { email: string }) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
-  const headerRef = useRef<HTMLElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
@@ -454,12 +475,10 @@ export function Sidebar({ email }: { email: string }) {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return
       setOpen(false)
-      // The panel is hidden by Escape, so focus inside it would be lost: return it to the button.
-      // Focus elsewhere on the page is left alone.
+      // Escape hides the panel, so focus that was inside it would be lost: return it to the menu
+      // button. Focus anywhere else (the theme toggle, the page) is left where it is.
       const active = document.activeElement
-      if (!active || active === document.body || headerRef.current?.contains(active)) {
-        triggerRef.current?.focus()
-      }
+      if (active && panelRef.current?.contains(active)) triggerRef.current?.focus()
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
@@ -480,10 +499,7 @@ export function Sidebar({ email }: { email: string }) {
       </aside>
 
       {/* Below md: a sticky top bar with a menu panel */}
-      <header
-        ref={headerRef}
-        className="sticky top-0 z-40 bg-slate-800 text-sm text-slate-400 md:hidden"
-      >
+      <header className="sticky top-0 z-40 bg-slate-800 text-sm text-slate-400 md:hidden">
         <div className="flex items-center justify-between border-b border-slate-700 px-4 py-2 text-sm font-bold text-slate-100">
           BOMY Admin
           <div className="flex items-center gap-1">
@@ -508,6 +524,7 @@ export function Sidebar({ email }: { email: string }) {
           </div>
         </div>
         <div
+          ref={panelRef}
           id="admin-mobile-menu"
           hidden={!open}
           className="max-h-[calc(100dvh-3.25rem)] overflow-y-auto border-b border-slate-700"
@@ -524,10 +541,10 @@ export function Sidebar({ email }: { email: string }) {
 ```
 
 - [ ] **Step 3: Change `apps/admin/src/app/layout.tsx`.** Two class strings only: body `` `flex min-h-screen flex-col md:flex-row ${plusJakartaSans.className}` `` and main `className="min-w-0 flex-1 bg-muted"`. Nothing else in the file changes.
-- [ ] **Step 4: Tests, format, types, lint.** The eight sidebar tests pass; run `pnpm exec prettier --check` on the four files, then `pnpm --filter @bomy/admin typecheck`, `pnpm --filter @bomy/admin lint` and the whole `pnpm --filter @bomy/admin test --run` (record the count; the 13 `DATABASE_URL` files are not evaluated).
-- [ ] **Step 5: Mutation checks (restore after each).** (a) Remove `hidden` from the mobile panel: the "starts closed" test fails. (b) Remove the Escape listener: the Escape test fails. (c) Remove `onNavigate` from the mobile `NavLinks`: the "link is chosen" test fails. (d) Remove `md:hidden` from the header: the "top bar" test fails. (e) Remove `triggerRef.current?.focus()`: the focus-return test fails. (f) Remove the `headerRef.current?.contains(active)` condition so focus is always taken: the "focus is elsewhere" test fails.
+- [ ] **Step 4: Tests, format, types, lint.** The nine sidebar tests pass; run `pnpm exec prettier --check` on the four files, then `pnpm --filter @bomy/admin typecheck`, `pnpm --filter @bomy/admin lint` and the whole `pnpm --filter @bomy/admin test --run` (record the count; the 13 `DATABASE_URL` files are not evaluated).
+- [ ] **Step 5: Mutation checks (restore after each).** (a) Remove `hidden` from the mobile panel: the "starts closed" test fails. (b) Remove the Escape listener: the Escape test fails. (c) Remove `onNavigate` from the mobile `NavLinks`: the "link is chosen" test fails. (d) Remove `md:hidden` from the header: the "top bar" test fails. (e) Remove `triggerRef.current?.focus()`: the focus-return test fails. (f) Replace the whole focus guard (`if (active && panelRef.current?.contains(active)) triggerRef.current?.focus()`) with an unconditional `triggerRef.current?.focus()`: the "theme toggle" test and the "focus is elsewhere" test both fail, while the focus-return test still passes, which shows the guard is what they test.
 - [ ] **Step 6: Audit.** `node scripts/ui-audit/scan.mjs --allow-deferred`. Edited lines give stale entries plus new open hits (the `aside`, header, active link and footer lines). Re-key each stale entry to its new line text, same rule, same reason, same follow-up. The new `Button` and icon lines must not add hits (no raw `<button>`). Result: stale 0, open 0.
-- [ ] **Step 7: Browser check** (Charlie's Chrome, local admin role promoted, admin dev server). **Run the role check first and restore the role afterwards.** At 390 px: the top bar shows, the menu opens and closes (button, Escape, choosing a link); with the real keyboard, Tab to the menu button, Enter opens, Tab into the panel, Escape closes and `document.activeElement` is the "Open menu" button; 15 links reachable on a short viewport (390 × 600 scrolls inside the panel), the sticky bar stays at the top while the page scrolls. The 22 admin routes: record `scrollWidth` and `clippedTables`; pages that still exceed 390 px go to Task 5. At 767 and 768 px the layout switches; 1440 px matches `before-*.png`. Light and dark.
+- [ ] **Step 7: Browser check** (Charlie's Chrome, local admin role promoted, admin dev server). **Run the role check first and restore the role afterwards.** At 390 px: the top bar shows, the menu opens and closes (button, Escape, choosing a link); with the real keyboard, Tab to the menu button, Enter opens, Tab into the panel, Escape closes and `document.activeElement` is the "Open menu" button; and with focus on the theme toggle, Escape closes the menu and focus stays on the theme toggle; 15 links reachable on a short viewport (390 × 600 scrolls inside the panel), the sticky bar stays at the top while the page scrolls. The 22 admin routes: record `scrollWidth` and `clippedTables`; pages that still exceed 390 px go to Task 5. At 767 and 768 px the layout switches; 1440 px matches `before-*.png`. Light and dark.
 - [ ] **Step 8: Commit** the four paths. Message: `feat(admin): sticky top bar and menu below md; sidebar unchanged from md up`.
 
 ### Task 5: Every remaining overflow, found by diagnosis (31/31 gate)
@@ -595,7 +612,7 @@ Record, per route, the cause class and the file and line to change. Do not guess
 - Create: `apps/admin/tests/brand-subscriptions/store-filter-helpers.test.ts`
 - Modify: `apps/admin/src/app/brand-subscriptions/page.tsx`
 - Modify: `scripts/ui-audit/deferred.json` / `exceptions.json` (re-key only, if flagged)
-- Temporary, **never committed**: `apps/admin/src/app/pr5c-perf/page.tsx` (large-list harness, Step 8)
+- Temporary, **never committed**: `apps/admin/src/app/pr5c-perf/page.tsx` and `probe.tsx` (large-list harness, Step 8)
 
 **Interfaces:**
 
@@ -761,10 +778,59 @@ The status chips stay as links (six fixed items, they wrap).
 - [ ] **Step 5: Tests, format, types, lint.** The seven helper tests pass. Mutation checks: (a) make `normalizeStoreId` return `storeId ?? ""`: the "drops an id" and "malformed" tests fail; (b) make `hrefForStore` return `options[0].href` for every store: the "chosen store" test fails. `prettier --check`, `pnpm --filter @bomy/admin typecheck`, `pnpm --filter @bomy/admin lint`, each run directly. If a jsdom render test of `StoreFilter` is practical (Radix Select needs `hasPointerCapture` and `scrollIntoView` stubs), add one that checks the trigger text for a known and an unknown value; if it is not practical, say so in the PR and rely on Steps 7 and 8.
 - [ ] **Step 6: Audit.** The removed link rows, the renamed parameter and the edited header lines may leave stale entries (only entries whose line text changed are re-keyed; if the line is gone the entry is removed). The `<table` entry for this page is re-keyed if Task 5 touched it. Stale 0, open 0.
 - [ ] **Step 7: Browser check on the real page** (Charlie's Chrome, admin). At 390 px `/brand-subscriptions` passes the pass rule. With the real keyboard: Tab to the Store trigger, Enter opens, ArrowDown moves, Enter selects: the URL gets `?storeId=<id>`, the trigger shows that store's name, pagination links keep the filter; reopen, choose "All stores": the filter clears. `?storeId=<random uuid>` and `?storeId=not-a-uuid`: the page lists all subscriptions, the trigger reads "All stores" (not blank), and the links drop the bad id. At 1440 px the header looks sensible (title, chips, filter on the right).
-- [ ] **Step 8: Large-list check** (the condition Bob and Charlie set for choosing a Select). Create the temporary harness, which renders the real `StoreFilter` with generated options and touches no database:
+- [ ] **Step 8: Large-list check** (the condition Bob and Charlie set for choosing a Select). **A production-build pass is required.** The dev server alone never approves the Select, because the pinned Radix bug (#4097) shows only in production builds. If the production pass cannot be run, or fails, stop and request explicit re-scope approval from Charlie and Bob (the paged list, Option 2, adds query and paging code).
+
+  **8a. Create the temporary harness** (never committed). It renders the real `StoreFilter` with generated options, touches no database, and includes a probe that gives **one timing record per action**:
+
+  `apps/admin/src/app/pr5c-perf/probe.tsx`:
+
+```tsx
+"use client"
+
+import { useEffect } from "react"
+
+type Probe = {
+  actions: { type: string; key: string; ms: number }[]
+  longtasks: number[]
+}
+
+export function Probe() {
+  useEffect(() => {
+    const probe: Probe = { actions: [], longtasks: [] }
+    ;(window as unknown as { __probe: Probe }).__probe = probe
+    // One record per key press or pointer press: input time to the second animation frame after it.
+    const onEvent = (e: Event) => {
+      const start = e.timeStamp
+      const key = e instanceof KeyboardEvent ? e.key : ""
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() =>
+          probe.actions.push({ type: e.type, key, ms: Math.round(performance.now() - start) }),
+        ),
+      )
+    }
+    window.addEventListener("keydown", onEvent, true)
+    window.addEventListener("pointerdown", onEvent, true)
+    // Long tasks are measured separately from the action records.
+    const observer = new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) probe.longtasks.push(Math.round(entry.duration))
+    })
+    observer.observe({ type: "longtask", buffered: true })
+    return () => {
+      window.removeEventListener("keydown", onEvent, true)
+      window.removeEventListener("pointerdown", onEvent, true)
+      observer.disconnect()
+    }
+  }, [])
+  return null
+}
+```
+
+`apps/admin/src/app/pr5c-perf/page.tsx`:
 
 ```tsx
 import { StoreFilter } from "@/app/brand-subscriptions/store-filter"
+
+import { Probe } from "./probe"
 
 export default async function Page({
   searchParams,
@@ -775,12 +841,13 @@ export default async function Page({
   const count = Math.min(Number(n) || 1000, 5000)
   const options = Array.from({ length: count }, (_, i) => {
     const num = String(i + 1).padStart(4, "0")
-    const name = i === count - 1 ? "Zulu Traders" : `Store ${num}`
+    const name = i === count - 1 ? "Zulu Traders" : `Store${num}`
     return { id: `id-${num}`, name, href: `/pr5c-perf?n=${count}&storeId=id-${num}` }
   })
   const value = options.some((o) => o.id === storeId) ? (storeId ?? "") : ""
   return (
     <div className="p-6">
+      <Probe />
       <StoreFilter value={value} allHref={`/pr5c-perf?n=${count}`} options={options} />
       <p id="picked">{value}</p>
     </div>
@@ -788,23 +855,109 @@ export default async function Page({
 }
 ```
 
-Record the real local count of stores with subscriptions, then test **100** (plausible) and **1,000** (10 times the expected size) options, `/pr5c-perf?n=100` and `?n=1000`, at 390 and 1440 px. In the page install the interaction timer before pressing any key: `new PerformanceObserver((l) => window.__ev = [...(window.__ev || []), ...l.getEntries().map((e) => ({ name: e.name, ms: Math.round(e.duration) }))]).observe({ type: "event", durationThreshold: 16, buffered: true })`. Use **real key presses** (Playwright `browser_press_key`), then read `window.__ev`:
+Record the real local count of stores with subscriptions for the log. The matrix to run is **n = 100** (plausible) and **n = 1000** (10 times the expected size) at **390 and 1440 px wide**: four runs, `/pr5c-perf?n=100` and `/pr5c-perf?n=1000`.
 
-1. Focus the trigger, Enter: the list opens.
-2. `End`: the last item ("Zulu Traders") is highlighted (`[data-highlighted]` text).
-3. Enter: the URL becomes `...&storeId=id-<last>` and, after the reload, the trigger reads "Zulu Traders" and `#picked` holds the id.
-4. Reopen, type `Store 05` quickly (type-ahead): the highlighted item's text starts with `Store 05`. Then ArrowDown 20 times and PageDown twice: no freeze.
+**8b. The measuring run: one browser call per run.** Real Playwright key presses (trusted events), the whole sequence inside **one** `browser_run_code_unsafe` call, so the type-ahead keys land inside Radix's one-second search window (browser-tool round trips take longer than that). Each press is counted, and the probe must return exactly one record for each:
 
-**Pass:** every recorded interaction (open, End, each key) takes 200 ms or less to the next paint, and no long task over 250 ms; the late store is reachable by keyboard and selectable. Run it on the dev server first, then **on a production build**, which is the authoritative run, because the pinned Radix bug (#4097) appears only in production builds: `pnpm --filter @bomy/admin build`, then `pnpm --filter @bomy/admin exec next start -p 3002` (with the harness file present for this build). If the production run is not possible, say "production build not evaluated" and give the dev numbers as dev numbers only. **If the check fails**, stop: the paged list (Option 2) replaces the Select and needs Charlie's and Bob's explicit approval, because it adds query and paging code.
+```js
+;async (page) => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+  const trigger = page.getByRole("combobox", { name: "Store" })
+  const highlighted = () =>
+    page.evaluate(
+      () => document.querySelector('[role="option"][data-highlighted]')?.textContent ?? null,
+    )
+  let presses = 0
+  const press = async (key) => {
+    presses += 1
+    await page.keyboard.press(key)
+  }
+  const out = {}
+  const start = await page.evaluate(() => window.__probe.actions.length)
 
-Afterwards delete `apps/admin/src/app/pr5c-perf/`, confirm `git status` no longer lists it, and stop the servers.
+  await trigger.click() // pointer open: one pointerdown record
+  await sleep(400)
+  await press("Escape")
+  await sleep(300)
 
-- [ ] **Step 9: Restore the role** (see "Admin role safety") and record the check. Commit only the five tracked paths (the three new files, the page, the helper test) plus any list file, explicit paths. Message: `fix(admin): brand-subscriptions store filter becomes a Select; header wraps`.
+  await trigger.focus()
+  await press("Enter") // keyboard open
+  await sleep(400)
+  await press("End")
+  await sleep(400)
+  out.afterEnd = await highlighted() // expect "Zulu Traders"
+  await press("Home")
+  await sleep(400)
+  for (const k of ["z", "u", "l", "u"]) await press(k) // type-ahead, all inside one second
+  await sleep(200)
+  out.afterZulu = await highlighted() // expect "Zulu Traders"
+  await sleep(1500) // let the search buffer clear
+  await press("Home")
+  await sleep(300)
+  for (const k of ["s", "t", "o", "r", "e", "0", "5"]) await press(k)
+  await sleep(200)
+  out.afterStore05 = await highlighted() // expect text starting "Store05"
+  for (let i = 0; i < 20; i += 1) await press("ArrowDown") // scroll
+  await press("PageDown")
+  await press("PageDown")
+  await sleep(400)
+  await press("End")
+  await sleep(300)
+  await press("Enter") // choose the last (late) store
+  await page.waitForURL(/storeId=id-/)
+  await sleep(500)
+
+  const probe = await page.evaluate(() => window.__probe)
+  const mine = probe.actions.slice(start)
+  out.url = page.url()
+  out.trigger = (await trigger.innerText()).trim() // expect "Zulu Traders"
+  out.picked = await page.locator("#picked").innerText()
+  out.expectedRecords = presses + 1 // every key press plus the one pointer press
+  out.records = mine.length
+  out.slowestMs = Math.max(...mine.map((a) => a.ms))
+  out.actions = mine
+  out.longTasksMs = probe.longtasks // reported separately
+  return out
+}
+```
+
+**Pass rules, all required for each of the four runs:**
+
+1. `records === expectedRecords`. A missing record is a **failure**, never a pass: an empty or short list means the probe did not run, and the run is repeated or reported as failed.
+2. `slowestMs <= 200` (every action reaches the next paint within 200 ms).
+3. Long tasks, read separately from `longTasksMs`: none over 250 ms. Report the count and the largest value even when they pass.
+4. `afterEnd` and `afterZulu` both equal "Zulu Traders" (the late store is reached by `End` and by type-ahead); `afterStore05` starts with "Store05"; `trigger` equals "Zulu Traders"; `picked` equals the last generated id (`id-0100` or `id-1000`).
+
+**8c. Dev server first (a dry run), then the production build (the authoritative run).** The admin app sets `output: "standalone"`, so `next start` is the wrong command: run the generated `server.js`, as in the working PR 4 recipe (`docs/superpowers/plans/2026-10-05-bomy-shared-ui-package-pr4.md`, Task 5 Step 4b). The harness files must be present for the build. Stop any dev server on 3002 first, and do **not** start a dev server after the build (a dev server wipes `.next/standalone`).
+
+```bash
+APP=/Users/charlie/Documents/Projects/BOMY/app
+pnpm --filter @bomy/admin build
+mkdir -p "$APP/apps/admin/.next/standalone/apps/admin/.next/static"
+cp -R "$APP/apps/admin/.next/static/." "$APP/apps/admin/.next/standalone/apps/admin/.next/static/"
+# apps/admin/public exists; copy it too only if it has files in it
+if [ -n "$(ls -A "$APP/apps/admin/public" 2>/dev/null)" ]; then
+  mkdir -p "$APP/apps/admin/.next/standalone/apps/admin/public"
+  cp -R "$APP/apps/admin/public/." "$APP/apps/admin/.next/standalone/apps/admin/public/"
+fi
+cd "$APP/apps/admin/.next/standalone/apps/admin"
+AUTH_TRUST_HOST=true PORT=3002 HOSTNAME=localhost node --env-file="$APP/apps/admin/.env.local" server.js
+```
+
+Facts from the PR 4 verification that apply here: (1) the standalone `server.js` does **not** read `.env.local`, so the `--env-file` flag is what supplies `DATABASE_URL`, `AUTH_SECRET`, `AUTH_URL` and the Google keys (without it the app fails with `MissingSecret` and `makeDb: a database URL is required`); (2) do not `source` the env file, line parsing fails, use Node's `--env-file`; (3) a production-mode Auth.js needs `AUTH_TRUST_HOST=true` locally or `/api/auth/session` fails with `UntrustedHost`; (4) `.next/` is gitignored, commit nothing from it. Check that `AUTH_URL` in `apps/admin/.env.local` is `http://localhost:3002` (print only that one key).
+
+Expected before any browser step: `Ready in …ms`; `curl -s -o /dev/null -w "%{http_code}" http://localhost:3002/auth/sign-in` prints `200`; the same for `/api/auth/session`; and one `/_next/static/chunks/<file>.js` named in the sign-in HTML prints `200` (this proves the static files were copied). Auth: this is the same origin as the dev server, so Charlie's own Google session is normally still valid; if it is not, Charlie signs in again himself. **No cookie is minted, encoded or copied.** If the session does not carry over, the production pass is "not evaluated" and the rule above (stop and request re-scope approval) applies.
+
+Run the 8b script for all four matrix runs on the production server; the dev dry run is optional and its numbers are labelled "dev" in the log. Also record the one-line result `afterZulu` from the production runs: this is the production type-ahead proof for admin.
+
+**8d. Clean up.** Stop the server (ports 3000 to 3002 clear). Delete `apps/admin/src/app/pr5c-perf/` (both files), confirm `git status` no longer lists it, and rely on Task 7 Step 1, which builds the clean tree.
+
+- [ ] **Step 9: Restore the role** (see "Admin role safety") and record the check. Commit only the four tracked paths (`store-filter-helpers.ts`, `store-filter.tsx`, the helper test and `page.tsx`) plus any list file, explicit paths; the harness is gone. Message: `fix(admin): brand-subscriptions store filter becomes a Select; header wraps`.
 
 ### Task 7: Full verification and final browser sweep
 
 - [ ] **Step 0: Role check** (see "Admin role safety").
-- [ ] **Step 1:** `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm lint`, `pnpm --filter @bomy/web test --run`, `pnpm --filter @bomy/admin test --run`, `pnpm --filter @bomy/web build`, `pnpm --filter @bomy/admin build`. Capture each exit code by running it directly. Expected new tests: web +2 (1 Button, 1 seller layout; web was 278 passed), admin +15 (8 sidebar, 7 helpers; plus any `StoreFilter` render test). Report the passed totals as printed, and the `DATABASE_URL` files and skipped tests as **not evaluated** with the reason. If a command exits 1 while the passed count is as expected, say both.
+- [ ] **Step 1:** `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm lint`, `pnpm --filter @bomy/web test --run`, `pnpm --filter @bomy/admin test --run`, `pnpm --filter @bomy/web build`, `pnpm --filter @bomy/admin build`. Capture each exit code by running it directly. Expected new tests: web +2 (1 Button, 1 seller layout; web was 278 passed), admin +16 (9 sidebar, 7 helpers; plus any `StoreFilter` render test). Report the passed totals as printed, and the `DATABASE_URL` files and skipped tests as **not evaluated** with the reason. If a command exits 1 while the passed count is as expected, say both.
 - [ ] **Step 2: Measure all 31 routes at 390 px** (the same function and sessions as Task 1). Save `after.json`. **Gate: 31 of 31 pass** (`scrollWidth === 390`, `clippedTables === 0`, no table wider than 390 px with a `visible` scroller). A route that fails or cannot be reached stops the PR until Charlie and Bob approve a re-scope (see Task 5 Step 5); it is never reported as passing.
 - [ ] **Step 3: Desktop regression.** Repeat the Task 1 Step 4 screenshots at 1440 and 768 and compare with `before-*.png` (sidebar widths, active bar, header), plus 1440 px screenshots of every page Task 5 touched against its baseline. Any visible difference is a failure to fix, not to explain away.
 - [ ] **Step 4: Mobile walkthrough, light and dark.** Seller: strip scrolls, links navigate, active bar shows. Admin, with the real keyboard: Tab to the menu button, Enter opens, Tab into the panel, Escape closes **and focus is on the "Open menu" button**; a link navigates and closes the menu; the sign-out button is visible in the panel. Button: hover and focus frames match the baseline apart from the removed overflow.
@@ -820,7 +973,7 @@ Afterwards delete `apps/admin/src/app/pr5c-perf/`, confirm `git status` no longe
 
 ### Task 9: PR and wrap-up
 
-- [ ] **Step 1: Push and open the PR** only after Charlie says go. Body: what and why (34 ledger entries), the four causes and fixes, tests and mutation checks, audit counts before and after (279 hits, 119 deferred, ledger 83 deferred / 11 resolved before), the before/after table of the 31 `scrollWidth` values (31 of 31 passing, or the approved re-scopes by name), the Select large-list numbers, the `storeId` behaviour change, the admin role restored, desktop comparison result, and **not evaluated** (the `DATABASE_URL` files and skipped tests; admin pages not reached; `/orders/[orderId]` has no local data; Select type-ahead if the production run was not possible; touch behaviour; Safari and Firefox, because `overflow-x: clip` needs Safari 16+ and the checks ran in Chromium only; checkout; keyboard focus-ring on the admin menu if not run).
+- [ ] **Step 1: Push and open the PR** only after Charlie says go. Body: what and why (34 ledger entries), the four causes and fixes, tests and mutation checks, audit counts before and after (279 hits, 119 deferred, ledger 83 deferred / 11 resolved before), the before/after table of the 31 `scrollWidth` values (31 of 31 passing, or the approved re-scopes by name), the Select large-list numbers from the production build (dev numbers labelled as dev), the `storeId` behaviour change, the admin role restored, desktop comparison result, and **not evaluated** (the `DATABASE_URL` files and skipped tests; admin pages not reached; `/orders/[orderId]` has no local data; touch behaviour; Safari and Firefox, because `overflow-x: clip` needs Safari 16+ and the checks ran in Chromium only; checkout; keyboard focus-ring on the admin menu if not run).
 - [ ] **Step 2: After merge:** write `log/YYYY-MM-DD_PR<N>_bomy-ui-package-pr5c.md` (gitignored), update `.andy/handoff.md`, update the rollout memory, delete the local and remote branch (Charlie approved this pattern).
 - [ ] **Step 3: Next:** PR 5a (colour tokens, needs the design call), 5b (provider Select proof), 5d. Fold the scanner nit (`--routes --json` omits `listErrors`) into the next scanner touch; it is **not** part of this PR.
 
@@ -831,4 +984,4 @@ Afterwards delete `apps/admin/src/app/pr5c-perf/`, confirm `git status` no longe
 - **Spec coverage:** shell overflow admin (Task 4), seller (Task 3), Button 2 px (Task 2), every remaining overflow by diagnosis with a 31/31 gate (Task 5, Task 7), store filter with its large-list check (Task 6), ledger after the final measurements (Task 8), verification at 390 px per fix and overall.
 - **Placeholders:** none. Task 5 names no fix file in advance and chooses by diagnosis, which is intended: the right set depends on what Tasks 3 and 4 leave behind.
 - **Consistency:** `StoreOption`, `ALL`, `hrefForStore` and `normalizeStoreId` live in `store-filter-helpers.ts` and match in test, component and page. The sidebar test ids (`header button[aria-controls]`, `#admin-mobile-menu`) match the markup. The seller test classes match the layout.
-- **Known risks:** `overflow-x-clip` in Safari below 16; the Select's speed with 1,000 stores and its production type-ahead (Task 6 Step 8); the admin checks depend on Charlie's Chrome session; tests pin classes but cannot judge layout, so the browser measurements carry the proof.
+- **Known risks:** `overflow-x-clip` in Safari below 16; the Select's speed with 1,000 stores and its production type-ahead, both required on a production build (Task 6 Step 8); the admin checks depend on Charlie's Chrome session; tests pin classes but cannot judge layout, so the browser measurements carry the proof.
