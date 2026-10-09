@@ -1,6 +1,6 @@
 # PR 5c: Responsive Admin and Seller Shells Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans (inline). Steps use checkbox (`- [ ]`) syntax. **Plan v3, DRAFT** (v1 was reviewed by Bob and Charlie, who approved the design choices and asked for four plan changes; v2 was held for four execution corrections; see "Changes from v1" and "Changes from v2"). Local only; do not start Task 1 until Bob and Charlie approve this plan.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans (inline). Steps use checkbox (`- [ ]`) syntax. **Plan v4, DRAFT** (v1 was reviewed by Bob and Charlie, who approved the design choices and asked for four plan changes; v2 and v3 were each held for execution corrections; see "Changes from v1", "Changes from v2" and "Changes from v3"). Local only; do not start Task 1 until Bob and Charlie approve this plan.
 
 **Goal:** At a 390 px viewport, no admin or seller-dashboard page scrolls sideways, and the shared `Button` no longer adds 2 px of scroll width. Desktop (768 px and up) looks exactly as it does today.
 
@@ -27,6 +27,10 @@ Also: ledger resolution moved **after** the final measurements. Task 7 is now th
 2. **Production Select check.** The admin app builds with `output: "standalone"`, so `next start` was wrong. Step 8c now uses the working PR 4 `server.js` recipe, with the static files and the auth environment settings. **A production pass is required** for the Select choice; if it cannot run or fails, Task 6 stops and asks for re-scope approval.
 3. **Large-list measurement.** The Event Timing observer could report nothing and still look like a pass. A probe now records one timing per key or pointer press, and **a missing record is a failure**. Long tasks are measured separately. The whole real-key sequence, including type-ahead, runs inside one `browser_run_code_unsafe` call.
 4. **Mutation check (f)** replaces the whole focus guard with unconditional focus, which is what actually breaks the stated behaviour.
+
+## Changes from v3 (review by Bob and Charlie, 2026-10-09; Task 1 held for this)
+
+The Task 6 probe was read after the store was chosen, and that navigation could remount the probe and erase the records. Step 8a and 8b now: wait for the probe to report `ready`; read and check the whole interaction sequence **before** the final Enter; keep the probe object across a client navigation (created once, reused); time the final Enter and the navigation separately (`selectToUpdatedMs`, and `finalEnterMs` when the probe survived); and count long tasks only from a mark set at the start of the sequence, so page-load work does not skew the gate.
 
 ## Global Constraints
 
@@ -782,7 +786,7 @@ The status chips stay as links (six fixed items, they wrap).
 
   **8a. Create the temporary harness** (never committed). It renders the real `StoreFilter` with generated options, touches no database, and includes a probe that gives **one timing record per action**:
 
-  `apps/admin/src/app/pr5c-perf/probe.tsx`:
+  `apps/admin/src/app/pr5c-perf/probe.tsx`. The probe object is created once and reused, so a remount after client navigation cannot erase the records, and it sets `ready` when it is listening:
 
 ```tsx
 "use client"
@@ -790,14 +794,21 @@ The status chips stay as links (six fixed items, they wrap).
 import { useEffect } from "react"
 
 type Probe = {
+  ready: boolean
+  mark: number
   actions: { type: string; key: string; ms: number }[]
-  longtasks: number[]
+  longtasks: { start: number; ms: number }[]
 }
 
 export function Probe() {
   useEffect(() => {
-    const probe: Probe = { actions: [], longtasks: [] }
-    ;(window as unknown as { __probe: Probe }).__probe = probe
+    const w = window as unknown as { __probe?: Probe }
+    if (w.__probe) {
+      w.__probe.ready = true
+      return
+    }
+    const probe: Probe = { ready: false, mark: 0, actions: [], longtasks: [] }
+    w.__probe = probe
     // One record per key press or pointer press: input time to the second animation frame after it.
     const onEvent = (e: Event) => {
       const start = e.timeStamp
@@ -808,18 +819,16 @@ export function Probe() {
         ),
       )
     }
+    // Never removed: this is a temporary page and the probe lives as long as the page session.
     window.addEventListener("keydown", onEvent, true)
     window.addEventListener("pointerdown", onEvent, true)
-    // Long tasks are measured separately from the action records.
-    const observer = new PerformanceObserver((list) => {
-      for (const entry of list.getEntries()) probe.longtasks.push(Math.round(entry.duration))
-    })
-    observer.observe({ type: "longtask", buffered: true })
-    return () => {
-      window.removeEventListener("keydown", onEvent, true)
-      window.removeEventListener("pointerdown", onEvent, true)
-      observer.disconnect()
-    }
+    // Long tasks are kept separately, with their start time, so page-load work can be told apart.
+    new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        probe.longtasks.push({ start: Math.round(entry.startTime), ms: Math.round(entry.duration) })
+      }
+    }).observe({ type: "longtask", buffered: true })
+    probe.ready = true
   }, [])
   return null
 }
@@ -857,7 +866,7 @@ export default async function Page({
 
 Record the real local count of stores with subscriptions for the log. The matrix to run is **n = 100** (plausible) and **n = 1000** (10 times the expected size) at **390 and 1440 px wide**: four runs, `/pr5c-perf?n=100` and `/pr5c-perf?n=1000`.
 
-**8b. The measuring run: one browser call per run.** Real Playwright key presses (trusted events), the whole sequence inside **one** `browser_run_code_unsafe` call, so the type-ahead keys land inside Radix's one-second search window (browser-tool round trips take longer than that). Each press is counted, and the probe must return exactly one record for each:
+**8b. The measuring run: one browser call per run.** Real Playwright key presses (trusted events), the whole sequence inside **one** `browser_run_code_unsafe` call, so the type-ahead keys land inside Radix's one-second search window (browser-tool round trips take longer than that). The run has three parts that are measured separately: (1) wait for the probe; (2) the interaction sequence **before** the store is chosen, whose records are read and checked before the last key; (3) the final Enter and the navigation, timed on their own. Each press in part 2 is counted, and the probe must return exactly one record for each:
 
 ```js
 ;async (page) => {
@@ -867,19 +876,28 @@ Record the real local count of stores with subscriptions for the log. The matrix
     page.evaluate(
       () => document.querySelector('[role="option"][data-highlighted]')?.textContent ?? null,
     )
+  const out = {}
+
+  // (1) Wait for the probe to be listening; a probe that never starts is a failed run.
+  await page.waitForFunction(() => window.__probe && window.__probe.ready === true, null, {
+    timeout: 10000,
+  })
+  await sleep(500) // let page-load work settle, then mark the start of the sequence
+  await page.evaluate(() => {
+    window.__probe.mark = performance.now()
+  })
+  const startRecords = await page.evaluate(() => window.__probe.actions.length)
+
+  // (2) The interaction sequence. Nothing here navigates.
   let presses = 0
   const press = async (key) => {
     presses += 1
     await page.keyboard.press(key)
   }
-  const out = {}
-  const start = await page.evaluate(() => window.__probe.actions.length)
-
   await trigger.click() // pointer open: one pointerdown record
   await sleep(400)
   await press("Escape")
   await sleep(300)
-
   await trigger.focus()
   await press("Enter") // keyboard open
   await sleep(400)
@@ -901,32 +919,58 @@ Record the real local count of stores with subscriptions for the log. The matrix
   await press("PageDown")
   await press("PageDown")
   await sleep(400)
-  await press("End")
-  await sleep(300)
-  await press("Enter") // choose the last (late) store
-  await page.waitForURL(/storeId=id-/)
-  await sleep(500)
+  await press("End") // the late store is highlighted again, ready to be chosen
+  await sleep(500) // let every animation-frame record land before reading
 
-  const probe = await page.evaluate(() => window.__probe)
-  const mine = probe.actions.slice(start)
+  // Read and keep the sequence results BEFORE the selection can navigate or remount the probe.
+  const pre = await page.evaluate(() => JSON.parse(JSON.stringify(window.__probe)))
+  const seq = pre.actions.slice(startRecords)
+  const seqTasks = pre.longtasks.filter((t) => t.start >= pre.mark)
+  out.expectedRecords = presses + 1 // every key press plus the one pointer press
+  out.records = seq.length
+  out.slowestMs = Math.max(0, ...seq.map((a) => a.ms))
+  out.actions = seq
+  out.longTasksDuringSequenceMs = seqTasks.map((t) => t.ms) // gated
+  out.longTasksBeforeMarkMs = pre.longtasks.filter((t) => t.start < pre.mark).map((t) => t.ms) // page load, reported only
+
+  // (3) Choose the late store and time the selection and the navigation on their own.
+  const navMark = await page.evaluate(() => performance.now())
+  const t0 = Date.now()
+  presses += 1
+  await page.keyboard.press("Enter")
+  await page.waitForURL(/storeId=id-/)
+  await page.waitForFunction(
+    () => document.getElementById("store-filter")?.textContent?.trim() === "Zulu Traders",
+  )
+  out.selectToUpdatedMs = Date.now() - t0
   out.url = page.url()
   out.trigger = (await trigger.innerText()).trim() // expect "Zulu Traders"
   out.picked = await page.locator("#picked").innerText()
-  out.expectedRecords = presses + 1 // every key press plus the one pointer press
-  out.records = mine.length
-  out.slowestMs = Math.max(...mine.map((a) => a.ms))
-  out.actions = mine
-  out.longTasksMs = probe.longtasks // reported separately
+  // The probe object is reused across the client navigation. If it is gone (a full reload), the
+  // final Enter has no paint record and that is stated, not hidden.
+  await sleep(500)
+  const post = await page.evaluate(() =>
+    window.__probe ? JSON.parse(JSON.stringify(window.__probe)) : null,
+  )
+  const persisted = Boolean(post) && post.actions.length >= pre.actions.length
+  out.probePersistedAcrossNavigation = persisted
+  const last = persisted ? post.actions.slice(pre.actions.length).at(-1) : null
+  out.finalEnterMs = last && last.key === "Enter" ? last.ms : null
+  out.longTasksDuringNavigationMs = persisted
+    ? post.longtasks.filter((t) => t.start >= navMark).map((t) => t.ms)
+    : null // reported only
   return out
 }
 ```
 
 **Pass rules, all required for each of the four runs:**
 
-1. `records === expectedRecords`. A missing record is a **failure**, never a pass: an empty or short list means the probe did not run, and the run is repeated or reported as failed.
-2. `slowestMs <= 200` (every action reaches the next paint within 200 ms).
-3. Long tasks, read separately from `longTasksMs`: none over 250 ms. Report the count and the largest value even when they pass.
-4. `afterEnd` and `afterZulu` both equal "Zulu Traders" (the late store is reached by `End` and by type-ahead); `afterStore05` starts with "Store05"; `trigger` equals "Zulu Traders"; `picked` equals the last generated id (`id-0100` or `id-1000`).
+1. The probe started: the `waitForFunction` did not time out.
+2. `records === expectedRecords`, counted **before** the selection. A missing record is a **failure**, never a pass: an empty or short list means the probe did not record, and the run is repeated or reported as failed.
+3. `slowestMs <= 200` (every action in the sequence reaches the next paint within 200 ms).
+4. Long tasks: only `longTasksDuringSequenceMs` is gated, and none may exceed 250 ms. These are the tasks that started after the mark, so page-load work (`longTasksBeforeMarkMs`) does not count against the sequence. Report the count and the largest value of both lists even when they pass.
+5. `afterEnd` and `afterZulu` both equal "Zulu Traders" (the late store is reached by `End` and by type-ahead); `afterStore05` starts with "Store05".
+6. Selection and navigation, measured separately: `selectToUpdatedMs <= 1000`; `trigger` equals "Zulu Traders"; `picked` equals the last generated id (`id-0100` or `id-1000`). If `finalEnterMs` is present it must be `<= 200`; if it is `null` the probe did not survive the navigation, which is reported as such (the earlier records were already read and checked before the final Enter, and the selection time above covers the last key).
 
 **8c. Dev server first (a dry run), then the production build (the authoritative run).** The admin app sets `output: "standalone"`, so `next start` is the wrong command: run the generated `server.js`, as in the working PR 4 recipe (`docs/superpowers/plans/2026-10-05-bomy-shared-ui-package-pr4.md`, Task 5 Step 4b). The harness files must be present for the build. Stop any dev server on 3002 first, and do **not** start a dev server after the build (a dev server wipes `.next/standalone`).
 
