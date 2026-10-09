@@ -256,7 +256,20 @@ On small screens the sidebar is a full-width block above the page and the five l
 - [ ] **Step 6: Browser check** (Playwright, 390 × 844, seeded seller). The seven seller routes are measured: pass is `scrollWidth === 390` and `clippedTables === 0`. The products and subscriptions pages have tables; record their numbers here and carry any failure to Task 5. The strip scrolls sideways inside the page and the active item shows. At 768 × 900 and 1440 × 900 the sidebar looks like `before-*.png`. At 767 px the strip layout shows; at 768 px the sidebar. Light and dark.
 - [ ] **Step 7: Commit** the layout, the test and `deferred.json`. Message: `feat(web): seller dashboard sidebar collapses into a strip on small screens`.
 
+### Task 3b: Seller active link fully visible on load (added 2026-10-09, requested by Charlie; runs after Task 5 and before Task 7)
+
+On a phone the active tab can sit partly off the right edge of the strip (Orders at 390 px). **Files:** modify `apps/web/src/app/seller/dashboard/layout.tsx`; extend `apps/web/tests/seller-dashboard/layout.test.tsx`.
+
+- [ ] **Step 1: Failing test.** Give the layout `aria-current="page"` on the active link (spread it only when active, as `exactOptionalPropertyTypes` may apply) and a `useEffect` that, when the pathname changes, scrolls the strip horizontally so the active link is fully inside it. Compute `nav.scrollLeft` from `link.offsetLeft`, `link.offsetWidth` and `nav.clientWidth`; never call `scrollIntoView` (it can move the page). jsdom has no layout, so the test defines `offsetLeft`, `offsetWidth` and `clientWidth` on the elements and asserts the resulting `scrollLeft` for Orders (the last tab) and for Overview (stays 0). Run it: it fails.
+- [ ] **Step 2: Implement** the effect (nav ref, find the `[aria-current="page"]` link, centre it when it does not fit, leave `scrollLeft` alone when it does). Desktop (`md:` and up) is unaffected because the nav does not scroll there: the effect only sets `scrollLeft` and a non-scrolling element ignores it.
+- [ ] **Step 3: Mutation check.** Remove the `scrollLeft` assignment: the test fails. Restore.
+- [ ] **Step 4: Checks.** prettier, `tsc`, ESLint, the layout tests (5), audit gate (edited lines may need re-keying as in Task 3).
+- [ ] **Step 5: Browser, all five seller routes at 390 px** (`/seller/dashboard`, `/orders`, `/products`, `/settings`, `/subscriptions`, plus `/products/new` for a nested path): after load (300 ms), the active link's rectangle lies fully inside the strip's visible rectangle (`left >= nav.left` and `right <= nav.right`), for each route, light and dark; desktop screenshots at 1440 and 768 stay pixel-identical to the Task 3 ones.
+- [ ] **Step 6: Commit** the layout, the test and any list file. Message: `fix(web): seller strip scrolls the active link into view on load`.
+
 ### Task 4: Admin shell
+
+> **Executed 2026-10-09.** Deviation from this snippet: `onClick={onNavigate}` failed `tsc` under `exactOptionalPropertyTypes` (the admin tsconfig forbids passing `undefined` explicitly), so `NavLinks` spreads the prop only when it exists, as shown below. Real keys did not reach an iframe on the first try, then did; the keyboard checks ran on a focused 390 px frame in Charlie's Chrome (the Chrome window cannot be narrowed below the breakpoint by the tool).
 
 **Files:**
 
@@ -441,7 +454,7 @@ function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () 
           <Link
             key={item.href}
             href={item.href}
-            onClick={onNavigate}
+            {...(onNavigate ? { onClick: onNavigate } : {})}
             className={cn(
               "px-4 py-2",
               active
