@@ -89,7 +89,7 @@ export default async function PayoutsPage({ searchParams }: Props) {
         </Button>
       </div>
 
-      <div className="mb-6 flex gap-2">
+      <div className="mb-6 flex flex-wrap gap-2">
         <a
           href={buildHref({ status: "" })}
           className={cn(

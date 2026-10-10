@@ -60,7 +60,7 @@ export default async function SellerOrdersPage({ searchParams }: Props) {
     <div className="p-8">
       <h1 className="mb-6 text-2xl font-bold text-foreground">Orders</h1>
 
-      <div className="mb-6 flex gap-2">
+      <div className="mb-6 flex flex-wrap gap-2">
         <a
           href="/seller/dashboard/orders"
           className={cn(

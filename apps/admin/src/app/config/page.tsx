@@ -31,7 +31,7 @@ export default async function ConfigPage() {
           Read-only
         </span>
       </div>
-      <div className="rounded-lg border border-border bg-background">
+      <div className="overflow-x-auto rounded-lg border border-border bg-background">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted text-left text-xs font-semibold text-muted-foreground">

@@ -890,8 +890,14 @@
   {
     "rule": "R3a-palette-class",
     "file": "apps/admin/src/components/sidebar.tsx",
-    "text": "<aside className=\"flex w-44 flex-col bg-slate-800 text-sm text-slate-400\">",
+    "text": "<aside className=\"hidden w-44 flex-col bg-slate-800 text-sm text-slate-400 md:flex\">",
     "reason": "sidebar is deliberately always-dark chrome with fixed literal bg+text pairs; no sidebar tokens exist"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/admin/src/components/sidebar.tsx",
+    "text": "<header className=\"sticky top-0 z-40 bg-slate-800 text-sm text-slate-400 md:hidden\">",
+    "reason": "sidebar is deliberately always-dark chrome with fixed literal bg+text pairs; no sidebar tokens exist (the mobile top bar mirrors the desktop sidebar)"
   },
   {
     "rule": "R3a-palette-class",

@@ -118,10 +118,10 @@ export default async function StoresPage({
 
   return (
     <div className="p-6">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-y-2">
         <h1 className="text-lg font-semibold text-foreground">Stores</h1>
-        <div className="flex items-center gap-3">
-          <div className="flex gap-1 text-sm">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap gap-1 text-sm">
             {["", ...STORE_STATUSES].map((s) => (
               <Link
                 key={s || "all"}
@@ -160,7 +160,7 @@ export default async function StoresPage({
           </Button>
         </div>
       </div>
-      <Card>
+      <Card className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted text-left text-xs font-semibold text-muted-foreground">

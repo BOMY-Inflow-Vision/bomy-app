@@ -75,9 +75,9 @@ export default async function ProductsPage({
 
   return (
     <div className="p-6">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-y-2">
         <h1 className="text-lg font-semibold text-foreground">Products</h1>
-        <form method="get" className="flex items-center gap-1">
+        <form method="get" className="flex flex-wrap items-center gap-1">
           <Label htmlFor="products-search" className="sr-only">
             Search products
           </Label>
@@ -94,7 +94,7 @@ export default async function ProductsPage({
           </Button>
         </form>
       </div>
-      <Card>
+      <Card className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted text-left text-xs font-semibold text-muted-foreground">

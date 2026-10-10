@@ -10,6 +10,9 @@ import { cn } from "@/lib/utils"
 import { Card } from "@bomy/ui/card"
 import { Pagination } from "@/components/ui/pagination"
 
+import { StoreFilter } from "./store-filter"
+import { normalizeStoreId } from "./store-filter-helpers"
+
 const STATUS_COLORS: Record<string, string> = {
   pending: "text-amber-600",
   active: "text-green-600",
@@ -24,8 +27,24 @@ export default async function BrandSubscriptionsPage({
   searchParams: Promise<{ status?: string; storeId?: string; page?: string }>
 }) {
   const { id: adminId } = await requireAdmin()
-  const { status, storeId, page: pageParam } = await searchParams
+  const { status, storeId: storeIdParam, page: pageParam } = await searchParams
   const page = parsePage(pageParam)
+
+  const stores = await withAdmin(
+    getDb(),
+    { userId: adminId, reason: "admin list stores for brand sub filter" },
+    async (tx) =>
+      tx
+        .selectDistinct({ id: schema.stores.id, name: schema.stores.name })
+        .from(schema.stores)
+        .innerJoin(
+          schema.brandSubscriptions,
+          eq(schema.brandSubscriptions.storeId, schema.stores.id),
+        )
+        .orderBy(schema.stores.name),
+  )
+
+  const activeStoreId = normalizeStoreId(storeIdParam, stores)
 
   const { rows, total } = await withAdmin(
     getDb(),
@@ -43,8 +62,8 @@ export default async function BrandSubscriptionsPage({
           ),
         )
       }
-      if (storeId) {
-        conditions.push(eq(schema.brandSubscriptions.storeId, storeId))
+      if (activeStoreId) {
+        conditions.push(eq(schema.brandSubscriptions.storeId, activeStoreId))
       }
       const where = conditions.length > 0 ? and(...conditions) : undefined
 
@@ -80,23 +99,9 @@ export default async function BrandSubscriptionsPage({
     },
   )
 
-  const stores = await withAdmin(
-    getDb(),
-    { userId: adminId, reason: "admin list stores for brand sub filter" },
-    async (tx) =>
-      tx
-        .selectDistinct({ id: schema.stores.id, name: schema.stores.name })
-        .from(schema.stores)
-        .innerJoin(
-          schema.brandSubscriptions,
-          eq(schema.brandSubscriptions.storeId, schema.stores.id),
-        )
-        .orderBy(schema.stores.name),
-  )
-
   const buildHref = (next: { status?: string; storeId?: string; page?: number }) => {
     const s = next.status ?? status ?? ""
-    const sid = next.storeId ?? storeId ?? ""
+    const sid = next.storeId ?? activeStoreId
     // Any filter change (no explicit page) resets to page 1 — staying on the current
     // page could land past the end of a narrower result set.
     const p = next.page ?? 1
@@ -110,9 +115,9 @@ export default async function BrandSubscriptionsPage({
 
   return (
     <div className="p-6">
-      <div className="mb-4 flex items-center gap-4">
+      <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
         <h1 className="text-lg font-semibold text-foreground">Brand Subscriptions</h1>
-        <div className="flex gap-1 text-sm">
+        <div className="flex flex-wrap gap-1 text-sm">
           {["", "pending", "active", "cancelled", "expired", "payment_failed"].map((s) => (
             <Link
               key={s}
@@ -129,37 +134,20 @@ export default async function BrandSubscriptionsPage({
           ))}
         </div>
         {stores.length > 0 && (
-          <div className="ml-auto flex items-center gap-2 text-sm">
-            <span className="text-muted-foreground">Store:</span>
-            <Link
-              href={buildHref({ storeId: "" })}
-              className={cn(
-                "rounded px-2 py-1",
-                !storeId
-                  ? "bg-accent text-accent-foreground"
-                  : "text-muted-foreground hover:bg-muted",
-              )}
-            >
-              All
-            </Link>
-            {stores.map((s) => (
-              <Link
-                key={s.id}
-                href={buildHref({ storeId: s.id })}
-                className={cn(
-                  "rounded px-2 py-1",
-                  storeId === s.id
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground hover:bg-muted",
-                )}
-              >
-                {s.name}
-              </Link>
-            ))}
+          <div className="sm:ml-auto">
+            <StoreFilter
+              value={activeStoreId}
+              allHref={buildHref({ storeId: "" })}
+              options={stores.map((s) => ({
+                id: s.id,
+                name: s.name,
+                href: buildHref({ storeId: s.id }),
+              }))}
+            />
           </div>
         )}
       </div>
-      <Card className="overflow-hidden">
+      <Card className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted text-left text-xs font-semibold text-muted-foreground">

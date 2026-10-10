@@ -201,7 +201,7 @@ export default async function VouchersPage({
       {/* Redemption stats */}
       <div>
         <h2 className="mb-3 text-base font-semibold text-foreground">Redemption Rate by Month</h2>
-        <Card>
+        <Card className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted text-left text-xs font-semibold text-muted-foreground">
@@ -245,7 +245,7 @@ export default async function VouchersPage({
             <Link href="/vouchers/new">Create Voucher</Link>
           </Button>
         </div>
-        <Card>
+        <Card className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted text-left text-xs font-semibold text-muted-foreground">

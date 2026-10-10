@@ -56,7 +56,7 @@ export default async function UsersPage({
   return (
     <div className="p-6">
       <h1 className="mb-4 text-lg font-semibold text-foreground">Users</h1>
-      <Card>
+      <Card className="relative overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted text-left text-xs font-semibold text-muted-foreground">

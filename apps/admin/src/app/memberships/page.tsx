@@ -101,8 +101,8 @@ export default async function MembershipsPage({
           Renewal Notification Settings
         </h2>
         <Card className="p-6">
-          <form action={updateRenewalNotificationDays} className="flex items-end gap-4">
-            <div className="flex-1">
+          <form action={updateRenewalNotificationDays} className="flex flex-wrap items-end gap-4">
+            <div className="min-w-0 flex-1">
               <Label htmlFor="notificationDays" className="mb-1 block">
                 Notification days
                 <span className="ml-1 text-xs font-normal text-muted-foreground">
@@ -114,7 +114,7 @@ export default async function MembershipsPage({
                 name="notificationDays"
                 type="text"
                 defaultValue={currentNotifyDays}
-                className="w-64"
+                className="w-full max-w-64"
               />
             </div>
             <Button type="submit" icon={<Save />}>
@@ -126,11 +126,11 @@ export default async function MembershipsPage({
 
       {/* Memberships roster */}
       <section aria-labelledby="memberships-heading">
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-y-2">
           <h1 id="memberships-heading" className="text-lg font-semibold text-foreground">
             Platform Memberships
           </h1>
-          <div className="flex gap-1 text-sm">
+          <div className="flex flex-wrap gap-1 text-sm">
             {["", "pending", "active", "cancelled", "expired", "payment_failed"].map((s) => (
               <Link
                 key={s}
@@ -147,7 +147,7 @@ export default async function MembershipsPage({
             ))}
           </div>
         </div>
-        <Card className="overflow-hidden">
+        <Card className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted text-left text-xs font-semibold text-muted-foreground">

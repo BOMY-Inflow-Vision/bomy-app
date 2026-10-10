@@ -51,7 +51,7 @@ export default async function BrandPlansPage({
   return (
     <div className="p-6">
       <h1 className="mb-4 text-lg font-semibold text-foreground">Brand Subscription Plans</h1>
-      <Card className="overflow-hidden">
+      <Card className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted text-left text-xs font-semibold text-muted-foreground">

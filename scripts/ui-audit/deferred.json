@@ -198,7 +198,7 @@
   {
     "rule": "R3a-palette-class",
     "file": "apps/web/src/app/seller/dashboard/layout.tsx",
-    "text": "<aside className=\"flex w-52 flex-col bg-slate-800 text-sm text-slate-400\">",
+    "text": "<aside className=\"flex w-full flex-col bg-slate-800 text-sm text-slate-400 md:w-52 md:shrink-0\">",
     "reason": "Proposed deferral: slate palette sidebar (literal bg+text pair but not a status colour); no sidebar token | action: move to tokens (bg-card/border-border/text-muted-foreground; active bg-muted text-foreground) or add a sidebar token; needs design decision on dark sidebar",
     "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
   },
@@ -212,7 +212,7 @@
   {
     "rule": "R3a-palette-class",
     "file": "apps/web/src/app/seller/dashboard/layout.tsx",
-    "text": "? \"border-l-2 border-primary bg-slate-700 text-slate-100\"",
+    "text": "? \"border-b-2 border-primary bg-slate-700 text-slate-100 md:border-b-0 md:border-l-2\"",
     "reason": "Proposed deferral: slate palette sidebar (literal bg+text pair but not a status colour); no sidebar token | action: move to tokens (bg-card/border-border/text-muted-foreground; active bg-muted text-foreground) or add a sidebar token; needs design decision on dark sidebar",
     "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
   },
@@ -779,6 +779,13 @@
   {
     "rule": "R3a-palette-class",
     "file": "apps/admin/src/components/sidebar.tsx",
+    "text": "<div className=\"flex items-center justify-between border-b border-slate-700 px-4 py-2 text-sm font-bold text-slate-100\">",
+    "reason": "Contrast below 4.5:1 (light: slate-100 on theme surface (worst: background) = 1.06:1). Was a status-colour exception. PR 5a re-triages this if it adds matching tokens.",
+    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/admin/src/components/sidebar.tsx",
     "text": "<div className=\"border-t border-slate-700 px-4 py-3 text-xs text-slate-500\">",
     "reason": "Contrast below 4.5:1 (dark: slate-500 on theme surface (worst: popover) = 3.43:1). Was a status-colour exception. PR 5a re-triages this if it adds matching tokens.",
     "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
@@ -786,7 +793,21 @@
   {
     "rule": "R3a-palette-class",
     "file": "apps/admin/src/components/sidebar.tsx",
+    "text": "className=\"max-h-[calc(100dvh-3.25rem)] overflow-y-auto border-b border-slate-700\"",
+    "reason": "Contrast below 4.5:1 (dark: slate-500 on theme surface (worst: popover) = 3.43:1). Was a status-colour exception. PR 5a re-triages this if it adds matching tokens.",
+    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/admin/src/components/sidebar.tsx",
     "text": "className=\"mt-2 w-full justify-start text-slate-300 hover:bg-transparent hover:text-slate-100\"",
+    "reason": "Contrast below 4.5:1 (light: slate-300 on theme surface (worst: background) = 1.44:1). Was a status-colour exception. PR 5a re-triages this if it adds matching tokens.",
+    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
+  },
+  {
+    "rule": "R3a-palette-class",
+    "file": "apps/admin/src/components/sidebar.tsx",
+    "text": "className=\"size-8 rounded-full text-slate-400 hover:bg-slate-700 hover:text-slate-100\"",
     "reason": "Contrast below 4.5:1 (light: slate-300 on theme surface (worst: background) = 1.44:1). Was a status-colour exception. PR 5a re-triages this if it adds matching tokens.",
     "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
   },

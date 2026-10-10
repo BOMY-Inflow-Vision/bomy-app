@@ -96,9 +96,9 @@ export default async function GoodieBoxPage({
 
   return (
     <div className="p-6">
-      <div className="mb-4 flex items-center gap-4">
+      <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
         <h1 className="text-lg font-semibold text-foreground">Goodie Box Dispatches</h1>
-        <div className="flex gap-1 text-sm">
+        <div className="flex flex-wrap gap-1 text-sm">
           {["", "pending", "dispatched", "delivered"].map((s) => (
             <Link
               key={s}
@@ -115,7 +115,7 @@ export default async function GoodieBoxPage({
           ))}
         </div>
         {quarters.length > 0 && (
-          <div className="ml-auto flex items-center gap-2 text-sm">
+          <div className="ml-auto flex flex-wrap items-center gap-2 text-sm">
             <span className="text-muted-foreground">Quarter:</span>
             <Link
               href={buildHref({ quarter: "" })}
@@ -145,7 +145,7 @@ export default async function GoodieBoxPage({
           </div>
         )}
       </div>
-      <div className="rounded-lg border border-border bg-background">
+      <div className="relative overflow-x-auto rounded-lg border border-border bg-background">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted text-left text-xs font-semibold text-muted-foreground">

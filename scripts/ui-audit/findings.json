@@ -4,176 +4,176 @@
     "kind": "overflow",
     "route": "admin /auth/sign-in",
     "description": "scrollWidth 444 px at a 390 px viewport; admin layout: fixed w-44 sidebar, main without min-w-0 (admin layout.tsx:42) plus page content",
-    "status": "deferred",
-    "followUp": "PR 5c: responsive admin shell and seller dashboard layout, table scrollers"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-10 in 63d6152 (admin shell) and ee81c34 (tables and rows): scrollWidth 390 at 390 px (before: 444) and 768 at 768 px (before: 768), clippedTables 0; admin production build, Charlie's Chrome; after.json admin route 1 of 22, after-admin-768.json route 1 of 22"
   },
   {
     "id": "ov-admin-brand-plans",
     "kind": "overflow",
     "route": "admin /brand-plans",
     "description": "scrollWidth 879 px at a 390 px viewport; admin layout: fixed w-44 sidebar, main without min-w-0 (admin layout.tsx:42) plus page content",
-    "status": "deferred",
-    "followUp": "PR 5c: responsive admin shell and seller dashboard layout, table scrollers"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-10 in 63d6152 (admin shell) and ee81c34 (tables and rows): scrollWidth 390 at 390 px (before: 879) and 768 at 768 px (before: 879), clippedTables 0; admin production build, Charlie's Chrome; after.json admin route 2 of 22, after-admin-768.json route 2 of 22"
   },
   {
     "id": "ov-admin-brand-subscriptions",
     "kind": "overflow",
     "route": "admin /brand-subscriptions",
     "description": "scrollWidth 90856 px at a 390 px viewport; store filter row lists a link for every subscribed store (brand-subscriptions/page.tsx:113,132) and the admin shell still overflows; wrapping would only make hundreds of rows",
-    "status": "deferred",
-    "followUp": "PR 5c: responsive admin shell and seller dashboard layout, table scrollers (store filter becomes a Select or a paged list, with the shell fix)"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-10 in 63d6152 (admin shell), ee81c34 (table scroller) and 3c1406f (store filter Select): scrollWidth 390 at 390 px (before: 90856) and 768 at 768 px (before: 90856), clippedTables 0; admin production build, Charlie's Chrome; after.json admin route 3 of 22, after-admin-768.json route 3 of 22; the store filter was also checked with real keys against the real 1,510 stores and a production build (worst key-to-paint 160 ms), and a malformed storeId now returns 200 (was 500)"
   },
   {
     "id": "ov-admin-categories",
     "kind": "overflow",
     "route": "admin /categories",
     "description": "scrollWidth 970 px at a 390 px viewport; admin layout: fixed w-44 sidebar, main without min-w-0 (admin layout.tsx:42) plus page content",
-    "status": "deferred",
-    "followUp": "PR 5c: responsive admin shell and seller dashboard layout, table scrollers"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-10 in 63d6152 (admin shell) and ee81c34 (tables and rows): scrollWidth 390 at 390 px (before: 970) and 768 at 768 px (before: 970), clippedTables 0; admin production build, Charlie's Chrome; after.json admin route 4 of 22, after-admin-768.json route 4 of 22"
   },
   {
     "id": "ov-admin-config",
     "kind": "overflow",
     "route": "admin /config",
     "description": "scrollWidth 940 px at a 390 px viewport; admin layout: fixed w-44 sidebar, main without min-w-0 (admin layout.tsx:42) plus page content",
-    "status": "deferred",
-    "followUp": "PR 5c: responsive admin shell and seller dashboard layout, table scrollers"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-10 in 63d6152 (admin shell) and ee81c34 (tables and rows): scrollWidth 390 at 390 px (before: 940) and 768 at 768 px (before: 940), clippedTables 0; admin production build, Charlie's Chrome; after.json admin route 5 of 22, after-admin-768.json route 5 of 22"
   },
   {
     "id": "ov-admin-goodie-box",
     "kind": "overflow",
     "route": "admin /goodie-box",
     "description": "scrollWidth 1126 px at a 390 px viewport; admin layout: fixed w-44 sidebar, main without min-w-0 (admin layout.tsx:42) plus page content",
-    "status": "deferred",
-    "followUp": "PR 5c: responsive admin shell and seller dashboard layout, table scrollers"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-10 in 63d6152 (admin shell) and ee81c34 (tables and rows): scrollWidth 390 at 390 px (before: 1126) and 768 at 768 px (before: 1126), clippedTables 0; admin production build, Charlie's Chrome; after.json admin route 6 of 22, after-admin-768.json route 6 of 22"
   },
   {
     "id": "ov-admin-memberships",
     "kind": "overflow",
     "route": "admin /memberships",
     "description": "scrollWidth 1013 px at a 390 px viewport; admin layout: fixed w-44 sidebar, main without min-w-0 (admin layout.tsx:42) plus page content",
-    "status": "deferred",
-    "followUp": "PR 5c: responsive admin shell and seller dashboard layout, table scrollers"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-10 in 63d6152 (admin shell) and ee81c34 (tables and rows): scrollWidth 390 at 390 px (before: 1013) and 768 at 768 px (before: 1013), clippedTables 0; admin production build, Charlie's Chrome; after.json admin route 7 of 22, after-admin-768.json route 7 of 22"
   },
   {
     "id": "ov-admin-orders",
     "kind": "overflow",
     "route": "admin /orders",
     "description": "scrollWidth 933 px at a 390 px viewport; admin layout: fixed w-44 sidebar, main without min-w-0 (admin layout.tsx:42) plus page content",
-    "status": "deferred",
-    "followUp": "PR 5c: responsive admin shell and seller dashboard layout, table scrollers"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-10 in 63d6152 (admin shell) and ee81c34 (tables and rows): scrollWidth 390 at 390 px (before: 933) and 768 at 768 px (before: 933), clippedTables 0; admin production build, Charlie's Chrome; after.json admin route 8 of 22, after-admin-768.json route 8 of 22"
   },
   {
     "id": "ov-admin-payouts",
     "kind": "overflow",
     "route": "admin /payouts",
     "description": "scrollWidth 867 px at a 390 px viewport; admin layout: fixed w-44 sidebar, main without min-w-0 (admin layout.tsx:42) plus page content",
-    "status": "deferred",
-    "followUp": "PR 5c: responsive admin shell and seller dashboard layout, table scrollers"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-10 in 63d6152 (admin shell) and ee81c34 (tables and rows): scrollWidth 390 at 390 px (before: 867) and 768 at 768 px (before: 867), clippedTables 0; admin production build, Charlie's Chrome; after.json admin route 9 of 22, after-admin-768.json route 9 of 22"
   },
   {
     "id": "ov-admin-payouts-reconciliation",
     "kind": "overflow",
     "route": "admin /payouts/reconciliation",
     "description": "scrollWidth 1039 px at a 390 px viewport; admin layout: fixed w-44 sidebar, main without min-w-0 (admin layout.tsx:42) plus page content",
-    "status": "deferred",
-    "followUp": "PR 5c: responsive admin shell and seller dashboard layout, table scrollers"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-10 in 63d6152 (admin shell) and ee81c34 (tables and rows): scrollWidth 390 at 390 px (before: 1039) and 768 at 768 px (before: 1039), clippedTables 0; admin production build, Charlie's Chrome; after.json admin route 10 of 22, after-admin-768.json route 10 of 22"
   },
   {
     "id": "ov-admin-products",
     "kind": "overflow",
     "route": "admin /products",
     "description": "scrollWidth 742 px at a 390 px viewport; admin layout: fixed w-44 sidebar, main without min-w-0 (admin layout.tsx:42) plus page content",
-    "status": "deferred",
-    "followUp": "PR 5c: responsive admin shell and seller dashboard layout, table scrollers"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-10 in 63d6152 (admin shell) and ee81c34 (tables and rows): scrollWidth 390 at 390 px (before: 742) and 768 at 768 px (before: 768), clippedTables 0; admin production build, Charlie's Chrome; after.json admin route 11 of 22, after-admin-768.json route 11 of 22"
   },
   {
     "id": "ov-admin-products-id",
     "kind": "overflow",
     "route": "admin /products/[id]",
     "description": "scrollWidth 411 px at a 390 px viewport; admin layout: fixed w-44 sidebar, main without min-w-0 (admin layout.tsx:42) plus page content",
-    "status": "deferred",
-    "followUp": "PR 5c: responsive admin shell and seller dashboard layout, table scrollers"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-10 in 63d6152 (admin shell) and ee81c34 (tables and rows): scrollWidth 390 at 390 px (before: 411) and 768 at 768 px (before: 768), clippedTables 0; admin production build, Charlie's Chrome; after.json admin route 12 of 22, after-admin-768.json route 12 of 22"
   },
   {
     "id": "ov-admin-seller-inquiries",
     "kind": "overflow",
     "route": "admin /seller-inquiries",
     "description": "scrollWidth 865 px at a 390 px viewport; admin layout: fixed w-44 sidebar, main without min-w-0 (admin layout.tsx:42) plus page content",
-    "status": "deferred",
-    "followUp": "PR 5c: responsive admin shell and seller dashboard layout, table scrollers"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-10 in 63d6152 (admin shell) and ee81c34 (tables and rows): scrollWidth 390 at 390 px (before: 865) and 768 at 768 px (before: 865), clippedTables 0; admin production build, Charlie's Chrome; after.json admin route 13 of 22, after-admin-768.json route 13 of 22"
   },
   {
     "id": "ov-admin-seller-inquiries-id",
     "kind": "overflow",
     "route": "admin /seller-inquiries/[id]",
     "description": "scrollWidth 465 px at a 390 px viewport; admin layout: fixed w-44 sidebar, main without min-w-0 (admin layout.tsx:42) plus page content",
-    "status": "deferred",
-    "followUp": "PR 5c: responsive admin shell and seller dashboard layout, table scrollers"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-10 in 63d6152 (admin shell) and ee81c34 (tables and rows): scrollWidth 390 at 390 px (before: 465) and 768 at 768 px (before: 768), clippedTables 0; admin production build, Charlie's Chrome; after.json admin route 14 of 22, after-admin-768.json route 14 of 22"
   },
   {
     "id": "ov-admin-store-categories",
     "kind": "overflow",
     "route": "admin /store-categories",
     "description": "scrollWidth 697 px at a 390 px viewport; admin layout: fixed w-44 sidebar, main without min-w-0 (admin layout.tsx:42) plus page content",
-    "status": "deferred",
-    "followUp": "PR 5c: responsive admin shell and seller dashboard layout, table scrollers"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-10 in 63d6152 (admin shell) and ee81c34 (tables and rows): scrollWidth 390 at 390 px (before: 697) and 768 at 768 px (before: 768), clippedTables 0; admin production build, Charlie's Chrome; after.json admin route 15 of 22, after-admin-768.json route 15 of 22"
   },
   {
     "id": "ov-admin-stores",
     "kind": "overflow",
     "route": "admin /stores",
     "description": "scrollWidth 997 px at a 390 px viewport; admin layout: fixed w-44 sidebar, main without min-w-0 (admin layout.tsx:42) plus page content",
-    "status": "deferred",
-    "followUp": "PR 5c: responsive admin shell and seller dashboard layout, table scrollers"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-10 in 63d6152 (admin shell) and ee81c34 (tables and rows): scrollWidth 390 at 390 px (before: 997) and 768 at 768 px (before: 997), clippedTables 0; admin production build, Charlie's Chrome; after.json admin route 16 of 22, after-admin-768.json route 16 of 22"
   },
   {
     "id": "ov-admin-stores-id",
     "kind": "overflow",
     "route": "admin /stores/[id]",
     "description": "scrollWidth 403 px at a 390 px viewport; admin layout: fixed w-44 sidebar, main without min-w-0 (admin layout.tsx:42) plus page content",
-    "status": "deferred",
-    "followUp": "PR 5c: responsive admin shell and seller dashboard layout, table scrollers"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-10 in 63d6152 (admin shell) and ee81c34 (tables and rows): scrollWidth 390 at 390 px (before: 407 measured in Task 1 on main; the older audit figure was 403) and 768 at 768 px (before: 768), clippedTables 0; admin production build, Charlie's Chrome; after.json admin route 17 of 22, after-admin-768.json route 17 of 22"
   },
   {
     "id": "ov-admin-stores-new",
     "kind": "overflow",
     "route": "admin /stores/new",
     "description": "scrollWidth 483 px at a 390 px viewport; admin layout: fixed w-44 sidebar, main without min-w-0 (admin layout.tsx:42) plus page content",
-    "status": "deferred",
-    "followUp": "PR 5c: responsive admin shell and seller dashboard layout, table scrollers"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-10 in 63d6152 (admin shell) and ee81c34 (tables and rows): scrollWidth 390 at 390 px (before: 483) and 768 at 768 px (before: 768), clippedTables 0; admin production build, Charlie's Chrome; after.json admin route 18 of 22, after-admin-768.json route 18 of 22"
   },
   {
     "id": "ov-admin-unauthorized",
     "kind": "overflow",
     "route": "admin /unauthorized",
     "description": "scrollWidth 454 px at a 390 px viewport; admin layout: fixed w-44 sidebar, main without min-w-0 (admin layout.tsx:42) plus page content",
-    "status": "deferred",
-    "followUp": "PR 5c: responsive admin shell and seller dashboard layout, table scrollers"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-10 in 63d6152 (admin shell) and ee81c34 (tables and rows): scrollWidth 390 at 390 px (before: 454) and 768 at 768 px (before: 768), clippedTables 0; admin production build, Charlie's Chrome; after.json admin route 19 of 22, after-admin-768.json route 19 of 22"
   },
   {
     "id": "ov-admin-users",
     "kind": "overflow",
     "route": "admin /users",
     "description": "scrollWidth 900 px at a 390 px viewport; admin layout: fixed w-44 sidebar, main without min-w-0 (admin layout.tsx:42) plus page content",
-    "status": "deferred",
-    "followUp": "PR 5c: responsive admin shell and seller dashboard layout, table scrollers"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-10 in 63d6152 (admin shell) and ee81c34 (tables and rows): scrollWidth 390 at 390 px (before: 900) and 768 at 768 px (before: 900), clippedTables 0; admin production build, Charlie's Chrome; after.json admin route 20 of 22, after-admin-768.json route 20 of 22"
   },
   {
     "id": "ov-admin-vouchers",
     "kind": "overflow",
     "route": "admin /vouchers",
     "description": "scrollWidth 1003 px at a 390 px viewport; admin layout: fixed w-44 sidebar, main without min-w-0 (admin layout.tsx:42) plus page content",
-    "status": "deferred",
-    "followUp": "PR 5c: responsive admin shell and seller dashboard layout, table scrollers"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-10 in 63d6152 (admin shell) and ee81c34 (tables and rows): scrollWidth 390 at 390 px (before: 1003) and 768 at 768 px (before: 1003), clippedTables 0; admin production build, Charlie's Chrome; after.json admin route 21 of 22, after-admin-768.json route 21 of 22"
   },
   {
     "id": "ov-admin-vouchers-new",
     "kind": "overflow",
     "route": "admin /vouchers/new",
     "description": "scrollWidth 502 px at a 390 px viewport; admin layout: fixed w-44 sidebar, main without min-w-0 (admin layout.tsx:42) plus page content",
-    "status": "deferred",
-    "followUp": "PR 5c: responsive admin shell and seller dashboard layout, table scrollers"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-10 in 63d6152 (admin shell) and ee81c34 (tables and rows): scrollWidth 390 at 390 px (before: 502) and 768 at 768 px (before: 768), clippedTables 0; admin production build, Charlie's Chrome; after.json admin route 22 of 22, after-admin-768.json route 22 of 22"
   },
   {
     "id": "ov-web-account",
@@ -212,72 +212,72 @@
     "kind": "overflow",
     "route": "/brands",
     "description": "scrollWidth 392 px at a 390 px viewport (2 px). PR 5 fixed the real cause for a search in progress: the search input had no min-w-0 and the page measured 417 px with ?q= set; it now measures 390. The remaining 2 px is the parked hover arrow of the shared Search Button (a different cause from the one first diagnosed), not page layout.",
-    "status": "deferred",
-    "followUp": "PR 5c: shared Button parks its hover arrow outside its right edge (opacity-0, no clipping, by design), which adds 2 px of scroll width when an icon Button ends at a px-4 page edge; fix once in packages/ui button.tsx (overflow-x-clip on the slide root, check the descender-clipping note there) instead of per page"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-10 in 0be9bad (Button parked arrow clipped on x only): scrollWidth 390 at 390 px at rest, fresh load, pointer away (before: 392); after.json web route 8 of 9. Visible change: the fading icon is clipped at the pill edge during the hover slide (mid-before/mid-after frames: 12x11 px difference at 120 ms for Search, none at 250 ms, none for Join now)"
   },
   {
     "id": "ov-web-products",
     "kind": "overflow",
     "route": "/products",
     "description": "scrollWidth was 469 px at a 390 px viewport (pagination rendered every page and the results column lacked min-w-0). PR 5 fixed both: pagination now wraps (25 links on 4 rows) and the page measures 392 px, 417 to 390 with ?q= set. The remaining 2 px is the parked hover arrow of the shared Search Button, not page layout.",
-    "status": "deferred",
-    "followUp": "PR 5c: shared Button parks its hover arrow outside its right edge (opacity-0, no clipping, by design), which adds 2 px of scroll width when an icon Button ends at a px-4 page edge; fix once in packages/ui button.tsx (overflow-x-clip on the slide root, check the descender-clipping note there) instead of per page"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-10 in 0be9bad (Button parked arrow clipped on x only): scrollWidth 390 at 390 px at rest, fresh load, pointer away (before: 392); after.json web route 9 of 9. Visible change: the fading icon is clipped at the pill edge during the hover slide (mid-before/mid-after frames: 12x11 px difference at 120 ms for Search, none at 250 ms, none for Join now)"
   },
   {
     "id": "ov-web-seller-dashboard",
     "kind": "overflow",
     "route": "/seller/dashboard",
     "description": "scrollWidth 490 px at a 390 px viewport; seller dashboard layout: fixed w-52 sidebar, main without min-w-0 (seller/dashboard/layout.tsx:21,60) plus page content",
-    "status": "deferred",
-    "followUp": "PR 5c: responsive admin shell and seller dashboard layout, table scrollers"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-10 in 9e51b8d (seller shell), ee81c34 (wrapping rows, table scrollers) and 10055c9 (active tab scrolled into view): scrollWidth 390 at 390 px (before: 487 measured in Task 1 on main; the older audit figure was 490), clippedTables 0; Playwright, seeded seller; after.json web route 1 of 9"
   },
   {
     "id": "ov-web-seller-dashboard-orders",
     "kind": "overflow",
     "route": "/seller/dashboard/orders",
     "description": "scrollWidth 741 px at a 390 px viewport; seller dashboard layout: fixed w-52 sidebar, main without min-w-0 (seller/dashboard/layout.tsx:21,60) plus page content",
-    "status": "deferred",
-    "followUp": "PR 5c: responsive admin shell and seller dashboard layout, table scrollers"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-10 in 9e51b8d (seller shell), ee81c34 (wrapping rows, table scrollers) and 10055c9 (active tab scrolled into view): scrollWidth 390 at 390 px (before: 736 measured in Task 1 on main; the older audit figure was 741), clippedTables 0; Playwright, seeded seller; after.json web route 2 of 9"
   },
   {
     "id": "ov-web-seller-dashboard-products",
     "kind": "overflow",
     "route": "/seller/dashboard/products",
     "description": "scrollWidth 789 px at a 390 px viewport; seller dashboard layout: fixed w-52 sidebar, main without min-w-0 (seller/dashboard/layout.tsx:21,60) plus page content",
-    "status": "deferred",
-    "followUp": "PR 5c: responsive admin shell and seller dashboard layout, table scrollers"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-10 in 9e51b8d (seller shell), ee81c34 (wrapping rows, table scrollers) and 10055c9 (active tab scrolled into view): scrollWidth 390 at 390 px (before: 785 measured in Task 1 on main; the older audit figure was 789), clippedTables 0; Playwright, seeded seller; after.json web route 3 of 9"
   },
   {
     "id": "ov-web-seller-dashboard-products-id-edit",
     "kind": "overflow",
     "route": "/seller/dashboard/products/[id]/edit",
     "description": "scrollWidth 618 px at a 390 px viewport; seller dashboard layout: fixed w-52 sidebar, main without min-w-0 (seller/dashboard/layout.tsx:21,60) plus page content",
-    "status": "deferred",
-    "followUp": "PR 5c: responsive admin shell and seller dashboard layout, table scrollers"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-10 in 9e51b8d (seller shell), ee81c34 (wrapping rows, table scrollers) and 10055c9 (active tab scrolled into view): scrollWidth 390 at 390 px (before: 614 measured in Task 1 on main; the older audit figure was 618), clippedTables 0; Playwright, seeded seller; after.json web route 4 of 9"
   },
   {
     "id": "ov-web-seller-dashboard-products-new",
     "kind": "overflow",
     "route": "/seller/dashboard/products/new",
     "description": "scrollWidth 637 px at a 390 px viewport; seller dashboard layout: fixed w-52 sidebar, main without min-w-0 (seller/dashboard/layout.tsx:21,60) plus page content",
-    "status": "deferred",
-    "followUp": "PR 5c: responsive admin shell and seller dashboard layout, table scrollers"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-10 in 9e51b8d (seller shell), ee81c34 (wrapping rows, table scrollers) and 10055c9 (active tab scrolled into view): scrollWidth 390 at 390 px (before: 634 measured in Task 1 on main; the older audit figure was 637), clippedTables 0; Playwright, seeded seller; after.json web route 5 of 9"
   },
   {
     "id": "ov-web-seller-dashboard-settings",
     "kind": "overflow",
     "route": "/seller/dashboard/settings",
     "description": "scrollWidth 451 px at a 390 px viewport; seller dashboard layout: fixed w-52 sidebar, main without min-w-0 (seller/dashboard/layout.tsx:21,60) plus page content",
-    "status": "deferred",
-    "followUp": "PR 5c: responsive admin shell and seller dashboard layout, table scrollers"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-10 in 9e51b8d (seller shell), ee81c34 (wrapping rows, table scrollers) and 10055c9 (active tab scrolled into view): scrollWidth 390 at 390 px (before: 448 measured in Task 1 on main; the older audit figure was 451), clippedTables 0; Playwright, seeded seller; after.json web route 6 of 9"
   },
   {
     "id": "ov-web-seller-dashboard-subscriptions",
     "kind": "overflow",
     "route": "/seller/dashboard/subscriptions",
     "description": "scrollWidth 821 px at a 390 px viewport; seller dashboard layout: fixed w-52 sidebar, main without min-w-0 (seller/dashboard/layout.tsx:21,60) plus page content",
-    "status": "deferred",
-    "followUp": "PR 5c: responsive admin shell and seller dashboard layout, table scrollers"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-10 in 9e51b8d (seller shell), ee81c34 (wrapping rows, table scrollers) and 10055c9 (active tab scrolled into view): scrollWidth 390 at 390 px (before: 820 measured in Task 1 on main; the older audit figure was 821), clippedTables 0; Playwright, seeded seller; after.json web route 7 of 9"
   },
   {
     "id": "man-t01",
@@ -684,8 +684,8 @@
     "kind": "manual",
     "route": "W/app/seller/dashboard/layout.tsx:21-59",
     "description": "W/app/seller/dashboard/layout.tsx:21-59: Fixed `w-52` sidebar with no mobile treatment; see C (this is the cause of every /seller/dashboard overflow) -> see C",
-    "status": "deferred",
-    "followUp": "PR 5c: responsive admin shell and seller dashboard layout, table scrollers"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-10 in 9e51b8d: the seller sidebar is a full-width scrolling strip below md and the w-52 sidebar from md up (desktop screenshots pixel-identical at 1440 light and dark, products 1440 light and dark, and 768); tests/seller-dashboard/layout.test.tsx pins the classes; 10055c9 scrolls the active tab into view"
   },
   {
     "id": "man-b12",
@@ -716,8 +716,8 @@
     "kind": "manual",
     "route": "A/components/sidebar.tsx:34-73",
     "description": "A/components/sidebar.tsx:34-73: Fixed `w-44` aside, 15 nav links, no mobile treatment, not `shrink-0`; see C -> see C",
-    "status": "deferred",
-    "followUp": "PR 5c: responsive admin shell and seller dashboard layout, table scrollers"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-10 in 63d6152: below md a sticky top bar with a menu panel (real-key checks: Enter opens, Tab enters the panel, Escape returns focus to the button, a link navigates and closes); from md up the sidebar is unchanged (176 px, link positions and active style identical at 1440 and 768); tests/components/sidebar.test.tsx pins it (9 tests)"
   },
   {
     "id": "man-b16",
@@ -748,7 +748,7 @@
     "kind": "manual",
     "route": "A/app/layout.tsx:38,41-42",
     "description": "A/app/layout.tsx:38,41-42: `body.flex` + `main.flex-1` without `min-w-0`; sidebar only rendered if `session?.user`; see C -> see C",
-    "status": "deferred",
-    "followUp": "PR 5c: responsive admin shell and seller dashboard layout, table scrollers"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-10 in 63d6152: body is flex-col below md and flex-row from md up, main has min-w-0; admin routes measure 390 at 390 px and 768 at 768 px (22 of 22 each)"
   }
 ]
