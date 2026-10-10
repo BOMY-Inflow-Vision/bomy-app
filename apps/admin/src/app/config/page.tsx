@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm"
 
 import { schema, withAdmin } from "@bomy/db"
+import { Badge } from "@bomy/ui/badge"
 
 import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
@@ -27,9 +28,7 @@ export default async function ConfigPage() {
     <div className="p-6">
       <div className="mb-4 flex items-center gap-2">
         <h1 className="text-lg font-semibold text-foreground">Platform Config</h1>
-        <span className="rounded bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">
-          Read-only
-        </span>
+        <Badge variant="warning">Read-only</Badge>
       </div>
       <div className="overflow-x-auto rounded-lg border border-border bg-background">
         <table className="w-full text-sm">

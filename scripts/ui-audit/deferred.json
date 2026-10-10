@@ -1,89 +1,5 @@
 [
   {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/(marketing)/membership/page.tsx",
-    "text": "<p className=\"text-sm font-semibold uppercase tracking-widest text-amber-500\">",
-    "reason": "Proposed deferral: amber promo/brand theme, not a status; reward/accent tokens exist | action: swap to tokens: panel bg-reward/10 (or bg-accent), price text-foreground/text-primary, caption text-muted-foreground, check marks text-primary; design choice on gold vs red",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3b-bg-without-literal-text",
-    "file": "apps/web/src/app/(marketing)/membership/page.tsx",
-    "text": "<div className=\"flex flex-col gap-1 rounded-xl bg-amber-50 px-6 py-5\">",
-    "reason": "Proposed deferral: amber promo/brand theme, not a status; reward/accent tokens exist | action: swap to tokens: panel bg-reward/10 (or bg-accent), price text-foreground/text-primary, caption text-muted-foreground, check marks text-primary; design choice on gold vs red",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/(marketing)/membership/page.tsx",
-    "text": "<p className=\"text-4xl font-bold text-amber-600\">{priceDisplay}</p>",
-    "reason": "Proposed deferral: amber promo/brand theme, not a status; reward/accent tokens exist | action: swap to tokens: panel bg-reward/10 (or bg-accent), price text-foreground/text-primary, caption text-muted-foreground, check marks text-primary; design choice on gold vs red",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/(marketing)/membership/page.tsx",
-    "text": "<p className=\"text-xs text-amber-700\">billed annually \u00b7 cancel anytime</p>",
-    "reason": "Proposed deferral: amber promo/brand theme, not a status; reward/accent tokens exist | action: swap to tokens: panel bg-reward/10 (or bg-accent), price text-foreground/text-primary, caption text-muted-foreground, check marks text-primary; design choice on gold vs red",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/(marketing)/membership/page.tsx",
-    "text": "<span className=\"mt-0.5 text-amber-500\">\u2713</span>",
-    "reason": "Proposed deferral: amber promo/brand theme, not a status; reward/accent tokens exist | action: swap to tokens: panel bg-reward/10 (or bg-accent), price text-foreground/text-primary, caption text-muted-foreground, check marks text-primary; design choice on gold vs red",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/(marketing)/membership/page.tsx",
-    "text": "<span className=\"mt-0.5 text-amber-500\">\u2713</span>",
-    "reason": "Proposed deferral: amber promo/brand theme, not a status; reward/accent tokens exist | action: swap to tokens: panel bg-reward/10 (or bg-accent), price text-foreground/text-primary, caption text-muted-foreground, check marks text-primary; design choice on gold vs red",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/(marketing)/membership/page.tsx",
-    "text": "<span className=\"mt-0.5 text-amber-500\">\u2713</span>",
-    "reason": "Proposed deferral: amber promo/brand theme, not a status; reward/accent tokens exist | action: swap to tokens: panel bg-reward/10 (or bg-accent), price text-foreground/text-primary, caption text-muted-foreground, check marks text-primary; design choice on gold vs red",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/(marketing)/membership/page.tsx",
-    "text": "<span className=\"mt-0.5 text-amber-500\">\u2713</span>",
-    "reason": "Proposed deferral: amber promo/brand theme, not a status; reward/accent tokens exist | action: swap to tokens: panel bg-reward/10 (or bg-accent), price text-foreground/text-primary, caption text-muted-foreground, check marks text-primary; design choice on gold vs red",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/(marketing)/membership/page.tsx",
-    "text": "className=\"w-full bg-amber-500 px-3 py-3 text-sm font-semibold text-white shadow hover:bg-amber-600 active:bg-amber-700 transition-colors sm:px-6\"",
-    "reason": "Proposed deferral: amber literal CTA colours override Button; reward variant (gold) exists | action: use variant=\"reward\" (drop bg/hover/active amber classes and text-white); SubmitButton must pass variant through",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/(marketing)/membership/page.tsx",
-    "text": "className=\"w-full bg-amber-500 px-3 py-3 text-sm font-semibold text-white shadow hover:bg-amber-600 active:bg-amber-700 transition-colors sm:px-6\"",
-    "reason": "Proposed deferral: amber literal CTA colours override Button; reward variant (gold) exists | action: use variant=\"reward\" (drop bg/hover/active amber classes and text-white); SubmitButton must pass variant through",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/(marketing)/membership/success/poller.tsx",
-    "text": "className=\"w-full bg-amber-500 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-amber-600 active:bg-amber-700 transition-colors\"",
-    "reason": "Proposed deferral: amber literal CTA colours override Button; reward variant exists | action: variant=\"reward\", drop amber/text-white classes",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/(marketing)/membership/success/poller.tsx",
-    "text": "className=\"w-full bg-amber-500 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-amber-600 active:bg-amber-700 transition-colors\"",
-    "reason": "Proposed deferral: amber literal CTA colours override Button; reward variant exists | action: variant=\"reward\", drop amber/text-white classes",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
     "rule": "R1-select",
     "file": "apps/web/src/app/provider/apply/provider-apply-form.tsx",
     "text": "<select",
@@ -120,86 +36,9 @@
   },
   {
     "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/seller/dashboard/orders/[orderId]/_mark-delivered-button.tsx",
-    "text": "className=\"bg-green-700 hover:bg-green-800 text-white\"",
-    "reason": "Proposed deferral: literal green CTA overrides Button; no success variant | action: drop className (default variant) or add Button success variant; decide semantics (default is brand red)",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3a-palette-class",
     "file": "apps/web/src/app/seller/dashboard/page.tsx",
     "text": "<div className=\"text-3xl font-bold text-slate-300\">\u2014</div>",
     "reason": "Proposed deferral: slate-300 placeholder dash | action: text-slate-300 -> text-muted-foreground",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/image-manager.tsx",
-    "text": "className=\"absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 p-0.5 text-white transition-opacity hover:bg-red-600 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100\"",
-    "reason": "Proposed deferral: ad-hoc red styling on Button; destructive variant exists | action: variant=\"destructive\" with size-5 rounded-full classes; keep onClick/aria-label",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3b-bg-without-literal-text",
-    "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/product-edit-form.tsx",
-    "text": "className=\"mt-3 space-y-2 rounded-lg bg-green-50 p-3\"",
-    "reason": "Proposed deferral: decorative green panel; sibling edit form uses bg-accent | action: bg-green-50 -> bg-accent (matches line 497)",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/product-edit-form.tsx",
-    "text": "<Label htmlFor=\"add_name\" className=\"mb-1 block text-xs text-green-700\">",
-    "reason": "Proposed deferral: green text on decorative panel | action: text-green-700 -> text-muted-foreground (matches edit form)",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/product-edit-form.tsx",
-    "text": "<Label htmlFor=\"add_price\" className=\"mb-1 block text-xs text-green-700\">",
-    "reason": "Proposed deferral: green text on decorative panel | action: text-green-700 -> text-muted-foreground (matches edit form)",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/product-edit-form.tsx",
-    "text": "<Label htmlFor=\"add_stock\" className=\"mb-1 block text-xs text-green-700\">",
-    "reason": "Proposed deferral: green text on decorative panel | action: text-green-700 -> text-muted-foreground (matches edit form)",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/product-edit-form.tsx",
-    "text": "<Label htmlFor=\"add_sku\" className=\"mb-1 block text-xs text-green-700\">",
-    "reason": "Proposed deferral: green text on decorative panel | action: text-green-700 -> text-muted-foreground (matches edit form)",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/product-edit-form.tsx",
-    "text": "<label className=\"flex items-center gap-1.5 text-xs text-green-700\">",
-    "reason": "Proposed deferral: green text on decorative panel | action: text-green-700 -> text-muted-foreground (matches edit form)",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/product-edit-form.tsx",
-    "text": "<Label htmlFor=\"lead-days-add\" className=\"text-xs text-green-700\">",
-    "reason": "Proposed deferral: green text on decorative panel | action: text-green-700 -> text-muted-foreground (matches edit form)",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/product-edit-form.tsx",
-    "text": "<span className=\"text-xs text-green-700\">days</span>",
-    "reason": "Proposed deferral: green text on decorative panel | action: text-green-700 -> text-muted-foreground (matches edit form)",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/product-edit-form.tsx",
-    "text": "className=\"bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60\"",
-    "reason": "Proposed deferral: literal green CTA overrides Button | action: drop bg-green/text-white/hover classes (default variant)",
     "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
   },
   {
@@ -337,44 +176,9 @@
   },
   {
     "rule": "R3a-palette-class",
-    "file": "apps/admin/src/app/payouts/_payout-actions.tsx",
-    "text": "className=\"bg-green-100 text-green-700 hover:bg-green-200\"",
-    "reason": "Contrast below 4.5:1 (light: hover: green-700 on green-200 = 4.14:1; dark: hover: green-700 on green-200 = 4.14:1). Was a status-colour exception. PR 5a re-triages this if it adds matching tokens.",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/app/payouts/_payout-actions.tsx",
-    "text": "className=\"bg-green-600 text-white hover:bg-green-700\"",
-    "reason": "Contrast: White text on bg-green-600 = 3.30:1, needs 4.5:1 (hover state bg-green-700 is 5.02:1). Was a status-colour exception. PR 5a re-triages this if it adds matching tokens.",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/app/payouts/_payout-actions.tsx",
-    "text": "className=\"bg-red-100 text-red-700 hover:bg-red-200\"",
-    "reason": "Contrast below 4.5:1 (light: hover: red-700 on red-200 = 4.47:1; dark: hover: red-700 on red-200 = 4.47:1). Was a status-colour exception. PR 5a re-triages this if it adds matching tokens.",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/app/seller-inquiries/[id]/approve-form.tsx",
-    "text": "className=\"border-amber-300 text-amber-700 hover:bg-amber-50\"",
-    "reason": "Contrast below 4.5:1 (dark: amber-700 on theme surface (worst: popover) = 3.25:1). Was a status-colour exception. PR 5a re-triages this if it adds matching tokens.",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3a-palette-class",
     "file": "apps/admin/src/app/seller-inquiries/[id]/page.tsx",
     "text": "<div className=\"rounded-lg border border-red-200 bg-destructive/10 p-4 text-sm text-destructive\">",
     "reason": "Proposed deferral: border-red-200 is a palette colour mixed with destructive tokens | action: border-destructive/20 (keep bg-destructive/10 text-destructive)",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/app/vouchers/page.tsx",
-    "text": "className=\"bg-amber-600 text-white hover:bg-amber-700\"",
-    "reason": "Contrast: White text on bg-amber-600 = 3.19:1, needs 4.5:1 (hover state bg-amber-700 is 5.02:1). Was a status-colour exception. PR 5a re-triages this if it adds matching tokens.",
     "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
   },
   {

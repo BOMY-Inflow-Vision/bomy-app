@@ -41,7 +41,7 @@ export function MarkDeliveredButton({ orderId }: { orderId: string }) {
         onClick={() => void handleClick()}
         icon={<PackageCheck />}
         disabled={pending}
-        className="bg-green-700 hover:bg-green-800 text-white"
+        variant="success"
       >
         {pending ? "Marking…" : "Mark as delivered"}
       </Button>

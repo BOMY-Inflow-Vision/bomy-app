@@ -185,12 +185,7 @@ export default async function VouchersPage({
               Save Config
             </Button>
             <form action={triggerVoucherIssuance}>
-              <Button
-                type="submit"
-                size="sm"
-                icon={<Send />}
-                className="bg-amber-600 text-white hover:bg-amber-700"
-              >
+              <Button type="submit" size="sm" icon={<Send />} variant="warning">
                 Issue Now
               </Button>
             </form>

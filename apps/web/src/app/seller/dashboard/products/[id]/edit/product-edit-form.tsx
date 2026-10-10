@@ -743,7 +743,7 @@ export function ProductEditForm({
           {showAddVariant && (
             <form
               onSubmit={handleAddVariantSubmit}
-              className="mt-3 space-y-2 rounded-lg bg-green-50 p-3"
+              className="mt-3 space-y-2 rounded-lg bg-muted p-3"
             >
               {/* Hidden fulfillment fields */}
               <input
@@ -761,7 +761,7 @@ export function ProductEditForm({
 
               <div className="flex items-end gap-2">
                 <div className="flex-1">
-                  <Label htmlFor="add_name" className="mb-1 block text-xs text-green-700">
+                  <Label htmlFor="add_name" className="mb-1 block text-xs text-muted-foreground">
                     Name *
                   </Label>
                   <Input
@@ -774,7 +774,7 @@ export function ProductEditForm({
                   />
                 </div>
                 <div className="w-24">
-                  <Label htmlFor="add_price" className="mb-1 block text-xs text-green-700">
+                  <Label htmlFor="add_price" className="mb-1 block text-xs text-muted-foreground">
                     Price (RM) *
                   </Label>
                   <Input
@@ -786,7 +786,7 @@ export function ProductEditForm({
                   />
                 </div>
                 <div className="w-16">
-                  <Label htmlFor="add_stock" className="mb-1 block text-xs text-green-700">
+                  <Label htmlFor="add_stock" className="mb-1 block text-xs text-muted-foreground">
                     Stock
                   </Label>
                   <Input
@@ -799,7 +799,7 @@ export function ProductEditForm({
                   />
                 </div>
                 <div className="w-24">
-                  <Label htmlFor="add_sku" className="mb-1 block text-xs text-green-700">
+                  <Label htmlFor="add_sku" className="mb-1 block text-xs text-muted-foreground">
                     SKU
                   </Label>
                   <Input id="add_sku" name="sku" placeholder="optional" className="h-8 text-sm" />
@@ -807,7 +807,7 @@ export function ProductEditForm({
               </div>
 
               <div className="flex items-center gap-3">
-                <label className="flex items-center gap-1.5 text-xs text-green-700">
+                <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <input
                     type="checkbox"
                     checked={addFulfillmentChecked}
@@ -818,7 +818,7 @@ export function ProductEditForm({
                 </label>
                 {addFulfillmentChecked && (
                   <div className="flex items-center gap-1.5">
-                    <Label htmlFor="lead-days-add" className="text-xs text-green-700">
+                    <Label htmlFor="lead-days-add" className="text-xs text-muted-foreground">
                       Lead days (optional):
                     </Label>
                     <Input
@@ -830,7 +830,7 @@ export function ProductEditForm({
                       placeholder="e.g. 14"
                       className="w-20 text-xs"
                     />
-                    <span className="text-xs text-green-700">days</span>
+                    <span className="text-xs text-muted-foreground">days</span>
                   </div>
                 )}
               </div>
@@ -842,7 +842,8 @@ export function ProductEditForm({
                   size="sm"
                   icon={<Plus />}
                   disabled={addVariantPending}
-                  className="bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  variant="success"
+                  className="px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {addVariantPending ? "Adding…" : "Add"}
                 </Button>

@@ -79,7 +79,8 @@ function SortableImageThumb({
       <Button
         type="button"
         onClick={() => onRemove(image.id)}
-        className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 p-0.5 text-white transition-opacity hover:bg-red-600 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
+        variant="destructive"
+        className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full p-0.5 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
         aria-label="Remove image"
       >
         <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none" aria-hidden="true">

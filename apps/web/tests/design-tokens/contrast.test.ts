@@ -89,6 +89,14 @@ describe.each(FILES)("%s", (file) => {
       expect(ratio(get("foreground"), tint)).toBeGreaterThanOrEqual(4.5)
       expect(ratio(get("muted-foreground"), tint)).toBeGreaterThanOrEqual(4.5)
     })
+    it("membership controls: reward button rest and hover >= 4.5, eyebrow on the card >= 4.5, check marks >= 3", () => {
+      expect(ratio(get("reward-foreground"), get("reward"))).toBeGreaterThanOrEqual(4.5)
+      expect(
+        ratio(bright(get("reward-foreground"), 0.9), bright(get("reward"), 0.9)),
+      ).toBeGreaterThanOrEqual(4.5)
+      expect(ratio(get("muted-foreground"), get("card"))).toBeGreaterThanOrEqual(4.5)
+      expect(ratio(get("primary"), get("card"))).toBeGreaterThanOrEqual(3)
+    })
     it("sidebar: text, hover and active pairs, indicator and ring", () => {
       for (const bg of ["sidebar", "sidebar-accent"]) {
         expect(ratio(get("sidebar-strong"), get(bg))).toBeGreaterThanOrEqual(4.5)

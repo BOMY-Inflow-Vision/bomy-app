@@ -58,7 +58,8 @@ export function MembershipActivationPoller({ initialActive, pendingFresh }: Prop
           <Button
             asChild
             icon={<Eye />}
-            className="w-full bg-amber-500 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-amber-600 active:bg-amber-700 transition-colors"
+            variant="reward"
+            className="w-full px-6 py-3 text-sm font-semibold"
           >
             <Link href="/membership/manage">View my membership</Link>
           </Button>
@@ -101,7 +102,8 @@ export function MembershipActivationPoller({ initialActive, pendingFresh }: Prop
             type="button"
             icon={<RefreshCw />}
             onClick={() => router.refresh()}
-            className="w-full bg-amber-500 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-amber-600 active:bg-amber-700 transition-colors"
+            variant="reward"
+            className="w-full px-6 py-3 text-sm font-semibold"
           >
             I&apos;ve paid — check again
           </Button>

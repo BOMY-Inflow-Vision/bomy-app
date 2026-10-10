@@ -74,7 +74,7 @@ export default async function MembershipPage() {
         <CardContent className="flex flex-col gap-4 p-5 sm:p-10">
           <div className="flex flex-col gap-8">
             <div className="flex flex-col gap-2">
-              <p className="text-sm font-semibold uppercase tracking-widest text-amber-500">
+              <p className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
                 #1 Platform Membership
               </p>
               <h1 className="text-3xl font-bold text-foreground">Join BOMY</h1>
@@ -84,26 +84,26 @@ export default async function MembershipPage() {
               </p>
             </div>
 
-            <div className="flex flex-col gap-1 rounded-xl bg-amber-50 px-6 py-5">
-              <p className="text-4xl font-bold text-amber-600">{priceDisplay}</p>
-              <p className="text-xs text-amber-700">billed annually · cancel anytime</p>
+            <div className="flex flex-col gap-1 rounded-xl bg-reward/10 px-6 py-5">
+              <p className="text-4xl font-bold text-foreground">{priceDisplay}</p>
+              <p className="text-xs text-muted-foreground">billed annually · cancel anytime</p>
             </div>
 
             <ul className="space-y-2 text-left text-sm text-muted-foreground">
               <li className="flex items-start gap-2">
-                <span className="mt-0.5 text-amber-500">✓</span>
+                <span className="mt-0.5 text-primary">✓</span>
                 Welcome Gift (dispatched within 14 days of activation)
               </li>
               <li className="flex items-start gap-2">
-                <span className="mt-0.5 text-amber-500">✓</span>
+                <span className="mt-0.5 text-primary">✓</span>
                 Quarterly Goodie Box from BOMY brand partners
               </li>
               <li className="flex items-start gap-2">
-                <span className="mt-0.5 text-amber-500">✓</span>
+                <span className="mt-0.5 text-primary">✓</span>
                 Early access to new brands and limited drops
               </li>
               <li className="flex items-start gap-2">
-                <span className="mt-0.5 text-amber-500">✓</span>
+                <span className="mt-0.5 text-primary">✓</span>
                 Member-only vouchers and exclusive pricing
               </li>
             </ul>
@@ -119,7 +119,8 @@ export default async function MembershipPage() {
               <form action={joinMembership}>
                 <SubmitButton
                   icon={<CreditCard />}
-                  className="w-full bg-amber-500 px-3 py-3 text-sm font-semibold text-white shadow hover:bg-amber-600 active:bg-amber-700 transition-colors sm:px-6"
+                  variant="reward"
+                  className="w-full px-3 py-3 text-sm font-semibold sm:px-6"
                 >
                   Join now — {priceDisplay}
                 </SubmitButton>
@@ -128,7 +129,8 @@ export default async function MembershipPage() {
               <Button
                 asChild
                 icon={<LogIn />}
-                className="w-full bg-amber-500 px-3 py-3 text-sm font-semibold text-white shadow hover:bg-amber-600 active:bg-amber-700 transition-colors sm:px-6"
+                variant="reward"
+                className="w-full px-3 py-3 text-sm font-semibold sm:px-6"
               >
                 <Link href="/auth/sign-in?callbackUrl=/membership">
                   Sign in to join — {priceDisplay}
