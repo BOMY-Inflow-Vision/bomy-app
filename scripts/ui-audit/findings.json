@@ -133,7 +133,7 @@
     "route": "admin /stores/[id]",
     "description": "scrollWidth 403 px at a 390 px viewport; admin layout: fixed w-44 sidebar, main without min-w-0 (admin layout.tsx:42) plus page content",
     "status": "resolved",
-    "evidence": "Fixed 2026-10-10 in 63d6152 (admin shell) and ee81c34 (tables and rows): scrollWidth 390 at 390 px (before: 403) and 768 at 768 px (before: 768), clippedTables 0; admin production build, Charlie's Chrome; after.json admin route 17 of 22, after-admin-768.json route 17 of 22"
+    "evidence": "Fixed 2026-10-10 in 63d6152 (admin shell) and ee81c34 (tables and rows): scrollWidth 390 at 390 px (before: 407 measured in Task 1 on main; the older audit figure was 403) and 768 at 768 px (before: 768), clippedTables 0; admin production build, Charlie's Chrome; after.json admin route 17 of 22, after-admin-768.json route 17 of 22"
   },
   {
     "id": "ov-admin-stores-new",
@@ -229,7 +229,7 @@
     "route": "/seller/dashboard",
     "description": "scrollWidth 490 px at a 390 px viewport; seller dashboard layout: fixed w-52 sidebar, main without min-w-0 (seller/dashboard/layout.tsx:21,60) plus page content",
     "status": "resolved",
-    "evidence": "Fixed 2026-10-10 in 9e51b8d (seller shell), ee81c34 (wrapping rows, table scrollers) and 10055c9 (active tab scrolled into view): scrollWidth 390 at 390 px (before: 490), clippedTables 0; Playwright, seeded seller; after.json web route 1 of 9"
+    "evidence": "Fixed 2026-10-10 in 9e51b8d (seller shell), ee81c34 (wrapping rows, table scrollers) and 10055c9 (active tab scrolled into view): scrollWidth 390 at 390 px (before: 487 measured in Task 1 on main; the older audit figure was 490), clippedTables 0; Playwright, seeded seller; after.json web route 1 of 9"
   },
   {
     "id": "ov-web-seller-dashboard-orders",
@@ -237,7 +237,7 @@
     "route": "/seller/dashboard/orders",
     "description": "scrollWidth 741 px at a 390 px viewport; seller dashboard layout: fixed w-52 sidebar, main without min-w-0 (seller/dashboard/layout.tsx:21,60) plus page content",
     "status": "resolved",
-    "evidence": "Fixed 2026-10-10 in 9e51b8d (seller shell), ee81c34 (wrapping rows, table scrollers) and 10055c9 (active tab scrolled into view): scrollWidth 390 at 390 px (before: 741), clippedTables 0; Playwright, seeded seller; after.json web route 2 of 9"
+    "evidence": "Fixed 2026-10-10 in 9e51b8d (seller shell), ee81c34 (wrapping rows, table scrollers) and 10055c9 (active tab scrolled into view): scrollWidth 390 at 390 px (before: 736 measured in Task 1 on main; the older audit figure was 741), clippedTables 0; Playwright, seeded seller; after.json web route 2 of 9"
   },
   {
     "id": "ov-web-seller-dashboard-products",
@@ -245,7 +245,7 @@
     "route": "/seller/dashboard/products",
     "description": "scrollWidth 789 px at a 390 px viewport; seller dashboard layout: fixed w-52 sidebar, main without min-w-0 (seller/dashboard/layout.tsx:21,60) plus page content",
     "status": "resolved",
-    "evidence": "Fixed 2026-10-10 in 9e51b8d (seller shell), ee81c34 (wrapping rows, table scrollers) and 10055c9 (active tab scrolled into view): scrollWidth 390 at 390 px (before: 789), clippedTables 0; Playwright, seeded seller; after.json web route 3 of 9"
+    "evidence": "Fixed 2026-10-10 in 9e51b8d (seller shell), ee81c34 (wrapping rows, table scrollers) and 10055c9 (active tab scrolled into view): scrollWidth 390 at 390 px (before: 785 measured in Task 1 on main; the older audit figure was 789), clippedTables 0; Playwright, seeded seller; after.json web route 3 of 9"
   },
   {
     "id": "ov-web-seller-dashboard-products-id-edit",
@@ -253,7 +253,7 @@
     "route": "/seller/dashboard/products/[id]/edit",
     "description": "scrollWidth 618 px at a 390 px viewport; seller dashboard layout: fixed w-52 sidebar, main without min-w-0 (seller/dashboard/layout.tsx:21,60) plus page content",
     "status": "resolved",
-    "evidence": "Fixed 2026-10-10 in 9e51b8d (seller shell), ee81c34 (wrapping rows, table scrollers) and 10055c9 (active tab scrolled into view): scrollWidth 390 at 390 px (before: 618), clippedTables 0; Playwright, seeded seller; after.json web route 4 of 9"
+    "evidence": "Fixed 2026-10-10 in 9e51b8d (seller shell), ee81c34 (wrapping rows, table scrollers) and 10055c9 (active tab scrolled into view): scrollWidth 390 at 390 px (before: 614 measured in Task 1 on main; the older audit figure was 618), clippedTables 0; Playwright, seeded seller; after.json web route 4 of 9"
   },
   {
     "id": "ov-web-seller-dashboard-products-new",
@@ -261,7 +261,7 @@
     "route": "/seller/dashboard/products/new",
     "description": "scrollWidth 637 px at a 390 px viewport; seller dashboard layout: fixed w-52 sidebar, main without min-w-0 (seller/dashboard/layout.tsx:21,60) plus page content",
     "status": "resolved",
-    "evidence": "Fixed 2026-10-10 in 9e51b8d (seller shell), ee81c34 (wrapping rows, table scrollers) and 10055c9 (active tab scrolled into view): scrollWidth 390 at 390 px (before: 637), clippedTables 0; Playwright, seeded seller; after.json web route 5 of 9"
+    "evidence": "Fixed 2026-10-10 in 9e51b8d (seller shell), ee81c34 (wrapping rows, table scrollers) and 10055c9 (active tab scrolled into view): scrollWidth 390 at 390 px (before: 634 measured in Task 1 on main; the older audit figure was 637), clippedTables 0; Playwright, seeded seller; after.json web route 5 of 9"
   },
   {
     "id": "ov-web-seller-dashboard-settings",
@@ -269,7 +269,7 @@
     "route": "/seller/dashboard/settings",
     "description": "scrollWidth 451 px at a 390 px viewport; seller dashboard layout: fixed w-52 sidebar, main without min-w-0 (seller/dashboard/layout.tsx:21,60) plus page content",
     "status": "resolved",
-    "evidence": "Fixed 2026-10-10 in 9e51b8d (seller shell), ee81c34 (wrapping rows, table scrollers) and 10055c9 (active tab scrolled into view): scrollWidth 390 at 390 px (before: 451), clippedTables 0; Playwright, seeded seller; after.json web route 6 of 9"
+    "evidence": "Fixed 2026-10-10 in 9e51b8d (seller shell), ee81c34 (wrapping rows, table scrollers) and 10055c9 (active tab scrolled into view): scrollWidth 390 at 390 px (before: 448 measured in Task 1 on main; the older audit figure was 451), clippedTables 0; Playwright, seeded seller; after.json web route 6 of 9"
   },
   {
     "id": "ov-web-seller-dashboard-subscriptions",
@@ -277,7 +277,7 @@
     "route": "/seller/dashboard/subscriptions",
     "description": "scrollWidth 821 px at a 390 px viewport; seller dashboard layout: fixed w-52 sidebar, main without min-w-0 (seller/dashboard/layout.tsx:21,60) plus page content",
     "status": "resolved",
-    "evidence": "Fixed 2026-10-10 in 9e51b8d (seller shell), ee81c34 (wrapping rows, table scrollers) and 10055c9 (active tab scrolled into view): scrollWidth 390 at 390 px (before: 821), clippedTables 0; Playwright, seeded seller; after.json web route 7 of 9"
+    "evidence": "Fixed 2026-10-10 in 9e51b8d (seller shell), ee81c34 (wrapping rows, table scrollers) and 10055c9 (active tab scrolled into view): scrollWidth 390 at 390 px (before: 820 measured in Task 1 on main; the older audit figure was 821), clippedTables 0; Playwright, seeded seller; after.json web route 7 of 9"
   },
   {
     "id": "man-t01",
