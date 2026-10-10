@@ -199,11 +199,11 @@ export function CheckoutForm({ savedAddresses = [] }: { savedAddresses?: SavedAd
     <form onSubmit={handleSubmit} className="space-y-8">
       {/* Invalid lines warning */}
       {invalidLines.length > 0 && (
-        <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4">
-          <p className="mb-2 text-sm font-medium text-yellow-800">
+        <div className="rounded-lg border border-warning/30 bg-warning-subtle p-4">
+          <p className="mb-2 text-sm font-medium text-warning">
             Some items in your cart can&apos;t be purchased:
           </p>
-          <ul className="list-disc pl-5 text-sm text-yellow-700">
+          <ul className="list-disc pl-5 text-sm text-warning">
             {invalidLines.map((line) => (
               <li key={line.variantId}>
                 {INVALID_LINE_COPY[line.reason] ?? "Unavailable"} (ID: {line.variantId.slice(0, 8)}
@@ -232,13 +232,13 @@ export function CheckoutForm({ savedAddresses = [] }: { savedAddresses?: SavedAd
                   <span>{formatMyrSen(Number(row.retailSubtotalSen))}</span>
                 </div>
                 {Number(row.brandDiscountSen) > 0 && (
-                  <div className="flex justify-between text-green-700">
+                  <div className="flex justify-between text-success">
                     <span>Member discount</span>
                     <span>−{formatMyrSen(Number(row.brandDiscountSen))}</span>
                   </div>
                 )}
                 {Number(row.voucherContributionSen) > 0 && (
-                  <div className="flex justify-between text-green-700">
+                  <div className="flex justify-between text-success">
                     <span>Voucher</span>
                     <span>−{formatMyrSen(Number(row.voucherContributionSen))}</span>
                   </div>

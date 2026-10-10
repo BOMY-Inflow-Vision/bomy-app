@@ -83,17 +83,17 @@ export default async function CheckoutSessionReviewPage({ params }: Props) {
           </p>
         )}
         {reasonCopy && (
-          <p className="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-yellow-800">
+          <p className="rounded-lg border border-warning/30 bg-warning-subtle px-4 py-3 text-warning">
             {reasonCopy}
           </p>
         )}
       </div>
 
       {session.resolvedBy && (
-        <Card className="mb-6 border-green-200 bg-green-50 p-6 text-sm text-green-800">
+        <Card className="mb-6 border-success/30 bg-success-subtle p-6 text-sm text-success">
           <p className="mb-1 font-semibold">Resolved</p>
           <p>{session.resolutionNote}</p>
-          <p className="mt-2 text-xs text-green-600">
+          <p className="mt-2 text-xs text-success">
             {session.resolvedAt?.toLocaleString("en-MY")} by {session.resolvedBy.slice(0, 8)}…
           </p>
         </Card>

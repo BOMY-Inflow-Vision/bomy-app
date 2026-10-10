@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { Wallet } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
@@ -29,11 +30,11 @@ export function CreatePayoutButton({ orderId }: { orderId: string }) {
 
   if (state === "done") {
     return (
-      <p className="text-sm text-green-600">
+      <p className="text-sm text-success">
         Payout record created.{" "}
-        <a href="/payouts" className="underline">
+        <Link href="/payouts" className="underline">
           View in payouts &rarr;
-        </a>
+        </Link>
       </p>
     )
   }

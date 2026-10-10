@@ -724,7 +724,7 @@ export function ProductEditForm({
                                 onClick={() => {
                                   void handleToggleVariant(v.id, true)
                                 }}
-                                className="text-xs text-green-600 disabled:cursor-not-allowed disabled:opacity-60"
+                                className="text-xs text-success disabled:cursor-not-allowed disabled:opacity-60"
                               >
                                 {togglingVariantId === v.id ? "Activating…" : "Activate"}
                               </Button>

@@ -126,12 +126,6 @@
     "reason": "label wraps checkbox/file input (no shared primitive)"
   },
   {
-    "rule": "R3b-bg-without-literal-text",
-    "file": "apps/web/src/app/checkout/_form.tsx",
-    "text": "<div className=\"rounded-lg border border-yellow-200 bg-yellow-50 p-4\">",
-    "reason": "warning box, same-family yellow pair (bg on 202; text on 203/206)"
-  },
-  {
     "rule": "R2-hex",
     "file": "apps/web/src/app/checkout/queries.ts",
     "text": "* Tied labels get a short id suffix `(#abc12345)` for disambiguation.",
@@ -414,12 +408,6 @@
     "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
   },
   {
-    "rule": "R3b-bg-without-literal-text",
-    "file": "apps/web/src/app/seller/dashboard/subscriptions/page.tsx",
-    "text": "<tr key={row.id} className=\"bg-amber-50\">",
-    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
-  },
-  {
     "rule": "R3a-palette-class",
     "file": "apps/web/src/app/seller/dashboard/subscriptions/page.tsx",
     "text": "<span className=\"rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700\">",
@@ -612,18 +600,6 @@
     "reason": "no @bomy/ui Table primitive exists"
   },
   {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/app/checkout-sessions/[sessionId]/page.tsx",
-    "text": "<p className=\"rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-yellow-800\">",
-    "reason": "status pair, yellow family (border/bg/text) warning box"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/app/checkout-sessions/[sessionId]/page.tsx",
-    "text": "<Card className=\"mb-6 border-green-200 bg-green-50 p-6 text-sm text-green-800\">",
-    "reason": "status pair, green family success Card"
-  },
-  {
     "rule": "R6-table",
     "file": "apps/admin/src/app/config/page.tsx",
     "text": "<table className=\"w-full text-sm\">",
@@ -684,12 +660,6 @@
     "reason": "no @bomy/ui Table primitive exists"
   },
   {
-    "rule": "R3b-bg-without-literal-text",
-    "file": "apps/admin/src/app/payouts/reconciliation/page.tsx",
-    "text": "className=\"flex items-center justify-between rounded-xl border border-yellow-200 bg-yellow-50 px-6 py-4\"",
-    "reason": "status box; text colour is on child lines 124-125 (yellow-800/700)"
-  },
-  {
     "rule": "R3a-palette-class",
     "file": "apps/admin/src/app/products/[id]/product-seo-form.tsx",
     "text": "className=\"rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700\"",
@@ -718,12 +688,6 @@
     "file": "apps/admin/src/app/seller-inquiries/[id]/page.tsx",
     "text": "rejected: \"bg-red-100 text-red-700 border-transparent\",",
     "reason": "status pair (bg+text same family) used as Badge className"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/app/seller-inquiries/[id]/page.tsx",
-    "text": "<div className=\"rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-800\">",
-    "reason": "status pair green-200/50/800 success box"
   },
   {
     "rule": "R1-input",

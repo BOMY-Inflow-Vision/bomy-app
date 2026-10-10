@@ -32,7 +32,7 @@ export function RejectButton({ inquiryId }: { inquiryId: string }) {
             toast.success("Inquiry rejected.")
           })
         }
-        className="text-sm text-amber-600"
+        className="text-sm text-warning"
       >
         {pending ? "Rejecting…" : "Reject"}
       </Button>

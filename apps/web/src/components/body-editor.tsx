@@ -456,9 +456,9 @@ export function BodyEditor({
           <span className="text-blue-600">Uploading… {uploadProgress}%</span>
         )}
         {uploadStatus === "error" && (
-          <span className="text-red-600">Upload failed. Please try again.</span>
+          <span className="text-destructive">Upload failed. Please try again.</span>
         )}
-        {saveStatus === "saved" && <span className="text-green-600">Saved.</span>}
+        {saveStatus === "saved" && <span className="text-success">Saved.</span>}
       </div>
 
       <EditorContent

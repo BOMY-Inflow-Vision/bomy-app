@@ -129,12 +129,12 @@ export default async function SellerSubscriptionsPage({
                             defaultDescription={plan.description ?? ""}
                           />
                           {plan.isActive ? (
-                            <p className="mt-2 text-xs text-amber-700">
+                            <p className="mt-2 text-xs text-warning">
                               Saving will deactivate this plan — BOMY must re-approve the updated
                               price/discount before buyers can subscribe again.
                             </p>
                           ) : (
-                            <p className="mt-2 text-xs text-amber-600">
+                            <p className="mt-2 text-xs text-warning">
                               This plan is pending activation. Contact BOMY support to make it live
                               for buyers.
                             </p>
@@ -169,14 +169,14 @@ export default async function SellerSubscriptionsPage({
               {pendingPayouts.map((row) => {
                 const plan = plans.find((p) => p.id === row.planId)
                 return (
-                  <tr key={row.id} className="bg-amber-50">
-                    <td className="px-5 py-3 text-amber-800">
+                  <tr key={row.id} className="bg-warning-subtle">
+                    <td className="px-5 py-3 text-warning">
                       {TERM_LABELS[plan?.termMonths ?? 0] ?? "—"}
                     </td>
-                    <td className="px-5 py-3 text-amber-700">
+                    <td className="px-5 py-3 text-warning">
                       {row.periodEnd.toLocaleDateString("en-MY")}
                     </td>
-                    <td className="px-5 py-3 text-right font-medium text-amber-800">
+                    <td className="px-5 py-3 text-right font-medium text-warning">
                       RM {senToMyr(row.brandPayoutSen)}
                     </td>
                     <td className="px-5 py-3">

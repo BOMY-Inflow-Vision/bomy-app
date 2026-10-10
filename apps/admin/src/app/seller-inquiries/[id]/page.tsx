@@ -98,7 +98,7 @@ export default async function SellerInquiryDetailPage({ params }: Props) {
       {row.status === "pending" && <ApproveForm inquiryId={row.id} defaultSlug={row.storeName} />}
 
       {row.status === "approved" && (
-        <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+        <div className="rounded-lg border border-success/30 bg-success-subtle p-4 text-sm text-success">
           <p className="font-semibold">Approved — pending store provisioned</p>
           <p className="mt-1">
             Store <span className="font-mono">{row.storeNameLinked ?? "—"}</span> (status:{" "}

@@ -134,7 +134,7 @@ export function VariantPicker({ product, variants }: VariantPickerProps) {
             <p
               className={cn(
                 "text-sm",
-                selected.stockCount > 0 ? "text-green-600" : "text-destructive",
+                selected.stockCount > 0 ? "text-success" : "text-destructive",
               )}
             >
               {selected.stockCount > 0 ? `${selected.stockCount} in stock` : "Out of stock"}

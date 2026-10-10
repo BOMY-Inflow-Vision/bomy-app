@@ -16,11 +16,11 @@ import { Pagination } from "@/components/ui/pagination"
 import { cancelMembership, updateRenewalNotificationDays } from "./actions"
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: "text-amber-600",
-  active: "text-green-600",
-  cancelled: "text-slate-500",
-  expired: "text-red-500",
-  payment_failed: "text-red-700",
+  pending: "text-warning",
+  active: "text-success",
+  cancelled: "text-muted-foreground",
+  expired: "text-destructive",
+  payment_failed: "text-destructive",
 }
 
 export default async function MembershipsPage({
