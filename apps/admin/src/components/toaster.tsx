@@ -58,26 +58,26 @@ const TOAST_STYLES: Record<
   ToastType,
   { icon: React.ReactNode; className: string; srLabel?: string }
 > = {
-  // Each banner keeps a fixed light background in both themes (a floating toast reads better as a
-  // consistent, un-themed surface than one that flips dark), so its text is a fixed dark shade
-  // paired to that background — never text-foreground, which flips near-white in dark mode and
-  // becomes unreadable against these same light pastels.
+  // Banners use the status tokens, so text and icon flip with the theme and every pair passes
+  // 4.5:1 on its own tint (pinned in tests/design-tokens). The error banner sits on the opaque
+  // card colour, not a translucent destructive tint: a floating toast can land over the navy admin
+  // top bar, where 10% red lets the bar show through and drops the text to 2.7:1.
   success: {
-    icon: <CircleCheck className="size-5 text-emerald-600" aria-hidden="true" />,
-    className: "border-emerald-100 bg-emerald-50 text-emerald-800",
+    icon: <CircleCheck className="size-5 text-success" aria-hidden="true" />,
+    className: "border-success/30 bg-success-subtle text-success",
   },
   info: {
-    icon: <Info className="size-5 text-blue-600" aria-hidden="true" />,
-    className: "border-blue-100 bg-blue-50 text-blue-800",
+    icon: <Info className="size-5 text-info" aria-hidden="true" />,
+    className: "border-info/30 bg-info-subtle text-info",
   },
   warning: {
-    icon: <CircleAlert className="size-5 text-amber-600" aria-hidden="true" />,
-    className: "border-amber-100 bg-amber-50 text-amber-800",
+    icon: <CircleAlert className="size-5 text-warning" aria-hidden="true" />,
+    className: "border-warning/30 bg-warning-subtle text-warning",
     srLabel: "Warning",
   },
   error: {
-    icon: <CircleX className="size-5 text-red-600" aria-hidden="true" />,
-    className: "border-red-100 bg-red-50 text-red-800",
+    icon: <CircleX className="size-5 text-destructive" aria-hidden="true" />,
+    className: "border-destructive/30 bg-card text-destructive",
     srLabel: "Error",
   },
 }
@@ -196,7 +196,7 @@ function ToastRow({
               type="button"
               aria-label="Dismiss notification"
               onClick={() => dispatch({ type: "dismiss", id })}
-              className="shrink-0 cursor-pointer rounded-full p-1 transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="shrink-0 cursor-pointer rounded-full p-1 transition-colors hover:bg-foreground/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current"
             >
               <X className="size-4" aria-hidden="true" />
             </button>
