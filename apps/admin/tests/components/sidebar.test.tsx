@@ -116,9 +116,19 @@ describe("admin sidebar", () => {
     expect(panel().hidden).toBe(true)
   })
 
+  it("uses the sidebar tokens and no slate palette classes", () => {
+    expect(container.innerHTML).not.toMatch(/(?<![a-z])slate-/)
+    expect(container.querySelector("aside")!.className).toContain("bg-sidebar")
+    expect(container.querySelector("header")!.className).toContain("bg-sidebar")
+    for (const el of container.querySelectorAll(
+      "nav a, header button:not([data-testid]), aside button:not([data-testid])",
+    ))
+      expect(el.className).toContain("focus-visible:ring-sidebar-ring")
+  })
+
   it("marks the current page in both menus", () => {
     const active = [...container.querySelectorAll("a")].filter((a) =>
-      a.className.includes("border-primary"),
+      a.className.includes("border-sidebar-indicator"),
     )
     expect(active).toHaveLength(2)
   })

@@ -15,7 +15,7 @@ export default async function SignInPage({
   const errorMessage = authErrorMessage(rawError)
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-900">
+    <div className="flex min-h-screen items-center justify-center bg-sidebar">
       <div className="w-full max-w-sm rounded-2xl bg-background p-8 shadow-sm">
         <div className="mb-8 text-center">
           <h1 className="text-xl font-semibold text-foreground">Admin Sign In</h1>

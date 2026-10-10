@@ -61,6 +61,14 @@ describe("seller dashboard sidebar", () => {
     expect(container.textContent).not.toMatch(/soon/i)
   })
 
+  it("uses the sidebar tokens and no slate palette classes", () => {
+    render("/seller/dashboard")
+    const aside = container.querySelector("aside")!
+    expect(aside.className).toContain("bg-sidebar")
+    expect(aside.innerHTML).not.toMatch(/(?<![a-z])slate-/)
+    for (const a of links()) expect(a.className).toContain("focus-visible:ring-sidebar-ring")
+  })
+
   it("does not swallow a click on Orders", () => {
     render("/seller/dashboard")
     const click = new MouseEvent("click", { bubbles: true, cancelable: true })
@@ -70,11 +78,11 @@ describe("seller dashboard sidebar", () => {
 
   it("marks Orders active on an order page and Overview only on the overview", () => {
     render("/seller/dashboard/orders/abc")
-    expect(link("Orders").className).toContain("border-primary")
-    expect(link("Overview").className).not.toContain("border-primary")
+    expect(link("Orders").className).toContain("border-sidebar-indicator")
+    expect(link("Overview").className).not.toContain("border-sidebar-indicator")
     render("/seller/dashboard")
-    expect(link("Overview").className).toContain("border-primary")
-    expect(link("Orders").className).not.toContain("border-primary")
+    expect(link("Overview").className).toContain("border-sidebar-indicator")
+    expect(link("Orders").className).not.toContain("border-sidebar-indicator")
   })
 
   it("collapses into a scrolling strip on small screens and never forces the page wider", () => {

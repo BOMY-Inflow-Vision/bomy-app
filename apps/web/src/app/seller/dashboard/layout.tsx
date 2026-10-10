@@ -33,8 +33,8 @@ export default function SellerDashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
-      <aside className="flex w-full flex-col bg-slate-800 text-sm text-slate-400 md:w-52 md:shrink-0">
-        <div className="border-b border-slate-700 px-5 py-4 text-sm font-bold text-slate-100">
+      <aside className="flex w-full flex-col bg-sidebar text-sm text-sidebar-muted md:w-52 md:shrink-0">
+        <div className="border-b border-sidebar-border px-5 py-4 text-sm font-bold text-sidebar-strong">
           My Store
         </div>
         <nav
@@ -50,9 +50,10 @@ export default function SellerDashboardLayout({ children }: { children: React.Re
                 {...(active ? { "aria-current": "page" as const } : {})}
                 className={cn(
                   "whitespace-nowrap px-5 py-2",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset",
                   active
-                    ? "border-b-2 border-primary bg-slate-700 text-slate-100 md:border-b-0 md:border-l-2"
-                    : "hover:bg-slate-700 hover:text-slate-100",
+                    ? "border-b-2 border-sidebar-indicator bg-sidebar-accent text-sidebar-strong md:border-b-0 md:border-l-2"
+                    : "hover:bg-sidebar-accent hover:text-sidebar-strong",
                 )}
               >
                 {item.label}
