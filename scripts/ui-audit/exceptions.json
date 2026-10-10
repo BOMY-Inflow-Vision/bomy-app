@@ -462,12 +462,6 @@
     "reason": "prose min-height 200px; no scale step (48=192, 52=208); intentional editor height"
   },
   {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/components/body-editor.tsx",
-    "text": "<div className=\"flex items-center gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800\">",
-    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
-  },
-  {
     "rule": "R6-table",
     "file": "apps/web/src/components/body-renderer.tsx",
     "text": "<table",
@@ -886,12 +880,6 @@
     "file": "apps/admin/src/components/toaster.tsx",
     "text": "className: \"border-red-100 bg-red-50 text-red-800\",",
     "reason": "status pair (border/bg/text same family), deliberate fixed light surface in both themes"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/components/youtube-embed-extension.ts",
-    "text": "\"relative flex aspect-video w-full cursor-default items-center justify-center rounded bg-gray-900 text-white\"",
-    "reason": "TipTap node-view placeholder: fixed dark bg-gray-900 paired with literal text-white; plain DOM string, not React"
   },
   {
     "rule": "R2-hex",

@@ -130,7 +130,7 @@ export function BrandStoryField({ value, onChange, ariaLabel }: Props) {
         <span
           role="separator"
           aria-orientation="vertical"
-          className="mx-1 h-5 w-px self-center bg-gray-300"
+          className="mx-1 h-5 w-px self-center bg-border"
         />
         <LinkButton editor={editor} />
         <ToolbarButton
@@ -143,7 +143,7 @@ export function BrandStoryField({ value, onChange, ariaLabel }: Props) {
         <span
           role="separator"
           aria-orientation="vertical"
-          className="mx-1 h-5 w-px self-center bg-gray-300"
+          className="mx-1 h-5 w-px self-center bg-border"
         />
         <ToolbarButton
           action={() => editor?.chain().focus().toggleBulletList().run()}
@@ -176,13 +176,13 @@ export function BrandStoryField({ value, onChange, ariaLabel }: Props) {
         <span
           role="separator"
           aria-orientation="vertical"
-          className="mx-1 h-5 w-px self-center bg-gray-300"
+          className="mx-1 h-5 w-px self-center bg-border"
         />
         <InsertTableButton editor={editor} />
         <span
           role="separator"
           aria-orientation="vertical"
-          className="mx-1 h-5 w-px self-center bg-gray-300"
+          className="mx-1 h-5 w-px self-center bg-border"
         />
         <InsertImageUrlButton editor={editor} />
         <EmbedYouTubeButton editor={editor} />
@@ -192,9 +192,9 @@ export function BrandStoryField({ value, onChange, ariaLabel }: Props) {
         <div
           role="toolbar"
           aria-label="Table controls"
-          className="flex flex-wrap items-center gap-1 rounded border border-blue-100 bg-blue-50 p-1"
+          className="flex flex-wrap items-center gap-1 rounded border border-border bg-muted p-1"
         >
-          <span className="px-1 text-xs font-medium text-blue-600">Table:</span>
+          <span className="px-1 text-xs font-medium text-muted-foreground">Table:</span>
           <TableControlButton
             action={() => editor.chain().focus().addRowAfter().run()}
             label="Add row"
@@ -205,11 +205,7 @@ export function BrandStoryField({ value, onChange, ariaLabel }: Props) {
             label="Delete row"
             icon={<Minus className="h-3 w-3" />}
           />
-          <span
-            role="separator"
-            aria-orientation="vertical"
-            className="mx-1 h-4 w-px bg-blue-200"
-          />
+          <span role="separator" aria-orientation="vertical" className="mx-1 h-4 w-px bg-border" />
           <TableControlButton
             action={() => editor.chain().focus().addColumnAfter().run()}
             label="Add column"
@@ -220,11 +216,7 @@ export function BrandStoryField({ value, onChange, ariaLabel }: Props) {
             label="Delete column"
             icon={<Minus className="h-3 w-3" />}
           />
-          <span
-            role="separator"
-            aria-orientation="vertical"
-            className="mx-1 h-4 w-px bg-blue-200"
-          />
+          <span role="separator" aria-orientation="vertical" className="mx-1 h-4 w-px bg-border" />
           <TableControlButton
             action={() => editor.chain().focus().deleteTable().run()}
             label="Delete table"
@@ -469,16 +461,17 @@ function TableControlButton({
   danger?: boolean
 }) {
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
       onClick={() => action()}
       aria-label={label}
       title={label}
-      className={`flex items-center gap-1 rounded px-2 py-1 text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${danger ? "text-red-600 hover:bg-red-100" : "text-blue-700 hover:bg-blue-100"}`}
+      className={`h-auto gap-1 rounded px-2 py-1 text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring focus-visible:ring-0 [&_svg]:size-3 ${danger ? "text-destructive hover:bg-destructive/10 hover:text-destructive" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"}`}
     >
       {icon}
       {label}
-    </button>
+    </Button>
   )
 }
 

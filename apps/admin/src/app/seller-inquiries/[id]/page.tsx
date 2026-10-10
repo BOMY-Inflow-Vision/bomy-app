@@ -112,7 +112,7 @@ export default async function SellerInquiryDetailPage({ params }: Props) {
       )}
 
       {row.status === "rejected" && (
-        <div className="rounded-lg border border-red-200 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
           Rejected{row.reviewedAt ? ` on ${row.reviewedAt.toLocaleString()}` : ""}
           {row.reviewerName ? ` by ${row.reviewerName}` : ""}.
         </div>

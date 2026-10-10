@@ -42,97 +42,6 @@
     "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
   },
   {
-    "rule": "R3b-bg-without-literal-text",
-    "file": "apps/web/src/components/body-editor.tsx",
-    "text": "className=\"mx-1 h-5 w-px self-center bg-gray-300\"",
-    "reason": "Proposed deferral: 1px divider uses palette gray-300 (no text on it) | action: bg-gray-300 -> bg-border",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3b-bg-without-literal-text",
-    "file": "apps/web/src/components/body-editor.tsx",
-    "text": "className=\"mx-1 h-5 w-px self-center bg-gray-300\"",
-    "reason": "Proposed deferral: 1px divider uses palette gray-300 (no text on it) | action: bg-gray-300 -> bg-border",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3b-bg-without-literal-text",
-    "file": "apps/web/src/components/body-editor.tsx",
-    "text": "className=\"mx-1 h-5 w-px self-center bg-gray-300\"",
-    "reason": "Proposed deferral: 1px divider uses palette gray-300 (no text on it) | action: bg-gray-300 -> bg-border",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3b-bg-without-literal-text",
-    "file": "apps/web/src/components/body-editor.tsx",
-    "text": "className=\"mx-1 h-5 w-px self-center bg-gray-300\"",
-    "reason": "Proposed deferral: 1px divider uses palette gray-300 (no text on it) | action: bg-gray-300 -> bg-border",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3b-bg-without-literal-text",
-    "file": "apps/web/src/components/body-editor.tsx",
-    "text": "className=\"flex flex-wrap items-center gap-1 rounded border border-blue-100 bg-blue-50 p-1\"",
-    "reason": "Proposed deferral: blue-50 table toolbar is decorative, not a status; children carry blue text on other lines | action: bg-accent border-border (and children to text-accent-foreground/foreground); do with lines 389-429, 775-778",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/components/body-editor.tsx",
-    "text": "<span className=\"px-1 text-xs font-medium text-blue-600\">Table:</span>",
-    "reason": "Proposed deferral: decorative blue label | action: text-blue-600 -> text-accent-foreground",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3b-bg-without-literal-text",
-    "file": "apps/web/src/components/body-editor.tsx",
-    "text": "className=\"mx-1 h-4 w-px bg-blue-200\"",
-    "reason": "Proposed deferral: divider in blue toolbar | action: bg-blue-200 -> bg-border",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3b-bg-without-literal-text",
-    "file": "apps/web/src/components/body-editor.tsx",
-    "text": "className=\"mx-1 h-4 w-px bg-blue-200\"",
-    "reason": "Proposed deferral: divider in blue toolbar | action: bg-blue-200 -> bg-border",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3b-bg-without-literal-text",
-    "file": "apps/web/src/components/body-editor.tsx",
-    "text": "className=\"mx-1 h-4 w-px bg-blue-200\"",
-    "reason": "Proposed deferral: divider in blue toolbar | action: bg-blue-200 -> bg-border",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/components/body-editor.tsx",
-    "text": "<span className=\"text-blue-600\">Uploading\u2026 {uploadProgress}%</span>",
-    "reason": "Proposed deferral: in-progress upload text; not a status pair | action: text-blue-600 -> text-muted-foreground (or text-primary)",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/components/body-editor.tsx",
-    "text": "? \"text-red-600 hover:bg-red-100\"",
-    "reason": "Proposed deferral: danger variant of toolbar button | action: text-red-600 hover:bg-red-100 -> text-destructive hover:bg-destructive/10",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/components/body-editor.tsx",
-    "text": "? \"bg-blue-200 text-blue-800\"",
-    "reason": "Proposed deferral: blue active/idle toolbar states, decorative | action: active bg-accent text-accent-foreground; idle text-foreground hover:bg-accent (matches ToolbarButton)",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/components/body-editor.tsx",
-    "text": ": \"text-blue-700 hover:bg-blue-100\"",
-    "reason": "Proposed deferral: blue active/idle toolbar states, decorative | action: active bg-accent text-accent-foreground; idle text-foreground hover:bg-accent (matches ToolbarButton)",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
     "rule": "R3a-palette-class",
     "file": "apps/web/src/components/toaster.tsx",
     "text": "icon: <CircleCheck className=\"size-5 text-emerald-600\" aria-hidden=\"true\" />,",
@@ -161,87 +70,10 @@
     "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
   },
   {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/components/youtube-embed-extension.ts",
-    "text": "\"relative flex aspect-video w-full cursor-default items-center justify-center rounded bg-gray-900 text-white\"",
-    "reason": "Proposed deferral: palette bg-gray-900 text-white placeholder; video-embed.tsx already uses bg-foreground text-background for same element | action: change to bg-foreground text-background",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
     "rule": "R3b-bg-without-literal-text",
     "file": "apps/admin/src/app/auth/sign-in/page.tsx",
     "text": "<div className=\"flex min-h-screen items-center justify-center bg-slate-900\">",
     "reason": "Proposed deferral: literal bg without literal text; no direct text but rule 6 applies | action: add text-slate-100 to the className",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/app/seller-inquiries/[id]/page.tsx",
-    "text": "<div className=\"rounded-lg border border-red-200 bg-destructive/10 p-4 text-sm text-destructive\">",
-    "reason": "Proposed deferral: border-red-200 is a palette colour mixed with destructive tokens | action: border-destructive/20 (keep bg-destructive/10 text-destructive)",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3b-bg-without-literal-text",
-    "file": "apps/admin/src/components/brand-story-field.tsx",
-    "text": "className=\"mx-1 h-5 w-px self-center bg-gray-300\"",
-    "reason": "Proposed deferral: bg-gray-300 separator is a palette colour; border token exists | action: bg-border",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3b-bg-without-literal-text",
-    "file": "apps/admin/src/components/brand-story-field.tsx",
-    "text": "className=\"mx-1 h-5 w-px self-center bg-gray-300\"",
-    "reason": "Proposed deferral: bg-gray-300 separator is a palette colour; border token exists | action: bg-border",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3b-bg-without-literal-text",
-    "file": "apps/admin/src/components/brand-story-field.tsx",
-    "text": "className=\"mx-1 h-5 w-px self-center bg-gray-300\"",
-    "reason": "Proposed deferral: bg-gray-300 separator is a palette colour; border token exists | action: bg-border",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3b-bg-without-literal-text",
-    "file": "apps/admin/src/components/brand-story-field.tsx",
-    "text": "className=\"mx-1 h-5 w-px self-center bg-gray-300\"",
-    "reason": "Proposed deferral: bg-gray-300 separator is a palette colour; border token exists | action: bg-border",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3b-bg-without-literal-text",
-    "file": "apps/admin/src/components/brand-story-field.tsx",
-    "text": "className=\"flex flex-wrap items-center gap-1 rounded border border-blue-100 bg-blue-50 p-1\"",
-    "reason": "Proposed deferral: blue-tinted table toolbar strip, not a status colour | action: bg-muted border-border",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/components/brand-story-field.tsx",
-    "text": "<span className=\"px-1 text-xs font-medium text-blue-600\">Table:</span>",
-    "reason": "Proposed deferral: blue-600 label text on the table toolbar strip | action: text-muted-foreground",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3b-bg-without-literal-text",
-    "file": "apps/admin/src/components/brand-story-field.tsx",
-    "text": "className=\"mx-1 h-4 w-px bg-blue-200\"",
-    "reason": "Proposed deferral: blue-200 separator on table toolbar | action: bg-border",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3b-bg-without-literal-text",
-    "file": "apps/admin/src/components/brand-story-field.tsx",
-    "text": "className=\"mx-1 h-4 w-px bg-blue-200\"",
-    "reason": "Proposed deferral: blue-200 separator on table toolbar | action: bg-border",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/components/brand-story-field.tsx",
-    "text": "className={`flex items-center gap-1 rounded px-2 py-1 text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${danger ? \"text-red-600 hover:bg-red-100\" : \"text-blue-700 hover:bg-blue-100\"}`}",
-    "reason": "Proposed deferral: blue-700/red-600 text with palette hovers on text buttons | action: danger: text-destructive hover:bg-destructive/10; else text-foreground hover:bg-accent (or Button ghost per hit 83)",
     "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
   },
   {
@@ -319,13 +151,6 @@
     "file": "apps/admin/src/components/toaster.tsx",
     "text": "icon: <CircleX className=\"size-5 text-red-600\" aria-hidden=\"true\" />,",
     "reason": "Contrast below 4.5:1 (dark: red-600 on theme surface (worst: popover) = 3.38:1). Was a status-colour exception. PR 5a re-triages this if it adds matching tokens.",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
-  },
-  {
-    "rule": "R1-button",
-    "file": "apps/admin/src/components/brand-story-field.tsx",
-    "text": "<button",
-    "reason": "TableControlButton: not swapped in PR 5. Button's ghost variant forces hover:text-accent-foreground, which would lose the blue/red hover text that marks Delete vs other table actions; its palette colours are PR 5a work, so the swap moves with them.",
     "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
   }
 ]
