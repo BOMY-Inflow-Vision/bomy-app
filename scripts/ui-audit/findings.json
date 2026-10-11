@@ -515,9 +515,9 @@
     "id": "man-t30",
     "kind": "manual",
     "route": "apps/admin/src/app/seller-inquiries/reject-button.tsx vs [id]/approve-form.tsx",
-    "description": "apps/admin/src/app/seller-inquiries/reject-button.tsx vs [id]/approve-form.tsx line 35 vs 107: same Reject action styled text-amber-600 link in one place and amber-700 outline in the other (inconsistent styling of one action)",
-    "status": "resolved",
-    "evidence": "Fixed 2026-10-11 in 7bb9615 and b0787d6: both Reject controls now use the same warning token (reject-button text-warning, approve-form border-warning/40 text-warning hover:bg-warning-subtle); the colour mismatch (amber-600 against amber-700) is gone. The shapes still differ on purpose: a compact link in the list row against an outlined button in the detail form. Not evaluated in a browser"
+    "description": "apps/admin/src/app/seller-inquiries/reject-button.tsx vs [id]/approve-form.tsx: the same Reject action is styled differently in two places. PR 5a (7bb9615, b0787d6) fixed the colour: both now use the warning token (before: text-amber-600 link against amber-700 outline). Still open: the shape differs, a variant=\"link\" in the list row against a variant=\"outline\" in the detail form",
+    "status": "deferred",
+    "followUp": "PR 5d: give the Reject action one shared style and shape (link in the row against outline in the form); colour already matches (PR 5a)"
   },
   {
     "id": "man-t31",
