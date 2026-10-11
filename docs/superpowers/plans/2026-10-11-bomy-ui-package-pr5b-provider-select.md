@@ -90,21 +90,46 @@ Imports `Select, SelectContent, SelectItem, SelectTrigger, SelectValue` from `@b
 | aria           | on `<select>`                | on the trigger button                                                                                                                                  | element id stays `serviceCategoryChoice`, E3/E4 unchanged                                                                                              |
 | label          | `for` -> select              | `for` -> trigger (a button, labelable)                                                                                                                 | E5 unchanged                                                                                                                                           |
 
-**Test changes allowed:** the `choose()` helper, V5's assertion, and the option-list assertions in S1/S4 (the native `options` list becomes the trigger text plus, if needed, opening the listbox once to read items). **E1/E2** (no empty option; forced empty) have no Radix equivalent because the value cannot be empty; replace them by one test: the trigger always shows a category or Other, never a placeholder. Every other literal in the baseline file must pass unchanged. If any other literal needs editing, stop: that is a proof failure.
+**What is frozen, and what may change (revised after Bob's review).** The old rule ("only three helpers change") was impossible: S2 and E3 read `.value` from a native `<select>`, and the new trigger is a button. The rule is now about _meaning_, not lines.
+
+- **Frozen (must pass with the same expected values):** which choice is selected (the category id, by its label and its submitted value); validation outcomes (valid or invalid, and the failing control: the description for Other with no text, never the category control); the full ordered `FormData` entry lists F1 to F6; the error behaviour (`aria-invalid="true"` and `aria-describedby="serviceCategoryId-error"` present only with an error, alert text, choice retained after an error); the description `*` against `(optional)` switching; the label text and its link to the control.
+- **May change (representation only, each change listed in the PR body):**
+  - `choose()`: native `change` event becomes real typeahead keys on the trigger.
+  - Reading the current choice: today `byId("serviceCategoryChoice").value`; after, the **hidden native select's `.value`** (what is actually submitted) plus the trigger's text, compared with the expected id and its label from `CATEGORIES`. Used by S1, S2, S3 and E3.
+  - Reading the option list: today the `<select>`'s `options`; after, the options of the **mounted** Radix hidden select, which Radix fills from the items (verify at implementation; fallback is to open the listbox once and read its items). Used by S1 and S4.
+  - V5 (required marker): after, `aria-required="true"` on the trigger and `required` on the hidden select.
+  - `invalidIds()` keeps the same meaning; the hidden select has no id, so a failure of it would show as an empty id, which must never appear.
+  - **E1/E2** (no empty option; forced empty) have no Radix equivalent because the value cannot be empty; replace them by one test: the trigger always shows a category or Other, never a placeholder.
+- **Stop rule:** if an _expected value_ in the frozen list needs editing to pass, that is a proof failure: stop, report, and consider DEFERRED. Changing a _way of reading it_ from the list above is not.
 
 ## Review Focus
 
-- Radix renders its hidden select only after mount and only inside a form; check FormData after mount, not on the server markup (the existing static-markup test `provider-apply-form.test.tsx` renders on the server and checks `>Other<`, which will need the closed-state trigger text instead).
+- Radix renders its hidden select, and each item's text, only after mount, and only inside a form. FormData and option labels are checked in the **mounted** tests. The server-rendered test (`provider-apply-form.test.tsx`) must stop requiring option text: it checks structure only (a `button role="combobox"` with `id="serviceCategoryChoice"` and `aria-required="true"`, no `<select`, the `Service Category *` label with `for="serviceCategoryChoice"`, and the description `required` or `(optional)` rules). Its "renders one option per category plus Other" case moves to the mounted file.
 - Entry order and duplicates: the full entry list, not just two keys, must match (a stray duplicate `serviceCategoryChoice` would be a failure).
-- Production typeahead on `2.3.3` (jsdom hid #4097 once): check in a production build with real keys and 1.5 s gaps; categories are `Graphic Design`, `Videography`, `Photography`, `Copywriting & Content`, `Web & App Development`, `Other`.
+- Production typeahead on `2.3.3` (jsdom hid #4097 once). The seeded names share no prefix (`Photography` is the only `p`), so `p` then `h` could pass even if multi-key accumulation were broken. The check therefore uses **two categories that share a prefix** and asserts the intermediate and the final choice (Task 3 Step 3).
 - A `required` Radix Select must not block submit or steal focus into the hidden select (PR 4 contract); the failing control for Other + empty description must stay the description.
 - The visible change: 38 px native control becomes a 36 px trigger that matches the 36 px inputs, with the shared chevron and popover list; check 390 px (no overflow; the list stays inside the viewport) and both themes.
+
+## Browser states: mandatory against optional
+
+**Mandatory.** The PR is not ready, and the control stays native (DEFERRED), unless every row passes and is reported with numbers. These are listed so nothing can quietly drop to "not evaluated".
+
+| #   | State                                                                                                                                                                                                              | Where                                          |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
+| M1  | S1, S2, S3a (blocked, failing control is the description), S3b and category plus description: full ordered `FormData` entry list equals the native baseline field by field, with the server-action request blocked | dev server, Playwright, seeded consented buyer |
+| M2  | Keyboard: Tab to the trigger, Space or Enter opens, arrows plus Enter choose, Escape closes and focus returns to the trigger; clicking the label focuses the trigger                                               | dev server                                     |
+| M3  | Typeahead T1/T2 literals after every key, then on a **production build**                                                                                                                                           | dev, then `.next/standalone`                   |
+| M4  | 1440 and 390 px, light and dark: trigger height equals the 36 px inputs, no horizontal overflow, open list inside the viewport, visible focus ring; trigger text contrast 4.5 and chevron 3                        | dev server                                     |
+| M5  | Required behaviour: with the other fields filled the control never blocks submit; with Other and an empty description the failing control is the description and focus does not go to the hidden select            | dev server                                     |
+| M6  | All gates: typecheck, lint, web and admin tests, both builds, prettier, audit gate, audit tests                                                                                                                    | local                                          |
+
+**Optional, reported as "not evaluated" with the reason if skipped** (not a blocker): the live inactive-category server error in a browser (needs an inactive category in the database; jsdom E3 covers the wiring); Firefox and Safari; a real screen reader; the real submission and its emails (blocked on purpose so nothing is written); the two web `DATABASE_URL` test files and the 13 admin files; a production-build visual pass beyond M3.
 
 ## File structure
 
 - Modify: `apps/web/src/app/provider/apply/provider-apply-form.tsx` (the control and its imports only)
-- Modify: `apps/web/tests/provider-apply/provider-apply-select-baseline.test.tsx` (helper and the three allowed assertions)
-- Modify: `apps/web/tests/provider-apply/provider-apply-form.test.tsx` (closed-state markup assertions)
+- Modify: `apps/web/tests/provider-apply/provider-apply-select-baseline.test.tsx` (representation changes only, plus the T1/T2 typeahead tests)
+- Modify: `apps/web/tests/provider-apply/provider-apply-form.test.tsx` (server markup: structure only; option-text checks move to the mounted file)
 - Modify: `scripts/ui-audit/deferred.json` (remove the entry), `scripts/ui-audit/findings.json` only if an entry references it (none found; re-check)
 - Create after merge: log, handoff, memory
 
@@ -119,19 +144,20 @@ Imports `Select, SelectContent, SelectItem, SelectTrigger, SelectValue` from `@b
 
 **Files:** `provider-apply-form.tsx`, the two test files above.
 
-- [ ] **Step 1:** Edit the three allowed test spots (`choose()` via typeahead; V5; S1/S4 option assertions; replace E1/E2 as described) and run: expect them to FAIL against the native select (they now look for a Radix trigger). This proves the tests now exercise the new control.
+- [ ] **Step 1:** Apply only the representation changes listed under "What is frozen, and what may change" to the baseline file; move the option-text checks out of the server-rendered `provider-apply-form.test.tsx` (structure only) into the mounted file; add the two typeahead tests **T1/T2** (below). Run: expect them to FAIL against the native select (they now look for a Radix trigger). This proves the tests exercise the new control. Record each representation change in a list for the PR body.
+- [ ] **Step 1b: typeahead tests T1/T2 (mounted jsdom, real `keydown` events 150 ms apart, inside Radix's 1 s window).** Fixture categories in this order: `Graphic Design` (initial), `Photography`, `Photo Editing`, `Print Design`, `Printing Services`. Expected trigger text after each key, as literals: **T1** `p`, `h`, `o`, `t`, `o` all give `Photography`; the space gives `Photo Editing`; `e` gives `Photo Editing`. **T2** (fresh render) `p` gives `Photography`, `r` gives `Print Design`, then `i`, `n`, `t` stay `Print Design`, and the final `i` gives `Printing Services`. Each sequence also asserts the hidden select's value and the posted `serviceCategoryChoice` equal the final id. A broken accumulation (each key searched alone) would end T1 on `Photography` and T2 on something else, so both can fail. jsdom is **not** proof for the pin (it hid #4097); Task 3 Step 3 repeats the same literals in a production build.
 - [ ] **Step 2:** Replace lines 151 to 167 of the form with the target above; add the import; delete nothing else.
 - [ ] **Step 3:** Run `pnpm --filter @bomy/web test provider-apply --run`: expect all pass with every other literal unchanged. If one fails, **stop and report** (do not edit the literal).
 - [ ] **Step 4:** `pnpm --filter @bomy/web typecheck` and `lint`. Mutation check again on the new control: dropping `required={isOther}` and dropping `isOther ? "" :` must still fail tests.
-- [ ] **Step 5:** `git diff --cached --stat` then commit the three explicit paths.
+- [ ] **Step 5:** `git diff --cached --stat` then commit the explicit paths (the form and the two test files).
 
 ### Task 3: Browser proof (public page; sign in as a seeded consented buyer without an application)
 
 - [ ] **Step 1 (dev server, Playwright):** repeat the baseline run with the same literals: S1, S2, S3a (blocked, invalid control is the description), S3b, category plus description. Block the server-action request so nothing is written. Compare entries field by field and in order with the native baseline above.
 - [ ] **Step 2 (keyboard, real keys):** Tab to the trigger, Space opens, arrow keys and Enter choose, Escape closes and returns focus to the trigger; label click focuses the trigger; typeahead `p` then `h`.
-- [ ] **Step 3 (production build, `.next/standalone`):** typeahead with 1.5 s gaps over the six names (pin check). Record the result; dev server alone is not enough.
+- [ ] **Step 3 (production build, `.next/standalone`; mandatory, pin check):** build with a temporary uncommitted page `apps/web/src/app/pr5b-typeahead/page.tsx` that renders `ProviderApplyForm` with the T1/T2 fixture categories above (the seeded names share no prefix, so they cannot test accumulation). Run `node server.js` from `.next/standalone` (same recipe as PR 4 Task 5 Step 4b). With real Playwright keys on the focused closed trigger, 150 to 250 ms apart (inside the 1 s window), read the trigger text **after every key** and compare with the T1/T2 literals (intermediate and final). Do it first on the dev server (literals confirmed), then on the production build; a dev and production difference means the pin is broken. Also press the same keys with 1.5 s gaps once and record that the search resets (expected, informational). Delete the temporary page and `.next` afterwards; never commit it.
 - [ ] **Step 4 (visual):** 1440 and 390 px, light and dark: trigger height 36 equals the inputs, no horizontal overflow, open list inside the viewport, focus ring visible; contrast of trigger text and chevron against the page (text 4.5, chevron 3). Compare with the saved native screenshots.
-- [ ] **Step 5:** error state: render the inactive-category error (mock the action in jsdom, already in E3) and confirm `aria-invalid` and `aria-describedby` sit on the trigger; the live case needs an inactive category, so it is **not evaluated** in the browser unless seeded data allows it without writing.
+- [ ] **Step 5:** error state: the jsdom E3 test covers `aria-invalid`, `aria-describedby`, the alert and the retained choice on the trigger. The live browser case needs an inactive category in the database; it is **optional** (see the table above) and reported as not evaluated unless seeded data allows it without writing.
 - [ ] A proof that fails or a state that cannot be reached means DEFERRED: restore the native control and record why in `deferred.json`.
 
 ### Task 4: Audit lists and gates
