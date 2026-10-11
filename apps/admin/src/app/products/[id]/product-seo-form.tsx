@@ -55,7 +55,7 @@ export function ProductSeoForm({
             <div
               role="status"
               aria-live="polite"
-              className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700"
+              className="rounded-lg bg-success-subtle px-4 py-3 text-sm text-success"
             >
               Saved.
             </div>
