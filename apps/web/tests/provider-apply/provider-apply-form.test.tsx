@@ -15,15 +15,21 @@ const CATEGORIES = [
 ]
 
 describe("ProviderApplyForm", () => {
-  it("renders one <option> per category plus a trailing 'Other' option", () => {
+  it("renders the Radix combobox trigger and its hidden required select, with no option text on the server", () => {
     const html = renderToStaticMarkup(
       <ToastProvider>
         <ProviderApplyForm categories={CATEGORIES} />
       </ToastProvider>,
     )
-    expect(html).toContain("Graphic Design")
-    expect(html).toContain("Videography")
-    expect(html).toContain(">Other<")
+    // Attribute order is not part of the contract: read each tag, then check attributes.
+    const button = html.match(/<button[^>]*id="serviceCategoryChoice"[^>]*>/)?.[0] ?? ""
+    expect(button).toContain('role="combobox"')
+    expect(button).toContain('aria-required="true"')
+    const select = html.match(/<select[^>]*name="serviceCategoryChoice"[^>]*>/)?.[0] ?? ""
+    expect(select).toContain('aria-hidden="true"')
+    expect(select).toContain("required")
+    expect(html).not.toMatch(/<option/)
+    expect(html).toMatch(/<label[^>]*for="serviceCategoryChoice"[^>]*>\s*Service Category \*/)
   })
 
   it("with a real category preselected, the description is optional", () => {

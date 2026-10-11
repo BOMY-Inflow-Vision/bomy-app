@@ -1,8 +1,11 @@
 // @vitest-environment jsdom
 //
-// Baseline for the /provider/apply category control (PR 5b, plan Step 3b proofs a-c).
-// Written against the NATIVE <select> so it records today's behaviour. The migration to the
-// @bomy/ui Select must keep every literal below; only `choose()` (the interaction helper) changes.
+// Contract for the /provider/apply category control (PR 5b, plan Step 3b proofs a-c).
+// Written first against the NATIVE <select> (commit f6ac6d5); now run against the @bomy/ui Select.
+// Expected choices, validation outcomes, ordered FormData and error behaviour are unchanged.
+// Only these REPRESENTATIONS changed (listed in the PR body): `choose()` (typeahead keys),
+// reading the current choice and option list (hidden select + trigger text), V5 (aria-required),
+// E1/E2 (no placeholder), and the T1/T2 typeahead tests.
 import React, { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
@@ -30,6 +33,7 @@ let container: HTMLDivElement
 let root: Root
 
 beforeEach(() => {
+  lastKeyAt = 0
   vi.clearAllMocks()
   submitProviderApplication.mockResolvedValue({ ok: true })
   container = document.createElement("div")
@@ -76,16 +80,50 @@ function fillRequired() {
   setValue("companyName", "Aina Studio")
 }
 
-// INTERACTION HELPER: the only thing the migration changes (a native `change` event today;
-// typeahead keys on the Radix trigger afterwards).
-async function choose(value: string) {
+// REPRESENTATION HELPERS (changed by the migration; the expected values are not).
+function trigger(): HTMLElement {
   const el = byId("serviceCategoryChoice")
-  if (!(el instanceof HTMLSelectElement)) throw new Error("native select expected")
+  if (el.tagName !== "BUTTON" || el.getAttribute("role") !== "combobox") {
+    throw new Error("combobox trigger expected")
+  }
+  return el
+}
+
+// Radix's hidden native select is what the browser submits and validates.
+function hidden(): HTMLSelectElement {
+  const el = container.querySelector('select[name="serviceCategoryChoice"]')
+  if (!(el instanceof HTMLSelectElement)) throw new Error("hidden select expected")
+  return el
+}
+
+// The current choice as the user sees it (trigger text) and as it is submitted (hidden value).
+function chosen(): { value: string; label: string } {
+  return { value: hidden().value, label: trigger().textContent ?? "" }
+}
+
+const FIRST_KEY: Record<string, string> = { [C1]: "G", [C2]: "V", [OTHER]: "O" }
+
+let lastKeyAt = 0
+
+async function key(k: string, delay = 0) {
+  const el = trigger()
+  el.focus()
+  lastKeyAt = Date.now()
   await act(async () => {
-    el.value = value
-    el.dispatchEvent(new Event("change", { bubbles: true }))
+    el.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }))
     await Promise.resolve()
   })
+  if (delay) await act(async () => void (await new Promise((r) => setTimeout(r, delay))))
+}
+
+// Choose by real typeahead on the closed trigger (Radix's own keyboard path).
+// Radix keeps typed characters for 1 s, so a second choice in the same test waits that window
+// out (otherwise "O" then "G" would search "OG").
+async function choose(value: string) {
+  const wait = 1050 - (Date.now() - lastKeyAt)
+  if (lastKeyAt && wait > 0)
+    await act(async () => void (await new Promise((r) => setTimeout(r, wait))))
+  await key(FIRST_KEY[value]!)
 }
 
 // Returns the ids of the controls that fail constraint validation, in DOM order.
@@ -126,10 +164,8 @@ function base(choice: string, id: string, description = ""): Array<[string, stri
 describe("state: what the control shows and how the description reacts", () => {
   it("S1 first category is selected on mount; description is optional", async () => {
     await render()
-    const el = byId("serviceCategoryChoice")
-    expect(el.tagName).toBe("SELECT")
-    expect((el as HTMLSelectElement).value).toBe(C1)
-    expect([...(el as HTMLSelectElement).options].map((o) => [o.value, o.textContent])).toEqual([
+    expect(chosen()).toEqual({ value: C1, label: "Graphic Design" })
+    expect([...hidden().options].map((o) => [o.value, o.textContent])).toEqual([
       [C1, "Graphic Design"],
       [C2, "Videography"],
       [OTHER, "Other"],
@@ -141,7 +177,7 @@ describe("state: what the control shows and how the description reacts", () => {
   it("S2 choosing another category keeps the description optional", async () => {
     await render()
     await choose(C2)
-    expect((byId("serviceCategoryChoice") as HTMLSelectElement).value).toBe(C2)
+    expect(chosen()).toEqual({ value: C2, label: "Videography" })
     expect(byId("businessDescription").hasAttribute("required")).toBe(false)
   })
 
@@ -158,9 +194,8 @@ describe("state: what the control shows and how the description reacts", () => {
 
   it("S4 with no categories, Other is the only option, selected, and the description is required", async () => {
     await render([])
-    const el = byId("serviceCategoryChoice") as HTMLSelectElement
-    expect([...el.options].map((o) => [o.value, o.textContent])).toEqual([[OTHER, "Other"]])
-    expect(el.value).toBe(OTHER)
+    expect([...hidden().options].map((o) => [o.value, o.textContent])).toEqual([[OTHER, "Other"]])
+    expect(chosen()).toEqual({ value: OTHER, label: "Other" })
     expect(byId("businessDescription").hasAttribute("required")).toBe(true)
   })
 })
@@ -199,9 +234,10 @@ describe("validation: the category control is never what blocks submit", () => {
     expect(invalidIds()).toEqual(["name", "contactEmail", "contactNumber", "companyName"])
   })
 
-  it("V5 the control carries the required marker", async () => {
+  it("V5 the control carries the required marker (trigger aria-required; hidden select required)", async () => {
     await render()
-    expect(byId("serviceCategoryChoice").hasAttribute("required")).toBe(true)
+    expect(trigger().getAttribute("aria-required")).toBe("true")
+    expect(hidden().required).toBe(true)
   })
 })
 
@@ -255,28 +291,17 @@ describe("FormData: the full entry list posted to the server action", () => {
 })
 
 describe("empty selection and server errors", () => {
-  it("E1 the UI offers no empty option and no placeholder", async () => {
+  it("E1 the trigger always shows a category or Other, never a placeholder (replaces the native no-empty-option and forced-empty checks, which cannot occur)", async () => {
     await render()
-    const el = byId("serviceCategoryChoice") as HTMLSelectElement
-    expect([...el.options].some((o) => o.value === "")).toBe(false)
+    expect(trigger().hasAttribute("data-placeholder")).toBe(false)
+    expect([...hidden().options].some((o) => o.value === "")).toBe(false)
+    expect(chosen().label).not.toBe("")
   })
 
-  it("E2 a forced empty value (not reachable by clicking) cannot stick: React snaps the control back to its first option, so it stays valid", async () => {
-    // Latent quirk, recorded and NOT a requirement: the component's state becomes "" while the DOM
-    // shows the first option, so serviceCategoryId posts "" next to serviceCategoryChoice = C1.
-    await render()
-    fillRequired()
-    const el = byId("serviceCategoryChoice") as HTMLSelectElement
-    await act(async () => {
-      el.selectedIndex = -1
-      el.dispatchEvent(new Event("change", { bubbles: true }))
-      await Promise.resolve()
-    })
-    expect(el.selectedIndex).toBe(0)
-    expect(el.value).toBe(C1)
-    expect(invalidIds()).toEqual([])
-    await submit()
-    expect(sentEntries()).toEqual(base(C1, ""))
+  it("E1b with no categories the trigger shows Other, never a placeholder", async () => {
+    await render([])
+    expect(trigger().hasAttribute("data-placeholder")).toBe(false)
+    expect(chosen()).toEqual({ value: OTHER, label: "Other" })
   })
 
   it("E3 a serviceCategoryId error sets aria-invalid and aria-describedby on the control, shows the alert, and keeps the choice", async () => {
@@ -291,18 +316,18 @@ describe("empty selection and server errors", () => {
     fillRequired()
     await choose(C2)
     await submit()
-    const el = byId("serviceCategoryChoice") as HTMLSelectElement
+    const el = trigger()
     expect(el.getAttribute("aria-invalid")).toBe("true")
     expect(el.getAttribute("aria-describedby")).toBe("serviceCategoryId-error")
     const alert = byId("serviceCategoryId-error")
     expect(alert.getAttribute("role")).toBe("alert")
     expect(alert.textContent).toBe("That category is no longer available. Please pick another.")
-    expect(el.value).toBe(C2)
+    expect(chosen()).toEqual({ value: C2, label: "Videography" })
   })
 
   it("E4 without a category error the control has no aria-invalid and no aria-describedby", async () => {
     await render()
-    const el = byId("serviceCategoryChoice")
+    const el = trigger()
     expect(el.hasAttribute("aria-invalid")).toBe(false)
     expect(el.hasAttribute("aria-describedby")).toBe(false)
   })
@@ -312,5 +337,60 @@ describe("empty selection and server errors", () => {
     expect(container.querySelector('label[for="serviceCategoryChoice"]')?.textContent?.trim()).toBe(
       "Service Category *",
     )
+  })
+})
+
+// Multi-key typeahead on the trigger. The seeded names share no prefix, so these use two pairs
+// that do. Keys are 150 ms apart, inside Radix's 1 s window. jsdom is NOT proof for the pinned
+// version (it hid #4097); the same literals run in a production build in the browser proof.
+const TYPEAHEAD = [
+  { id: "id-gd", name: "Graphic Design" },
+  { id: "id-ph", name: "Photography" },
+  { id: "id-pe", name: "Photo Editing" },
+  { id: "id-pd", name: "Print Design" },
+  { id: "id-ps", name: "Printing Services" },
+]
+
+async function typeSteps(keys: string[]): Promise<string[]> {
+  const seen: string[] = []
+  for (const k of keys) {
+    await key(k, 150)
+    seen.push(chosen().label)
+  }
+  return seen
+}
+
+describe("typeahead: multi-key accumulation", () => {
+  it("T1 p h o t o then space then e: Photography until the space, then Photo Editing", async () => {
+    await render(TYPEAHEAD)
+    expect(await typeSteps(["p", "h", "o", "t", "o", " ", "e"])).toEqual([
+      "Photography",
+      "Photography",
+      "Photography",
+      "Photography",
+      "Photography",
+      "Photo Editing",
+      "Photo Editing",
+    ])
+    expect(chosen().value).toBe("id-pe")
+    fillRequired()
+    await submit()
+    expect(sentEntries()).toEqual(base("id-pe", "id-pe"))
+  })
+
+  it("T2 p r i n t i: Print Design until the last i, then Printing Services", async () => {
+    await render(TYPEAHEAD)
+    expect(await typeSteps(["p", "r", "i", "n", "t", "i"])).toEqual([
+      "Photography",
+      "Print Design",
+      "Print Design",
+      "Print Design",
+      "Print Design",
+      "Printing Services",
+    ])
+    expect(chosen().value).toBe("id-ps")
+    fillRequired()
+    await submit()
+    expect(sentEntries()).toEqual(base("id-ps", "id-ps"))
   })
 })

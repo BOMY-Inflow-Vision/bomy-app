@@ -8,6 +8,7 @@ import { useToast } from "@/components/toaster"
 import { Button } from "@bomy/ui/button"
 import { Input } from "@bomy/ui/input"
 import { Label } from "@bomy/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@bomy/ui/select"
 import { Textarea } from "@bomy/ui/textarea"
 
 import { submitProviderApplication, type SubmitProviderApplicationResult } from "./actions"
@@ -148,23 +149,28 @@ export function ProviderApplyForm({ categories }: { categories: ServiceCategoryO
           <Label htmlFor="serviceCategoryChoice" className="mb-1 block text-sm font-medium">
             Service Category *
           </Label>
-          <select
-            id="serviceCategoryChoice"
+          <Select
+            value={categoryChoice}
+            onValueChange={setCategoryChoice}
             name="serviceCategoryChoice"
             required
-            value={categoryChoice}
-            onChange={(e) => setCategoryChoice(e.target.value)}
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-            aria-invalid={errors?.serviceCategoryId ? true : undefined}
-            aria-describedby={errors?.serviceCategoryId ? "serviceCategoryId-error" : undefined}
           >
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-            <option value={OTHER_VALUE}>Other</option>
-          </select>
+            <SelectTrigger
+              id="serviceCategoryChoice"
+              aria-invalid={errors?.serviceCategoryId ? true : undefined}
+              aria-describedby={errors?.serviceCategoryId ? "serviceCategoryId-error" : undefined}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {categories.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+              <SelectItem value={OTHER_VALUE}>Other</SelectItem>
+            </SelectContent>
+          </Select>
           <FieldError id="serviceCategoryId-error" message={errors?.serviceCategoryId} />
         </div>
         <div>
