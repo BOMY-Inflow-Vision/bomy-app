@@ -90,7 +90,7 @@ export function PayoutActions({ payoutId, status }: Props) {
             void doProcessing()
           }}
           disabled={loading}
-          className="bg-blue-100 text-blue-700 hover:bg-blue-200"
+          className="bg-info-subtle text-info hover:bg-info-subtle hover:brightness-95"
         >
           Processing
         </Button>

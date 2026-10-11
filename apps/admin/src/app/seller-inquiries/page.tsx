@@ -17,9 +17,9 @@ import { deleteInquiry } from "./actions"
 import { RejectButton } from "./reject-button"
 
 const STATUS_COLORS: Record<InquiryStatus, string> = {
-  pending: "bg-amber-100 text-amber-700 border-transparent",
-  approved: "bg-green-100 text-green-700 border-transparent",
-  rejected: "bg-red-100 text-red-700 border-transparent",
+  pending: "bg-warning-subtle text-warning border-transparent",
+  approved: "bg-success-subtle text-success border-transparent",
+  rejected: "bg-destructive/10 text-destructive border-transparent",
 }
 
 const SORTS = ["created_desc", "created_asc", "status"] as const

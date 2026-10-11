@@ -1,23 +1,5 @@
 [
   {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/(marketing)/membership/manage/page.tsx",
-    "text": "<Badge className=\"bg-amber-100 text-amber-700 border-transparent\">",
-    "reason": "status pair; tokens exist (PR 5a); migration tracked as man-5a2"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/(marketing)/membership/manage/page.tsx",
-    "text": "<Badge className=\"bg-green-100 text-green-700 border-transparent\">Active</Badge>",
-    "reason": "status pair; tokens exist (PR 5a); migration tracked as man-5a2"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/(marketing)/membership/manage/page.tsx",
-    "text": "<div className=\"rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800\">",
-    "reason": "status pair; tokens exist (PR 5a); migration tracked as man-5a2"
-  },
-  {
     "rule": "R1-input",
     "file": "apps/web/src/app/account/avatar-uploader.tsx",
     "text": "<input",
@@ -28,18 +10,6 @@
     "file": "apps/web/src/app/account/avatar-uploader.tsx",
     "text": "<label",
     "reason": "label wraps checkbox/file input (no shared primitive)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/account/subscriptions/page.tsx",
-    "text": "? \"bg-green-100 text-green-700 border-transparent hover:bg-green-100\"",
-    "reason": "status pair override on Badge (active/pending)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/account/subscriptions/page.tsx",
-    "text": "? \"bg-amber-100 text-amber-700 border-transparent hover:bg-amber-100\"",
-    "reason": "status pair override on Badge (active/pending)"
   },
   {
     "rule": "R1-input",
@@ -70,12 +40,6 @@
     "file": "apps/web/src/app/auth/sign-in/page.tsx",
     "text": "fill=\"#EA4335\"",
     "reason": "Google brand logo SVG fill (brand artwork)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/auth/sign-in/page.tsx",
-    "text": "<div className=\"mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-200\">",
-    "reason": "status pair; tokens exist (PR 5a); migration tracked as man-5a2"
   },
   {
     "rule": "R2-hex",
@@ -154,30 +118,6 @@
     "file": "apps/web/src/app/seller/apply/page.tsx",
     "text": "<input type=\"hidden\" name=\"cf-turnstile-response\" value={token} />",
     "reason": "type=hidden; no shared primitive"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/seller/apply/page.tsx",
-    "text": "<div className=\"rounded-lg bg-yellow-50 px-4 py-3 text-sm text-yellow-800\">",
-    "reason": "status pair; tokens exist (PR 5a); migration tracked as man-5a2"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/seller/dashboard/page.tsx",
-    "text": "active: \"bg-green-100 text-green-700\",",
-    "reason": "status pair; tokens exist (PR 5a); migration tracked as man-5a2"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/seller/dashboard/page.tsx",
-    "text": "pending: \"bg-amber-100 text-amber-700\",",
-    "reason": "status pair; tokens exist (PR 5a); migration tracked as man-5a2"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/seller/dashboard/page.tsx",
-    "text": "suspended: \"bg-red-100 text-red-700\",",
-    "reason": "status pair; tokens exist (PR 5a); migration tracked as man-5a2"
   },
   {
     "rule": "R1-button",
@@ -270,18 +210,6 @@
     "reason": "label wraps checkbox/file input (no shared primitive)"
   },
   {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/product-edit-form.tsx",
-    "text": "<span className=\"rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-700\">",
-    "reason": "status pair pill (hand-made); tokens exist (PR 5a); migration tracked as man-5a2"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/product-edit-form.tsx",
-    "text": "<span className=\"rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700\">",
-    "reason": "status pair pill (hand-made); tokens exist (PR 5a); migration tracked as man-5a2"
-  },
-  {
     "rule": "R1-input",
     "file": "apps/web/src/app/seller/dashboard/products/new/product-form.tsx",
     "text": "<input type=\"hidden\" name=\"variant_count\" value={variants.length} />",
@@ -324,12 +252,6 @@
     "reason": "no @bomy/ui Table primitive exists"
   },
   {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/seller/dashboard/products/page.tsx",
-    "text": "active: \"bg-green-100 text-green-700\",",
-    "reason": "status pair; tokens exist (PR 5a); migration tracked as man-5a2"
-  },
-  {
     "rule": "R1-input",
     "file": "apps/web/src/app/seller/dashboard/settings/settings-form.tsx",
     "text": "<input",
@@ -342,30 +264,6 @@
     "reason": "label wraps checkbox/file input (no shared primitive)"
   },
   {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/seller/dashboard/settings/settings-form.tsx",
-    "text": "className=\"rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700\"",
-    "reason": "status pair; tokens exist (PR 5a); migration tracked as man-5a2"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/seller/dashboard/settings/settings-form.tsx",
-    "text": "className=\"mb-4 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700\"",
-    "reason": "status pair; tokens exist (PR 5a); migration tracked as man-5a2"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/seller/dashboard/settings/settings-form.tsx",
-    "text": "className=\"rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700\"",
-    "reason": "status pair; tokens exist (PR 5a); migration tracked as man-5a2"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/seller/dashboard/settings/settings-form.tsx",
-    "text": "className=\"rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700\"",
-    "reason": "status pair; tokens exist (PR 5a); migration tracked as man-5a2"
-  },
-  {
     "rule": "R6-table",
     "file": "apps/web/src/app/seller/dashboard/subscriptions/page.tsx",
     "text": "<table className=\"w-full text-sm\">",
@@ -376,24 +274,6 @@
     "file": "apps/web/src/app/seller/dashboard/subscriptions/page.tsx",
     "text": "<table className=\"w-full text-sm\">",
     "reason": "no @bomy/ui Table primitive exists"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/seller/dashboard/subscriptions/page.tsx",
-    "text": "<span className=\"rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700\">",
-    "reason": "status pair; tokens exist (PR 5a); migration tracked as man-5a2"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/seller/dashboard/subscriptions/page.tsx",
-    "text": "<span className=\"rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700\">",
-    "reason": "status pair; tokens exist (PR 5a); migration tracked as man-5a2"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/seller/dashboard/subscriptions/page.tsx",
-    "text": "<span className=\"rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700\">",
-    "reason": "status pair; tokens exist (PR 5a); migration tracked as man-5a2"
   },
   {
     "rule": "R1-button",
@@ -540,12 +420,6 @@
     "reason": "no @bomy/ui Table primitive exists"
   },
   {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/app/categories/category-row.tsx",
-    "text": "? \"border-transparent bg-green-100 text-green-700\"",
-    "reason": "status pair (green-100 bg + green-700 text, same family) on Badge for Active state"
-  },
-  {
     "rule": "R6-table",
     "file": "apps/admin/src/app/categories/page.tsx",
     "text": "<table className=\"w-full text-sm\">",
@@ -582,12 +456,6 @@
     "reason": "no @bomy/ui Table primitive exists"
   },
   {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/app/payouts/_payout-actions.tsx",
-    "text": "className=\"bg-blue-100 text-blue-700 hover:bg-blue-200\"",
-    "reason": "status pair (same-family bg/text/hover) override on Button secondary conveying payout state"
-  },
-  {
     "rule": "R6-table",
     "file": "apps/admin/src/app/payouts/page.tsx",
     "text": "<table className=\"w-full text-sm text-foreground\">",
@@ -606,34 +474,10 @@
     "reason": "no @bomy/ui Table primitive exists"
   },
   {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/app/products/[id]/product-seo-form.tsx",
-    "text": "className=\"rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700\"",
-    "reason": "status pair green-50/green-700 success message"
-  },
-  {
     "rule": "R6-table",
     "file": "apps/admin/src/app/products/page.tsx",
     "text": "<table className=\"w-full text-sm\">",
     "reason": "no @bomy/ui Table primitive exists"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/app/seller-inquiries/[id]/page.tsx",
-    "text": "pending: \"bg-amber-100 text-amber-700 border-transparent\",",
-    "reason": "status pair (bg+text same family) used as Badge className"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/app/seller-inquiries/[id]/page.tsx",
-    "text": "approved: \"bg-green-100 text-green-700 border-transparent\",",
-    "reason": "status pair (bg+text same family) used as Badge className"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/app/seller-inquiries/[id]/page.tsx",
-    "text": "rejected: \"bg-red-100 text-red-700 border-transparent\",",
-    "reason": "status pair (bg+text same family) used as Badge className"
   },
   {
     "rule": "R1-input",
@@ -648,40 +492,10 @@
     "reason": "type=hidden: no shared primitive"
   },
   {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/app/seller-inquiries/page.tsx",
-    "text": "pending: \"bg-amber-100 text-amber-700 border-transparent\",",
-    "reason": "status pair (bg+text same family) used as Badge className"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/app/seller-inquiries/page.tsx",
-    "text": "approved: \"bg-green-100 text-green-700 border-transparent\",",
-    "reason": "status pair (bg+text same family) used as Badge className"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/app/seller-inquiries/page.tsx",
-    "text": "rejected: \"bg-red-100 text-red-700 border-transparent\",",
-    "reason": "status pair (bg+text same family) used as Badge className"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/app/store-categories/category-row.tsx",
-    "text": "? \"border-transparent bg-green-100 text-green-700\"",
-    "reason": "status pair (green-100 bg + green-700 text, same family) on Badge for Active state"
-  },
-  {
     "rule": "R6-table",
     "file": "apps/admin/src/app/store-categories/page.tsx",
     "text": "<table className=\"w-full text-sm\">",
     "reason": "no @bomy/ui Table primitive exists"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/app/stores/[id]/store-seo-form.tsx",
-    "text": "className=\"rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700\"",
-    "reason": "status pair green-50/green-700 success message"
   },
   {
     "rule": "R4-arbitrary",
@@ -724,30 +538,6 @@
     "file": "apps/admin/src/app/users/page.tsx",
     "text": "<table className=\"w-full text-sm\">",
     "reason": "no @bomy/ui Table primitive exists"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/app/users/page.tsx",
-    "text": "seller_owner: \"bg-green-100 text-green-700\",",
-    "reason": "role badge pair green-100/700"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/app/users/page.tsx",
-    "text": "seller_staff: \"bg-emerald-100 text-emerald-700\",",
-    "reason": "role badge pair emerald-100/700"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/app/users/page.tsx",
-    "text": "bomy_ops: \"bg-blue-100 text-blue-700\",",
-    "reason": "role badge pair blue-100/700"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/app/users/page.tsx",
-    "text": "bomy_finance: \"bg-purple-100 text-purple-700\",",
-    "reason": "role badge pair purple-100/700"
   },
   {
     "rule": "R6-table",

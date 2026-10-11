@@ -42,9 +42,9 @@ export default async function SellerDashboardPage() {
   }
 
   const STATUS_COLORS = {
-    active: "bg-green-100 text-green-700",
-    pending: "bg-amber-100 text-amber-700",
-    suspended: "bg-red-100 text-red-700",
+    active: "bg-success-subtle text-success",
+    pending: "bg-warning-subtle text-warning",
+    suspended: "bg-destructive/10 text-destructive",
   }
 
   return (

@@ -143,7 +143,7 @@ export function SettingsForm({
               <div
                 role="status"
                 aria-live="polite"
-                className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700"
+                className="rounded-lg bg-success-subtle px-4 py-3 text-sm text-success"
               >
                 Settings saved.
               </div>
@@ -189,7 +189,7 @@ export function SettingsForm({
             <div
               role="status"
               aria-live="polite"
-              className="mb-4 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700"
+              className="mb-4 rounded-lg bg-success-subtle px-4 py-3 text-sm text-success"
             >
               Categories saved.
             </div>
@@ -247,7 +247,7 @@ export function SettingsForm({
               <div
                 role="status"
                 aria-live="polite"
-                className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700"
+                className="rounded-lg bg-success-subtle px-4 py-3 text-sm text-success"
               >
                 Video saved.
               </div>
@@ -292,7 +292,7 @@ export function SettingsForm({
               <div
                 role="status"
                 aria-live="polite"
-                className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700"
+                className="rounded-lg bg-success-subtle px-4 py-3 text-sm text-success"
               >
                 SEO settings saved.
               </div>

@@ -756,8 +756,8 @@
     "kind": "manual",
     "route": "exceptions.json (36 palette exceptions: 35 status/role pairs + 1 intentional nav scrim)",
     "description": "35 fixed status and role colour pairs remain as accepted palette exceptions (a 36th palette exception, the nav-bar backdrop scrim bg-gray-900/20, is intentional and stays dark in both themes) (green, amber, yellow, orange, blue, red, purple pill and Badge pairs, e.g. seller subscriptions and products status pills, account/subscriptions Badge overrides, admin seller-inquiries status map, product-edit-form pills, role badges). They pass contrast today but do not follow the theme; move them onto the success, warning, info and destructive tokens and the Badge variants",
-    "status": "deferred",
-    "followUp": "PR 5a-2: migrate the 35 fixed status and role colour pairs onto the status tokens and Badge variants; must finish before plain pnpm ui:audit can pass"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-11 in PR 5a-2 (commits d450a56 web, 20b969b admin, c8700c9 destructive-subtle Badge variant, 15b38fb contrast tests): 35 fixed status and role pairs (20 web in 9 files, 15 admin in 8 files) moved onto success/warning/info/destructive tokens and Badge variants; colour-only, no element, handler, disabled or text change. Role badges use success (seller_owner), info (bomy_ops), secondary (seller_staff), outlined card (bomy_finance). Contrast gates tests/design-tokens/status-pairs.test.ts (32 cases, both apps, both themes) pass, including text-destructive on bg-destructive/10 over background, card and muted. rg for bg-(green|amber|yellow|orange|red|blue|emerald|purple)-(50|100) returns no matches in apps/web/src or apps/admin/src; the nav scrim bg-gray-900/20 stays the one palette exception. Browser checks: see PR body."
   },
   {
     "id": "man-5a3",

@@ -75,12 +75,8 @@ export function StoreCategoryRow({ cat }: { cat: StoreCategory }) {
 
   const statusBadge = (
     <Badge
-      variant={cat.isActive ? "secondary" : "outline"}
-      className={cn(
-        cat.isActive
-          ? "border-transparent bg-green-100 text-green-700"
-          : "border-transparent bg-muted text-muted-foreground",
-      )}
+      variant={cat.isActive ? "success" : "outline"}
+      className={cn(!cat.isActive && "border-transparent bg-muted text-muted-foreground")}
     >
       {cat.isActive ? "Active" : "Inactive"}
     </Badge>

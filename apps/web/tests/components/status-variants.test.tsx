@@ -16,6 +16,14 @@ describe("status variants", () => {
     expect(html).toContain(text)
   })
 
+  it("Badge destructive-subtle is a 10% red tint with destructive text, not the solid fill", () => {
+    const html = renderToStaticMarkup(<Badge variant="destructive-subtle">x</Badge>)
+    expect(html).toContain("bg-destructive/10")
+    expect(html).toContain("text-destructive")
+    expect(html).toContain("border-transparent")
+    expect(html).not.toContain("text-destructive-foreground")
+  })
+
   it.each([
     ["success", "bg-success", "text-success-foreground"],
     ["warning", "bg-warning", "text-warning-foreground"],
