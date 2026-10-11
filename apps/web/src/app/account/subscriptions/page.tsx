@@ -95,19 +95,12 @@ export default async function AccountSubscriptionsPage() {
                           <Badge
                             variant={
                               sub.status === "active"
-                                ? "default"
+                                ? "success"
                                 : sub.status === "pending"
-                                  ? "secondary"
+                                  ? "warning"
                                   : isExpiredOrCancelled
                                     ? "outline"
                                     : "destructive"
-                            }
-                            className={
-                              sub.status === "active"
-                                ? "bg-green-100 text-green-700 border-transparent hover:bg-green-100"
-                                : sub.status === "pending"
-                                  ? "bg-amber-100 text-amber-700 border-transparent hover:bg-amber-100"
-                                  : undefined
                             }
                           >
                             {statusLabel}

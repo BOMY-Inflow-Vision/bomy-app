@@ -74,7 +74,7 @@ async function ConsentDeclinedBanner({ searchParams }: { searchParams: SignInSea
   if (params.consent !== "declined") return null
   return (
     <>
-      <div className="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-200">
+      <div className="mb-4 rounded-lg bg-warning-subtle px-4 py-3 text-sm text-warning ring-1 ring-warning/30">
         You must accept the Terms and Privacy Policy to use BOMY.
       </div>
       {/* No clearSearchParam: stripping ?consent= would trigger a client

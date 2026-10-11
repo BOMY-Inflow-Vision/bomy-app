@@ -80,14 +80,14 @@ function senToMyr(sen: string): string {
 function FulfillmentBadge({ mode, days }: { mode: string; days: number | null }) {
   if (mode === "backorder") {
     return (
-      <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-700">
+      <span className="rounded-full bg-warning-subtle px-2 py-0.5 text-xs text-warning">
         Back-order
       </span>
     )
   }
   if (mode === "preorder") {
     return (
-      <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+      <span className="rounded-full bg-info-subtle px-2 py-0.5 text-xs text-info">
         Pre-order{days ? ` · ${days}d` : ""}
       </span>
     )

@@ -82,11 +82,11 @@ export default async function SellerSubscriptionsPage({
                       <td className="px-5 py-3 text-foreground">{plan.discountPct}%</td>
                       <td className="px-5 py-3">
                         {plan.isActive ? (
-                          <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
+                          <span className="rounded-full bg-success-subtle px-2.5 py-0.5 text-xs font-medium text-success">
                             Active
                           </span>
                         ) : (
-                          <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+                          <span className="rounded-full bg-warning-subtle px-2.5 py-0.5 text-xs font-medium text-warning">
                             Pending activation
                           </span>
                         )}
@@ -180,7 +180,7 @@ export default async function SellerSubscriptionsPage({
                       RM {senToMyr(row.brandPayoutSen)}
                     </td>
                     <td className="px-5 py-3">
-                      <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+                      <span className="rounded-full bg-warning-subtle px-2.5 py-0.5 text-xs font-medium text-warning">
                         Pending
                       </span>
                     </td>

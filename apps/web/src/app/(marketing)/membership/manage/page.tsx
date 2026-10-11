@@ -48,11 +48,9 @@ export default async function MembershipManagePage() {
         <CardContent className="p-10">
           <div className="mb-6 flex items-center gap-3">
             {isCancelling ? (
-              <Badge className="bg-amber-100 text-amber-700 border-transparent">
-                Cancellation scheduled
-              </Badge>
+              <Badge variant="warning">Cancellation scheduled</Badge>
             ) : (
-              <Badge className="bg-green-100 text-green-700 border-transparent">Active</Badge>
+              <Badge variant="success">Active</Badge>
             )}
             <h1 className="text-xl font-semibold text-foreground">BOMY Platform Membership</h1>
           </div>
@@ -87,7 +85,7 @@ export default async function MembershipManagePage() {
 
           <div className="border-t border-border pt-6">
             {isCancelling ? (
-              <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <div className="rounded-xl bg-warning-subtle px-4 py-3 text-sm text-warning">
                 Your membership will remain active until{" "}
                 <strong>{formatDate(sub.periodEnd)}</strong>. Automatic renewal has been cancelled.
               </div>

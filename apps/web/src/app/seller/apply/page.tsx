@@ -196,7 +196,7 @@ export default function SellerApplyPage() {
           <input type="hidden" name="cf-turnstile-response" value={token} />
 
           {!SITEKEY && (
-            <div className="rounded-lg bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+            <div className="rounded-lg bg-warning-subtle px-4 py-3 text-sm text-warning">
               Form temporarily unavailable. Please try again later.
             </div>
           )}
