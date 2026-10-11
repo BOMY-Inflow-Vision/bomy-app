@@ -66,13 +66,13 @@ export default async function BuyerOrderDetailPage({ params }: Props) {
           <span>RM {senToMyr(order.retailSubtotalSen)}</span>
         </div>
         {order.brandDiscountSen > 0n && (
-          <div className="flex justify-between text-green-700">
+          <div className="flex justify-between text-success">
             <span>Brand discount</span>
             <span>−RM {senToMyr(order.brandDiscountSen)}</span>
           </div>
         )}
         {order.voucherContributionSen > 0n && (
-          <div className="flex justify-between text-green-700">
+          <div className="flex justify-between text-success">
             <span>Voucher</span>
             <span>−RM {senToMyr(order.voucherContributionSen)}</span>
           </div>

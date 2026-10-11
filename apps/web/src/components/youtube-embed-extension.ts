@@ -35,7 +35,7 @@ export const YoutubeEmbedExtension = Node.create({
 
       const dom = document.createElement("div")
       dom.className =
-        "relative flex aspect-video w-full cursor-default items-center justify-center rounded bg-gray-900 text-white"
+        "relative flex aspect-video w-full cursor-default items-center justify-center rounded bg-foreground text-background"
 
       const inner = document.createElement("div")
       inner.className = "text-center"

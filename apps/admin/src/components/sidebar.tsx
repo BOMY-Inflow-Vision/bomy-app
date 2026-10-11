@@ -40,9 +40,10 @@ function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () 
             {...(onNavigate ? { onClick: onNavigate } : {})}
             className={cn(
               "px-4 py-2",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset",
               active
-                ? "border-l-2 border-primary bg-slate-700 text-slate-100"
-                : "hover:bg-slate-700 hover:text-slate-100",
+                ? "border-l-2 border-sidebar-indicator bg-sidebar-accent text-sidebar-strong"
+                : "hover:bg-sidebar-accent hover:text-sidebar-strong",
             )}
           >
             {item.label}
@@ -55,7 +56,7 @@ function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () 
 
 function AccountFooter({ email }: { email: string }) {
   return (
-    <div className="border-t border-slate-700 px-4 py-3 text-xs text-slate-500">
+    <div className="border-t border-sidebar-border px-4 py-3 text-xs text-sidebar-muted">
       <div className="truncate">{email}</div>
       <form action={signOutAction}>
         <Button
@@ -64,7 +65,7 @@ function AccountFooter({ email }: { email: string }) {
           size="sm"
           icon={<LogOut />}
           arrowOnHover={false}
-          className="mt-2 w-full justify-start text-slate-300 hover:bg-transparent hover:text-slate-100"
+          className="mt-2 w-full justify-start text-sidebar-foreground hover:bg-transparent hover:text-sidebar-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
         >
           Sign out
         </Button>
@@ -96,8 +97,8 @@ export function Sidebar({ email }: { email: string }) {
   return (
     <>
       {/* md and up: the sidebar as before */}
-      <aside className="hidden w-44 flex-col bg-slate-800 text-sm text-slate-400 md:flex">
-        <div className="flex items-center justify-between border-b border-slate-700 px-4 py-4 text-sm font-bold text-slate-100">
+      <aside className="hidden w-44 flex-col bg-sidebar text-sm text-sidebar-muted md:flex">
+        <div className="flex items-center justify-between border-b border-sidebar-border px-4 py-4 text-sm font-bold text-sidebar-strong">
           BOMY Admin
           <ThemeToggle />
         </div>
@@ -108,8 +109,8 @@ export function Sidebar({ email }: { email: string }) {
       </aside>
 
       {/* Below md: a sticky top bar with a menu panel */}
-      <header className="sticky top-0 z-40 bg-slate-800 text-sm text-slate-400 md:hidden">
-        <div className="flex items-center justify-between border-b border-slate-700 px-4 py-2 text-sm font-bold text-slate-100">
+      <header className="sticky top-0 z-40 bg-sidebar text-sm text-sidebar-muted md:hidden">
+        <div className="flex items-center justify-between border-b border-sidebar-border px-4 py-2 text-sm font-bold text-sidebar-strong">
           BOMY Admin
           <div className="flex items-center gap-1">
             <ThemeToggle />
@@ -122,7 +123,7 @@ export function Sidebar({ email }: { email: string }) {
               aria-label={open ? "Close menu" : "Open menu"}
               aria-expanded={open}
               aria-controls="admin-mobile-menu"
-              className="size-8 rounded-full text-slate-400 hover:bg-slate-700 hover:text-slate-100"
+              className="size-8 rounded-full text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
             >
               {open ? (
                 <X aria-hidden="true" className="size-4" />
@@ -136,7 +137,7 @@ export function Sidebar({ email }: { email: string }) {
           ref={panelRef}
           id="admin-mobile-menu"
           hidden={!open}
-          className="max-h-[calc(100dvh-3.25rem)] overflow-y-auto border-b border-slate-700"
+          className="max-h-[calc(100dvh-3.25rem)] overflow-y-auto border-b border-sidebar-border"
         >
           <nav className="flex flex-col py-2">
             <NavLinks pathname={pathname} onNavigate={() => setOpen(false)} />

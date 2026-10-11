@@ -235,14 +235,14 @@ export function BodyEditor({
   return (
     <div className="space-y-2">
       {dirty && (
-        <div className="flex items-center gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+        <div className="flex items-center gap-2 rounded border border-warning/30 bg-warning-subtle px-3 py-2 text-sm text-warning">
           <span>You have unsaved changes.</span>
           <Button
             type="button"
             variant="link"
             size="sm"
             icon={<Save />}
-            className="font-medium"
+            className="font-medium text-warning hover:text-warning"
             onClick={(e) => void handleSave(e as unknown as React.FormEvent)}
           >
             Save now
@@ -308,7 +308,7 @@ export function BodyEditor({
         <span
           role="separator"
           aria-orientation="vertical"
-          className="mx-1 h-5 w-px self-center bg-gray-300"
+          className="mx-1 h-5 w-px self-center bg-border"
         />
 
         <LinkButton editor={editor} />
@@ -324,7 +324,7 @@ export function BodyEditor({
         <span
           role="separator"
           aria-orientation="vertical"
-          className="mx-1 h-5 w-px self-center bg-gray-300"
+          className="mx-1 h-5 w-px self-center bg-border"
         />
 
         <ToolbarButton
@@ -363,7 +363,7 @@ export function BodyEditor({
         <span
           role="separator"
           aria-orientation="vertical"
-          className="mx-1 h-5 w-px self-center bg-gray-300"
+          className="mx-1 h-5 w-px self-center bg-border"
         />
 
         <InsertTableButton editor={editor} />
@@ -371,7 +371,7 @@ export function BodyEditor({
         <span
           role="separator"
           aria-orientation="vertical"
-          className="mx-1 h-5 w-px self-center bg-gray-300"
+          className="mx-1 h-5 w-px self-center bg-border"
         />
 
         <InsertImageUrlButton editor={editor} />
@@ -384,9 +384,9 @@ export function BodyEditor({
         <div
           role="toolbar"
           aria-label="Table controls"
-          className="flex flex-wrap items-center gap-1 rounded border border-blue-100 bg-blue-50 p-1"
+          className="flex flex-wrap items-center gap-1 rounded border border-border bg-muted p-1"
         >
-          <span className="px-1 text-xs font-medium text-blue-600">Table:</span>
+          <span className="px-1 text-xs font-medium text-muted-foreground">Table:</span>
           <TableControlButton
             action={() => editor.chain().focus().addRowAfter().run()}
             label="Add row"
@@ -397,11 +397,7 @@ export function BodyEditor({
             label="Delete row"
             icon={<Minus className="h-3 w-3" />}
           />
-          <span
-            role="separator"
-            aria-orientation="vertical"
-            className="mx-1 h-4 w-px bg-blue-200"
-          />
+          <span role="separator" aria-orientation="vertical" className="mx-1 h-4 w-px bg-border" />
           <TableControlButton
             action={() => editor.chain().focus().addColumnAfter().run()}
             label="Add column"
@@ -412,22 +408,14 @@ export function BodyEditor({
             label="Delete column"
             icon={<Minus className="h-3 w-3" />}
           />
-          <span
-            role="separator"
-            aria-orientation="vertical"
-            className="mx-1 h-4 w-px bg-blue-200"
-          />
+          <span role="separator" aria-orientation="vertical" className="mx-1 h-4 w-px bg-border" />
           <TableControlButton
             action={() => editor.chain().focus().deleteTable().run()}
             label="Delete table"
             icon={<Minus className="h-3 w-3" />}
             danger
           />
-          <span
-            role="separator"
-            aria-orientation="vertical"
-            className="mx-1 h-4 w-px bg-blue-200"
-          />
+          <span role="separator" aria-orientation="vertical" className="mx-1 h-4 w-px bg-border" />
           <TableControlButton
             action={() => {
               const current = editor.getAttributes("table")["data-bordered"] as string | null
@@ -453,12 +441,12 @@ export function BodyEditor({
       {/* Upload progress */}
       <div role="status" aria-live="polite" className="text-sm">
         {uploadStatus === "uploading" && (
-          <span className="text-blue-600">Uploading… {uploadProgress}%</span>
+          <span className="text-muted-foreground">Uploading… {uploadProgress}%</span>
         )}
         {uploadStatus === "error" && (
-          <span className="text-red-600">Upload failed. Please try again.</span>
+          <span className="text-destructive">Upload failed. Please try again.</span>
         )}
-        {saveStatus === "saved" && <span className="text-green-600">Saved.</span>}
+        {saveStatus === "saved" && <span className="text-success">Saved.</span>}
       </div>
 
       <EditorContent
@@ -773,10 +761,10 @@ function TableControlButton({
       title={label}
       className={`flex items-center gap-1 rounded px-2 py-1 text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
         danger
-          ? "text-red-600 hover:bg-red-100"
+          ? "text-destructive hover:bg-destructive/10"
           : active
-            ? "bg-blue-200 text-blue-800"
-            : "text-blue-700 hover:bg-blue-100"
+            ? "bg-accent text-accent-foreground"
+            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
       }`}
     >
       {icon}

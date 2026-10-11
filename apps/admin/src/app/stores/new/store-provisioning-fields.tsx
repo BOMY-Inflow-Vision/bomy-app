@@ -44,7 +44,7 @@ export function StoreProvisioningFields() {
         <Label className="mb-1 block">Brand Story *</Label>
         <input type="hidden" name="bodyHtml" value={html} readOnly />
         <BrandStoryField value={html} onChange={setHtml} ariaLabel="Brand story editor" />
-        <p className={`mt-1 text-xs ${bodyValid ? "text-green-600" : "text-destructive"}`}>
+        <p className={`mt-1 text-xs ${bodyValid ? "text-success" : "text-destructive"}`}>
           {bodyValid
             ? "Looks good."
             : `${charsNeeded} more character${charsNeeded === 1 ? "" : "s"} needed.`}

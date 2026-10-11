@@ -46,9 +46,9 @@ export function BrandSubscriptionPoller({
   if (initialActive) {
     return (
       <div className="w-full max-w-md rounded-2xl bg-background p-10 text-center shadow-sm ring-1 ring-border">
-        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-green-50">
+        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-success-subtle">
           <svg
-            className="h-8 w-8 text-green-500"
+            className="h-8 w-8 text-success"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"

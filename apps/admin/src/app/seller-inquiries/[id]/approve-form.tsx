@@ -104,7 +104,7 @@ export function ApproveForm({
               toast.success("Inquiry rejected.")
             })
           }
-          className="border-amber-300 text-amber-700 hover:bg-amber-50"
+          className="border-warning/40 text-warning hover:bg-warning-subtle hover:text-warning"
         >
           Reject
         </Button>

@@ -50,6 +50,31 @@ const config = {
           DEFAULT: "hsl(var(--reward))",
           foreground: "hsl(var(--reward-foreground))",
         },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+          subtle: "hsl(var(--success-subtle))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--warning-foreground))",
+          subtle: "hsl(var(--warning-subtle))",
+        },
+        info: {
+          DEFAULT: "hsl(var(--info))",
+          foreground: "hsl(var(--info-foreground))",
+          subtle: "hsl(var(--info-subtle))",
+        },
+        sidebar: {
+          DEFAULT: "hsl(var(--sidebar))",
+          foreground: "hsl(var(--sidebar-foreground))",
+          strong: "hsl(var(--sidebar-strong))",
+          muted: "hsl(var(--sidebar-muted))",
+          accent: "hsl(var(--sidebar-accent))",
+          border: "hsl(var(--sidebar-border))",
+          indicator: "hsl(var(--sidebar-indicator))",
+          ring: "hsl(var(--sidebar-ring))",
+        },
         subtle: "hsl(var(--border-subtle))",
       },
       borderRadius: {

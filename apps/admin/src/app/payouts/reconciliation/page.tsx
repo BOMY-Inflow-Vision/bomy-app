@@ -118,11 +118,11 @@ export default async function ReconciliationPage() {
             {reviewSessions.map((s) => (
               <li
                 key={s.id}
-                className="flex items-center justify-between rounded-xl border border-yellow-200 bg-yellow-50 px-6 py-4"
+                className="flex items-center justify-between rounded-xl border border-warning/30 bg-warning-subtle px-6 py-4"
               >
                 <div>
-                  <p className="font-mono text-sm text-yellow-800">{s.id.slice(0, 8)}…</p>
-                  <p className="mt-1 text-xs text-yellow-700">
+                  <p className="font-mono text-sm text-warning">{s.id.slice(0, 8)}…</p>
+                  <p className="mt-1 text-xs text-warning">
                     Reason: <code>{s.paymentReviewReason}</code> ·{" "}
                     {s.createdAt.toLocaleDateString("en-MY")}
                   </p>

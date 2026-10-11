@@ -15,9 +15,9 @@ import { Pagination } from "@/components/ui/pagination"
 import { markDispatched } from "./actions"
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: "text-amber-600",
-  dispatched: "text-green-600",
-  delivered: "text-blue-600",
+  pending: "text-warning",
+  dispatched: "text-success",
+  delivered: "text-info",
 }
 
 export default async function GoodieBoxPage({

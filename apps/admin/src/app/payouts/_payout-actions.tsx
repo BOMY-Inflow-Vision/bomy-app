@@ -99,9 +99,9 @@ export function PayoutActions({ payoutId, status }: Props) {
       {!showComplete && !showFail && (
         <Button
           size="sm"
-          variant="secondary"
+          variant="outline"
           onClick={() => setShowComplete(true)}
-          className="bg-green-100 text-green-700 hover:bg-green-200"
+          className="border-success/40 text-success hover:bg-success-subtle hover:text-success"
         >
           Complete
         </Button>
@@ -127,7 +127,7 @@ export function PayoutActions({ payoutId, status }: Props) {
                 void doComplete()
               }}
               disabled={loading || !manualRef.trim()}
-              className="bg-green-600 text-white hover:bg-green-700"
+              variant="success"
             >
               Confirm
             </Button>
@@ -147,9 +147,9 @@ export function PayoutActions({ payoutId, status }: Props) {
       {!showComplete && !showFail && (
         <Button
           size="sm"
-          variant="secondary"
+          variant="outline"
           onClick={() => setShowFail(true)}
-          className="bg-red-100 text-red-700 hover:bg-red-200"
+          className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
         >
           Fail
         </Button>

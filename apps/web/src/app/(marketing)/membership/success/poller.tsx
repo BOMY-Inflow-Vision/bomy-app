@@ -39,9 +39,9 @@ export function MembershipActivationPoller({ initialActive, pendingFresh }: Prop
     return (
       <Card className="w-full max-w-lg rounded-2xl text-center">
         <CardContent className="p-10">
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-green-50">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-success-subtle">
             <svg
-              className="h-8 w-8 text-green-500"
+              className="h-8 w-8 text-success"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -58,7 +58,8 @@ export function MembershipActivationPoller({ initialActive, pendingFresh }: Prop
           <Button
             asChild
             icon={<Eye />}
-            className="w-full bg-amber-500 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-amber-600 active:bg-amber-700 transition-colors"
+            variant="reward"
+            className="w-full px-6 py-3 text-sm font-semibold"
           >
             <Link href="/membership/manage">View my membership</Link>
           </Button>
@@ -74,9 +75,9 @@ export function MembershipActivationPoller({ initialActive, pendingFresh }: Prop
     return (
       <Card className="w-full max-w-lg rounded-2xl text-center">
         <CardContent className="p-10">
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-amber-50">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-warning-subtle">
             <svg
-              className="h-8 w-8 text-amber-500"
+              className="h-8 w-8 text-warning"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -101,7 +102,8 @@ export function MembershipActivationPoller({ initialActive, pendingFresh }: Prop
             type="button"
             icon={<RefreshCw />}
             onClick={() => router.refresh()}
-            className="w-full bg-amber-500 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-amber-600 active:bg-amber-700 transition-colors"
+            variant="reward"
+            className="w-full px-6 py-3 text-sm font-semibold"
           >
             I&apos;ve paid — check again
           </Button>
@@ -124,9 +126,9 @@ export function MembershipActivationPoller({ initialActive, pendingFresh }: Prop
   return (
     <Card className="w-full max-w-lg rounded-2xl text-center">
       <CardContent className="p-10">
-        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-amber-50">
+        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-warning-subtle">
           <svg
-            className="h-8 w-8 animate-spin text-amber-500"
+            className="h-8 w-8 animate-spin text-warning"
             fill="none"
             viewBox="0 0 24 24"
             aria-hidden="true"

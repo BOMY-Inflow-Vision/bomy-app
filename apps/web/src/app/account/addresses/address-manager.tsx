@@ -4,6 +4,7 @@ import { useState, useTransition } from "react"
 import { Check, Pencil, Plus, Save, Trash2, X } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
+import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
 import { Card, CardContent } from "@bomy/ui/card"
 import { Input } from "@bomy/ui/input"
@@ -97,9 +98,7 @@ export function AddressManager({ initial }: { initial: Row[] }) {
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     {a.isDefault ? (
-                      <span className="rounded bg-green-100 px-2 py-0.5 text-xs text-green-700">
-                        Default
-                      </span>
+                      <Badge variant="success">Default</Badge>
                     ) : (
                       <Button
                         type="button"

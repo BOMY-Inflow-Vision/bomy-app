@@ -83,7 +83,7 @@ export default async function BrandPlansPage({
                   <span
                     className={cn(
                       "font-medium",
-                      row.isActive ? "text-green-600" : "text-muted-foreground",
+                      row.isActive ? "text-success" : "text-muted-foreground",
                     )}
                   >
                     {row.isActive ? "Yes" : "No"}

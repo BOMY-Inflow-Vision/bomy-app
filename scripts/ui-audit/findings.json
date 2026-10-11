@@ -292,16 +292,16 @@
     "kind": "manual",
     "route": "app/account/addresses/address-manager.tsx",
     "description": "app/account/addresses/address-manager.tsx line 100: hand-made \"Default\" green pill span (should be Badge (needs success variant))",
-    "status": "deferred",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-11 in b0787d6: the Default pill is now <Badge variant=\"success\">. Token pair success on success-subtle is 6.81:1 light and 6.90:1 dark (tests/design-tokens/contrast.test.ts); the variant classes are pinned by tests/components/status-variants.test.tsx. Not evaluated in a browser on /account/addresses (no seeded buyer addresses were checked)"
   },
   {
     "id": "man-t03",
     "kind": "manual",
     "route": "app/products/[storeSlug]/[productSlug]/variant-picker.tsx",
     "description": "app/products/[storeSlug]/[productSlug]/variant-picker.tsx line 40,47: hand-made back-order/pre-order pills (should be Badge (warning/info variants))",
-    "status": "deferred",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-11 in b0787d6: variant-picker back-order is <Badge variant=\"warning\"> and pre-order is <Badge variant=\"info\">. warning on its tint is 5.43:1 light and 7.18:1 dark; info is 8.89:1 and 6.71:1 (contrast.test.ts); variants pinned by status-variants.test.tsx. The two similar pills in product-edit-form.tsx stay palette pairs (exceptions, tracked by man-5a2). Not evaluated in a browser on a product page"
   },
   {
     "id": "man-t04",
@@ -341,7 +341,7 @@
     "route": "app/seller/dashboard/orders/page.tsx",
     "description": "app/seller/dashboard/orders/page.tsx line 100: rounded-full bg-accent pill (token-based) (should be Badge variant accent (identical look))",
     "status": "deferred",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
+    "followUp": "PR 5d: accent status pill in the seller orders list is still hand-made (token-based, not a palette colour); move to Badge accent"
   },
   {
     "id": "man-t09",
@@ -349,7 +349,7 @@
     "route": "app/seller/dashboard/orders/[orderId]/page.tsx",
     "description": "app/seller/dashboard/orders/[orderId]/page.tsx line 62: rounded-full bg-accent pill (token-based) (should be Badge variant accent)",
     "status": "deferred",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
+    "followUp": "PR 5d: accent status pill on the seller order page is still hand-made (token-based, not a palette colour); move to Badge accent"
   },
   {
     "id": "man-t10",
@@ -421,7 +421,7 @@
     "route": "app/checkout/_form.tsx",
     "description": "app/checkout/_form.tsx line 203-206, 434-440: alert-style boxes (yellow warning, destructive/10 error) hand-built (candidate shared Alert; destructive one already token-based)",
     "status": "deferred",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
+    "followUp": "PR 5d: the checkout warning box now uses the warning tokens (7bb9615) but is still hand-built; needs a shared Alert or box primitive"
   },
   {
     "id": "man-t19",
@@ -444,8 +444,8 @@
     "kind": "manual",
     "route": "apps/admin/src/app/config/page.tsx",
     "description": "apps/admin/src/app/config/page.tsx line 30: Read-only pill span rounded bg-yellow-100 px-2 py-0.5 (should be Badge (with className status pair))",
-    "status": "deferred",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-11 in b0787d6: admin /config Read-only pill is <Badge variant=\"warning\">; warning on its tint is 5.43:1 light and 7.18:1 dark (contrast.test.ts). Not evaluated in a browser"
   },
   {
     "id": "man-t22",
@@ -485,7 +485,7 @@
     "route": "apps/admin/src/app/seller-inquiries/[id]/page.tsx",
     "description": "apps/admin/src/app/seller-inquiries/[id]/page.tsx line 101, 115: bordered result boxes (green approved, red rejected) hand-built with div (status callout; Card with status className, or a shared Alert if one is introduced)",
     "status": "deferred",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
+    "followUp": "PR 5d: the seller-inquiry result boxes use success and destructive tokens (7bb9615, 7870401) but are still hand-built divs; need a shared Alert or Card status variant"
   },
   {
     "id": "man-t27",
@@ -493,15 +493,15 @@
     "route": "apps/admin/src/app/payouts/reconciliation/page.tsx",
     "description": "apps/admin/src/app/payouts/reconciliation/page.tsx line 119-122: li rounded-xl border yellow box built by hand (should be Card with warning pair)",
     "status": "deferred",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
+    "followUp": "PR 5d: the reconciliation row box uses the warning tokens (7bb9615) but is still a hand-built li; should be a Card with a warning style"
   },
   {
     "id": "man-t28",
     "kind": "manual",
     "route": "apps/admin/src/app/orders/[orderId]/_create-payout-button.tsx",
     "description": "apps/admin/src/app/orders/[orderId]/_create-payout-button.tsx line 34: plain <a href=\"/payouts\"> (full reload) in success text (should be next/Link; not button-styled, low priority)",
-    "status": "deferred",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-11 in 7bb9615: the success text now links with next/link <Link href=\"/payouts\"> (client navigation) and its colour is text-success (at least 6.75:1 light and 6.85:1 dark on every surface). Typecheck and lint pass; the success state needs a created payout and was not evaluated in a browser"
   },
   {
     "id": "man-t29",
@@ -515,9 +515,9 @@
     "id": "man-t30",
     "kind": "manual",
     "route": "apps/admin/src/app/seller-inquiries/reject-button.tsx vs [id]/approve-form.tsx",
-    "description": "apps/admin/src/app/seller-inquiries/reject-button.tsx vs [id]/approve-form.tsx line 35 vs 107: same Reject action styled text-amber-600 link in one place and amber-700 outline in the other (inconsistent styling of one action)",
+    "description": "apps/admin/src/app/seller-inquiries/reject-button.tsx vs [id]/approve-form.tsx: the same Reject action is styled differently in two places. PR 5a (7bb9615, b0787d6) fixed the colour: both now use the warning token (before: text-amber-600 link against amber-700 outline). Still open: the shape differs, a variant=\"link\" in the list row against a variant=\"outline\" in the detail form",
     "status": "deferred",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
+    "followUp": "PR 5d: give the Reject action one shared style and shape (link in the row against outline in the form); colour already matches (PR 5a)"
   },
   {
     "id": "man-t31",
@@ -669,7 +669,7 @@
     "route": "toaster.tsx:57-83, 195-202",
     "description": "toaster.tsx:57-83, 195-202: Toast banners are hand-made alerts with hard-coded emerald/blue/amber/red (scanner sees palette); dismiss is raw `button` with `hover:bg-black/5`; position `top-[4.5rem]` is coupled to NavBar `h-14` (nav-bar.tsx:127) -> Alert primitive does not exist; if added, tokens `su",
     "status": "deferred",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
+    "followUp": "PR 5d: toast banners now use the status tokens (23278d0); still open: no shared Alert primitive, the dismiss is a raw button, and the position top-[4.5rem] is coupled to the NavBar h-14"
   },
   {
     "id": "man-b10",
@@ -732,8 +732,8 @@
     "kind": "manual",
     "route": "sidebar.tsx:61-70",
     "description": "sidebar.tsx:61-70: `Button variant=\"ghost\"` overridden with `text-slate-300 hover:bg-transparent hover:text-slate-100` (palette colours forced onto a primitive: sidebar is always dark in both themes) -> add a sidebar-scoped token set (`--sidebar-*`) rather than slate-* overrides",
-    "status": "deferred",
-    "followUp": "PR 5a: success/warning/info tokens and palette colours onto tokens (design call)"
+    "status": "resolved",
+    "evidence": "Fixed 2026-10-11 in 5d3bf30: the admin sign-out Button now uses text-sidebar-foreground and hover:text-sidebar-strong, and no slate-* class remains in either sidebar (web layout test and admin sidebar test assert it; mutation with border-primary put back failed both). Measured in Charlie's Chrome, admin dev server, 1440 and 390 px, light and dark: sidebar rgb(20,25,57), active indicator rgb(226,99,90), footer email rgb(185,169,146) = 7.46:1 on navy (before 3.07:1 as slate-500 on slate-800); real Tab presses show a 2 px rgb(238,152,144) ring on the theme toggle, a link, Sign out and the menu button; Escape from inside the open panel returns focus to the menu button. Screenshots: shots/after-admin-*"
   },
   {
     "id": "man-b18",
@@ -750,5 +750,21 @@
     "description": "A/app/layout.tsx:38,41-42: `body.flex` + `main.flex-1` without `min-w-0`; sidebar only rendered if `session?.user`; see C -> see C",
     "status": "resolved",
     "evidence": "Fixed 2026-10-10 in 63d6152: body is flex-col below md and flex-row from md up, main has min-w-0; admin routes measure 390 at 390 px and 768 at 768 px (22 of 22 each)"
+  },
+  {
+    "id": "man-5a2",
+    "kind": "manual",
+    "route": "exceptions.json (36 palette exceptions: 35 status/role pairs + 1 intentional nav scrim)",
+    "description": "35 fixed status and role colour pairs remain as accepted palette exceptions (a 36th palette exception, the nav-bar backdrop scrim bg-gray-900/20, is intentional and stays dark in both themes) (green, amber, yellow, orange, blue, red, purple pill and Badge pairs, e.g. seller subscriptions and products status pills, account/subscriptions Badge overrides, admin seller-inquiries status map, product-edit-form pills, role badges). They pass contrast today but do not follow the theme; move them onto the success, warning, info and destructive tokens and the Badge variants",
+    "status": "deferred",
+    "followUp": "PR 5a-2: migrate the 35 fixed status and role colour pairs onto the status tokens and Badge variants; must finish before plain pnpm ui:audit can pass"
+  },
+  {
+    "id": "man-5a3",
+    "kind": "manual",
+    "route": "all pages using text-primary / text-primary/70 (web and admin)",
+    "description": "Pre-existing contrast failures, not caused by PR 5a (--primary unchanged). Dark theme text-primary is below 4.5:1: 3.74:1 on the card, 3.44 to 3.95:1 elsewhere (BOMY logo, nav, Edit links, prices, avatar letters; admin class-less links 3.4 to 4.11:1). Light theme 'Coming soon' text-primary/70 is 3.48:1. Needs a design call: raise dark --primary or add a primary-text token.",
+    "status": "deferred",
+    "followUp": "Separate PR: fix dark text-primary and light text-primary/70 contrast; must finish before plain pnpm ui:audit can pass"
   }
 ]

@@ -34,6 +34,29 @@
     --radius-input: var(--radius);
     --radius-card: 0.75rem;
     --border-subtle: 36 36% 89%; /* sand-200 */
+
+    /* Status tokens (PR 5a): the design system's 700 level in light, 600 in dark; text, icon,
+       border and solid fill share one value per theme. Contrast is pinned by
+       apps/web/tests/design-tokens/contrast.test.ts. */
+    --success: 150 64% 23%;
+    --success-foreground: 0 0% 100%;
+    --success-subtle: 145 40% 94%;
+    --warning: 36 92% 29%;
+    --warning-foreground: 0 0% 100%;
+    --warning-subtle: 39 87% 94%;
+    --info: 232 44% 35%; /* navy-600 */
+    --info-foreground: 0 0% 100%;
+    --info-subtle: 232 44% 96%; /* navy-50 */
+
+    /* Sidebar chrome: always-dark brand navy, identical in both themes. */
+    --sidebar: 231 49% 15%; /* navy-900 */
+    --sidebar-foreground: 35 30% 81%; /* sand-300 */
+    --sidebar-strong: 40 60% 98%; /* sand-50 */
+    --sidebar-muted: 35 22% 65%; /* sand-400 */
+    --sidebar-accent: 231 48% 21%; /* navy-800: hover and active */
+    --sidebar-border: 231 47% 28%; /* navy-700 */
+    --sidebar-indicator: 4 70% 62%; /* red-400: active-link bar */
+    --sidebar-ring: 5 74% 75%; /* red-300: keyboard focus */
   }
 
   /* Ported from docs/design-system/tokens/colors.css's .dark block — same semantic
@@ -54,13 +77,32 @@
     --accent: 358 34% 15%; /* surface-accent */
     --accent-foreground: 5 74% 75%; /* red-300 */
     --destructive: 4 70% 62%; /* red-400 */
-    --destructive-foreground: 0 0% 100%;
+    --destructive-foreground: 3 68% 6%; /* dark ink: white on red-400 is only 3.41:1 */
     --border: 34 22% 22%; /* border-default */
     --input: 34 22% 22%; /* border-default */
     --ring: 4 70% 62%; /* focus-ring (red-400) */
     --reward: 45 100% 55%; /* gold-400, unchanged in dark */
     --reward-foreground: 45 100% 15%; /* gold-900, unchanged in dark */
     --border-subtle: 32 23% 16%;
+
+    /* Status tokens (dark) and sidebar chrome (unchanged from :root). */
+    --success: 150 45% 52%;
+    --success-foreground: 148 41% 7%;
+    --success-subtle: 150 38% 10%;
+    --warning: 37 72% 56%;
+    --warning-foreground: 39 79% 6%;
+    --warning-subtle: 41 65% 10%;
+    --info: 230 39% 71%; /* navy-300 */
+    --info-foreground: 232 50% 9%;
+    --info-subtle: 231 38% 15%;
+    --sidebar: 231 49% 15%;
+    --sidebar-foreground: 35 30% 81%;
+    --sidebar-strong: 40 60% 98%;
+    --sidebar-muted: 35 22% 65%;
+    --sidebar-accent: 231 48% 21%;
+    --sidebar-border: 231 47% 28%;
+    --sidebar-indicator: 4 70% 62%;
+    --sidebar-ring: 5 74% 75%;
   }
 }
 

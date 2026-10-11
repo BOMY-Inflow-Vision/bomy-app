@@ -3,25 +3,19 @@
     "rule": "R3a-palette-class",
     "file": "apps/web/src/app/(marketing)/membership/manage/page.tsx",
     "text": "<Badge className=\"bg-amber-100 text-amber-700 border-transparent\">",
-    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
+    "reason": "status pair; tokens exist (PR 5a); migration tracked as man-5a2"
   },
   {
     "rule": "R3a-palette-class",
     "file": "apps/web/src/app/(marketing)/membership/manage/page.tsx",
     "text": "<Badge className=\"bg-green-100 text-green-700 border-transparent\">Active</Badge>",
-    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
+    "reason": "status pair; tokens exist (PR 5a); migration tracked as man-5a2"
   },
   {
     "rule": "R3a-palette-class",
     "file": "apps/web/src/app/(marketing)/membership/manage/page.tsx",
     "text": "<div className=\"rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800\">",
-    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/account/addresses/address-manager.tsx",
-    "text": "<span className=\"rounded bg-green-100 px-2 py-0.5 text-xs text-green-700\">",
-    "reason": "status pair \"Default\" pill (hand-made; see MANUAL)"
+    "reason": "status pair; tokens exist (PR 5a); migration tracked as man-5a2"
   },
   {
     "rule": "R1-input",
@@ -81,7 +75,7 @@
     "rule": "R3a-palette-class",
     "file": "apps/web/src/app/auth/sign-in/page.tsx",
     "text": "<div className=\"mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-200\">",
-    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
+    "reason": "status pair; tokens exist (PR 5a); migration tracked as man-5a2"
   },
   {
     "rule": "R2-hex",
@@ -126,12 +120,6 @@
     "reason": "label wraps checkbox/file input (no shared primitive)"
   },
   {
-    "rule": "R3b-bg-without-literal-text",
-    "file": "apps/web/src/app/checkout/_form.tsx",
-    "text": "<div className=\"rounded-lg border border-yellow-200 bg-yellow-50 p-4\">",
-    "reason": "warning box, same-family yellow pair (bg on 202; text on 203/206)"
-  },
-  {
     "rule": "R2-hex",
     "file": "apps/web/src/app/checkout/queries.ts",
     "text": "* Tied labels get a short id suffix `(#abc12345)` for disambiguation.",
@@ -156,18 +144,6 @@
     "reason": "radio-like variant chooser"
   },
   {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/products/[storeSlug]/[productSlug]/variant-picker.tsx",
-    "text": "<span className=\"inline-block rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-700\">",
-    "reason": "status pair pill (hand-made; see MANUAL)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/app/products/[storeSlug]/[productSlug]/variant-picker.tsx",
-    "text": "<span className=\"inline-block rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700\">",
-    "reason": "status pair pill (hand-made; see MANUAL)"
-  },
-  {
     "rule": "R1-input",
     "file": "apps/web/src/app/products/page.tsx",
     "text": "{category && <input type=\"hidden\" name=\"category\" value={category} />}",
@@ -183,25 +159,25 @@
     "rule": "R3a-palette-class",
     "file": "apps/web/src/app/seller/apply/page.tsx",
     "text": "<div className=\"rounded-lg bg-yellow-50 px-4 py-3 text-sm text-yellow-800\">",
-    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
+    "reason": "status pair; tokens exist (PR 5a); migration tracked as man-5a2"
   },
   {
     "rule": "R3a-palette-class",
     "file": "apps/web/src/app/seller/dashboard/page.tsx",
     "text": "active: \"bg-green-100 text-green-700\",",
-    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
+    "reason": "status pair; tokens exist (PR 5a); migration tracked as man-5a2"
   },
   {
     "rule": "R3a-palette-class",
     "file": "apps/web/src/app/seller/dashboard/page.tsx",
     "text": "pending: \"bg-amber-100 text-amber-700\",",
-    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
+    "reason": "status pair; tokens exist (PR 5a); migration tracked as man-5a2"
   },
   {
     "rule": "R3a-palette-class",
     "file": "apps/web/src/app/seller/dashboard/page.tsx",
     "text": "suspended: \"bg-red-100 text-red-700\",",
-    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
+    "reason": "status pair; tokens exist (PR 5a); migration tracked as man-5a2"
   },
   {
     "rule": "R1-button",
@@ -290,20 +266,20 @@
   {
     "rule": "R1-label",
     "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/product-edit-form.tsx",
-    "text": "<label className=\"flex items-center gap-1.5 text-xs text-green-700\">",
+    "text": "<label className=\"flex items-center gap-1.5 text-xs text-muted-foreground\">",
     "reason": "label wraps checkbox/file input (no shared primitive)"
   },
   {
     "rule": "R3a-palette-class",
     "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/product-edit-form.tsx",
     "text": "<span className=\"rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-700\">",
-    "reason": "status pair pill (hand-made; see MANUAL)"
+    "reason": "status pair pill (hand-made); tokens exist (PR 5a); migration tracked as man-5a2"
   },
   {
     "rule": "R3a-palette-class",
     "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/product-edit-form.tsx",
     "text": "<span className=\"rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700\">",
-    "reason": "status pair pill (hand-made; see MANUAL)"
+    "reason": "status pair pill (hand-made); tokens exist (PR 5a); migration tracked as man-5a2"
   },
   {
     "rule": "R1-input",
@@ -351,7 +327,7 @@
     "rule": "R3a-palette-class",
     "file": "apps/web/src/app/seller/dashboard/products/page.tsx",
     "text": "active: \"bg-green-100 text-green-700\",",
-    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
+    "reason": "status pair; tokens exist (PR 5a); migration tracked as man-5a2"
   },
   {
     "rule": "R1-input",
@@ -369,25 +345,25 @@
     "rule": "R3a-palette-class",
     "file": "apps/web/src/app/seller/dashboard/settings/settings-form.tsx",
     "text": "className=\"rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700\"",
-    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
+    "reason": "status pair; tokens exist (PR 5a); migration tracked as man-5a2"
   },
   {
     "rule": "R3a-palette-class",
     "file": "apps/web/src/app/seller/dashboard/settings/settings-form.tsx",
     "text": "className=\"mb-4 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700\"",
-    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
+    "reason": "status pair; tokens exist (PR 5a); migration tracked as man-5a2"
   },
   {
     "rule": "R3a-palette-class",
     "file": "apps/web/src/app/seller/dashboard/settings/settings-form.tsx",
     "text": "className=\"rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700\"",
-    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
+    "reason": "status pair; tokens exist (PR 5a); migration tracked as man-5a2"
   },
   {
     "rule": "R3a-palette-class",
     "file": "apps/web/src/app/seller/dashboard/settings/settings-form.tsx",
     "text": "className=\"rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700\"",
-    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
+    "reason": "status pair; tokens exist (PR 5a); migration tracked as man-5a2"
   },
   {
     "rule": "R6-table",
@@ -405,25 +381,19 @@
     "rule": "R3a-palette-class",
     "file": "apps/web/src/app/seller/dashboard/subscriptions/page.tsx",
     "text": "<span className=\"rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700\">",
-    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
+    "reason": "status pair; tokens exist (PR 5a); migration tracked as man-5a2"
   },
   {
     "rule": "R3a-palette-class",
     "file": "apps/web/src/app/seller/dashboard/subscriptions/page.tsx",
     "text": "<span className=\"rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700\">",
-    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
-  },
-  {
-    "rule": "R3b-bg-without-literal-text",
-    "file": "apps/web/src/app/seller/dashboard/subscriptions/page.tsx",
-    "text": "<tr key={row.id} className=\"bg-amber-50\">",
-    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
+    "reason": "status pair; tokens exist (PR 5a); migration tracked as man-5a2"
   },
   {
     "rule": "R3a-palette-class",
     "file": "apps/web/src/app/seller/dashboard/subscriptions/page.tsx",
     "text": "<span className=\"rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700\">",
-    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
+    "reason": "status pair; tokens exist (PR 5a); migration tracked as man-5a2"
   },
   {
     "rule": "R1-button",
@@ -492,12 +462,6 @@
     "reason": "prose min-height 200px; no scale step (48=192, 52=208); intentional editor height"
   },
   {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/components/body-editor.tsx",
-    "text": "<div className=\"flex items-center gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800\">",
-    "reason": "status colour pair (bg+text same family) for state; no success/warning token exists"
-  },
-  {
     "rule": "R6-table",
     "file": "apps/web/src/components/body-renderer.tsx",
     "text": "<table",
@@ -546,30 +510,6 @@
     "reason": "top offset 4.5rem (nav height + gap); no spacing step 18 in Tailwind 3 default scale"
   },
   {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/components/toaster.tsx",
-    "text": "className: \"border-emerald-100 bg-emerald-50 text-emerald-800\",",
-    "reason": "documented design decision: toasts keep fixed light pastel surface with paired fixed dark text; status colours"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/components/toaster.tsx",
-    "text": "className: \"border-blue-100 bg-blue-50 text-blue-800\",",
-    "reason": "documented design decision: toasts keep fixed light pastel surface with paired fixed dark text; status colours"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/components/toaster.tsx",
-    "text": "className: \"border-amber-100 bg-amber-50 text-amber-800\",",
-    "reason": "documented design decision: toasts keep fixed light pastel surface with paired fixed dark text; status colours"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/web/src/components/toaster.tsx",
-    "text": "className: \"border-red-100 bg-red-50 text-red-800\",",
-    "reason": "documented design decision: toasts keep fixed light pastel surface with paired fixed dark text; status colours"
-  },
-  {
     "rule": "R1-button",
     "file": "apps/web/src/components/video-embed.tsx",
     "text": "<button",
@@ -612,28 +552,10 @@
     "reason": "no @bomy/ui Table primitive exists"
   },
   {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/app/checkout-sessions/[sessionId]/page.tsx",
-    "text": "<p className=\"rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-yellow-800\">",
-    "reason": "status pair, yellow family (border/bg/text) warning box"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/app/checkout-sessions/[sessionId]/page.tsx",
-    "text": "<Card className=\"mb-6 border-green-200 bg-green-50 p-6 text-sm text-green-800\">",
-    "reason": "status pair, green family success Card"
-  },
-  {
     "rule": "R6-table",
     "file": "apps/admin/src/app/config/page.tsx",
     "text": "<table className=\"w-full text-sm\">",
     "reason": "no @bomy/ui Table primitive exists"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/app/config/page.tsx",
-    "text": "<span className=\"rounded bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700\">",
-    "reason": "status pair yellow-100/yellow-700; see MANUAL: hand-made pill should be Badge"
   },
   {
     "rule": "R6-table",
@@ -684,12 +606,6 @@
     "reason": "no @bomy/ui Table primitive exists"
   },
   {
-    "rule": "R3b-bg-without-literal-text",
-    "file": "apps/admin/src/app/payouts/reconciliation/page.tsx",
-    "text": "className=\"flex items-center justify-between rounded-xl border border-yellow-200 bg-yellow-50 px-6 py-4\"",
-    "reason": "status box; text colour is on child lines 124-125 (yellow-800/700)"
-  },
-  {
     "rule": "R3a-palette-class",
     "file": "apps/admin/src/app/products/[id]/product-seo-form.tsx",
     "text": "className=\"rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700\"",
@@ -718,12 +634,6 @@
     "file": "apps/admin/src/app/seller-inquiries/[id]/page.tsx",
     "text": "rejected: \"bg-red-100 text-red-700 border-transparent\",",
     "reason": "status pair (bg+text same family) used as Badge className"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/app/seller-inquiries/[id]/page.tsx",
-    "text": "<div className=\"rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-800\">",
-    "reason": "status pair green-200/50/800 success box"
   },
   {
     "rule": "R1-input",
@@ -888,30 +798,6 @@
     "reason": "min-h-[200px] on ProseMirror editor area; no scale step (48=192px, 52=208px)"
   },
   {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/components/sidebar.tsx",
-    "text": "<aside className=\"hidden w-44 flex-col bg-slate-800 text-sm text-slate-400 md:flex\">",
-    "reason": "sidebar is deliberately always-dark chrome with fixed literal bg+text pairs; no sidebar tokens exist"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/components/sidebar.tsx",
-    "text": "<header className=\"sticky top-0 z-40 bg-slate-800 text-sm text-slate-400 md:hidden\">",
-    "reason": "sidebar is deliberately always-dark chrome with fixed literal bg+text pairs; no sidebar tokens exist (the mobile top bar mirrors the desktop sidebar)"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/components/sidebar.tsx",
-    "text": "? \"border-l-2 border-primary bg-slate-700 text-slate-100\"",
-    "reason": "sidebar is deliberately always-dark chrome with fixed literal bg+text pairs; no sidebar tokens exist"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/components/sidebar.tsx",
-    "text": ": \"hover:bg-slate-700 hover:text-slate-100\",",
-    "reason": "sidebar is deliberately always-dark chrome with fixed literal bg+text pairs; no sidebar tokens exist"
-  },
-  {
     "rule": "R1-button",
     "file": "apps/admin/src/components/theme-toggle.tsx",
     "text": "<button",
@@ -922,36 +808,6 @@
     "file": "apps/admin/src/components/toaster.tsx",
     "text": "<button",
     "reason": "icon-only dismiss button in toast (p-1 rounded-full); Button icon size is 36px, not identical"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/components/toaster.tsx",
-    "text": "className: \"border-emerald-100 bg-emerald-50 text-emerald-800\",",
-    "reason": "status pair (border/bg/text same family), deliberate fixed light surface in both themes"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/components/toaster.tsx",
-    "text": "className: \"border-blue-100 bg-blue-50 text-blue-800\",",
-    "reason": "status pair (border/bg/text same family), deliberate fixed light surface in both themes"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/components/toaster.tsx",
-    "text": "className: \"border-amber-100 bg-amber-50 text-amber-800\",",
-    "reason": "status pair (border/bg/text same family), deliberate fixed light surface in both themes"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/components/toaster.tsx",
-    "text": "className: \"border-red-100 bg-red-50 text-red-800\",",
-    "reason": "status pair (border/bg/text same family), deliberate fixed light surface in both themes"
-  },
-  {
-    "rule": "R3a-palette-class",
-    "file": "apps/admin/src/components/youtube-embed-extension.ts",
-    "text": "\"relative flex aspect-video w-full cursor-default items-center justify-center rounded bg-gray-900 text-white\"",
-    "reason": "TipTap node-view placeholder: fixed dark bg-gray-900 paired with literal text-white; plain DOM string, not React"
   },
   {
     "rule": "R2-hex",

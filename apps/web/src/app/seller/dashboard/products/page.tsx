@@ -16,7 +16,7 @@ const STATUS_LABELS: Record<string, string> = {
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-muted text-muted-foreground",
   active: "bg-green-100 text-green-700",
-  archived: "bg-slate-100 text-slate-500",
+  archived: "bg-muted text-muted-foreground",
 }
 
 export default async function SellerProductsPage({

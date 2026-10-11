@@ -18,9 +18,9 @@ import { approveStore, suspendStore } from "./actions"
 import { CopyId } from "./copy-id"
 
 const STATUS_COLORS = {
-  pending: "text-amber-600",
-  active: "text-green-600",
-  suspended: "text-red-600",
+  pending: "text-warning",
+  active: "text-success",
+  suspended: "text-destructive",
 }
 
 const STORE_STATUSES = ["pending", "active", "suspended"] as const

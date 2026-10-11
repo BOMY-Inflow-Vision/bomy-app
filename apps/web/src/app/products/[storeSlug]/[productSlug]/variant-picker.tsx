@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Check, ShoppingCart } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
 import { useToast } from "@/components/toaster"
 import type { CartItem } from "@/lib/cart"
@@ -36,18 +37,10 @@ interface VariantPickerProps {
 
 function FulfillmentLabel({ mode, days }: { mode: string; days: number | null }) {
   if (mode === "backorder") {
-    return (
-      <span className="inline-block rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-700">
-        Back-order — ships when available
-      </span>
-    )
+    return <Badge variant="warning">Back-order — ships when available</Badge>
   }
   if (mode === "preorder") {
-    return (
-      <span className="inline-block rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
-        Pre-order{days ? ` — ships in ${days} days` : ""}
-      </span>
-    )
+    return <Badge variant="info">Pre-order{days ? ` — ships in ${days} days` : ""}</Badge>
   }
   return null
 }
@@ -134,7 +127,7 @@ export function VariantPicker({ product, variants }: VariantPickerProps) {
             <p
               className={cn(
                 "text-sm",
-                selected.stockCount > 0 ? "text-green-600" : "text-destructive",
+                selected.stockCount > 0 ? "text-success" : "text-destructive",
               )}
             >
               {selected.stockCount > 0 ? `${selected.stockCount} in stock` : "Out of stock"}
