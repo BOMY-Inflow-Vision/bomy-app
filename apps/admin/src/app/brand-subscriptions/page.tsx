@@ -6,20 +6,14 @@ import { schema, withAdmin } from "@bomy/db"
 import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { pageCount, pageOffset, parsePage, PAGE_SIZE } from "@/lib/pagination"
+import { statusVariant } from "@/lib/status-badge"
 import { cn } from "@/lib/utils"
+import { Badge } from "@bomy/ui/badge"
 import { Card } from "@bomy/ui/card"
 import { Pagination } from "@/components/ui/pagination"
 
 import { StoreFilter } from "./store-filter"
 import { normalizeStoreId } from "./store-filter-helpers"
-
-const STATUS_COLORS: Record<string, string> = {
-  pending: "text-warning",
-  active: "text-success",
-  cancelled: "text-muted-foreground",
-  expired: "text-destructive",
-  payment_failed: "text-destructive",
-}
 
 export default async function BrandSubscriptionsPage({
   searchParams,
@@ -170,13 +164,8 @@ export default async function BrandSubscriptionsPage({
                   {(Number(row.priceMyrSen) / 100).toFixed(2)}
                 </td>
                 <td className="px-4 py-3 text-muted-foreground">{row.discountPct}%</td>
-                <td
-                  className={cn(
-                    "px-4 py-3 font-medium",
-                    STATUS_COLORS[row.status] ?? "text-muted-foreground",
-                  )}
-                >
-                  {row.status}
+                <td className="px-4 py-3">
+                  <Badge variant={statusVariant(row.status)}>{row.status}</Badge>
                 </td>
                 <td className="px-4 py-3 text-muted-foreground">
                   {row.periodEnd.toLocaleDateString()}

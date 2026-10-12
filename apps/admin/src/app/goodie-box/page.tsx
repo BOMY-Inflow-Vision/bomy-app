@@ -7,18 +7,14 @@ import { schema, withAdmin } from "@bomy/db"
 import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { pageCount, pageOffset, parsePage, PAGE_SIZE } from "@/lib/pagination"
+import { statusVariant } from "@/lib/status-badge"
 import { cn } from "@/lib/utils"
+import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
 import { Input } from "@bomy/ui/input"
 import { Label } from "@bomy/ui/label"
 import { Pagination } from "@/components/ui/pagination"
 import { markDispatched } from "./actions"
-
-const STATUS_COLORS: Record<string, string> = {
-  pending: "text-warning",
-  dispatched: "text-success",
-  delivered: "text-info",
-}
 
 export default async function GoodieBoxPage({
   searchParams,
@@ -164,13 +160,8 @@ export default async function GoodieBoxPage({
                 <td className="px-4 py-3 text-foreground">{row.userEmail}</td>
                 <td className="px-4 py-3 text-muted-foreground">{row.quarter}</td>
                 <td className="px-4 py-3 text-muted-foreground">{row.shippingName}</td>
-                <td
-                  className={cn(
-                    "px-4 py-3 font-medium",
-                    STATUS_COLORS[row.status] ?? "text-muted-foreground",
-                  )}
-                >
-                  {row.status}
+                <td className="px-4 py-3">
+                  <Badge variant={statusVariant(row.status)}>{row.status}</Badge>
                 </td>
                 <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
                   {row.trackingNumber ?? "—"}

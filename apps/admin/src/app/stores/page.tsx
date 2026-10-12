@@ -7,6 +7,7 @@ import { schema, withAdmin } from "@bomy/db"
 import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { pageCount, pageOffset, parsePage, PAGE_SIZE } from "@/lib/pagination"
+import { storeStatusVariant } from "@/lib/status-badge"
 import { cn } from "@/lib/utils"
 import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
@@ -16,12 +17,6 @@ import { Label } from "@bomy/ui/label"
 import { Pagination } from "@/components/ui/pagination"
 import { approveStore, suspendStore } from "./actions"
 import { CopyId } from "./copy-id"
-
-const STATUS_COLORS = {
-  pending: "text-warning",
-  active: "text-success",
-  suspended: "text-destructive",
-}
 
 const STORE_STATUSES = ["pending", "active", "suspended"] as const
 type StoreStatusFilter = (typeof STORE_STATUSES)[number]
@@ -199,9 +194,7 @@ export default async function StoresPage({
                   {row.ownerName ?? row.ownerEmail}
                 </td>
                 <td className="px-4 py-3">
-                  <Badge variant="outline" className={STATUS_COLORS[row.status]}>
-                    {row.status}
-                  </Badge>
+                  <Badge variant={storeStatusVariant(row.status)}>{row.status}</Badge>
                 </td>
                 <td className="px-4 py-3 text-muted-foreground">
                   {row.createdAt.toLocaleDateString()}
