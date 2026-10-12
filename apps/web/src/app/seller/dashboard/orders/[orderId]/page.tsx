@@ -5,8 +5,10 @@ import { ArrowLeft } from "lucide-react"
 import { makeDb, schema, withTenant } from "@bomy/db"
 
 import { auth } from "@/auth"
+import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
 import { senToMyr } from "@/lib/money"
+import { ORDER_HEADER_PILL_CLASS } from "@/lib/status-badge"
 
 import { fetchSellerOrderDetail } from "../queries"
 import { EnterTrackingForm } from "./_enter-tracking-form"
@@ -59,9 +61,9 @@ export default async function SellerOrderDetailPage({ params }: Props) {
 
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">Order {order.id.slice(0, 8)}…</h1>
-        <span className="rounded-full bg-accent px-3 py-1 text-sm font-medium capitalize text-accent-foreground">
+        <Badge variant="accent" className={ORDER_HEADER_PILL_CLASS}>
           {order.fulfilmentStatus}
-        </span>
+        </Badge>
       </div>
 
       <section className="mb-6 rounded-xl border border-border p-6">

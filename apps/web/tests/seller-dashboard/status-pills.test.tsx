@@ -60,7 +60,7 @@ import SellerSubscriptionsPage from "@/app/seller/dashboard/subscriptions/page"
 
 const ORDER_ID = "11111111-2222-3333-4444-555555555555"
 
-// Class tokens of the <span> whose whole text is `text`.
+// Class tokens of the pill <span> whose whole text is `text`.
 function pill(html: string, text: string): string[] {
   const m = html.match(new RegExp(`<span class="([^"]*)">\\s*${text}\\s*</span>`))
   if (!m) throw new Error(`no <span> pill with text "${text}"`)
@@ -119,54 +119,54 @@ async function subsHtml() {
 }
 
 describe("seller orders list: accent pill", () => {
-  it("renders the fulfilment status as a hand-made accent pill (baseline)", async () => {
+  it("renders the fulfilment status as an accent Badge", async () => {
     const t = pill(await ordersHtml(), "shipped")
     expect(t).toEqual(
       expect.arrayContaining([
-        "mt-1",
-        "inline-block",
+        "inline-flex",
         "rounded-full",
+        "border-transparent",
         "bg-accent",
-        "px-2",
-        "py-0.5",
-        "text-xs",
-        "font-medium",
-        "capitalize",
         "text-accent-foreground",
+        "mt-1",
+        "capitalize",
       ]),
     )
   })
 })
 
 describe("seller order detail: header pill", () => {
-  it("renders the fulfilment status as a hand-made accent header pill (baseline)", async () => {
+  it("renders the fulfilment status as an accent Badge with header geometry", async () => {
     const t = pill(await detailHtml(), "delivered")
     expect(t).toEqual(
       expect.arrayContaining([
+        "inline-flex",
         "rounded-full",
-        "bg-accent",
+        "border-0",
         "px-3",
         "py-1",
         "text-sm",
         "font-medium",
         "capitalize",
+        "bg-accent",
         "text-accent-foreground",
       ]),
     )
+    expect(t).not.toContain("border")
   })
 })
 
 describe("seller subscriptions: status pills", () => {
-  it("renders Active, Pending activation and Pending as hand-made pills (baseline)", async () => {
+  it("renders Active, Pending activation and Pending as Badges", async () => {
     const html = await subsHtml()
     expect(pill(html, "Active")).toEqual(
-      expect.arrayContaining(["rounded-full", "bg-success-subtle", "text-success", "px-2.5"]),
+      expect.arrayContaining(["inline-flex", "bg-success-subtle", "text-success"]),
     )
     expect(pill(html, "Pending activation")).toEqual(
-      expect.arrayContaining(["rounded-full", "bg-warning-subtle", "text-warning", "px-2.5"]),
+      expect.arrayContaining(["inline-flex", "bg-warning-subtle", "text-warning"]),
     )
     expect(pill(html, "Pending")).toEqual(
-      expect.arrayContaining(["rounded-full", "bg-warning-subtle", "text-warning", "px-2.5"]),
+      expect.arrayContaining(["inline-flex", "bg-warning-subtle", "text-warning"]),
     )
   })
 })

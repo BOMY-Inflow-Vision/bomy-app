@@ -3,9 +3,11 @@ import { redirect } from "next/navigation"
 import { eq } from "drizzle-orm"
 
 import { schema, withTenant } from "@bomy/db"
+import { Badge } from "@bomy/ui/badge"
 
 import { auth } from "@/auth"
 import { getDb } from "@/lib/db"
+import { HEADER_PILL_CLASS, storeStatusVariant } from "@/lib/status-badge"
 import { CopyStoreId } from "./copy-store-id"
 
 export default async function SellerDashboardPage() {
@@ -41,12 +43,6 @@ export default async function SellerDashboardPage() {
     )
   }
 
-  const STATUS_COLORS = {
-    active: "bg-success-subtle text-success",
-    pending: "bg-warning-subtle text-warning",
-    suspended: "bg-destructive/10 text-destructive",
-  }
-
   return (
     <div className="p-8">
       <div className="mb-6 rounded-xl border border-border bg-background p-6 shadow-sm">
@@ -62,11 +58,9 @@ export default async function SellerDashboardPage() {
               <p className="mt-2 text-sm text-muted-foreground">{store.description}</p>
             )}
           </div>
-          <span
-            className={`rounded-full px-3 py-1 text-xs font-medium ${STATUS_COLORS[store.status]}`}
-          >
+          <Badge variant={storeStatusVariant(store.status)} className={HEADER_PILL_CLASS}>
             {store.status}
-          </span>
+          </Badge>
         </div>
       </div>
 

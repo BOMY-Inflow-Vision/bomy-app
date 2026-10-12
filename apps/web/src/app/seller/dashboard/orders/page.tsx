@@ -5,6 +5,7 @@ import { Eye } from "lucide-react"
 import { makeDb, schema, withTenant } from "@bomy/db"
 
 import { auth } from "@/auth"
+import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
 import { senToMyr } from "@/lib/money"
 import { cn } from "@/lib/utils"
@@ -97,9 +98,9 @@ export default async function SellerOrdersPage({ searchParams }: Props) {
             >
               <div>
                 <p className="font-mono text-sm text-muted-foreground">{order.id.slice(0, 8)}…</p>
-                <span className="mt-1 inline-block rounded-full bg-accent px-2 py-0.5 text-xs font-medium capitalize text-accent-foreground">
+                <Badge variant="accent" className="mt-1 capitalize">
                   {order.fulfilmentStatus}
-                </span>
+                </Badge>
               </div>
               <div className="text-right">
                 <p className="text-sm font-semibold text-foreground">

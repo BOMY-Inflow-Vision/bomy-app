@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { Pencil, X } from "lucide-react"
 
 import { auth } from "@/auth"
+import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
 import { Card, CardContent } from "@bomy/ui/card"
 import { CreatePlanForm } from "./create-plan-form"
@@ -82,13 +83,9 @@ export default async function SellerSubscriptionsPage({
                       <td className="px-5 py-3 text-foreground">{plan.discountPct}%</td>
                       <td className="px-5 py-3">
                         {plan.isActive ? (
-                          <span className="rounded-full bg-success-subtle px-2.5 py-0.5 text-xs font-medium text-success">
-                            Active
-                          </span>
+                          <Badge variant="success">Active</Badge>
                         ) : (
-                          <span className="rounded-full bg-warning-subtle px-2.5 py-0.5 text-xs font-medium text-warning">
-                            Pending activation
-                          </span>
+                          <Badge variant="warning">Pending activation</Badge>
                         )}
                       </td>
                       <td className="px-5 py-3 text-right text-foreground">
@@ -180,9 +177,7 @@ export default async function SellerSubscriptionsPage({
                       RM {senToMyr(row.brandPayoutSen)}
                     </td>
                     <td className="px-5 py-3">
-                      <span className="rounded-full bg-warning-subtle px-2.5 py-0.5 text-xs font-medium text-warning">
-                        Pending
-                      </span>
+                      <Badge variant="warning">Pending</Badge>
                     </td>
                   </tr>
                 )
