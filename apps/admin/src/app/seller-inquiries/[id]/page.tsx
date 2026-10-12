@@ -8,6 +8,7 @@ import { schema, withAdmin, type InquiryStatus } from "@bomy/db"
 
 import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
+import { Alert } from "@bomy/ui/alert"
 import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
 import { ApproveForm } from "./approve-form"
@@ -98,7 +99,7 @@ export default async function SellerInquiryDetailPage({ params }: Props) {
       {row.status === "pending" && <ApproveForm inquiryId={row.id} defaultSlug={row.storeName} />}
 
       {row.status === "approved" && (
-        <div className="rounded-lg border border-success/30 bg-success-subtle p-4 text-sm text-success">
+        <Alert variant="success" className="text-sm">
           <p className="font-semibold">Approved — pending store provisioned</p>
           <p className="mt-1">
             Store <span className="font-mono">{row.storeNameLinked ?? "—"}</span> (status:{" "}
@@ -108,14 +109,14 @@ export default async function SellerInquiryDetailPage({ params }: Props) {
             </Link>{" "}
             page.
           </p>
-        </div>
+        </Alert>
       )}
 
       {row.status === "rejected" && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+        <Alert variant="destructive" className="text-sm">
           Rejected{row.reviewedAt ? ` on ${row.reviewedAt.toLocaleString()}` : ""}
           {row.reviewerName ? ` by ${row.reviewerName}` : ""}.
-        </div>
+        </Alert>
       )}
     </div>
   )

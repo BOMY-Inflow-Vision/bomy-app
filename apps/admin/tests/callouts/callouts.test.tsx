@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-// Baseline of the three admin callout boxes (PR 5d-3, Task 1): the approved and rejected boxes on
+// The three admin callout boxes (PR 5d-3): the approved and rejected boxes on
 // the seller inquiry page and the payment-review row on the reconciliation page. Written first
-// against the hand-built divs; after the Alert swap only the expected class tokens change, never
-// the announcement state (no role, no aria-live) or the list structure.
+// against hand-built divs (baseline); after the Alert swap the box moved inside a plain li, and the
+// announcement state (no role, no aria-live) and the list structure are unchanged.
 import { renderToStaticMarkup } from "react-dom/server"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -107,7 +107,7 @@ beforeEach(() => {
 })
 
 describe("seller inquiry callouts", () => {
-  it("approved: hand-built success box, no announcement attributes (baseline)", async () => {
+  it("approved: Alert success box, no announcement attributes", async () => {
     const el = box(await inquiryDoc("approved"), "Approved — pending store provisioned")
     expect([...el.classList]).toEqual(
       expect.arrayContaining([
@@ -124,7 +124,7 @@ describe("seller inquiry callouts", () => {
     expect(el.querySelector("a")?.getAttribute("href")).toBe("/stores")
   })
 
-  it("rejected: hand-built destructive box, no announcement attributes (baseline)", async () => {
+  it("rejected: Alert destructive box, no announcement attributes", async () => {
     const el = box(await inquiryDoc("rejected"), "Rejected on")
     expect([...el.classList]).toEqual(
       expect.arrayContaining([
@@ -142,11 +142,13 @@ describe("seller inquiry callouts", () => {
 })
 
 describe("reconciliation review row", () => {
-  it("is a hand-built warning li inside the ul, with no announcement attributes (baseline)", async () => {
+  it("is an Alert warning box inside a plain li inside the ul, with no announcement attributes", async () => {
     const doc = await reconciliationDoc()
     const el = box(doc, "amount_mismatch")
-    expect(el.tagName).toBe("LI")
-    expect(el.parentElement?.tagName).toBe("UL")
+    expect(el.tagName).toBe("DIV")
+    expect(el.parentElement?.tagName).toBe("LI")
+    expect(el.parentElement?.parentElement?.tagName).toBe("UL")
+    expect(el.parentElement?.className).toBe("")
     expect([...el.classList]).toEqual(
       expect.arrayContaining([
         "flex",

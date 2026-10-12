@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 //
-// Baseline of the two callout boxes in the checkout form (PR 5d-3, Task 1): the invalid-lines
-// warning and the top error. Written first against the hand-built divs; after the Alert swap only
-// the expected class tokens change, never the announcement state (no role, no aria-live).
+// The two callout boxes in the checkout form (PR 5d-3): the invalid-lines warning and the top
+// error. Written first against hand-built divs (baseline); after the Alert swap only the colour
+// token on the box itself was added, never the announcement state (no role, no aria-live).
 import React, { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
@@ -87,7 +87,7 @@ function announced(el: HTMLElement): boolean {
 }
 
 describe("checkout callouts: invalid lines warning", () => {
-  it("is a hand-built warning box with no announcement attributes (baseline)", async () => {
+  it("is an Alert warning box with no announcement attributes", async () => {
     await renderForm()
     const el = box("Some items in your cart")
     expect([...el.classList]).toEqual(
@@ -96,6 +96,7 @@ describe("checkout callouts: invalid lines warning", () => {
         "border",
         "border-warning/30",
         "bg-warning-subtle",
+        "text-warning",
         "p-4",
       ]),
     )
@@ -105,7 +106,7 @@ describe("checkout callouts: invalid lines warning", () => {
 })
 
 describe("checkout callouts: top error", () => {
-  it("is a hand-built destructive box with p-3 and no announcement attributes (baseline)", async () => {
+  it("is an Alert destructive box with p-3 and no announcement attributes", async () => {
     await renderForm()
     await act(async () => {
       container
@@ -120,6 +121,7 @@ describe("checkout callouts: top error", () => {
         "border",
         "border-destructive/30",
         "bg-destructive/10",
+        "text-destructive",
         "p-3",
       ]),
     )

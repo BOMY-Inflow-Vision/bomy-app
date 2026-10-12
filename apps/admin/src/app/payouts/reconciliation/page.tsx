@@ -6,6 +6,7 @@ import { schema, withAdmin } from "@bomy/db"
 import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { senToMyr } from "@/lib/money"
+import { Alert } from "@bomy/ui/alert"
 import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
 import { Card } from "@bomy/ui/card"
@@ -116,26 +117,28 @@ export default async function ReconciliationPage() {
         ) : (
           <ul className="space-y-3">
             {reviewSessions.map((s) => (
-              <li
-                key={s.id}
-                className="flex items-center justify-between rounded-xl border border-warning/30 bg-warning-subtle px-6 py-4"
-              >
-                <div>
-                  <p className="font-mono text-sm text-warning">{s.id.slice(0, 8)}…</p>
-                  <p className="mt-1 text-xs text-warning">
-                    Reason: <code>{s.paymentReviewReason}</code> ·{" "}
-                    {s.createdAt.toLocaleDateString("en-MY")}
-                  </p>
-                </div>
-                <Button
-                  asChild
-                  variant="link"
-                  size="sm"
-                  icon={<Eye />}
-                  className="text-sm font-medium"
+              <li key={s.id}>
+                <Alert
+                  variant="warning"
+                  className="flex items-center justify-between rounded-xl px-6 py-4"
                 >
-                  <a href={`/checkout-sessions/${s.id}`}>Review</a>
-                </Button>
+                  <div>
+                    <p className="font-mono text-sm text-warning">{s.id.slice(0, 8)}…</p>
+                    <p className="mt-1 text-xs text-warning">
+                      Reason: <code>{s.paymentReviewReason}</code> ·{" "}
+                      {s.createdAt.toLocaleDateString("en-MY")}
+                    </p>
+                  </div>
+                  <Button
+                    asChild
+                    variant="link"
+                    size="sm"
+                    icon={<Eye />}
+                    className="text-sm font-medium"
+                  >
+                    <a href={`/checkout-sessions/${s.id}`}>Review</a>
+                  </Button>
+                </Alert>
               </li>
             ))}
           </ul>
