@@ -47,7 +47,7 @@
 
 `Alert` base classes: `rounded-lg border p-4`. Variant classes: success `border-success/30 bg-success-subtle text-success`; warning `border-warning/30 bg-warning-subtle text-warning`; info `border-info/30 bg-info-subtle text-info`; destructive `border-destructive/30 bg-destructive/10 text-destructive`. No text-size class in the base, so no site changes size. `info` has no call site yet (kept for the toaster in 5d-11; it is tested).
 
-**Open question for Bob (D8):** the ledger text for `man-t27` says "Card with a warning style". This plan uses `Alert` because the row is a status callout on the same warning tokens, and a `Card` would add `bg-card` and card radius (decision D3 is still open). Say if you want `Card` instead; that would move the row to 5d-2.
+**D8 decided (Bob and Charlie):** use `Alert` for `man-t27`. The row is a warning callout, and `li > Alert` keeps the list valid and its existing warning colours and radius. `Card` would add `bg-card` and depend on the open Card colour decision D3. Record this decision in the resolved ledger entry.
 
 **Known gap, not changed here:** the checkout top error and invalid-lines warning are not announced to screen readers today (no `role`). The instruction is to preserve today's behavior, so this PR keeps it. Opt-in `role="alert"` for the checkout error is a separate, one-line follow-up if you want it.
 
@@ -113,14 +113,14 @@ export { Alert, alertVariants }
 
 - [ ] **Step 1:** Replace each box per the map. Add `import { Alert } from "@bomy/ui/alert"` next to the other `@bomy/ui` imports. Keep every child element, text, link and class as it is; only the outer box changes. In the reconciliation page, move the `key={s.id}` to the `li`.
 - [ ] **Step 2:** Update the Task 1 tests to the "After" markup: `Alert` classes present, geometry overrides present, **still no `role` or `aria-live`**, `ul > li` kept, link `href` unchanged.
-- [ ] **Step 3:** `rg -n "border-warning/30|border-success/30|border-destructive/30" apps/web/src apps/admin/src` should show only `alert.tsx` (and no hand-built box left in the three files).
+- [ ] **Step 3:** Search only the three changed source files with `rg -n "border-warning/30|border-success/30|border-destructive/30" apps/web/src/app/checkout/_form.tsx 'apps/admin/src/app/seller-inquiries/[id]/page.tsx' apps/admin/src/app/payouts/reconciliation/page.tsx`; expect no matches. The shared `alert.tsx` is under `packages/ui`, and unrelated app callouts retain these classes outside this slice.
 - [ ] **Step 4:** Run `pnpm --filter @bomy/web typecheck`, `pnpm --filter @bomy/admin typecheck`, both new test files and the `git diff` check that no handler, query, `href`, text or `disabled` changed. Commit explicit paths: `refactor(ui): checkout, inquiry and reconciliation callouts use Alert (5d-3)`.
 
 ### Task 4: Ledger
 
 **Files:** Modify `scripts/ui-audit/findings.json`.
 
-- [ ] **Step 1:** Resolve `man-t18`, `man-t26`, `man-t27` with evidence text that cites only what was done (source swap, the two test files, the contrast gate) and says what was not browser-evaluated. Keep `ensure_ascii=True`, indent 2.
+- [ ] **Step 1:** Resolve `man-t18`, `man-t26`, `man-t27` with evidence text that cites only what was done (source swap, the two test files, the contrast gate) and says what was not browser-evaluated. For `man-t27`, record the D8 decision and why `Alert` satisfies the warning callout even though the old description proposed `Card`; update that description if it would otherwise contradict the resolution. Keep `ensure_ascii=True`, indent 2.
 - [ ] **Step 2:** Expect ledger **34 deferred, 62 resolved**; scanner 102 hits, 0 deferred; `pnpm ui:audit --allow-deferred` exit 0; `ui:audit:test` 17 of 17; plain `pnpm ui:audit` exit 1. Commit the file.
 
 ### Task 5: Browser proof and gates; stop before the push
