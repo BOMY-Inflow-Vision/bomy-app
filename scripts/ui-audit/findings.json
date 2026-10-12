@@ -309,7 +309,7 @@
     "route": "app/seller/dashboard/products/[id]/edit/product-edit-form.tsx",
     "description": "app/seller/dashboard/products/[id]/edit/product-edit-form.tsx line 83,90,686: hand-made rounded-full pills (fulfillment, muted label at 686) (should be Badge (686 is Badge secondary-like))",
     "status": "resolved",
-    "evidence": "PR 5d-1: FulfillmentBadge (Back-order warning, Pre-order info) and the Inactive label in product-edit-form.tsx are now Badge (warning, info, muted). Proof: tests/components/status-variants.test.tsx and the browser checks in the PR body."
+    "evidence": "PR 5d-1: FulfillmentBadge (Back-order warning, Pre-order info) and the Inactive label in product-edit-form.tsx are now Badge (warning, info, muted). Proof: source review of the diff, the Badge variant unit tests (tests/components/status-variants.test.tsx) and the contrast gate (tests/design-tokens/status-pairs.test.ts). The rendered pills were not evaluated in a browser or a fixture render (the seed has no such variants)."
   },
   {
     "id": "man-t05",
