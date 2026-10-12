@@ -1,9 +1,1 @@
-[
-  {
-    "rule": "R1-select",
-    "file": "apps/web/src/app/provider/apply/provider-apply-form.tsx",
-    "text": "<select",
-    "reason": "native select; Select primitive swap must keep posted name/value, required, aria; DEFERRED-UNTIL-PROVEN",
-    "followUp": "PR 5b: provider application Select (needs the state, validation and FormData proof)"
-  }
-]
+[]
