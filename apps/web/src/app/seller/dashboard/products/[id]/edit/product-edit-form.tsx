@@ -22,6 +22,7 @@ import { Archive, CircleMinus, CirclePlus, GripVertical, Pencil, Plus, Save, X }
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@bomy/ui/button"
+import { Badge } from "@bomy/ui/badge"
 import { Card, CardContent } from "@bomy/ui/card"
 import { Input } from "@bomy/ui/input"
 import { Label } from "@bomy/ui/label"
@@ -79,18 +80,10 @@ function senToMyr(sen: string): string {
 
 function FulfillmentBadge({ mode, days }: { mode: string; days: number | null }) {
   if (mode === "backorder") {
-    return (
-      <span className="rounded-full bg-warning-subtle px-2 py-0.5 text-xs text-warning">
-        Back-order
-      </span>
-    )
+    return <Badge variant="warning">Back-order</Badge>
   }
   if (mode === "preorder") {
-    return (
-      <span className="rounded-full bg-info-subtle px-2 py-0.5 text-xs text-info">
-        Pre-order{days ? ` · ${days}d` : ""}
-      </span>
-    )
+    return <Badge variant="info">Pre-order{days ? ` · ${days}d` : ""}</Badge>
   }
   return null
 }
@@ -682,11 +675,7 @@ export function ProductEditForm({
                                 mode={v.fulfillmentMode}
                                 days={v.preorderLeadDays}
                               />
-                              {!v.isActive && (
-                                <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                                  Inactive
-                                </span>
-                              )}
+                              {!v.isActive && <Badge variant="muted">Inactive</Badge>}
                             </div>
                           </div>
                           <div className="flex gap-2">

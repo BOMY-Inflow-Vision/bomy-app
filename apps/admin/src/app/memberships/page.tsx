@@ -7,21 +7,15 @@ import { schema, withAdmin } from "@bomy/db"
 import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { pageCount, pageOffset, parsePage, PAGE_SIZE } from "@/lib/pagination"
+import { statusVariant } from "@/lib/status-badge"
 import { cn } from "@/lib/utils"
+import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
 import { Card } from "@bomy/ui/card"
 import { Input } from "@bomy/ui/input"
 import { Label } from "@bomy/ui/label"
 import { Pagination } from "@/components/ui/pagination"
 import { cancelMembership, updateRenewalNotificationDays } from "./actions"
-
-const STATUS_COLORS: Record<string, string> = {
-  pending: "text-warning",
-  active: "text-success",
-  cancelled: "text-muted-foreground",
-  expired: "text-destructive",
-  payment_failed: "text-destructive",
-}
 
 export default async function MembershipsPage({
   searchParams,
@@ -163,13 +157,8 @@ export default async function MembershipsPage({
               {rows.map((row) => (
                 <tr key={row.id} className="border-b border-border last:border-0">
                   <td className="px-4 py-3 text-foreground">{row.userEmail}</td>
-                  <td
-                    className={cn(
-                      "px-4 py-3 font-medium",
-                      STATUS_COLORS[row.status] ?? "text-muted-foreground",
-                    )}
-                  >
-                    {row.status}
+                  <td className="px-4 py-3">
+                    <Badge variant={statusVariant(row.status)}>{row.status}</Badge>
                     {row.cancelledAt && (
                       <span className="ml-1 text-xs text-muted-foreground">
                         (cancelled {row.cancelledAt.toLocaleDateString()})

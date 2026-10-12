@@ -16,6 +16,14 @@ describe("status variants", () => {
     expect(html).toContain(text)
   })
 
+  it("Badge muted is the neutral status pill: muted fill and muted text, no border colour", () => {
+    const html = renderToStaticMarkup(<Badge variant="muted">x</Badge>)
+    expect(html).toContain("bg-muted")
+    expect(html).toContain("text-muted-foreground")
+    expect(html).toContain("border-transparent")
+    expect(html).not.toContain("text-foreground")
+  })
+
   it("Badge destructive-subtle is a 10% red tint with destructive text, not the solid fill", () => {
     const html = renderToStaticMarkup(<Badge variant="destructive-subtle">x</Badge>)
     expect(html).toContain("bg-destructive/10")

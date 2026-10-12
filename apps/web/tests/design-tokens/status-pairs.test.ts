@@ -60,6 +60,17 @@ describe.each(FILES)("5a-2 status pairs: %s", (file) => {
       expect(ratio(get("destructive"), tint)).toBeGreaterThanOrEqual(4.5)
     })
 
+    it("muted Badge: text-muted-foreground on its bg-muted fill is >= 4.5 (pill text, 5d-1)", () => {
+      expect(ratio(get("muted-foreground"), get("muted"))).toBeGreaterThanOrEqual(4.5)
+    })
+
+    it.each(surfaces)(
+      "muted-foreground is >= 4.5 on %s, so a muted pill on any admin or seller row stays readable",
+      (s) => {
+        expect(ratio(get("muted-foreground"), get(s))).toBeGreaterThanOrEqual(4.5)
+      },
+    )
+
     it("Processing button: text-info on bg-info-subtle, rest and hover:brightness-95 >= 4.5", () => {
       expect(ratio(get("info"), get("info-subtle"))).toBeGreaterThanOrEqual(4.5)
       expect(

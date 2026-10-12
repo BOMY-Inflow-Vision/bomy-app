@@ -3,7 +3,9 @@ import { redirect } from "next/navigation"
 import { Pencil, Plus } from "lucide-react"
 
 import { auth } from "@/auth"
+import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
+import { productStatusVariant } from "@/lib/status-badge"
 import { cn } from "@/lib/utils"
 import { getSellerProducts } from "./actions"
 
@@ -11,12 +13,6 @@ const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
   active: "Active",
   archived: "Archived",
-}
-
-const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-muted text-muted-foreground",
-  active: "bg-success-subtle text-success",
-  archived: "bg-muted text-muted-foreground",
 }
 
 export default async function SellerProductsPage({
@@ -98,11 +94,9 @@ export default async function SellerProductsPage({
                   </td>
                   <td className="px-5 py-3 font-mono text-xs text-muted-foreground">{p.slug}</td>
                   <td className="px-5 py-3">
-                    <span
-                      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[p.status] ?? ""}`}
-                    >
+                    <Badge variant={productStatusVariant(p.status)}>
                       {STATUS_LABELS[p.status] ?? p.status}
-                    </span>
+                    </Badge>
                   </td>
                   <td className="px-5 py-3 text-muted-foreground">
                     {p.createdAt.toLocaleDateString("en-MY")}
