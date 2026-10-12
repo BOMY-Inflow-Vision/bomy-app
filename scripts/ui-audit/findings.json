@@ -308,48 +308,48 @@
     "kind": "manual",
     "route": "app/seller/dashboard/products/[id]/edit/product-edit-form.tsx",
     "description": "app/seller/dashboard/products/[id]/edit/product-edit-form.tsx line 83,90,686: hand-made rounded-full pills (fulfillment, muted label at 686) (should be Badge (686 is Badge secondary-like))",
-    "status": "deferred",
-    "followUp": "PR 5d: hand-made pills, boxes, tabs and nav onto Badge, Card, Button (and any new shared piece)"
+    "status": "resolved",
+    "evidence": "PR 5d-1: FulfillmentBadge (Back-order warning, Pre-order info) and the Inactive label in product-edit-form.tsx are now Badge (warning, info, muted). Proof: tests/components/status-variants.test.tsx and the browser checks in the PR body."
   },
   {
     "id": "man-t05",
     "kind": "manual",
     "route": "app/seller/dashboard/subscriptions/page.tsx",
     "description": "app/seller/dashboard/subscriptions/page.tsx line 85,89,183: hand-made status pills (should be Badge)",
-    "status": "deferred",
-    "followUp": "PR 5d: hand-made pills, boxes, tabs and nav onto Badge, Card, Button (and any new shared piece)"
+    "status": "resolved",
+    "evidence": "PR 5d-1: the Active, Pending activation and Pending pills in seller/dashboard/subscriptions/page.tsx are Badge (success, warning). Proof: tests/seller-dashboard/status-pills.test.tsx."
   },
   {
     "id": "man-t06",
     "kind": "manual",
     "route": "app/seller/dashboard/products/page.tsx",
     "description": "app/seller/dashboard/products/page.tsx line 101-105: status pill span from STATUS_COLORS (should be Badge)",
-    "status": "deferred",
-    "followUp": "PR 5d: hand-made pills, boxes, tabs and nav onto Badge, Card, Button (and any new shared piece)"
+    "status": "resolved",
+    "evidence": "PR 5d-1: the product status pill in seller/dashboard/products/page.tsx is Badge with productStatusVariant (active success; draft and archived muted). Proof: tests/lib/status-badge.test.ts."
   },
   {
     "id": "man-t07",
     "kind": "manual",
     "route": "app/seller/dashboard/page.tsx",
     "description": "app/seller/dashboard/page.tsx line 65-69: store status pill span from STATUS_COLORS (should be Badge)",
-    "status": "deferred",
-    "followUp": "PR 5d: hand-made pills, boxes, tabs and nav onto Badge, Card, Button (and any new shared piece)"
+    "status": "resolved",
+    "evidence": "PR 5d-1: the store status header pill in seller/dashboard/page.tsx is Badge with storeStatusVariant and HEADER_PILL_CLASS (border-0 px-3 py-1 font-medium), so its size does not change. Proof: tests/lib/status-badge.test.ts and the geometry check in the PR body."
   },
   {
     "id": "man-t08",
     "kind": "manual",
     "route": "app/seller/dashboard/orders/page.tsx",
     "description": "app/seller/dashboard/orders/page.tsx line 100: rounded-full bg-accent pill (token-based) (should be Badge variant accent (identical look))",
-    "status": "deferred",
-    "followUp": "PR 5d: accent status pill in the seller orders list is still hand-made (token-based, not a palette colour); move to Badge accent"
+    "status": "resolved",
+    "evidence": "PR 5d-1: the fulfilment pill in seller/dashboard/orders/page.tsx is Badge variant accent. Proof: tests/seller-dashboard/status-pills.test.tsx."
   },
   {
     "id": "man-t09",
     "kind": "manual",
     "route": "app/seller/dashboard/orders/[orderId]/page.tsx",
     "description": "app/seller/dashboard/orders/[orderId]/page.tsx line 62: rounded-full bg-accent pill (token-based) (should be Badge variant accent)",
-    "status": "deferred",
-    "followUp": "PR 5d: accent status pill on the seller order page is still hand-made (token-based, not a palette colour); move to Badge accent"
+    "status": "resolved",
+    "evidence": "PR 5d-1: the fulfilment header pill in seller/dashboard/orders/[orderId]/page.tsx is Badge variant accent with ORDER_HEADER_PILL_CLASS (border-0 px-3 py-1 text-sm font-medium capitalize). Proof: tests/seller-dashboard/status-pills.test.tsx."
   },
   {
     "id": "man-t10",
@@ -508,8 +508,8 @@
     "kind": "manual",
     "route": "apps/admin/src/app/brand-subscriptions/page.tsx, memberships/page.tsx, goodie-box/page.tsx, stores/page.tsx",
     "description": "apps/admin/src/app/brand-subscriptions/page.tsx, memberships/page.tsx, goodie-box/page.tsx, stores/page.tsx line status cells: status shown as coloured text via STATUS_COLORS in a <td>, while seller-inquiries and users use Badge (inconsistent; status should be Badge across pages (would also resolve ",
-    "status": "deferred",
-    "followUp": "PR 5d: hand-made pills, boxes, tabs and nav onto Badge, Card, Button (and any new shared piece)"
+    "status": "resolved",
+    "evidence": "PR 5d-1: the status cells in apps/admin brand-subscriptions, memberships, goodie-box and stores pages are Badge pills through apps/admin/src/lib/status-badge.ts (statusVariant, storeStatusVariant). Proof: apps/admin/tests/lib/status-badge.test.ts and the browser checks in the PR body."
   },
   {
     "id": "man-t30",
@@ -676,8 +676,8 @@
     "kind": "manual",
     "route": "W/app/products/loading.tsx:1-3, 24",
     "description": "W/app/products/loading.tsx:1-3, 24: Hand-made Skeleton (`Block`) and product tile `li.rounded-xl border bg-background shadow-sm` mirror the real Card -> `Skeleton` primitive (absent) + `Card`",
-    "status": "deferred",
-    "followUp": "PR 5d: hand-made pills, boxes, tabs and nav onto Badge, Card, Button (and any new shared piece)"
+    "status": "resolved",
+    "evidence": "apps/web/src/app/products/loading.tsx is not tracked in git and has no history (git ls-files and git log --all both return nothing). It is Charlie's local untracked file, kept untracked by his decision (2026-10-12). The scanner reports the same totals (102 hits, 0 deferred) with and without it. Re-audit if the file is ever added."
   },
   {
     "id": "man-b11",
