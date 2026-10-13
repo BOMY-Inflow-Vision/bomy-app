@@ -49,7 +49,7 @@
 
 **D8 decided (Bob and Charlie):** use `Alert` for `man-t27`. The row is a warning callout, and `li > Alert` keeps the list valid and its existing warning colours and radius. `Card` would add `bg-card` and depend on the open Card colour decision D3. Record this decision in the resolved ledger entry.
 
-**Known gap, not changed here:** the checkout top error and invalid-lines warning are not announced to screen readers today (no `role`). The instruction is to preserve today's behavior, so this PR keeps it. Opt-in `role="alert"` for the checkout error is a separate, one-line follow-up if you want it.
+**Announcement state, not changed here:** the checkout top error banner is quiet (no `role`), but the same message is already sent to the toaster (`toast.error(...)` in `handleSubmit`), whose live region announces it; adding `role="alert"` to the banner would announce it twice, so no such follow-up is planned. Only the invalid-lines warning has no announcement today. The instruction is to preserve today's behavior, so this PR keeps both as they are.
 
 ---
 
@@ -129,7 +129,7 @@ export { Alert, alertVariants }
 - [ ] **Step 2 (M2, real pages):** the local web app, signed in as a seeded buyer: open `/checkout` with a cart that makes the live invalid-line warning and the top error appear if the seed allows it; otherwise report them as not evaluated (the fixture test covers the markup). Check 390 px for horizontal overflow on `/checkout`.
 - [ ] **Step 3 (M3, admin):** the inquiry and reconciliation pages need an admin session; try Charlie's Chrome once, else report as not evaluated (fixture tests and the harness cover them).
 - [ ] **Step 4 (M4):** `pnpm install --frozen-lockfile`, `typecheck`, `lint`, web and admin tests, `@bomy/ui` typecheck, both builds (`loading.tsx` moved aside, restored after), prettier on the diff, audit gate and audit tests. Check `git diff --name-only main HEAD` has no `loading.tsx` and no stray files.
-- [ ] **Step 5:** Write `.andy/pr5d3-pr-body.md` (format of the 5d-1 body; ends with the 🤖 line; lists visible changes, the unchanged announcements, the checkout-announcement gap, D8 and the not-evaluated list). Report to Charlie. **Push and open the PR only after his go. Do not merge.**
+- [ ] **Step 5:** Write `.andy/pr5d3-pr-body.md` (format of the 5d-1 body; ends with the 🤖 line; lists visible changes, the unchanged announcements, the invalid-lines warning's missing announcement, D8 and the not-evaluated list). Report to Charlie. **Push and open the PR only after his go. Do not merge.**
 - [ ] **After merge:** log `log/2026-10-…_PR<N>_ui-pr5d3-alert.md`, handoff, memory, delete branch.
 
 ## Self-review
