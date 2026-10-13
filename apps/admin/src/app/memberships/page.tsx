@@ -8,10 +8,10 @@ import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { pageCount, pageOffset, parsePage, PAGE_SIZE } from "@/lib/pagination"
 import { statusVariant } from "@/lib/status-badge"
-import { cn } from "@/lib/utils"
 import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
 import { Card } from "@bomy/ui/card"
+import { FilterTab, FilterTabs } from "@bomy/ui/filter-tabs"
 import { Input } from "@bomy/ui/input"
 import { Label } from "@bomy/ui/label"
 import { Pagination } from "@/components/ui/pagination"
@@ -124,22 +124,13 @@ export default async function MembershipsPage({
           <h1 id="memberships-heading" className="text-lg font-semibold text-foreground">
             Platform Memberships
           </h1>
-          <div className="flex flex-wrap gap-1 text-sm">
+          <FilterTabs label="Filter by status" className="gap-1 text-sm">
             {["", "pending", "active", "cancelled", "expired", "payment_failed"].map((s) => (
-              <Link
-                key={s}
-                href={buildHref({ status: s })}
-                className={cn(
-                  "rounded px-3 py-1",
-                  status === s || (!status && !s)
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground hover:bg-muted",
-                )}
-              >
-                {s || "All"}
-              </Link>
+              <FilterTab key={s} asChild variant="flat" active={status === s || (!status && !s)}>
+                <Link href={buildHref({ status: s })}>{s || "All"}</Link>
+              </FilterTab>
             ))}
-          </div>
+          </FilterTabs>
         </div>
         <Card className="overflow-x-auto">
           <table className="w-full text-sm">

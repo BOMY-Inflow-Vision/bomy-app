@@ -8,9 +8,9 @@ import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { pageCount, pageOffset, parsePage, PAGE_SIZE } from "@/lib/pagination"
 import { statusVariant } from "@/lib/status-badge"
-import { cn } from "@/lib/utils"
 import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
+import { FilterTab, FilterTabs } from "@bomy/ui/filter-tabs"
 import { Input } from "@bomy/ui/input"
 import { Label } from "@bomy/ui/label"
 import { Pagination } from "@/components/ui/pagination"
@@ -94,51 +94,31 @@ export default async function GoodieBoxPage({
     <div className="p-6">
       <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
         <h1 className="text-lg font-semibold text-foreground">Goodie Box Dispatches</h1>
-        <div className="flex flex-wrap gap-1 text-sm">
+        <FilterTabs label="Filter by status" className="gap-1 text-sm">
           {["", "pending", "dispatched", "delivered"].map((s) => (
-            <Link
-              key={s}
-              href={buildHref({ status: s })}
-              className={cn(
-                "rounded px-3 py-1",
-                status === s || (!status && !s)
-                  ? "bg-accent text-accent-foreground"
-                  : "text-muted-foreground hover:bg-muted",
-              )}
-            >
-              {s || "All"}
-            </Link>
+            <FilterTab key={s} asChild variant="flat" active={status === s || (!status && !s)}>
+              <Link href={buildHref({ status: s })}>{s || "All"}</Link>
+            </FilterTab>
           ))}
-        </div>
+        </FilterTabs>
         {quarters.length > 0 && (
-          <div className="ml-auto flex flex-wrap items-center gap-2 text-sm">
+          <FilterTabs label="Filter by quarter" className="ml-auto items-center gap-2 text-sm">
             <span className="text-muted-foreground">Quarter:</span>
-            <Link
-              href={buildHref({ quarter: "" })}
-              className={cn(
-                "rounded px-2 py-1",
-                !quarter
-                  ? "bg-accent text-accent-foreground"
-                  : "text-muted-foreground hover:bg-muted",
-              )}
-            >
-              All
-            </Link>
+            <FilterTab asChild variant="flat" active={!quarter} className="px-2">
+              <Link href={buildHref({ quarter: "" })}>All</Link>
+            </FilterTab>
             {quarters.map((q) => (
-              <Link
+              <FilterTab
                 key={q.quarter}
-                href={buildHref({ quarter: q.quarter })}
-                className={cn(
-                  "rounded px-2 py-1",
-                  quarter === q.quarter
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground hover:bg-muted",
-                )}
+                asChild
+                variant="flat"
+                active={quarter === q.quarter}
+                className="px-2"
               >
-                {q.quarter}
-              </Link>
+                <Link href={buildHref({ quarter: q.quarter })}>{q.quarter}</Link>
+              </FilterTab>
             ))}
-          </div>
+          </FilterTabs>
         )}
       </div>
       <div className="relative overflow-x-auto rounded-lg border border-border bg-background">

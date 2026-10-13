@@ -8,10 +8,10 @@ import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { pageCount, pageOffset, parsePage, PAGE_SIZE } from "@/lib/pagination"
 import { storeStatusVariant } from "@/lib/status-badge"
-import { cn } from "@/lib/utils"
 import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
 import { Card } from "@bomy/ui/card"
+import { FilterTab, FilterTabs } from "@bomy/ui/filter-tabs"
 import { Input } from "@bomy/ui/input"
 import { Label } from "@bomy/ui/label"
 import { Pagination } from "@/components/ui/pagination"
@@ -116,22 +116,18 @@ export default async function StoresPage({
       <div className="mb-4 flex flex-wrap items-center justify-between gap-y-2">
         <h1 className="text-lg font-semibold text-foreground">Stores</h1>
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex flex-wrap gap-1 text-sm">
+          <FilterTabs label="Filter by status" className="gap-1 text-sm">
             {["", ...STORE_STATUSES].map((s) => (
-              <Link
+              <FilterTab
                 key={s || "all"}
-                href={buildHref({ status: s })}
-                className={cn(
-                  "rounded px-3 py-1",
-                  (isStoreStatus(status) ? status : "") === s
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground hover:bg-muted",
-                )}
+                asChild
+                variant="flat"
+                active={(isStoreStatus(status) ? status : "") === s}
               >
-                {s || "All"}
-              </Link>
+                <Link href={buildHref({ status: s })}>{s || "All"}</Link>
+              </FilterTab>
             ))}
-          </div>
+          </FilterTabs>
           <form method="get" className="flex items-center gap-1">
             {isStoreStatus(status) && <input type="hidden" name="status" value={status} />}
             {sortKey !== "created_desc" && <input type="hidden" name="sort" value={sortKey} />}
