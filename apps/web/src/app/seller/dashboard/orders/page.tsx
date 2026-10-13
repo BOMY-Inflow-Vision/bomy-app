@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm"
+import Link from "next/link"
 import { redirect } from "next/navigation"
 import { Eye } from "lucide-react"
 
@@ -7,8 +8,8 @@ import { makeDb, schema, withTenant } from "@bomy/db"
 import { auth } from "@/auth"
 import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
+import { FilterTab, FilterTabs } from "@bomy/ui/filter-tabs"
 import { senToMyr } from "@/lib/money"
-import { cn } from "@/lib/utils"
 
 import { fetchSellerOrders } from "./queries"
 
@@ -61,31 +62,22 @@ export default async function SellerOrdersPage({ searchParams }: Props) {
     <div className="p-8">
       <h1 className="mb-6 text-2xl font-bold text-foreground">Orders</h1>
 
-      <div className="mb-6 flex flex-wrap gap-2">
-        <a
-          href="/seller/dashboard/orders"
-          className={cn(
-            "rounded-full px-3 py-1 text-sm",
-            !validStatus ? "bg-foreground text-background" : "bg-muted text-muted-foreground",
-          )}
-        >
-          All
-        </a>
+      <FilterTabs label="Filter by status" className="mb-6 gap-2">
+        <FilterTab asChild variant="inverse" active={!validStatus}>
+          <Link href="/seller/dashboard/orders">All</Link>
+        </FilterTab>
         {statuses.map((s) => (
-          <a
+          <FilterTab
             key={s}
-            href={`/seller/dashboard/orders?status=${s}`}
-            className={cn(
-              "rounded-full px-3 py-1 text-sm capitalize",
-              validStatus === s
-                ? "bg-foreground text-background"
-                : "bg-muted text-muted-foreground",
-            )}
+            asChild
+            variant="inverse"
+            active={validStatus === s}
+            className="capitalize"
           >
-            {s}
-          </a>
+            <Link href={`/seller/dashboard/orders?status=${s}`}>{s}</Link>
+          </FilterTab>
         ))}
-      </div>
+      </FilterTabs>
 
       {orders.length === 0 ? (
         <p className="text-sm text-muted-foreground">No orders.</p>

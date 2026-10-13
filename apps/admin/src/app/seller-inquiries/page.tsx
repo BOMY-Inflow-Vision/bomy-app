@@ -10,6 +10,7 @@ import { pageCount, pageOffset, parsePage, PAGE_SIZE } from "@/lib/pagination"
 import { cn } from "@/lib/utils"
 import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
+import { FilterTab, FilterTabs } from "@bomy/ui/filter-tabs"
 import { Input } from "@bomy/ui/input"
 import { Label } from "@bomy/ui/label"
 import { Pagination } from "@/components/ui/pagination"
@@ -106,22 +107,18 @@ export default async function SellerInquiriesPage({
           </Badge>
         </h1>
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex flex-wrap gap-1 text-sm">
+          <FilterTabs label="Filter by status" className="gap-1 text-sm">
             {["", ...INQUIRY_STATUSES].map((s) => (
-              <Link
+              <FilterTab
                 key={s || "all"}
-                href={buildHref({ status: s })}
-                className={cn(
-                  "rounded px-3 py-1",
-                  (isStatus(status) ? status : "") === s
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground hover:bg-muted",
-                )}
+                asChild
+                variant="flat"
+                active={(isStatus(status) ? status : "") === s}
               >
-                {s || "All"}
-              </Link>
+                <Link href={buildHref({ status: s })}>{s || "All"}</Link>
+              </FilterTab>
             ))}
-          </div>
+          </FilterTabs>
           <form method="get" className="flex flex-wrap items-center gap-1">
             {isStatus(status) && <input type="hidden" name="status" value={status} />}
             {sortKey !== "created_desc" && <input type="hidden" name="sort" value={sortKey} />}

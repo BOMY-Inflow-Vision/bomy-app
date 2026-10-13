@@ -380,16 +380,16 @@
     "kind": "manual",
     "route": "app/seller/dashboard/products/page.tsx",
     "description": "app/seller/dashboard/products/page.tsx line 46-56: status filter chips: Link rounded-full with active bg-primary state (hand-made chip/tab; no primitive (candidate))",
-    "status": "deferred",
-    "followUp": "PR 5d: hand-made pills, boxes, tabs and nav onto Badge, Card, Button (and any new shared piece)"
+    "status": "resolved",
+    "evidence": "PR 5d-4: the status filter chips in apps/web/src/app/seller/dashboard/products/page.tsx are FilterTabs/FilterTab (primary look) around the same next/link links. Hrefs, order and the active chip are unchanged, including no active chip for an invalid nonempty status. The group gains a nav label and aria-current on the active chip. Proof: apps/web/tests/filters/filters.test.tsx (baseline written first on the hand-built chips, then updated; mutation-checked), tests/components/filter-tabs.test.tsx and the contrast pairs in tests/design-tokens/status-pairs.test.ts. The seller orders chips (same pattern, not a ledger entry) moved too."
   },
   {
     "id": "man-t14",
     "kind": "manual",
     "route": "app/products/page.tsx; app/brands/page.tsx",
     "description": "app/products/page.tsx; app/brands/page.tsx line 172 / 198: pagination page links hand-styled (Link with bg-primary active state) (repeated pagination pattern; candidate shared Pagination)",
-    "status": "deferred",
-    "followUp": "PR 5d: hand-made pills, boxes, tabs and nav onto Badge, Card, Button (and any new shared piece)"
+    "status": "resolved",
+    "evidence": "PR 5d-5: the page links on apps/web/src/app/products/page.tsx (all numbers, 32 px) and apps/web/src/app/brands/page.tsx (collapsed range, 44 px) are the shared Pagination in @bomy/ui/pagination. Each page keeps its own href builder (product page 1 with no filters is still /products?, brands is still /brands), its nav label and wrapper classes. pageRange moved verbatim from the brands page. Proof: apps/web/tests/filters/filters.test.tsx (totalPages 1, 7, 8, 20 at the ends and middle; mutation-checked), tests/components/pagination.test.tsx (pageRange for every position up to 30 pages, keyboard order)."
   },
   {
     "id": "man-t15",
@@ -428,16 +428,16 @@
     "kind": "manual",
     "route": "apps/admin/src/app/payouts/page.tsx",
     "description": "apps/admin/src/app/payouts/page.tsx line 93-115: Status filter links are anchors styled as pill tabs (rounded-full px-3 py-1, bg-foreground/bg-muted), plain <a> not Link (tab-like toggle; could be Button variant/asChild or a shared FilterPill; also uses <a> (full reload) instead of next/Link)",
-    "status": "deferred",
-    "followUp": "PR 5d: hand-made pills, boxes, tabs and nav onto Badge, Card, Button (and any new shared piece)"
+    "status": "resolved",
+    "evidence": "PR 5d-4: the status filter on apps/admin/src/app/payouts/page.tsx is FilterTabs (inverse look). The plain anchors became next/link (client navigation, same hrefs); an invalid status still selects All. Proof: apps/admin/tests/filters/filters.test.tsx (baseline first, then updated; mutation-checked on the active class) and the contrast pairs. The real admin page was not evaluated in a browser."
   },
   {
     "id": "man-t20",
     "kind": "manual",
     "route": "apps/admin/src/app/seller-inquiries/page.tsx",
     "description": "apps/admin/src/app/seller-inquiries/page.tsx line 110-120: Status filter Links styled as tabs (rounded px-3 py-1, bg-accent when active) (hand-made tab/filter group; same pattern in stores/page.tsx:129, goodie-box/page.tsx:106,122,135, memberships/page.tsx:139, brand-subscriptions/page.tsx:121,137,1",
-    "status": "deferred",
-    "followUp": "PR 5d: hand-made pills, boxes, tabs and nav onto Badge, Card, Button (and any new shared piece)"
+    "status": "resolved",
+    "evidence": "PR 5d-4: the filter groups on the admin seller-inquiries, stores, goodie-box (status group and quarter group), memberships and brand-subscriptions pages are FilterTabs (flat look) around the same links. Hrefs and active chips are unchanged: invalid status selects All on inquiries and stores and leaves no chip active on goodie-box, memberships and brand-subscriptions, as before. Proof: apps/admin/tests/filters/filters.test.tsx and the contrast pairs. The real admin pages were not evaluated in a browser."
   },
   {
     "id": "man-t21",

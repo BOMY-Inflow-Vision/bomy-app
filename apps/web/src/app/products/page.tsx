@@ -4,6 +4,7 @@ import { Search, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
+import { Pagination } from "@bomy/ui/pagination"
 import { Input } from "@bomy/ui/input"
 import { Label } from "@bomy/ui/label"
 
@@ -28,6 +29,14 @@ export default async function ProductsPage({ searchParams }: Props) {
     }),
     getCategories(),
   ])
+
+  const pageHref = (p: number) => {
+    const params = new URLSearchParams()
+    if (q) params.set("q", q)
+    if (category) params.set("category", category)
+    if (p > 1) params.set("page", String(p))
+    return `/products?${params.toString()}`
+  }
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
@@ -155,35 +164,14 @@ export default async function ProductsPage({ searchParams }: Props) {
           )}
 
           {/* Pagination */}
-          {totalPages > 1 && (
-            <nav
-              aria-label="Products pagination"
-              className="mt-8 flex flex-wrap justify-center gap-2"
-            >
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
-                const params = new URLSearchParams()
-                if (q) params.set("q", q)
-                if (category) params.set("category", category)
-                if (p > 1) params.set("page", String(p))
-                return (
-                  <Link
-                    key={p}
-                    href={`/products?${params.toString()}`}
-                    aria-label={`Page ${p}`}
-                    aria-current={p === page ? "page" : undefined}
-                    className={cn(
-                      "flex h-8 w-8 items-center justify-center rounded-control text-sm",
-                      p === page
-                        ? "bg-primary text-primary-foreground"
-                        : "border border-border text-muted-foreground hover:bg-muted",
-                    )}
-                  >
-                    {p}
-                  </Link>
-                )
-              })}
-            </nav>
-          )}
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            buildHref={pageHref}
+            label="Products pagination"
+            linkAs={Link}
+            className="mt-8 flex flex-wrap justify-center gap-2"
+          />
         </section>
       </div>
     </main>

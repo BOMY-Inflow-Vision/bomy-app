@@ -4,6 +4,7 @@ import { Search, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
+import { Pagination } from "@bomy/ui/pagination"
 import { Input } from "@bomy/ui/input"
 import { Label } from "@bomy/ui/label"
 
@@ -14,16 +15,6 @@ interface Props {
 }
 
 export const metadata = { title: "Brands — BOMY" }
-
-function pageRange(current: number, total: number): (number | "...")[] {
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
-  const pages: (number | "...")[] = [1]
-  if (current > 3) pages.push("...")
-  for (let p = Math.max(2, current - 1); p <= Math.min(total - 1, current + 1); p++) pages.push(p)
-  if (current < total - 2) pages.push("...")
-  pages.push(total)
-  return pages
-}
 
 export default async function BrandsPage({ searchParams }: Props) {
   const { q, category, page: pageParam } = await searchParams
@@ -38,6 +29,14 @@ export default async function BrandsPage({ searchParams }: Props) {
     }),
     getStoreCategories(),
   ])
+
+  const pageHref = (p: number) => {
+    const params = new URLSearchParams()
+    if (q) params.set("q", q)
+    if (category) params.set("category", category)
+    if (p > 1) params.set("page", String(p))
+    return params.size > 0 ? `/brands?${params.toString()}` : "/brands"
+  }
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
@@ -169,44 +168,16 @@ export default async function BrandsPage({ searchParams }: Props) {
           )}
 
           {/* Pagination */}
-          {totalPages > 1 && (
-            <nav aria-label="Brands pagination" className="mt-8 flex justify-center gap-1">
-              {pageRange(page, totalPages).map((p, i) => {
-                if (p === "...") {
-                  return (
-                    <span
-                      key={`ellipsis-${i}`}
-                      className="flex h-11 w-11 items-center justify-center text-sm text-muted-foreground"
-                      aria-hidden="true"
-                    >
-                      …
-                    </span>
-                  )
-                }
-                const params = new URLSearchParams()
-                if (q) params.set("q", q)
-                if (category) params.set("category", category)
-                if (p > 1) params.set("page", String(p))
-                const href = params.size > 0 ? `/brands?${params.toString()}` : "/brands"
-                return (
-                  <Link
-                    key={p}
-                    href={href}
-                    aria-label={`Page ${p}`}
-                    aria-current={p === page ? "page" : undefined}
-                    className={cn(
-                      "flex h-11 w-11 items-center justify-center rounded-control text-sm",
-                      p === page
-                        ? "bg-primary text-primary-foreground"
-                        : "border border-border text-muted-foreground hover:bg-muted",
-                    )}
-                  >
-                    {p}
-                  </Link>
-                )
-              })}
-            </nav>
-          )}
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            buildHref={pageHref}
+            label="Brands pagination"
+            linkAs={Link}
+            size="lg"
+            collapse
+            className="mt-8 flex justify-center gap-1"
+          />
         </section>
       </div>
     </main>

@@ -5,8 +5,8 @@ import { Pencil, Plus } from "lucide-react"
 import { auth } from "@/auth"
 import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
+import { FilterTab, FilterTabs } from "@bomy/ui/filter-tabs"
 import { productStatusVariant } from "@/lib/status-badge"
-import { cn } from "@/lib/utils"
 import { getSellerProducts } from "./actions"
 
 const STATUS_LABELS: Record<string, string> = {
@@ -37,22 +37,17 @@ export default async function SellerProductsPage({
       </div>
 
       {/* Status filter tabs */}
-      <div className="mb-4 flex gap-2">
+      <FilterTabs label="Filter by status" className="mb-4 gap-2">
         {["", "draft", "active", "archived"].map((s) => (
-          <Link
-            key={s}
-            href={s ? `/seller/dashboard/products?status=${s}` : "/seller/dashboard/products"}
-            className={cn(
-              "rounded-full px-3 py-1 text-xs font-medium",
-              status === s || (!status && !s)
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-muted/80",
-            )}
-          >
-            {s ? STATUS_LABELS[s] : "All"}
-          </Link>
+          <FilterTab key={s} asChild variant="primary" active={status === s || (!status && !s)}>
+            <Link
+              href={s ? `/seller/dashboard/products?status=${s}` : "/seller/dashboard/products"}
+            >
+              {s ? STATUS_LABELS[s] : "All"}
+            </Link>
+          </FilterTab>
         ))}
-      </div>
+      </FilterTabs>
 
       {products.length === 0 ? (
         <div className="rounded-xl border border-border bg-background p-12 text-center shadow-sm">

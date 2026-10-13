@@ -1,4 +1,5 @@
 import { and, desc, eq, sql } from "drizzle-orm"
+import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 
 import { schema, withAdmin } from "@bomy/db"
@@ -7,10 +8,10 @@ import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { senToMyr } from "@/lib/money"
 import { pageCount, pageOffset, parsePage, PAGE_SIZE } from "@/lib/pagination"
-import { cn } from "@/lib/utils"
 import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
 import { Card } from "@bomy/ui/card"
+import { FilterTab, FilterTabs } from "@bomy/ui/filter-tabs"
 import { Pagination } from "@/components/ui/pagination"
 
 import { PayoutActions } from "./_payout-actions"
@@ -89,31 +90,22 @@ export default async function PayoutsPage({ searchParams }: Props) {
         </Button>
       </div>
 
-      <div className="mb-6 flex flex-wrap gap-2">
-        <a
-          href={buildHref({ status: "" })}
-          className={cn(
-            "rounded-full px-3 py-1 text-sm",
-            !validStatus ? "bg-foreground text-background" : "bg-muted text-muted-foreground",
-          )}
-        >
-          All
-        </a>
+      <FilterTabs label="Filter by status" className="mb-6 gap-2">
+        <FilterTab asChild variant="inverse" active={!validStatus}>
+          <Link href={buildHref({ status: "" })}>All</Link>
+        </FilterTab>
         {statuses.map((s) => (
-          <a
+          <FilterTab
             key={s}
-            href={buildHref({ status: s })}
-            className={cn(
-              "rounded-full px-3 py-1 text-sm capitalize",
-              validStatus === s
-                ? "bg-foreground text-background"
-                : "bg-muted text-muted-foreground",
-            )}
+            asChild
+            variant="inverse"
+            active={validStatus === s}
+            className="capitalize"
           >
-            {s}
-          </a>
+            <Link href={buildHref({ status: s })}>{s}</Link>
+          </FilterTab>
         ))}
-      </div>
+      </FilterTabs>
 
       <Card className="overflow-x-auto">
         <table className="w-full text-sm text-foreground">
