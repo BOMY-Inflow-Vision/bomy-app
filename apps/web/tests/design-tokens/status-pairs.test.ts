@@ -89,5 +89,18 @@ describe.each(FILES)("5a-2 status pairs: %s", (file) => {
       expect(ratio(get("secondary-foreground"), get("secondary"))).toBeGreaterThanOrEqual(4.5)
       expect(ratio(get("foreground"), get("card"))).toBeGreaterThanOrEqual(4.5)
     })
+
+    it("filter chips (5d-4): every active and inactive pair is >= 4.5", () => {
+      // primary look: active, inactive, and inactive on hover (bg-muted/80 over each surface)
+      expect(ratio(get("primary-foreground"), get("primary"))).toBeGreaterThanOrEqual(4.5)
+      for (const s of surfaces) {
+        const hover = over(get("muted"), get(s), 0.8)
+        expect(ratio(get("muted-foreground"), hover)).toBeGreaterThanOrEqual(4.5)
+      }
+      // inverse look
+      expect(ratio(get("background"), get("foreground"))).toBeGreaterThanOrEqual(4.5)
+      // flat look: active accent, inactive text on the page surfaces
+      expect(ratio(get("accent-foreground"), get("accent"))).toBeGreaterThanOrEqual(4.5)
+    })
   })
 })

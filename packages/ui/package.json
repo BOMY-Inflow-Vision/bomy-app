@@ -8,6 +8,7 @@
     "./button": "./src/components/button.tsx",
     "./badge": "./src/components/badge.tsx",
     "./alert": "./src/components/alert.tsx",
+    "./filter-tabs": "./src/components/filter-tabs.tsx",
     "./card": "./src/components/card.tsx",
     "./input": "./src/components/input.tsx",
     "./label": "./src/components/label.tsx",
