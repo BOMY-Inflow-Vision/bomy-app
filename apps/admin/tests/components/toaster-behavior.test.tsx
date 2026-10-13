@@ -2,7 +2,7 @@
 //
 // Announcement, queue, timers and dismiss behaviour of the toaster (PR 5d-11). Written first
 // against the hand-built banner and raw dismiss button (baseline); after the Alert and Button swap
-// only the class-token expectations of the banner source and the dismiss control change. The live
+// only the dismiss control's class-token expectations changed. The live
 // region, what is announced, the timers and the queue must not.
 import React, { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
@@ -134,24 +134,39 @@ describe.each(Object.entries(TYPES))("a %s toast on its own", (type, spec) => {
   })
 })
 
-// The dismiss control's own classes. After the Button swap this block is the only expectation
-// that changes (see the PR body).
+// The dismiss control's own classes. It is the shared ghost icon Button with overrides that keep
+// today's 24 px round control, foreground/10 hover, inherited text colour and 2 px current ring.
 const DISMISS = [
+  "h-6",
+  "w-6",
   "shrink-0",
   "cursor-pointer",
   "rounded-full",
-  "p-1",
+  "p-0",
   "transition-colors",
   "hover:bg-foreground/10",
+  "hover:text-current",
   "focus-visible:outline-none",
   "focus-visible:ring-2",
   "focus-visible:ring-current",
 ]
-it("the dismiss control looks as it does today", () => {
+it("the dismiss control keeps its look through the shared Button", () => {
   mount()
   act(() => api.success("x"))
   const btn = banners()[0]!.querySelector("button")!
-  expect([...btn.classList]).toEqual(expect.arrayContaining(DISMISS))
+  const cls = [...btn.classList]
+  expect(cls).toEqual(expect.arrayContaining(DISMISS))
+  for (const gone of [
+    "h-9",
+    "w-9",
+    "p-1",
+    "hover:bg-accent",
+    "hover:text-accent-foreground",
+    "focus-visible:ring-1",
+    "focus-visible:ring-ring",
+  ]) {
+    expect(cls, gone).not.toContain(gone)
+  }
 })
 
 describe("timers, pause and queue", () => {
