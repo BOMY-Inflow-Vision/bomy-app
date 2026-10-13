@@ -11,6 +11,8 @@ import {
   type ToastType,
 } from "@/lib/flash-toast"
 import { cn } from "@/lib/utils"
+import { Alert, type AlertProps } from "@bomy/ui/alert"
+import { Button } from "@bomy/ui/button"
 
 export type { ToastType }
 
@@ -56,28 +58,29 @@ export function toastReducer(state: ToastItem[], action: ToastAction): ToastItem
 
 const TOAST_STYLES: Record<
   ToastType,
-  { icon: React.ReactNode; className: string; srLabel?: string }
+  { icon: React.ReactNode; variant: AlertProps["variant"]; className?: string; srLabel?: string }
 > = {
-  // Banners use the status tokens, so text and icon flip with the theme and every pair passes
-  // 4.5:1 on its own tint (pinned in tests/design-tokens). The error banner sits on the opaque
-  // card colour, not a translucent destructive tint: a floating toast can land over the navy admin
-  // top bar, where 10% red lets the bar show through and drops the text to 2.7:1.
+  // Banners use the Alert status variants, so text and icon flip with the theme and every pair
+  // passes 4.5:1 on its own tint (pinned in tests/design-tokens). The error banner sits on the
+  // opaque card colour, not Alert's translucent destructive tint: a floating toast can land over
+  // the navy admin top bar, where 10% red lets the bar show through and drops the text to 2.7:1.
   success: {
     icon: <CircleCheck className="size-5 text-success" aria-hidden="true" />,
-    className: "border-success/30 bg-success-subtle text-success",
+    variant: "success",
   },
   info: {
     icon: <Info className="size-5 text-info" aria-hidden="true" />,
-    className: "border-info/30 bg-info-subtle text-info",
+    variant: "info",
   },
   warning: {
     icon: <CircleAlert className="size-5 text-warning" aria-hidden="true" />,
-    className: "border-warning/30 bg-warning-subtle text-warning",
+    variant: "warning",
     srLabel: "Warning",
   },
   error: {
     icon: <CircleX className="size-5 text-destructive" aria-hidden="true" />,
-    className: "border-destructive/30 bg-card text-destructive",
+    variant: "destructive",
+    className: "bg-card",
     srLabel: "Error",
   },
 }
@@ -176,13 +179,14 @@ function ToastRow({
     >
       <div className={cn("min-h-0", leaving && "overflow-y-clip")}>
         <div className="pb-2">
-          <div
+          <Alert
+            variant={style.variant}
             onMouseEnter={() => setPaused(true)}
             onMouseLeave={() => setPaused(false)}
             onFocus={() => setPaused(true)}
             onBlur={() => setPaused(false)}
             className={cn(
-              "pointer-events-auto flex animate-toast-in items-center gap-3 rounded-lg border p-4 shadow-lg motion-reduce:animate-none",
+              "pointer-events-auto flex animate-toast-in items-center gap-3 shadow-lg motion-reduce:animate-none",
               style.className,
               leaving && "animate-toast-out",
             )}
@@ -192,15 +196,17 @@ function ToastRow({
               {style.srLabel && <span className="sr-only">{style.srLabel}: </span>}
               {toast.message}
             </p>
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               aria-label="Dismiss notification"
               onClick={() => dispatch({ type: "dismiss", id })}
-              className="shrink-0 cursor-pointer rounded-full p-1 transition-colors hover:bg-foreground/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current"
+              className="h-6 w-6 shrink-0 cursor-pointer rounded-full p-0 hover:bg-foreground/10 hover:text-current focus-visible:ring-2 focus-visible:ring-current"
             >
               <X className="size-4" aria-hidden="true" />
-            </button>
-          </div>
+            </Button>
+          </Alert>
         </div>
       </div>
     </li>

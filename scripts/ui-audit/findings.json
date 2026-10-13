@@ -668,8 +668,8 @@
     "kind": "manual",
     "route": "toaster.tsx:57-83, 195-202",
     "description": "toaster.tsx:57-83, 195-202: Toast banners are hand-made alerts with hard-coded emerald/blue/amber/red (scanner sees palette); dismiss is raw `button` with `hover:bg-black/5`; position `top-[4.5rem]` is coupled to NavBar `h-14` (nav-bar.tsx:127) -> Alert primitive does not exist; if added, tokens `su",
-    "status": "deferred",
-    "followUp": "PR 5d: toast banners now use the status tokens (23278d0); still open: no shared Alert primitive, the dismiss is a raw button, and the position top-[4.5rem] is coupled to the NavBar h-14"
+    "status": "resolved",
+    "evidence": "PR 5d-11: in apps/web/src/components/toaster.tsx and apps/admin/src/components/toaster.tsx the banner is the shared Alert (success, info, warning, destructive with a bg-card override so the error banner stays opaque) and the dismiss control is the shared Button (ghost, icon, with overrides that keep the 24 px round control, foreground/10 hover and 2 px current-colour ring). The single outer live region, its attributes, the reducer, timers, pause handlers, flash-cookie listener and the container position are unchanged. Proof: tests/components/toaster-behavior.test.tsx in both apps (baseline written first on the hand-built banner and raw button, then updated only for the dismiss control's classes; mutation-checked for a stray role, a translucent error banner, a changed duration, a moved container and a changed aria-live), tests/components/alert.test.tsx, and the contrast gate. The one remaining part of this entry, the toast offset coupled to the NavBar height, is tracked as man-b9b."
   },
   {
     "id": "man-b10",
@@ -766,5 +766,13 @@
     "description": "Pre-existing contrast failures, not caused by PR 5a (--primary unchanged). Dark theme text-primary is below 4.5:1: 3.74:1 on the card, 3.44 to 3.95:1 elsewhere (BOMY logo, nav, Edit links, prices, avatar letters; admin class-less links 3.4 to 4.11:1). Light theme 'Coming soon' text-primary/70 is 3.48:1. Needs a design call: raise dark --primary or add a primary-text token.",
     "status": "deferred",
     "followUp": "Separate PR: fix dark text-primary and light text-primary/70 contrast; must finish before plain pnpm ui:audit can pass"
+  },
+  {
+    "id": "man-b9b",
+    "kind": "manual",
+    "route": "apps/web/src/components/toaster.tsx, apps/web/src/components/nav-bar.tsx",
+    "description": "The web toast container offset top-[4.5rem] is hard-coded to the NavBar height (h-14) plus 1 rem, and the mobile scrim uses top-14; the three values must change together. Split from man-b9 on 2026-10-13 (decision D12) so the toast banner swap would not move the banner or touch nav-bar.tsx. The relationship is pinned by tests/components/toaster-position-guard.test.ts until a shared variable replaces it.",
+    "status": "deferred",
+    "followUp": "PR 5d-7: the toast offset top-[4.5rem] is coupled to the NavBar h-14 and the scrim top-14; share one --nav-height variable when nav-bar.tsx is touched"
   }
 ]

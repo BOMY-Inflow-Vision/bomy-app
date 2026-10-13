@@ -378,12 +378,6 @@
     "reason": "icon-only toggle; ghost/icon Button is rounded-control h-9 w-9 hover:bg-accent, not identical (rounded-full, hover:bg-muted, animated icons)"
   },
   {
-    "rule": "R1-button",
-    "file": "apps/web/src/components/toaster.tsx",
-    "text": "<button",
-    "reason": "icon-only dismiss button"
-  },
-  {
     "rule": "R4-arbitrary",
     "file": "apps/web/src/components/toaster.tsx",
     "text": "className=\"pointer-events-none fixed inset-x-4 top-[4.5rem] z-[60] sm:left-auto sm:w-80\"",
@@ -592,12 +586,6 @@
     "file": "apps/admin/src/components/theme-toggle.tsx",
     "text": "<button",
     "reason": "icon-only theme toggle with two animated icons (spring transition); no identical Button variant"
-  },
-  {
-    "rule": "R1-button",
-    "file": "apps/admin/src/components/toaster.tsx",
-    "text": "<button",
-    "reason": "icon-only dismiss button in toast (p-1 rounded-full); Button icon size is 36px, not identical"
   },
   {
     "rule": "R2-hex",
