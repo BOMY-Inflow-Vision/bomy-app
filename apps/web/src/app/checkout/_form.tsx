@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react"
 import { CreditCard } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
+import { Alert } from "@bomy/ui/alert"
 import { Button } from "@bomy/ui/button"
 import { Input } from "@bomy/ui/input"
 import { Label } from "@bomy/ui/label"
@@ -199,7 +200,7 @@ export function CheckoutForm({ savedAddresses = [] }: { savedAddresses?: SavedAd
     <form onSubmit={handleSubmit} className="space-y-8">
       {/* Invalid lines warning */}
       {invalidLines.length > 0 && (
-        <div className="rounded-lg border border-warning/30 bg-warning-subtle p-4">
+        <Alert variant="warning">
           <p className="mb-2 text-sm font-medium text-warning">
             Some items in your cart can&apos;t be purchased:
           </p>
@@ -211,7 +212,7 @@ export function CheckoutForm({ savedAddresses = [] }: { savedAddresses?: SavedAd
               </li>
             ))}
           </ul>
-        </div>
+        </Alert>
       )}
 
       {/* Order summary */}
@@ -436,9 +437,9 @@ export function CheckoutForm({ savedAddresses = [] }: { savedAddresses?: SavedAd
 
       {/* Top error banner */}
       {topError && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3">
+        <Alert variant="destructive" className="p-3">
           <p className="text-sm text-destructive">{topError}</p>
-        </div>
+        </Alert>
       )}
 
       <Button

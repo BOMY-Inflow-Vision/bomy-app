@@ -7,6 +7,7 @@
     "./lib/utils": "./src/lib/utils.ts",
     "./button": "./src/components/button.tsx",
     "./badge": "./src/components/badge.tsx",
+    "./alert": "./src/components/alert.tsx",
     "./card": "./src/components/card.tsx",
     "./input": "./src/components/input.tsx",
     "./label": "./src/components/label.tsx",

@@ -420,8 +420,8 @@
     "kind": "manual",
     "route": "app/checkout/_form.tsx",
     "description": "app/checkout/_form.tsx line 203-206, 434-440: alert-style boxes (yellow warning, destructive/10 error) hand-built (candidate shared Alert; destructive one already token-based)",
-    "status": "deferred",
-    "followUp": "PR 5d: the checkout warning box now uses the warning tokens (7bb9615) but is still hand-built; needs a shared Alert or box primitive"
+    "status": "resolved",
+    "evidence": "PR 5d-3: both boxes in apps/web/src/app/checkout/_form.tsx (invalid-lines warning, top error) are Alert (warning; destructive with p-3). Alert has no role or aria-live by default and neither box had one before, so announcements are unchanged. Proof: tests/checkout/callouts.test.tsx (baseline written first on the hand-built divs, then updated; mutation-checked for a stray role and for the p-3 override), tests/components/alert.test.tsx, and the contrast gate tests/design-tokens/status-pairs.test.ts. The rendered boxes were not evaluated in a live browser unless the PR body says so."
   },
   {
     "id": "man-t19",
@@ -484,16 +484,16 @@
     "kind": "manual",
     "route": "apps/admin/src/app/seller-inquiries/[id]/page.tsx",
     "description": "apps/admin/src/app/seller-inquiries/[id]/page.tsx line 101, 115: bordered result boxes (green approved, red rejected) hand-built with div (status callout; Card with status className, or a shared Alert if one is introduced)",
-    "status": "deferred",
-    "followUp": "PR 5d: the seller-inquiry result boxes use success and destructive tokens (7bb9615, 7870401) but are still hand-built divs; need a shared Alert or Card status variant"
+    "status": "resolved",
+    "evidence": "PR 5d-3: the approved and rejected boxes in apps/admin/src/app/seller-inquiries/[id]/page.tsx are Alert (success, destructive, text-sm). No role or aria-live before or after. Proof: apps/admin/tests/callouts/callouts.test.tsx (baseline first, then updated) and the contrast gate. The real admin page was not evaluated in a browser."
   },
   {
     "id": "man-t27",
     "kind": "manual",
     "route": "apps/admin/src/app/payouts/reconciliation/page.tsx",
-    "description": "apps/admin/src/app/payouts/reconciliation/page.tsx line 119-122: li rounded-xl border yellow box built by hand (should be Card with warning pair)",
-    "status": "deferred",
-    "followUp": "PR 5d: the reconciliation row box uses the warning tokens (7bb9615) but is still a hand-built li; should be a Card with a warning style"
+    "description": "apps/admin/src/app/payouts/reconciliation/page.tsx line 119-122: li rounded-xl border yellow box built by hand (resolved with Alert, see evidence: D8 supersedes the earlier Card suggestion)",
+    "status": "resolved",
+    "evidence": "PR 5d-3: the payment-review row in apps/admin/src/app/payouts/reconciliation/page.tsx is now a plain li containing an Alert (warning, flex row, rounded-xl px-6 py-4), not a Card. Decision D8 (Bob and Charlie, 2026-10-12): the row is a warning callout on the existing warning tokens; Alert keeps its colours, radius and the valid ul > li structure, whereas a Card would add bg-card and depend on the open Card colour decision D3. The earlier description proposing a Card is superseded by this decision. Proof: apps/admin/tests/callouts/callouts.test.tsx (ul > li kept, Review href unchanged, no role or aria-live) and the contrast gate. The real admin page was not evaluated in a browser."
   },
   {
     "id": "man-t28",
