@@ -57,7 +57,7 @@ import SellerOrdersPage from "@/app/seller/dashboard/orders/page"
 import SellerProductsPage from "@/app/seller/dashboard/products/page"
 
 // Set to true in the swap commit: the active chip then carries aria-current="page".
-const AFTER = false
+const AFTER = true
 
 const doc = (html: string) => new DOMParser().parseFromString(html, "text/html")
 const render = async (el: Promise<React.ReactElement>) => renderToStaticMarkup(await el)
@@ -83,8 +83,14 @@ function chips(html: string, hrefPrefix: string, texts: string[]): Chip[] {
 const isActive = (c: Chip) =>
   c.classes.includes("bg-primary") || c.classes.includes("bg-foreground")
 
-function checkCurrent(got: Chip[]) {
-  for (const c of got) expect(c.current).toBe(AFTER && isActive(c) ? "page" : null)
+function checkCurrent(got: Chip[], html?: string) {
+  for (const c of got) {
+    expect(c.current).toBe(AFTER && isActive(c) ? "page" : null)
+    if (AFTER) expect(c.classes).toContain("focus-visible:ring-2")
+  }
+  if (AFTER && html) {
+    expect(doc(html).querySelector('nav[aria-label="Filter by status"]')).not.toBeNull()
+  }
 }
 
 describe("seller products chips (primary look; invalid status leaves none active)", () => {
@@ -118,7 +124,7 @@ describe("seller products chips (primary look; invalid status leaves none active
         ),
       )
     }
-    checkCurrent(got)
+    checkCurrent(got, html)
   })
 })
 
@@ -148,7 +154,7 @@ describe("seller orders chips (inverse look; invalid status selects All)", () =>
       expect(c.classes).not.toContain("font-medium")
     }
     expect(got.slice(1).every((c) => c.classes.includes("capitalize"))).toBe(true)
-    checkCurrent(got)
+    checkCurrent(got, html)
   })
 })
 
@@ -207,6 +213,7 @@ describe("/products page links (all numbers, h-8 w-8)", () => {
       expect(l.href).toBe(`/products?${qs.toString()}`)
       expect(l.label).toBe(`Page ${n}`)
       expect(l.current).toBe(n === page ? "page" : null)
+      if (AFTER) expect(l.cls).toContain("focus-visible:ring-2")
       expect(l.cls).toEqual(
         expect.arrayContaining([
           "flex",
@@ -264,6 +271,7 @@ describe("/brands page links (collapsed range, h-11 w-11)", () => {
       expect(item.href).toBe(`/brands?${qs.toString()}`)
       expect(item.label).toBe(`Page ${n}`)
       expect(item.current).toBe(n === page ? "page" : null)
+      if (AFTER) expect(item.cls).toContain("focus-visible:ring-2")
       expect(item.cls).toEqual(
         expect.arrayContaining([
           "h-11",
