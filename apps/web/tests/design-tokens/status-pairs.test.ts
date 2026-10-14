@@ -103,6 +103,16 @@ describe.each(FILES)("5a-2 status pairs: %s", (file) => {
       expect(ratio(get("accent-foreground"), get("accent"))).toBeGreaterThanOrEqual(4.5)
     })
 
+    it("page and footer links (5d-10): the focus ring is >= 3:1 on background, card and muted", () => {
+      // verify-request link sits on bg-background (inside the card on bg-muted), tile rings on the
+      // page background, footer links on bg-muted
+      if (file.startsWith("apps/web")) {
+        for (const s of ["background", "card", "muted"]) {
+          expect(ratio(get("ring"), get(s)), `ring on ${s}`).toBeGreaterThanOrEqual(3)
+        }
+      }
+    })
+
     it("nav icon controls (5d-6): focus ring is >= 3:1 against its bar surface", () => {
       // web: --ring on the nav bar (bg-card); admin: --sidebar-ring on --sidebar
       if (file.startsWith("apps/web")) {
