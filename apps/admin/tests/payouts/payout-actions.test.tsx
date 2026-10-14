@@ -25,14 +25,10 @@ import { PayoutActions } from "@/app/payouts/_payout-actions"
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true
 
-// Class tokens. The swap task updates fail only (and drops the destructive tint overrides).
+// Class tokens. After the swap fail is the destructive variant; complete and processing keep their
+// intentional status tints (D17).
 const TOKENS = {
-  fail: [
-    "border-destructive/40",
-    "text-destructive",
-    "hover:bg-destructive/10",
-    "hover:text-destructive",
-  ],
+  fail: ["bg-destructive", "text-destructive-foreground", "hover:brightness-90"],
   complete: ["border-success/40", "text-success", "hover:bg-success-subtle", "hover:text-success"],
   processing: ["bg-info-subtle", "text-info", "hover:bg-info-subtle", "hover:brightness-95"],
 }
