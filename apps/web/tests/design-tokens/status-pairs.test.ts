@@ -102,5 +102,14 @@ describe.each(FILES)("5a-2 status pairs: %s", (file) => {
       // flat look: active accent, inactive text on the page surfaces
       expect(ratio(get("accent-foreground"), get("accent"))).toBeGreaterThanOrEqual(4.5)
     })
+
+    it("nav icon controls (5d-6): focus ring is >= 3:1 against its bar surface", () => {
+      // web: --ring on the nav bar (bg-card); admin: --sidebar-ring on --sidebar
+      if (file.startsWith("apps/web")) {
+        expect(ratio(get("ring"), get("card"))).toBeGreaterThanOrEqual(3)
+      } else {
+        expect(ratio(get("sidebar-ring"), get("sidebar"))).toBeGreaterThanOrEqual(3)
+      }
+    })
   })
 })

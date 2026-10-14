@@ -30,12 +30,30 @@ import { NavBar } from "@/components/nav-bar"
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true
 
-// Class tokens the controls carry today. Swap task updates these (and only these).
+// Class tokens the controls carry (Button/Badge after the 5d-6 swap).
+const BUTTON = [
+  "h-9",
+  "w-9",
+  "rounded-full",
+  "text-muted-foreground",
+  "hover:bg-muted",
+  "focus-visible:ring-1",
+  "focus-visible:ring-ring",
+]
 const TOKENS = {
-  accountLink: ["size-9", "rounded-full", "text-muted-foreground", "hover:bg-muted"],
-  cartLink: ["relative", "text-muted-foreground", "hover:text-foreground"],
-  pill: ["absolute", "-right-2", "-top-2", "h-4", "w-4", "animate-badge-pop", "bg-primary"],
-  toggle: ["size-9", "rounded-full", "text-muted-foreground", "hover:bg-muted"],
+  accountLink: BUTTON,
+  cartLink: [...BUTTON, "relative", "hover:text-foreground"],
+  pill: [
+    "absolute",
+    "-right-0.5",
+    "-top-0.5",
+    "h-4",
+    "w-4",
+    "animate-badge-pop",
+    "bg-primary",
+    "text-primary-foreground",
+  ],
+  toggle: BUTTON,
 }
 
 let container: HTMLDivElement

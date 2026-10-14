@@ -18,7 +18,15 @@ import { ThemeToggle } from "@/components/theme-toggle"
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true
 
-const TOKENS = ["size-9", "rounded-full", "text-muted-foreground", "hover:bg-muted", "relative"]
+const TOKENS = [
+  "h-9",
+  "w-9",
+  "rounded-full",
+  "text-muted-foreground",
+  "hover:bg-muted",
+  "relative",
+  "focus-visible:ring-ring",
+]
 
 let container: HTMLDivElement
 let root: Root

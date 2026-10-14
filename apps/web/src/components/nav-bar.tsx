@@ -1,10 +1,11 @@
 "use client"
 
 import Link from "next/link"
-import { MoreHorizontal, User } from "lucide-react"
+import { MoreHorizontal, ShoppingCart, User } from "lucide-react"
 import { useSession } from "next-auth/react"
 import React, { useEffect, useState } from "react"
 
+import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
 import {
   DropdownMenu,
@@ -13,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@bomy/ui/dropdown-menu"
 import { ButtonGroup } from "@/components/ui/button-group"
+import { NavIconButton } from "@/components/nav-icon-button"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { useCart } from "@/lib/cart"
 import { cn } from "@/lib/utils"
@@ -30,34 +32,20 @@ const SIGN_IN_HREF = "/auth/sign-in"
 function CartLink() {
   const { itemCount, hydrated } = useCart()
   return (
-    <Link
-      href="/cart"
-      aria-label="Cart"
-      className="relative flex items-center text-muted-foreground hover:text-foreground"
-    >
-      <svg
-        className="h-6 w-6"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-        strokeWidth={1.5}
-        aria-hidden="true"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z"
-        />
-      </svg>
-      {hydrated && itemCount > 0 && (
-        <span
-          key={itemCount}
-          className="absolute -right-2 -top-2 flex h-4 w-4 animate-badge-pop items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground motion-reduce:animate-none"
-        >
-          {itemCount > 99 ? "99+" : itemCount}
-        </span>
-      )}
-    </Link>
+    <NavIconButton asChild className="relative [&_svg]:size-6">
+      <Link href="/cart" aria-label="Cart">
+        <ShoppingCart strokeWidth={1.5} aria-hidden="true" />
+        {hydrated && itemCount > 0 && (
+          <Badge
+            key={itemCount}
+            variant="default"
+            className="absolute -right-0.5 -top-0.5 h-4 w-4 animate-badge-pop justify-center border-0 p-0 text-[10px] font-bold motion-reduce:animate-none"
+          >
+            {itemCount > 99 ? "99+" : itemCount}
+          </Badge>
+        )}
+      </Link>
+    </NavIconButton>
   )
 }
 
@@ -119,8 +107,6 @@ export function NavBar() {
   const mobileAuthLinks = [...(sellerLink ? [sellerLink] : []), accountLink]
 
   const desktopLinkClass = "text-sm text-muted-foreground hover:text-foreground"
-  const iconButtonClass =
-    "flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
 
   return (
     <nav className="sticky top-0 z-50 border-b border-subtle bg-card shadow-sm">
@@ -145,13 +131,11 @@ export function NavBar() {
               sellerLabel={sellerLink.label}
             />
           ) : (
-            <Link
-              href={accountLink.href}
-              aria-label={accountLink.label}
-              className={iconButtonClass}
-            >
-              <User aria-hidden="true" className="size-5" />
-            </Link>
+            <NavIconButton asChild>
+              <Link href={accountLink.href} aria-label={accountLink.label}>
+                <User aria-hidden="true" />
+              </Link>
+            </NavIconButton>
           )}
           <ThemeToggle />
         </div>
