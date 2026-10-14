@@ -109,11 +109,15 @@ export default async function MembershipPage() {
             </ul>
 
             {!enabled ? (
-              <div
-                role="status"
-                className="w-full rounded-xl bg-muted px-6 py-3 text-sm font-semibold text-muted-foreground text-center cursor-not-allowed"
-              >
-                Memberships will reopen soon
+              <div role="status" className="cursor-not-allowed">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled
+                  className="h-auto w-full rounded-xl bg-muted px-6 py-3 text-center text-sm font-semibold text-muted-foreground shadow-none hover:bg-muted disabled:opacity-100"
+                >
+                  Memberships will reopen soon
+                </Button>
               </div>
             ) : session ? (
               <form action={joinMembership}>

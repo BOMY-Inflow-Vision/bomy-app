@@ -145,12 +145,7 @@ export function PayoutActions({ payoutId, status }: Props) {
       )}
 
       {!showComplete && !showFail && (
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => setShowFail(true)}
-          className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
-        >
+        <Button size="sm" variant="destructive" onClick={() => setShowFail(true)}>
           Fail
         </Button>
       )}

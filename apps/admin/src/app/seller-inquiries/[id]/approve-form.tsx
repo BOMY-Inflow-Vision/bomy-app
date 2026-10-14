@@ -8,7 +8,9 @@ import { Button } from "@bomy/ui/button"
 import { Input } from "@bomy/ui/input"
 import { Label } from "@bomy/ui/label"
 import { BrandStoryField } from "@/components/brand-story-field"
+import { cn } from "@/lib/utils"
 import { approveInquiry, rejectInquiry } from "../actions"
+import { REJECT_TONE } from "../reject-style"
 
 function slugify(name: string): string {
   return name
@@ -104,7 +106,7 @@ export function ApproveForm({
               toast.success("Inquiry rejected.")
             })
           }
-          className="border-warning/40 text-warning hover:bg-warning-subtle hover:text-warning"
+          className={cn(REJECT_TONE, "border-warning/40 hover:bg-warning-subtle")}
         >
           Reject
         </Button>

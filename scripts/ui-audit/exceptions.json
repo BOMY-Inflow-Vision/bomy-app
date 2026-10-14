@@ -540,36 +540,6 @@
     "reason": "no @bomy/ui Table primitive exists"
   },
   {
-    "rule": "R1-button",
-    "file": "apps/admin/src/components/brand-story-field.tsx",
-    "text": "<button",
-    "reason": "icon-only toggle (aria-pressed) toolbar button; no identical Button variant (44px target)"
-  },
-  {
-    "rule": "R1-button",
-    "file": "apps/admin/src/components/brand-story-field.tsx",
-    "text": "<button",
-    "reason": "icon-only toggle (aria-pressed) link button in toolbar"
-  },
-  {
-    "rule": "R1-button",
-    "file": "apps/admin/src/components/brand-story-field.tsx",
-    "text": "<button",
-    "reason": "icon-only toolbar button (insert image)"
-  },
-  {
-    "rule": "R1-button",
-    "file": "apps/admin/src/components/brand-story-field.tsx",
-    "text": "<button",
-    "reason": "icon-only popover trigger (PopoverTrigger asChild, ref used for focus return)"
-  },
-  {
-    "rule": "R1-button",
-    "file": "apps/admin/src/components/brand-story-field.tsx",
-    "text": "<button",
-    "reason": "icon-only toolbar button (embed YouTube)"
-  },
-  {
     "rule": "R4-arbitrary",
     "file": "apps/admin/src/components/brand-story-field.tsx",
     "text": "className=\"[&_.ProseMirror]:prose [&_.ProseMirror]:max-w-none [&_.ProseMirror]:min-h-[200px] [&_.ProseMirror]:rounded [&_.ProseMirror]:border [&_.ProseMirror]:border-border [&_.ProseMirror]:p-3 [&_.ProseMirror]:focus:outline-none [&_.ProseMirror]:focus:ring-2 [&_.ProseMirror]:focus:ring-ring dark:[&_.ProseMirror]:prose-invert\"",

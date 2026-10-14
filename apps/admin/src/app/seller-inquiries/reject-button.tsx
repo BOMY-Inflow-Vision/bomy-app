@@ -5,7 +5,9 @@ import { CircleX } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { Button } from "@bomy/ui/button"
+import { cn } from "@/lib/utils"
 import { rejectInquiry } from "./actions"
+import { REJECT_TONE } from "./reject-style"
 
 export function RejectButton({ inquiryId }: { inquiryId: string }) {
   const [pending, startTransition] = useTransition()
@@ -32,7 +34,7 @@ export function RejectButton({ inquiryId }: { inquiryId: string }) {
             toast.success("Inquiry rejected.")
           })
         }
-        className="text-sm text-warning"
+        className={cn("text-sm", REJECT_TONE)}
       >
         {pending ? "Rejecting…" : "Reject"}
       </Button>

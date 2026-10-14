@@ -284,8 +284,8 @@
     "kind": "manual",
     "route": "app/(marketing)/membership/page.tsx",
     "description": "app/(marketing)/membership/page.tsx line 113-117: \"Memberships will reopen soon\" div styled as a disabled button (could be <Button disabled> for consistency)",
-    "status": "deferred",
-    "followUp": "PR 5d: hand-made pills, boxes, tabs and nav onto Badge, Card, Button (and any new shared piece)"
+    "status": "resolved",
+    "evidence": "PR 5d-9: the closed-membership notice in apps/web/src/app/(marketing)/membership/page.tsx is a disabled Button (secondary, with a transparent-looking muted fill) inside the same role=status wrapper, which now also carries cursor-not-allowed because a disabled button ignores pointer events (D18). Button's disabled fade is overridden (disabled:opacity-100) so the text keeps its colour pair (text-muted-foreground on bg-muted, pinned >= 4.5:1 by tests/design-tokens/status-pairs.test.ts). Measured identical to the baseline: box 316x44 at 390 px and 430x44 at 1280 px, fill, text colour, 12 px radius, 600 weight, opacity 1, in light and dark. The element is a real disabled button (not focusable, not clickable); how a screen reader presents it was not evaluated. Proof: tests/membership/membership-closed-notice.test.tsx (baseline first on the div, mutation-checked). Browser: web run with the payment keys blanked locally; admin parts rendered on a temporary page (deleted afterwards), not in a signed-in admin session, in light and dark at 390 and 1280 px, compared with a capture on main taken before the change."
   },
   {
     "id": "man-t02",
@@ -516,24 +516,24 @@
     "kind": "manual",
     "route": "apps/admin/src/app/seller-inquiries/reject-button.tsx vs [id]/approve-form.tsx",
     "description": "apps/admin/src/app/seller-inquiries/reject-button.tsx vs [id]/approve-form.tsx: the same Reject action is styled differently in two places. PR 5a (7bb9615, b0787d6) fixed the colour: both now use the warning token (before: text-amber-600 link against amber-700 outline). Still open: the shape differs, a variant=\"link\" in the list row against a variant=\"outline\" in the detail form",
-    "status": "deferred",
-    "followUp": "PR 5d: give the Reject action one shared style and shape (link in the row against outline in the form); colour already matches (PR 5a)"
+    "status": "resolved",
+    "evidence": "PR 5d-9: the two Reject buttons now share one warning tone, REJECT_TONE (text-warning hover:text-warning) in apps/admin/src/app/seller-inquiries/reject-style.ts. By decision D19 the shapes stay different on purpose and this entry does not claim they were unified: the list row is a link-style small button and the detail form is an outline button (the form adds border-warning/40 and hover:bg-warning-subtle). Label, action call (rejectInquiry with the inquiry id), pending text and toasts are unchanged. Measured: both buttons' computed box, colours, border, radius and shadow are identical to the baseline in light and dark. Proof: tests/seller-inquiries/reject-buttons.test.tsx (baseline first, mutation-checked). Browser: web run with the payment keys blanked locally; admin parts rendered on a temporary page (deleted afterwards), not in a signed-in admin session, in light and dark at 390 and 1280 px, compared with a capture on main taken before the change."
   },
   {
     "id": "man-t31",
     "kind": "manual",
     "route": "apps/admin/src/app/payouts/_payout-actions.tsx",
     "description": "apps/admin/src/app/payouts/_payout-actions.tsx line 93,104,152: Button variant=secondary overridden with hand-picked colour pairs (Fail action could be variant=destructive; colours fight the variant)",
-    "status": "deferred",
-    "followUp": "PR 5d: hand-made pills, boxes, tabs and nav onto Badge, Card, Button (and any new shared piece)"
+    "status": "resolved",
+    "evidence": "PR 5d-9 (money path): the first payout Fail button in apps/admin/src/app/payouts/_payout-actions.tsx is variant=destructive, replacing the outline variant with its destructive tint overrides; the diff for that file is that one hunk (onClick, disabled, size and every action call unchanged). By decision D17 (Option 1) Processing (secondary with an info fill) and Complete (outline with a success tint) keep their status tints on purpose: no soft info or success variant exists and adding one is a separate shared-package decision; this entry does not claim those overrides were removed. Visible change: the Fail opener is a solid red button (light bg rgb(188,42,32), dark rgb(226,99,90)) instead of a tinted outline; its box (160x32) is unchanged, and it hides while the Fail form is open, so no two solid red buttons sit side by side. Measured: Processing and Complete are identical to the baseline; real keys: Tab reaches Fail with the 1 px ring in both themes and Enter opens the form (Fail and Complete openers hide). Proof: tests/payouts/payout-actions.test.tsx (the three actions called with the same arguments, Confirm disabled until a reference or notes are typed, Processing and Confirm disabled while loading, the openers and Cancel not disabled by loading as before; mutation-checked). Browser: web run with the payment keys blanked locally; admin parts rendered on a temporary page (deleted afterwards), not in a signed-in admin session, in light and dark at 390 and 1280 px, compared with a capture on main taken before the change."
   },
   {
     "id": "man-t32",
     "kind": "manual",
     "route": "apps/admin/src/components/brand-story-field.tsx",
     "description": "apps/admin/src/components/brand-story-field.tsx line 262,289,337,382,500: 44px min size classes repeated across 5 raw toolbar buttons with identical focus-visible outline strings (candidate for one local ToolbarIconButton; not a @bomy/ui gap)",
-    "status": "deferred",
-    "followUp": "PR 5d: hand-made pills, boxes, tabs and nav onto Badge, Card, Button (and any new shared piece)"
+    "status": "resolved",
+    "evidence": "PR 5d-9: the five raw toolbar buttons in apps/admin/src/components/brand-story-field.tsx (the shared toggle button, link, image, table trigger and YouTube) are one local ToolbarIconButton built on Button (ghost) with the 44 px target and the 2 px outline focus (D20); it is not exported to @bomy/ui and the five R1-button scanner exceptions were removed. Each call site keeps its own aria-label, title, aria-pressed (toggle and link buttons), active/inactive classes and the table trigger's ref and open-state style. Measured: Heading 3, Bold, link, table trigger and the Processing/Complete/Reject buttons are identical to the baseline; the image and YouTube buttons have a different computed-style hash (now 44x44, the same fill, colour, border and radius as the other inactive toolbar buttons, font-weight 500); their old classes had no font-medium, so the weight is the expected difference and has no visible effect on an icon-only button, but the old weight was not recorded, so that cause is inferred. Computed hover colours equal the baseline for inactive buttons, the active Heading 3 and the open table trigger in light and dark. Real keys: focus shows a solid 2 px outline with 2 px offset in the ring colour; Escape closes the table popover and focus returns to the table trigger. Not changed and not part of this entry: after a toolbar key press the editor takes focus and the buttons' pressed state stays as it was until the next render (the same before the change). Proof: tests/components/brand-story-toolbar.test.tsx (real BrandStoryField in jsdom, baseline first, mutation-checked). Browser: web run with the payment keys blanked locally; admin parts rendered on a temporary page (deleted afterwards), not in a signed-in admin session, in light and dark at 390 and 1280 px, compared with a capture on main taken before the change."
   },
   {
     "id": "man-a1",
