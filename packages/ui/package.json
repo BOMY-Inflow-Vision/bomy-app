@@ -9,6 +9,7 @@
     "./badge": "./src/components/badge.tsx",
     "./alert": "./src/components/alert.tsx",
     "./filter-tabs": "./src/components/filter-tabs.tsx",
+    "./sidebar-link": "./src/components/sidebar-link.tsx",
     "./pagination": "./src/components/pagination.tsx",
     "./card": "./src/components/card.tsx",
     "./input": "./src/components/input.tsx",
