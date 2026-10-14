@@ -23,9 +23,9 @@ import { ApproveForm } from "@/app/seller-inquiries/[id]/approve-form"
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true
 
-// Class tokens the two buttons carry. The shared-tone task updates these (and only these).
+// Class tokens the two buttons carry (the shared REJECT_TONE gives both text-warning and hover:text-warning).
 const TOKENS = {
-  row: ["text-sm", "text-warning"],
+  row: ["text-sm", "text-warning", "hover:text-warning"],
   form: ["border-warning/40", "text-warning", "hover:bg-warning-subtle", "hover:text-warning"],
 }
 
