@@ -604,24 +604,24 @@
     "kind": "manual",
     "route": "W/components/nav-bar.tsx:148-152, 122-123",
     "description": "W/components/nav-bar.tsx:148-152, 122-123: `<Link className={iconButtonClass}>` = Link styled as a round icon button (`size-9 rounded-full ... hover:bg-muted`), duplicated class string also in theme-toggle.tsx:26 -> `Button asChild variant=\"ghost\" size=\"icon\"` (as SellerAccountMenu already does at :",
-    "status": "deferred",
-    "followUp": "PR 5d: hand-made pills, boxes, tabs and nav onto Badge, Card, Button (and any new shared piece)"
+    "status": "resolved",
+    "evidence": "PR 5d-6: the desktop account/sign-in link in apps/web/src/components/nav-bar.tsx is now NavIconButton (apps/web/src/components/nav-icon-button.tsx: the shared Button, ghost, icon, with the nav's round look and a 20 px icon) with asChild, so it is still a next/link <a> with the same href and aria-label; the duplicated iconButtonClass string is gone. Proof: tests/components/nav-icon-controls.test.tsx (baseline written first on the old markup; names, tags, hrefs and tab order for signed out, buyer and seller, plus the opened mobile panel's account link, mutation-checked for a renamed label, a changed href, a dropped hydrated guard and a swapped order) and nav-bar.test.tsx unchanged. The non-seller account link was covered by those tests; the browser run used the seller account, so its Button group (already a Button) was the control measured there. Browser (local, signed in as the seeded seller, dark theme for the box and key checks, both themes for the focus ring): nav height 57 px and zero horizontal overflow at 320, 360, 390, 767, 768, 800, 900 and 1280 px; hamburger box and right edge unchanged; the real Tab order unchanged; no console warning or hydration error."
   },
   {
     "id": "man-b2",
     "kind": "manual",
     "route": "nav-bar.tsx:33-60",
     "description": "nav-bar.tsx:33-60: CartLink: bare Link with 24 px svg (no hit area beyond icon, <44 px target) and hand-copied cart svg path -> Button asChild ghost icon + lucide `ShoppingCart`",
-    "status": "deferred",
-    "followUp": "PR 5d: hand-made pills, boxes, tabs and nav onto Badge, Card, Button (and any new shared piece)"
+    "status": "resolved",
+    "evidence": "PR 5d-6: CartLink is NavIconButton asChild around the same next/link (href /cart, aria-label Cart) with lucide ShoppingCart (strokeWidth 1.5, 24 px) replacing the hand-copied svg path. Visible changes: the glyph shape differs slightly; the click target grows from 24 to 36 px and gains the same round hover as the other nav icon controls. Measured: the cart box 24x24 -> 36x36, so in the mobile cluster the theme toggle and cart each sit 12 px further left (cluster 112 -> 124 px wide), and in the desktop row the cart sits 12 px further left; everything to its right is unchanged; at 768 px 37.3 px stay free between the logo and the first link. Browser (local, signed in as the seeded seller, dark theme for the box and key checks, both themes for the focus ring): nav height 57 px and zero horizontal overflow at 320, 360, 390, 767, 768, 800, 900 and 1280 px; hamburger box and right edge unchanged; the real Tab order unchanged; no console warning or hydration error."
   },
   {
     "id": "man-b3",
     "kind": "manual",
     "route": "nav-bar.tsx:53-59",
     "description": "nav-bar.tsx:53-59: Cart count pill `span ... rounded-full bg-primary text-[10px]` -> `Badge` (arbitrary `text-[10px]` is scanner-visible; the pill itself is not)",
-    "status": "deferred",
-    "followUp": "PR 5d: hand-made pills, boxes, tabs and nav onto Badge, Card, Button (and any new shared piece)"
+    "status": "resolved",
+    "evidence": "PR 5d-6: the cart count pill is the shared Badge (default variant) with overrides for the 16 px circle and 10 px bold digit; offsets changed from -right-2/-top-2 to -right-0.5/-top-0.5 because the anchor grew from 24 to 36 px. Measured with a cart of 3 and of 100: the pill's centre stays exactly on the icon's top-right corner (0, 0 px offset) at every width; text 3 and 99+; key={itemCount} (pop animation), the hydrated gate and the missing aria-label/aria-live are unchanged and tested. The 10 px arbitrary size stays as a scanner exception with the new class text."
   },
   {
     "id": "man-b4",
@@ -652,8 +652,8 @@
     "kind": "manual",
     "route": "theme-toggle.tsx:21-44",
     "description": "theme-toggle.tsx:21-44: Raw icon button, 36 px target, duplicated verbatim in A/components/theme-toggle.tsx -> `Button variant=\"ghost\" size=\"icon\"` in @bomy/ui; share one component",
-    "status": "deferred",
-    "followUp": "PR 5d: hand-made pills, boxes, tabs and nav onto Badge, Card, Button (and any new shared piece)"
+    "status": "resolved",
+    "evidence": "PR 5d-6: the web ThemeToggle in apps/web/src/components/theme-toggle.tsx is NavIconButton (shared Button) instead of a raw button; next-themes, the mounted placeholder, the exact aria-labels and the spring icon animations are unchanged. D13 (Bob and Charlie): keep one toggle per app, each built on the shared Button, because the two differ in size, colour tokens and focus ring and a shared one in @bomy/ui would add a next-themes dependency there. Proof: tests/components/theme-toggle.test.tsx (server render for the pre-hydration placeholder, mount, label flip, setTheme call, aria-hidden icons) and, in the browser, real Enter and Space flip the theme and the label; focus now shows the shared 1 px ring (--ring on --card is at least 3:1 in light and dark, tests/design-tokens/status-pairs.test.ts) instead of the browser default outline. The R1-button scanner exception was removed. Browser (local, signed in as the seeded seller, dark theme for the box and key checks, both themes for the focus ring): nav height 57 px and zero horizontal overflow at 320, 360, 390, 767, 768, 800, 900 and 1280 px; hamburger box and right edge unchanged; the real Tab order unchanged; no console warning or hydration error."
   },
   {
     "id": "man-b8",
@@ -740,8 +740,8 @@
     "kind": "manual",
     "route": "A/components/theme-toggle.tsx:21-44",
     "description": "A/components/theme-toggle.tsx:21-44: Same raw icon button as B7 with slate colours -> as B7",
-    "status": "deferred",
-    "followUp": "PR 5d: hand-made pills, boxes, tabs and nav onto Badge, Card, Button (and any new shared piece)"
+    "status": "resolved",
+    "evidence": "PR 5d-6: the admin ThemeToggle in apps/admin/src/components/theme-toggle.tsx is the shared Button (ghost, icon) with the sidebar tokens (32 px, text-sidebar-muted, hover:bg-sidebar-accent, 2 px ring-sidebar-ring); next-themes, the placeholder, aria-labels and icon animations unchanged; D13 as man-b7. Proof: apps/admin/tests/components/theme-toggle.test.tsx (same cases as the web toggle, class tokens) and the sidebar test unchanged; --sidebar-ring on --sidebar is at least 3:1 in both themes (test). Browser: the real toggle was rendered in a temporary page on the sidebar colours (deleted afterwards), not inside the signed-in admin sidebar, which was not evaluated; there it measured 32x32, showed the 2 px ring on keyboard focus, and Enter and Space flipped the theme and the label. The R1-button scanner exception was removed."
   },
   {
     "id": "man-b19",
