@@ -160,9 +160,6 @@ const lists = () => [
   [...container.querySelectorAll<HTMLAnchorElement>("aside nav a")],
   [...container.querySelectorAll<HTMLAnchorElement>("#admin-mobile-menu nav a")],
 ]
-// TODO-5d-8: the baseline asserts today's gap (no aria-current); the swap flips it.
-const CURRENT_COUNT = { represented: 0, unmatched: 0 }
-
 const NAV_ITEMS = [
   ["Stores", "/stores"],
   ["Products", "/products"],
@@ -211,10 +208,28 @@ describe("admin sidebar links", () => {
     for (const list of lists()) expect(list.filter((a) => hasAll(a, ADMIN_ACTIVE))).toHaveLength(0)
   })
 
-  it("has no aria-current today (the gap this slice closes)", () => {
+  it("marks the current page with aria-current in both lists, and only there", () => {
     renderAt("/stores")
-    expect(container.querySelectorAll("[aria-current]")).toHaveLength(CURRENT_COUNT.represented)
+    for (const list of lists()) {
+      expect(
+        list.filter((a) => a.getAttribute("aria-current") === "page").map((a) => a.textContent),
+      ).toEqual(["Stores"])
+      for (const a of list.filter((l) => l.textContent !== "Stores"))
+        expect(a.hasAttribute("aria-current")).toBe(false)
+    }
+    expect(container.querySelectorAll("[aria-current]")).toHaveLength(2)
+  })
+
+  it("an unmatched route has no current link in either list", () => {
     renderAt("/not-a-page")
-    expect(container.querySelectorAll("[aria-current]")).toHaveLength(CURRENT_COUNT.unmatched)
+    expect(container.querySelectorAll("[aria-current]")).toHaveLength(0)
+  })
+
+  it("the prefix rule marks the matching item on a detail route", () => {
+    renderAt("/seller-inquiries/xyz")
+    for (const list of lists())
+      expect(list.filter((a) => a.hasAttribute("aria-current")).map((a) => a.textContent)).toEqual([
+        "Seller Inquiries",
+      ])
   })
 })
