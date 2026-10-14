@@ -58,7 +58,7 @@ const TOKENS = [
   "font-semibold",
   "text-muted-foreground",
   "text-center",
-  "cursor-not-allowed",
+  "disabled:opacity-100",
 ]
 
 async function render() {
@@ -83,10 +83,13 @@ describe("membership closed notice", () => {
     expect(el.closest('[role="status"]')).not.toBeNull()
   })
 
-  it("is not a link and not a join control", async () => {
+  it("is a disabled button, not focusable, not a link and not a join control", async () => {
     const doc = await render()
     expect(doc.body.textContent).not.toContain("Join now")
     expect(doc.body.textContent).not.toContain("Sign in to join")
+    const el = notice(doc)
+    expect(el.tagName).toBe("BUTTON")
+    expect((el as HTMLButtonElement).disabled).toBe(true)
     expect(notice(doc).closest("a")).toBeNull()
     expect(notice(doc).closest("form")).toBeNull()
   })
@@ -101,5 +104,7 @@ describe("membership closed notice", () => {
   it("class tokens (updated by the swap)", async () => {
     const el = notice(await render())
     for (const t of TOKENS) expect(el.classList.contains(t), `${t} on ${el.className}`).toBe(true)
+    // pointer-events are off on a disabled Button, so the wrapper keeps the not-allowed cursor
+    expect(el.closest('[role="status"]')!.classList.contains("cursor-not-allowed")).toBe(true)
   })
 })
