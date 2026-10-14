@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 //
 // verify-request page (PR 5d-10, man-a1..a4). Written first against the hand-made box, inline svg
-// and plain <a> (baseline); after the swap only the TOKENS / icon / link-class expectations change.
+// and plain <a> (baseline); after the swap (Card, lucide Mail, next/link) only the TOKENS expectations change.
 import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vitest"
 
@@ -14,8 +14,23 @@ const doc = new DOMParser().parseFromString(
 
 // Class tokens the box and link carry. The swap task updates these (and only these).
 const TOKENS = {
-  box: ["rounded-2xl", "bg-background", "p-8", "text-center", "shadow-sm", "ring-1", "ring-border"],
-  link: ["underline"],
+  box: [
+    "w-full",
+    "max-w-sm",
+    "rounded-card",
+    "border",
+    "border-border",
+    "bg-background",
+    "text-center",
+    "shadow-sm",
+  ],
+  link: [
+    "underline",
+    "underline-offset-4",
+    "hover:text-foreground",
+    "focus-visible:ring-2",
+    "focus-visible:ring-ring",
+  ],
 }
 
 function has(el: Element | null, tokens: string[]) {
@@ -49,6 +64,7 @@ describe("verify-request page", () => {
 
   it("class tokens (updated by the swap)", () => {
     has(doc.querySelector("main > div"), TOKENS.box)
+    has(doc.querySelector("main > div > div"), ["p-8"])
     has(doc.querySelector("a"), TOKENS.link)
   })
 })
