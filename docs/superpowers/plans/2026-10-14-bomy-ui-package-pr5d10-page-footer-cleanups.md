@@ -26,7 +26,7 @@
 - **The card look holds.** verify-request card: width `max-w-sm`, padding 32 px, text centred, light/dark fill unchanged (`bg-background` override), shadow unchanged; radius 16 px → 12 px (`rounded-card`) and the 1 px outline ring becomes a 1 px border of the same colour. Product tile: radius 12 px (already `rounded-xl` = the card radius), border, shadow, `hover:shadow-md`, `group-hover:text-primary`, image crop unchanged.
 - **Empty state keeps its look.** Dashed border, transparent fill, no shadow, centred muted text, `py-16`; only the element changes (a `Card` div holding the `<p>`).
 - **Icons are decorative.** Mail and Package are `aria-hidden`. The emoji was read aloud as "package" by screen readers inside a link already named by the product; hiding it removes that noise (disclosed). Mail icon: the hand-drawn svg and lucide's `Mail` differ slightly in path.
-- **Focus.** The "try again" link and the footer links get a visible keyboard focus ring (today the link has no focus style beyond the browser's default outline); ring >= 3:1 on the card and footer surfaces in both themes (test).
+- **Focus.** The "try again" link, product tiles and footer links get a visible keyboard focus ring (today the links have no focus style beyond the browser's default outline); ring >= 3:1 on the card and footer surfaces in both themes (test). The tile's focus ring must remain visible around the full tile, with no clipping.
 
 ## File Structure
 
@@ -60,9 +60,9 @@ The medallion stays a `div` (`man-a2`: a one-off circle, no shared piece). The `
 
 2. Products page:
    - Empty state (`man-a6`): `<Card className="border-dashed bg-transparent shadow-none"><p className="py-16 text-center text-sm text-muted-foreground">No products found in this category.</p></Card>`.
-   - Tile (`man-a5`): `<Card asChild>` is not available, so the link keeps its place and the Card wraps it: `<li><Card className="group overflow-hidden bg-background hover:shadow-md"><Link href=... className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">...</Link></Card></li>`. Same inner markup; the Card supplies border, radius and shadow.
+   - Tile (`man-a5`): `<Card asChild>` is not available, so the link keeps its place around the full tile and wraps the Card: `<li><Link href=... className="group block rounded-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Card className="overflow-hidden bg-background hover:shadow-md">...</Card></Link></li>`. Same inner markup; the Card supplies border, radius and shadow. The outer link covers the Card border and its focus ring cannot be clipped by the Card's `overflow-hidden`.
    - Placeholder (`man-a7`): `<Package aria-hidden="true" className="size-8 text-muted-foreground" />` in the same centred box (the old emoji was `text-3xl`, 30 px).
-3. Footer (`man-b8`): `import Link from "next/link"`; each of the six internal links is `<Link href=... className="inline-block py-1 hover:text-foreground hover:underline">`; the `ul` loses `space-y-2` and gets `mt-2` so the first link keeps its y; the `mailto:` link stays `<a>`.
+3. Footer (`man-b8`): `import Link from "next/link"`; each of the six internal links is `<Link href=... className="inline-block rounded-sm py-1 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">`; the `ul` loses `space-y-2` and gets `mt-2` so the first link keeps its y; the `mailto:` link stays `<a>`.
 
 ---
 
@@ -86,11 +86,11 @@ The medallion stays a `div` (`man-a2`: a one-off circle, no shared piece). The `
 
 ### Task 3: Store products page (`man-a5`, `a6`, `a7`)
 
-- [ ] **Step 1:** Apply Edit item 2. Update only class-token expectations and the placeholder assertion (an `svg` with `aria-hidden` and no emoji text). Commit: `refactor(ui): store products page uses Card and lucide Package (5d-10)`.
+- [ ] **Step 1:** Apply Edit item 2. Update only class-token expectations and the placeholder assertion (an `svg` with `aria-hidden` and no emoji text). Assert the link still encloses the entire Card, including its border, and the product name still changes colour on hover. Commit: `refactor(ui): store products page uses Card and lucide Package (5d-10)`.
 
 ### Task 4: Footer (`man-b8`)
 
-- [ ] **Step 1:** Apply Edit item 3. Update the footer test: six `<a>` still present in static markup with the same hrefs and labels, `inline-block py-1` on each, the list without `space-y-2`, `mailto:` unchanged. The existing three tests pass unchanged.
+- [ ] **Step 1:** Apply Edit item 3. Update the footer test: six `<a>` still present in static markup with the same hrefs and labels, `inline-block py-1` and the focus-visible ring classes on each, the list without `space-y-2`, `mailto:` unchanged. The existing three tests pass unchanged.
 - [ ] **Step 2:** Add the focus-ring contrast tests to `status-pairs.test.ts`: `--ring` against `--background` and `--card` and `--muted` is at least 3:1 in light and dark (the verify-request card sits on `--muted`, the footer is `bg-muted`). If a pair fails, record it; do not change tokens here.
 - [ ] **Step 3:** Commit: `refactor(ui): footer links use next/link with taller tap targets (5d-10)`.
 
@@ -102,7 +102,7 @@ The medallion stays a `div` (`man-a2`: a one-off circle, no shared piece). The `
 ### Task 6: Browser proof and gates; stop before the push
 
 - [ ] **Step 1 (compare with the baseline):** repeat the Task 1 capture. Expected differences only: verify-request radius 16 → 12 px and ring → border (box size unchanged or within 2 px: measure), the focus rings, the placeholder icon replacing the emoji, the footer link boxes 20 → 28 px high with the same pitch (and any footer height change, measured). Everything else must equal the baseline in light and dark.
-- [ ] **Step 2 (real keys):** Tab to "try again" and to each footer link: visible ring; Enter navigates; with a `window.__marker` set before clicking a footer link, the marker survives (client navigation) on the six links; the mailto link is untouched.
+- [ ] **Step 2 (real keys and pointer):** Tab to "try again", a product tile and each footer link: visible ring in both themes, including the full 2 px ring around the tile with no clipping; Enter navigates. Click the tile at its border and hover it: the full tile remains a hit target, the shadow grows and the product-name hover colour appears. With a `window.__marker` set before clicking a footer link, the marker survives (client navigation) on the six links; the mailto link is untouched. If no seeded product lacks a cover image, report the live placeholder as not evaluated; its fixture test remains mandatory.
 - [ ] **Step 3:** `pnpm install --frozen-lockfile`, `typecheck`, `lint`, the **full** web and admin test suites, `@bomy/ui` typecheck, `pnpm build` (`loading.tsx` moved aside, restored after), prettier on the diff, `git diff --check`, audit gate and audit tests. Check `git diff --name-only main HEAD` has only the files in File Structure plus the plan.
 - [ ] **Step 4:** Write `.andy/pr5d10-pr-body.md` (format of the 5d-6 body; ends with the 🤖 line; lists what was preserved, the measured deltas, the visible changes, D7/D14/D15/D16 and the not-evaluated list). Report to Charlie. **Push and open the PR only after his go. Do not merge.**
 - [ ] **After merge:** log `log/2026-10-…_PR<N>_ui-pr5d10-page-footer-cleanups.md`, handoff, memory, delete branch.
