@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import { useRef, useState } from "react"
 import { EditorContent, useEditor, type Editor } from "@tiptap/react"
 import { StarterKit } from "@tiptap/starter-kit"
@@ -26,10 +27,11 @@ import {
 
 import { extractYoutubeVideoId } from "@bomy/shared/youtube"
 
-import { Button } from "@bomy/ui/button"
+import { Button, type ButtonProps } from "@bomy/ui/button"
 import { Input } from "@bomy/ui/input"
 import { Label } from "@bomy/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@bomy/ui/popover"
+import { cn } from "@/lib/utils"
 import { StaticImageNode } from "./static-image-node"
 import { YoutubeEmbedExtension } from "./youtube-embed-extension"
 
@@ -234,6 +236,26 @@ export function BrandStoryField({ value, onChange, ariaLabel }: Props) {
   )
 }
 
+/**
+ * One toolbar icon button: the shared Button (ghost) with the toolbar's 44 px target and 2 px outline
+ * focus. Callers add their own state classes (active, inactive, open). Local to this editor on purpose.
+ */
+const ToolbarIconButton = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ className, ...props }, ref) => (
+    <Button
+      ref={ref}
+      type="button"
+      variant="ghost"
+      className={cn(
+        "h-auto min-h-11 min-w-11 rounded px-2 text-sm font-medium hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring focus-visible:ring-0 data-[state=open]:hover:text-accent-foreground",
+        className,
+      )}
+      {...props}
+    />
+  ),
+)
+ToolbarIconButton.displayName = "ToolbarIconButton"
+
 function ToolbarButton({
   action,
   active,
@@ -246,25 +268,25 @@ function ToolbarButton({
   children: React.ReactNode
 }) {
   return (
-    <button
-      type="button"
+    <ToolbarIconButton
       onClick={() => action()}
       aria-label={label}
       aria-pressed={active}
       title={label}
-      className={`min-h-11 min-w-11 rounded px-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
-        active ? "bg-accent text-accent-foreground" : "bg-background text-foreground hover:bg-muted"
-      }`}
+      className={
+        active
+          ? "bg-accent text-accent-foreground hover:text-accent-foreground"
+          : "bg-background text-foreground hover:bg-muted"
+      }
     >
       {children}
-    </button>
+    </ToolbarIconButton>
   )
 }
 
 function LinkButton({ editor }: { editor: Editor | null }) {
   return (
-    <button
-      type="button"
+    <ToolbarIconButton
       onClick={() => {
         if (editor?.isActive("link")) {
           editor.chain().focus().unsetLink().run()
@@ -279,21 +301,20 @@ function LinkButton({ editor }: { editor: Editor | null }) {
       aria-label="Set or unset link"
       aria-pressed={editor?.isActive("link") ?? false}
       title="Link"
-      className={`min-h-11 min-w-11 rounded px-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
+      className={
         (editor?.isActive("link") ?? false)
-          ? "bg-accent text-accent-foreground"
+          ? "bg-accent text-accent-foreground hover:text-accent-foreground"
           : "bg-background text-foreground hover:bg-muted"
-      }`}
+      }
     >
       <Link2 className="h-4 w-4" />
-    </button>
+    </ToolbarIconButton>
   )
 }
 
 function InsertImageUrlButton({ editor }: { editor: Editor | null }) {
   return (
-    <button
-      type="button"
+    <ToolbarIconButton
       onClick={() => {
         const url = prompt("Image URL (must be https://):")
         if (!url || !url.startsWith("https://")) return
@@ -327,10 +348,10 @@ function InsertImageUrlButton({ editor }: { editor: Editor | null }) {
       }}
       aria-label="Insert image by URL"
       title="Insert image by URL"
-      className="min-h-11 min-w-11 rounded bg-background px-2 text-sm text-foreground hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      className="bg-background text-foreground hover:bg-muted"
     >
       <ImageIcon className="h-4 w-4" />
-    </button>
+    </ToolbarIconButton>
   )
 }
 
@@ -367,15 +388,14 @@ function InsertTableButton({ editor }: { editor: Editor | null }) {
       }}
     >
       <PopoverTrigger asChild>
-        <button
+        <ToolbarIconButton
           ref={triggerRef}
-          type="button"
           aria-label="Insert table"
           title="Insert table"
-          className="min-h-11 min-w-11 rounded bg-background px-2 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring data-[state=open]:bg-accent data-[state=open]:text-accent-foreground"
+          className="bg-background text-foreground hover:bg-muted data-[state=open]:bg-accent data-[state=open]:text-accent-foreground"
         >
           <Table className="h-4 w-4" />
-        </button>
+        </ToolbarIconButton>
       </PopoverTrigger>
       <PopoverContent
         align="start"
@@ -477,8 +497,7 @@ function TableControlButton({
 
 function EmbedYouTubeButton({ editor }: { editor: Editor | null }) {
   return (
-    <button
-      type="button"
+    <ToolbarIconButton
       onClick={() => {
         const input = prompt("YouTube video URL or ID:")
         if (!input) return
@@ -492,9 +511,9 @@ function EmbedYouTubeButton({ editor }: { editor: Editor | null }) {
       }}
       aria-label="Embed YouTube video"
       title="Embed YouTube video"
-      className="min-h-11 min-w-11 rounded bg-background px-2 text-sm text-foreground hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      className="bg-background text-foreground hover:bg-muted"
     >
       <Youtube className="h-4 w-4" />
-    </button>
+    </ToolbarIconButton>
   )
 }
