@@ -540,56 +540,56 @@
     "kind": "manual",
     "route": "W/app/auth/verify-request/page.tsx:4",
     "description": "W/app/auth/verify-request/page.tsx:4: Hand-made card: `w-full max-w-sm rounded-2xl bg-background p-8 text-center shadow-sm ring-1 ring-border` -> One-off bordered box; radius `rounded-2xl` is not the `rounded-card` token `Card` + `CardContent className=\"p-8 text-center\"`",
-    "status": "deferred",
-    "followUp": "PR 5d: hand-made pills, boxes, tabs and nav onto Badge, Card, Button (and any new shared piece)"
+    "status": "resolved",
+    "evidence": "PR 5d-10: the verify-request box in apps/web/src/app/auth/verify-request/page.tsx is the shared Card with CardContent (p-8, text-center) and a bg-background override, so the fill is exactly today's (the Card fill decision D3 stays with 5d-2; D15). Radius 16 -> 12 px (rounded-card) and the 1 px outline ring became a 1 px border of the same colour. Measured: the card is 2 px taller (272 -> 274 at 320 px, 236 -> 238 from 390 px up) and the heading 2 px narrower, from the border; background, shadow and radius as stated. Proof: tests/auth/verify-request-page.test.tsx (baseline on the old markup first, mutation-checked) and the browser comparison. Browser (local, signed out, light and dark, 320/390/768/1280 px, compared with a capture on main taken before the change): no horizontal overflow; geometry equal to the baseline except the differences listed in the PR body."
   },
   {
     "id": "man-a2",
     "kind": "manual",
     "route": "verify-request/page.tsx:5",
     "description": "verify-request/page.tsx:5: Icon medallion `div h-12 w-12 rounded-full bg-muted` -> hand-rolled badge/avatar circle keep as a div, but see A3",
-    "status": "deferred",
-    "followUp": "PR 5d: hand-made pills, boxes, tabs and nav onto Badge, Card, Button (and any new shared piece)"
+    "status": "resolved",
+    "evidence": "PR 5d-10: kept as a div on purpose: a one-off 48 px circle holding the icon (h-12 w-12 rounded-full bg-muted); there is no shared piece for it and Badge/Avatar do not fit. Unchanged and measured identical in the browser (the icon position at 390 px equals the baseline)."
   },
   {
     "id": "man-a3",
     "kind": "manual",
     "route": "verify-request/page.tsx:24-41",
     "description": "verify-request/page.tsx:24-41: Inline `<svg>` EnvelopeIcon (hand-drawn path) -> Every other page uses lucide `Mail` from lucide-react `className=\"size-6\"`",
-    "status": "deferred",
-    "followUp": "PR 5d: hand-made pills, boxes, tabs and nav onto Badge, Card, Button (and any new shared piece)"
+    "status": "resolved",
+    "evidence": "PR 5d-10: the inline EnvelopeIcon svg is removed; the page uses lucide Mail (size-6, text-muted-foreground, aria-hidden) like the rest of the app. The glyph path differs slightly from the hand-drawn one. Proof: verify-request-page.test.tsx (the icon is a decorative svg inside the same 48 px medallion) and the browser box (24x24 at the same place)."
   },
   {
     "id": "man-a4",
     "kind": "manual",
     "route": "verify-request/page.tsx:14",
     "description": "verify-request/page.tsx:14: `<a href=\"/auth/sign-in\" className=\"underline\">try again</a>` -> Plain anchor = full reload, no focus style, text-xs link `Button asChild variant=\"link\" size=\"sm\"` + `next/link`",
-    "status": "deferred",
-    "followUp": "PR 5d: hand-made pills, boxes, tabs and nav onto Badge, Card, Button (and any new shared piece)"
+    "status": "resolved",
+    "evidence": "PR 5d-10: the 'try again' anchor is a next/link (client navigation, same href /auth/sign-in and same text) with underline, underline-offset-4, hover:text-foreground and the shared 2 px focus ring. D14: not a Button link, because the link sits inside a sentence and Button sm would add padding and a fixed height there. Proof: the source diff (a -> Link), verify-request-page.test.tsx, and in the browser the real Tab reaches it with the 2 px ring in light and dark (the box stayed 48.5x15 at 390 px, same place)."
   },
   {
     "id": "man-a5",
     "kind": "manual",
     "route": "W/app/brands/[slug]/products/page.tsx:39-41",
     "description": "W/app/brands/[slug]/products/page.tsx:39-41: Product tile `<Link className=\"group block overflow-hidden rounded-xl border border-border bg-background shadow-sm hover:shadow-md\">` -> Link styled as a bordered card, bypasses `rounded-card`/`bg-card` tokens (uses bg-background so it is wrong in dark mo",
-    "status": "deferred",
-    "followUp": "PR 5d: hand-made pills, boxes, tabs and nav onto Badge, Card, Button (and any new shared piece)"
+    "status": "resolved",
+    "evidence": "PR 5d-10: each product tile is a next/link around a Card (the link covers the whole Card, border included, so the ring cannot be clipped by the Card's overflow-hidden). Same radius (12 px), border, shadow and hover shadow as before; the Card carries bg-background so the fill is unchanged (D15). Proof: tests/storefront/store-products-page.test.tsx (tile destinations, image alt, the border inside the link, hover colour class; baseline first, mutation-checked) and the browser: tile boxes identical at 320/390/768/1280, the link is the Card's parent with no clipping ancestor, a point on the Card's border hits the link, hover grows the shadow and turns the name to the primary colour, and real Tab shows the 2 px ring on each tile in light and dark."
   },
   {
     "id": "man-a6",
     "kind": "manual",
     "route": "brands/[slug]/products/page.tsx:32",
     "description": "brands/[slug]/products/page.tsx:32: Empty state `p.rounded-xl border border-dashed` -> one-off bordered box `Card` with dashed variant, or shared EmptyState; low priority",
-    "status": "deferred",
-    "followUp": "PR 5d: hand-made pills, boxes, tabs and nav onto Badge, Card, Button (and any new shared piece)"
+    "status": "resolved",
+    "evidence": "PR 5d-10: the empty state is a dashed Card with bg-transparent and shadow-none holding the same centred message (D7). Same words. Measured identical box (e.g. 358x150 at 390 px), dashed 1 px border, 12 px radius and transparent fill in light and dark. Proof: store-products-page.test.tsx and the browser comparison."
   },
   {
     "id": "man-a7",
     "kind": "manual",
     "route": "brands/[slug]/products/page.tsx:53-55",
     "description": "brands/[slug]/products/page.tsx:53-55: Emoji `\ud83d\udce6` as placeholder icon -> not themeable, inconsistent with lucide `Package` from lucide-react `text-muted-foreground`",
-    "status": "deferred",
-    "followUp": "PR 5d: hand-made pills, boxes, tabs and nav onto Badge, Card, Button (and any new shared piece)"
+    "status": "resolved",
+    "evidence": "PR 5d-10: the package emoji is lucide Package (size-8, text-muted-foreground, aria-hidden) in the same centred 1:1 box; it is no longer read aloud as 'package'. Proof: store-products-page.test.tsx (the placeholder is a decorative svg and the emoji is gone) and the browser (placeholder box identical to the baseline at 390 px)."
   },
   {
     "id": "man-a8",
@@ -660,8 +660,8 @@
     "kind": "manual",
     "route": "footer.tsx:34,39,51,56,61,66",
     "description": "footer.tsx:34,39,51,56,61,66: Internal links use `<a href>` not `Link` (full reload). Footer links `text-sm` with `space-y-2` = small tap targets on mobile -> `next/link` + `Button asChild variant=\"link\"`; or add `py-1`",
-    "status": "deferred",
-    "followUp": "PR 5d: hand-made pills, boxes, tabs and nav onto Badge, Card, Button (and any new shared piece)"
+    "status": "resolved",
+    "evidence": "PR 5d-10: the six internal footer links (/about, /contact, /terms, /privacy, /refund, /shipping) are next/link with inline-block rounded-sm py-1 and the shared 2 px focus ring; the mailto link stays a plain anchor (D16: padding, not Button link). Tap targets 28 px high (was about 18 px of text line). Spacing: list pitch 28 px as before, lists use mt-2 and -mb-1 to keep the first link and the footer height unchanged: footer height 690/650/362/362 px at 320/390/768/1280 before and after. Proof: tests/components/footer.test.tsx (the existing tests unchanged plus link labels, hrefs, tokens, baseline first) and the browser: each of the six links keeps a window marker across the click (client navigation), Enter on a focused link navigates the same way, and real Tab shows the ring in both themes. Browser (local, signed out, light and dark, 320/390/768/1280 px, compared with a capture on main taken before the change): no horizontal overflow; geometry equal to the baseline except the differences listed in the PR body."
   },
   {
     "id": "man-b9",
