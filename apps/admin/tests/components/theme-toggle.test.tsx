@@ -19,7 +19,8 @@ import { ThemeToggle } from "@/components/theme-toggle"
 ).IS_REACT_ACT_ENVIRONMENT = true
 
 const TOKENS = [
-  "size-8",
+  "h-8",
+  "w-8",
   "rounded-full",
   "text-sidebar-muted",
   "hover:bg-sidebar-accent",
