@@ -96,6 +96,52 @@ describe("seller dashboard sidebar", () => {
   })
 })
 
+// Class sets of the sidebar links (PR 5d-8). Written first against the hand-made links (baseline);
+// after the SidebarLink swap the strings are produced by the shared piece and must stay the same.
+const LINK_COMMON = [
+  "whitespace-nowrap",
+  "px-5",
+  "py-2",
+  "focus-visible:outline-none",
+  "focus-visible:ring-2",
+  "focus-visible:ring-sidebar-ring",
+  "focus-visible:ring-inset",
+]
+const LINK_ACTIVE = [
+  "border-b-2",
+  "border-sidebar-indicator",
+  "bg-sidebar-accent",
+  "text-sidebar-strong",
+  "md:border-b-0",
+  "md:border-l-2",
+]
+const LINK_INACTIVE = ["hover:bg-sidebar-accent", "hover:text-sidebar-strong"]
+const hasAll = (el: Element, tokens: string[]) => tokens.every((t) => el.classList.contains(t))
+
+describe("seller dashboard sidebar link classes", () => {
+  it.each(ITEMS)("%s active: carries the strip look, the others the hover look", (label, href) => {
+    render(href)
+    for (const a of links()) {
+      expect(hasAll(a, LINK_COMMON), `${a.textContent} common`).toBe(true)
+      if (a.textContent?.trim() === label) {
+        expect(hasAll(a, LINK_ACTIVE), `${label} active`).toBe(true)
+        expect(a.getAttribute("aria-current")).toBe("page")
+        expect(LINK_INACTIVE.some((t) => a.classList.contains(t))).toBe(false)
+      } else {
+        expect(hasAll(a, LINK_INACTIVE), `${a.textContent} inactive`).toBe(true)
+        expect(a.hasAttribute("aria-current")).toBe(false)
+        expect(LINK_ACTIVE.some((t) => a.classList.contains(t))).toBe(false)
+      }
+    }
+    expect(container.querySelectorAll('[aria-current="page"]')).toHaveLength(1)
+  })
+
+  it("an unmatched route has no current link", () => {
+    render("/seller/dashboard-not-a-page")
+    expect(container.querySelectorAll('[aria-current="page"]')).toHaveLength(0)
+  })
+})
+
 describe("seller dashboard strip scroll", () => {
   // jsdom has no layout: give each tab 100px at 100px steps inside a 390px strip, and make
   // scrollLeft a plain stored number.
