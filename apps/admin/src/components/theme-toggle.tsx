@@ -5,6 +5,7 @@ import { useEffect, useState } from "react"
 import { useTheme } from "next-themes"
 import { Moon, Sun } from "lucide-react"
 
+import { Button } from "@bomy/ui/button"
 import { cn } from "@/lib/utils"
 
 export function ThemeToggle({ className }: { className?: string }) {
@@ -18,12 +19,14 @@ export function ThemeToggle({ className }: { className?: string }) {
   const isDark = mounted && resolvedTheme === "dark"
 
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size="icon"
       onClick={() => setTheme(isDark ? "light" : "dark")}
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       className={cn(
-        "relative flex size-8 shrink-0 items-center justify-center rounded-full text-sidebar-muted transition-colors hover:bg-sidebar-accent hover:text-sidebar-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+        "relative h-8 w-8 shrink-0 rounded-full text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-strong focus-visible:ring-2 focus-visible:ring-sidebar-ring [&_svg]:size-4",
         className,
       )}
     >
@@ -41,6 +44,6 @@ export function ThemeToggle({ className }: { className?: string }) {
           isDark ? "rotate-0 scale-100 opacity-100" : "-rotate-90 scale-0 opacity-0",
         )}
       />
-    </button>
+    </Button>
   )
 }

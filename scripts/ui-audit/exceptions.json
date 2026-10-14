@@ -362,7 +362,7 @@
   {
     "rule": "R4-arbitrary",
     "file": "apps/web/src/components/nav-bar.tsx",
-    "text": "className=\"absolute -right-2 -top-2 flex h-4 w-4 animate-badge-pop items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground motion-reduce:animate-none\"",
+    "text": "className=\"absolute -right-0.5 -top-0.5 h-4 w-4 animate-badge-pop justify-center border-0 p-0 text-[10px] font-bold motion-reduce:animate-none\"",
     "reason": "cart badge 10px digit; no text-* step (xs=12px); specific px"
   },
   {
@@ -370,12 +370,6 @@
     "file": "apps/web/src/components/nav-bar.tsx",
     "text": "className=\"fixed inset-x-0 bottom-0 top-14 -z-10 cursor-default bg-gray-900/20 md:hidden\"",
     "reason": "overlay scrim with no text; must stay dark in both themes (bg-foreground would invert)"
-  },
-  {
-    "rule": "R1-button",
-    "file": "apps/web/src/components/theme-toggle.tsx",
-    "text": "<button",
-    "reason": "icon-only toggle; ghost/icon Button is rounded-control h-9 w-9 hover:bg-accent, not identical (rounded-full, hover:bg-muted, animated icons)"
   },
   {
     "rule": "R4-arbitrary",
@@ -580,12 +574,6 @@
     "file": "apps/admin/src/components/brand-story-field.tsx",
     "text": "className=\"[&_.ProseMirror]:prose [&_.ProseMirror]:max-w-none [&_.ProseMirror]:min-h-[200px] [&_.ProseMirror]:rounded [&_.ProseMirror]:border [&_.ProseMirror]:border-border [&_.ProseMirror]:p-3 [&_.ProseMirror]:focus:outline-none [&_.ProseMirror]:focus:ring-2 [&_.ProseMirror]:focus:ring-ring dark:[&_.ProseMirror]:prose-invert\"",
     "reason": "min-h-[200px] on ProseMirror editor area; no scale step (48=192px, 52=208px)"
-  },
-  {
-    "rule": "R1-button",
-    "file": "apps/admin/src/components/theme-toggle.tsx",
-    "text": "<button",
-    "reason": "icon-only theme toggle with two animated icons (spring transition); no identical Button variant"
   },
   {
     "rule": "R2-hex",

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react"
 import { useTheme } from "next-themes"
 import { Moon, Sun } from "lucide-react"
 
+import { NavIconButton } from "@/components/nav-icon-button"
 import { cn } from "@/lib/utils"
 
 export function ThemeToggle({ className }: { className?: string }) {
@@ -18,14 +19,11 @@ export function ThemeToggle({ className }: { className?: string }) {
   const isDark = mounted && resolvedTheme === "dark"
 
   return (
-    <button
+    <NavIconButton
       type="button"
       onClick={() => setTheme(isDark ? "light" : "dark")}
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-      className={cn(
-        "relative flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
-        className,
-      )}
+      className={cn("relative", className)}
     >
       <Sun
         aria-hidden="true"
@@ -41,6 +39,6 @@ export function ThemeToggle({ className }: { className?: string }) {
           isDark ? "rotate-0 scale-100 opacity-100" : "-rotate-90 scale-0 opacity-0",
         )}
       />
-    </button>
+    </NavIconButton>
   )
 }
