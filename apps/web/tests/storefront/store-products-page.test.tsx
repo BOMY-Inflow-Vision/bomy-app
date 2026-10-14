@@ -16,8 +16,18 @@ vi.mock("next/navigation", () => ({
 import StoreProductsPage from "@/app/brands/[slug]/products/page"
 
 const TOKENS = {
-  tile: ["group", "block", "overflow-hidden", "rounded-xl", "border", "bg-background", "shadow-sm"],
-  empty: ["rounded-xl", "border", "border-dashed", "py-16", "text-center"],
+  link: ["group", "block", "rounded-card", "focus-visible:ring-2", "focus-visible:ring-ring"],
+  tile: [
+    "overflow-hidden",
+    "rounded-card",
+    "border",
+    "border-border",
+    "bg-background",
+    "shadow-sm",
+    "hover:shadow-md",
+  ],
+  empty: ["rounded-card", "border", "border-dashed", "bg-transparent", "shadow-none"],
+  emptyText: ["py-16", "text-center"],
 }
 
 async function render(products: unknown[]) {
@@ -71,9 +81,12 @@ describe("store products page", () => {
   it("a product without a cover image shows a placeholder, a product with one does not", async () => {
     const withImg = await render([WITH_IMAGE])
     expect(withImg.querySelector("li svg")).toBeNull()
+    expect(withImg.querySelector("li")!.textContent).not.toContain("📦")
     const noImg = await render([NO_IMAGE])
     expect(noImg.querySelector("img")).toBeNull()
-    expect(noImg.querySelector("li")!.textContent.trim()).toContain("📦")
+    const icon = noImg.querySelector("li svg")!
+    expect(icon.getAttribute("aria-hidden")).toBe("true")
+    expect(noImg.querySelector("li")!.textContent).not.toContain("📦")
   })
 
   it("empty state keeps its words and the back link", async () => {
@@ -97,11 +110,13 @@ describe("store products page", () => {
   })
 
   it("class tokens (updated by the swap)", async () => {
-    const tile = (await render([WITH_IMAGE])).querySelector("li a")!
-    has(tile, TOKENS.tile)
-    const empty = Array.from((await render([])).querySelectorAll("p")).find((p) =>
+    const link = (await render([WITH_IMAGE])).querySelector("li a")!
+    has(link, TOKENS.link)
+    has(link.firstElementChild, TOKENS.tile)
+    const emptyText = Array.from((await render([])).querySelectorAll("p")).find((p) =>
       p.textContent.includes("No products found"),
     )!
-    has(empty, TOKENS.empty)
+    has(emptyText, TOKENS.emptyText)
+    has(emptyText.parentElement, TOKENS.empty)
   })
 })
