@@ -38,8 +38,16 @@ describe("Footer", () => {
       ["/shipping", "Shipping and Delivery"],
     ] as const
     // Class tokens on the six links and the two lists. The swap task updates these (and only these).
-    const LINK_TOKENS = ["hover:text-foreground", "hover:underline"]
-    const LIST_TOKENS = ["mt-3", "space-y-2"]
+    const LINK_TOKENS = [
+      "inline-block",
+      "rounded-sm",
+      "py-1",
+      "hover:text-foreground",
+      "hover:underline",
+      "focus-visible:ring-2",
+      "focus-visible:ring-ring",
+    ]
+    const LIST_TOKENS = ["mt-2"]
 
     it.each(INTERNAL)("%s keeps its label", (href, label) => {
       const a = doc.querySelector(`a[href="${href}"]`)!

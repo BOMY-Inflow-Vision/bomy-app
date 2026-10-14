@@ -1,3 +1,4 @@
+import Link from "next/link"
 import React from "react"
 
 const CONTACT_EMAIL = "contact@brandsofmalaysia.com"
@@ -29,16 +30,22 @@ export function Footer() {
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Quick Links
             </p>
-            <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+            <ul className="mt-2 text-sm text-muted-foreground">
               <li>
-                <a href="/about" className="hover:text-foreground hover:underline">
+                <Link
+                  href="/about"
+                  className="inline-block rounded-sm py-1 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
                   About BOMY
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="/contact" className="hover:text-foreground hover:underline">
+                <Link
+                  href="/contact"
+                  className="inline-block rounded-sm py-1 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
                   Contact
-                </a>
+                </Link>
               </li>
             </ul>
           </div>
@@ -46,26 +53,38 @@ export function Footer() {
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Policies
             </p>
-            <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+            <ul className="mt-2 text-sm text-muted-foreground">
               <li>
-                <a href="/terms" className="hover:text-foreground hover:underline">
+                <Link
+                  href="/terms"
+                  className="inline-block rounded-sm py-1 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
                   Terms of Service
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="/privacy" className="hover:text-foreground hover:underline">
+                <Link
+                  href="/privacy"
+                  className="inline-block rounded-sm py-1 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
                   Privacy Policy
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="/refund" className="hover:text-foreground hover:underline">
+                <Link
+                  href="/refund"
+                  className="inline-block rounded-sm py-1 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
                   Refund and Return
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="/shipping" className="hover:text-foreground hover:underline">
+                <Link
+                  href="/shipping"
+                  className="inline-block rounded-sm py-1 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
                   Shipping and Delivery
-                </a>
+                </Link>
               </li>
             </ul>
           </div>
