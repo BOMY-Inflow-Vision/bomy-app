@@ -30,7 +30,7 @@ export function Footer() {
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Quick Links
             </p>
-            <ul className="-mb-2 mt-2 text-sm text-muted-foreground">
+            <ul className="-mb-1 mt-2 text-sm text-muted-foreground">
               <li>
                 <Link
                   href="/about"
@@ -53,7 +53,7 @@ export function Footer() {
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Policies
             </p>
-            <ul className="-mb-2 mt-2 text-sm text-muted-foreground">
+            <ul className="-mb-1 mt-2 text-sm text-muted-foreground">
               <li>
                 <Link
                   href="/terms"

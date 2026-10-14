@@ -47,7 +47,7 @@ describe("Footer", () => {
       "focus-visible:ring-2",
       "focus-visible:ring-ring",
     ]
-    const LIST_TOKENS = ["mt-2", "-mb-2"]
+    const LIST_TOKENS = ["mt-2", "-mb-1"]
 
     it.each(INTERNAL)("%s keeps its label", (href, label) => {
       const a = doc.querySelector(`a[href="${href}"]`)!
