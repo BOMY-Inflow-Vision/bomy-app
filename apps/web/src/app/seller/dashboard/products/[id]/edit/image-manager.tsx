@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import {
   DndContext,
   KeyboardSensor,
@@ -23,6 +23,7 @@ import { GripVertical, Upload } from "lucide-react"
 import { useToast } from "@/components/toaster"
 import { Button } from "@bomy/ui/button"
 import { Card, CardContent } from "@bomy/ui/card"
+import { FileDropzone } from "@bomy/ui/file-dropzone"
 import { createSerializedRunner } from "@/lib/serialized-runner"
 import { cn } from "@/lib/utils"
 
@@ -108,9 +109,7 @@ export function ImageManager({
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
-  const [isDragOver, setIsDragOver] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const dragCounter = useRef(0)
+  const hintId = useId()
 
   useEffect(() => {
     setImages(initialImages)
@@ -206,39 +205,7 @@ export function ImageManager({
     } finally {
       setUploading(false)
       setProgress(0)
-      if (fileInputRef.current) fileInputRef.current.value = ""
     }
-  }
-
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (file) void processFile(file)
-  }
-
-  function handleDragEnter(e: React.DragEvent) {
-    e.preventDefault()
-    if (uploading) return
-    dragCounter.current += 1
-    setIsDragOver(true)
-  }
-
-  function handleDragLeave(e: React.DragEvent) {
-    e.preventDefault()
-    dragCounter.current -= 1
-    if (dragCounter.current === 0) setIsDragOver(false)
-  }
-
-  function handleDragOver(e: React.DragEvent) {
-    e.preventDefault()
-  }
-
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault()
-    dragCounter.current = 0
-    setIsDragOver(false)
-    if (uploading) return
-    const file = e.dataTransfer.files[0]
-    if (file) void processFile(file)
   }
 
   async function handleRemove(imageId: string) {
@@ -283,52 +250,43 @@ export function ImageManager({
             </SortableContext>
           </DndContext>
 
-          <label
-            aria-label="Upload image. Drag and drop or click to browse"
-            onDragEnter={handleDragEnter}
-            onDragLeave={handleDragLeave}
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-            className={cn(
-              "relative flex h-24 w-24 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-lg border-2 border-dashed text-muted-foreground transition-[transform,border-color,background-color] duration-150",
-              isDragOver
-                ? "scale-[1.02] border-primary bg-primary/5 text-primary"
-                : "border-input hover:border-primary hover:text-primary",
-              uploading && "pointer-events-none",
-            )}
+          <FileDropzone
+            onFile={(file) => {
+              void processFile(file)
+            }}
+            accept="image/*"
+            disabled={uploading}
+            aria-label="Upload image"
+            aria-describedby={hintId}
           >
-            {uploading ? (
-              <>
-                <span className="z-10 text-xs font-medium text-primary">{progress}%</span>
-                <div
-                  className="absolute bottom-0 left-0 h-1.5 bg-primary transition-all duration-150"
-                  style={{ width: `${progress}%` }}
-                />
-              </>
-            ) : (
-              <>
-                <Upload
-                  className={cn(
-                    "size-6 transition-transform duration-150",
-                    isDragOver && "-translate-y-1 scale-110",
-                  )}
-                  aria-hidden="true"
-                />
-                <span className="mt-1 text-xs">{isDragOver ? "Drop to upload" : "Add image"}</span>
-              </>
-            )}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleFileChange}
-              disabled={uploading}
-            />
-          </label>
+            {({ isDragOver }) =>
+              uploading ? (
+                <>
+                  <span className="z-10 text-xs font-medium text-primary">{progress}%</span>
+                  <div
+                    className="absolute bottom-0 left-0 h-1.5 bg-primary transition-all duration-150"
+                    style={{ width: `${progress}%` }}
+                  />
+                </>
+              ) : (
+                <>
+                  <Upload
+                    className={cn(
+                      "size-6 transition-transform duration-150",
+                      isDragOver && "-translate-y-1 scale-110",
+                    )}
+                    aria-hidden="true"
+                  />
+                  <span className="mt-1 text-xs">
+                    {isDragOver ? "Drop to upload" : "Add image"}
+                  </span>
+                </>
+              )
+            }
+          </FileDropzone>
         </div>
 
-        <p className="text-xs text-muted-foreground">
+        <p id={hintId} className="text-xs text-muted-foreground">
           JPEG, PNG, WebP. Max 2 MB per image. Images are uploaded directly to cloud storage.
         </p>
       </CardContent>

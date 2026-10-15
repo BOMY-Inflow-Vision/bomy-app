@@ -110,9 +110,13 @@ describe("upload box markup", () => {
     expect(input().disabled).toBe(false)
   })
 
-  it("file input is display:none today", () => {
+  it("file input is keyboard-reachable, named and described by the hint", () => {
     mount()
-    expect(input().classList.contains("hidden")).toBe(true)
+    expect(input().classList.contains("hidden")).toBe(false)
+    expect(input().classList.contains("sr-only")).toBe(true)
+    expect(input().getAttribute("aria-label")).toBe("Upload image")
+    const hint = container.querySelector(`[id="${input().getAttribute("aria-describedby")}"]`)
+    expect(hint?.textContent).toContain("Max 2 MB per image")
   })
 })
 
