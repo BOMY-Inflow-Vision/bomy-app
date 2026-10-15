@@ -4,6 +4,7 @@
 
 @layer base {
   :root {
+    --nav-height: 3.5rem; /* NavBar bar height; the scrim and the toast offset derive from it */
     --background: 40 60% 98%; /* sand-50 */
     --foreground: 231 49% 15%; /* navy-900 */
     --card: 0 0% 100%;
