@@ -60,6 +60,11 @@ let container: HTMLDivElement
 let root: Root
 
 beforeEach(() => {
+  // jsdom has no matchMedia; the NavBar watches the md breakpoint (PR 5d-7).
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })),
+  )
   state.session = null
   state.cart = { itemCount: 0, hydrated: true }
   container = document.createElement("div")
@@ -70,6 +75,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount())
   container.remove()
+  vi.unstubAllGlobals()
 })
 
 function mount() {

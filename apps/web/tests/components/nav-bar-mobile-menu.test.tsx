@@ -60,6 +60,11 @@ const BAR_COMMON = [
 let container: HTMLDivElement
 let root: Root
 beforeEach(() => {
+  // jsdom has no matchMedia; the menu watches the md breakpoint (D30). The D30 tests override this.
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })),
+  )
   container = document.createElement("div")
   document.body.append(container)
   root = createRoot(container)
@@ -67,6 +72,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount())
   container.remove()
+  vi.unstubAllGlobals()
 })
 
 function mount(session: unknown = null) {
@@ -221,5 +227,82 @@ describe("nav height", () => {
     has(barEl, TOKENS.bar)
     click(hamburger())
     has(scrim()!, TOKENS.scrim)
+  })
+})
+
+describe("Escape and focus (D29)", () => {
+  const themeToggle = () =>
+    container.querySelector<HTMLButtonElement>('button[aria-label="Switch to dark mode"]')!
+
+  it("focus on a row: Escape closes the menu and focus returns to the hamburger", () => {
+    mount()
+    click(hamburger())
+    act(() => rows()[1]!.focus())
+    expect(document.activeElement).toBe(rows()[1])
+    escape()
+    expect(hamburger().getAttribute("aria-expanded")).toBe("false")
+    expect(document.activeElement).toBe(hamburger())
+  })
+
+  it("focus on the hamburger: Escape closes the menu and focus stays there", () => {
+    mount()
+    click(hamburger())
+    act(() => hamburger().focus())
+    escape()
+    expect(hamburger().getAttribute("aria-expanded")).toBe("false")
+    expect(document.activeElement).toBe(hamburger())
+  })
+
+  it("focus on another page control: Escape closes the menu and leaves focus alone", () => {
+    mount()
+    click(hamburger())
+    const toggle = themeToggle()
+    act(() => toggle.focus())
+    escape()
+    expect(hamburger().getAttribute("aria-expanded")).toBe("false")
+    expect(document.activeElement).toBe(toggle)
+  })
+})
+
+describe("crossing the md breakpoint (D30)", () => {
+  type Listener = (e: { matches: boolean }) => void
+  let listeners: Listener[]
+  beforeEach(() => {
+    listeners = []
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn(() => ({
+        matches: false,
+        addEventListener: (_: string, l: Listener) => listeners.push(l),
+        removeEventListener: (_: string, l: Listener) => {
+          listeners = listeners.filter((x) => x !== l)
+        },
+      })),
+    )
+  })
+  afterEach(() => vi.unstubAllGlobals())
+  const cross = (matches: boolean) =>
+    act(() => {
+      for (const l of listeners) l({ matches })
+    })
+
+  it("reaching 768 px closes an open menu, and it stays closed when going back", () => {
+    mount()
+    click(hamburger())
+    expect(hamburger().getAttribute("aria-expanded")).toBe("true")
+    cross(true)
+    expect(hamburger().getAttribute("aria-expanded")).toBe("false")
+    cross(false)
+    expect(hamburger().getAttribute("aria-expanded")).toBe("false")
+    expect(panel().hasAttribute("inert")).toBe(true)
+  })
+
+  it("watches the md query and removes its listener on unmount", () => {
+    mount()
+    expect(window.matchMedia).toHaveBeenCalledWith("(min-width: 768px)")
+    expect(listeners).toHaveLength(1)
+    act(() => root.unmount())
+    expect(listeners).toHaveLength(0)
+    root = createRoot(container)
   })
 })

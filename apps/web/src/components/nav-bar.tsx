@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { MoreHorizontal, ShoppingCart, User } from "lucide-react"
 import { useSession } from "next-auth/react"
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 
 import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
@@ -87,15 +87,33 @@ function SellerAccountMenu({
 export function NavBar() {
   const { data: session } = useSession()
   const [open, setOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false)
+      if (e.key !== "Escape") return
+      // The closed panel is inert, which would drop focus that is inside it: hand it back to the
+      // menu button. Focus anywhere else (the menu button itself, the theme toggle, the cart) stays.
+      const active = document.activeElement
+      setOpen(false)
+      if (active && panelRef.current?.contains(active)) triggerRef.current?.focus()
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
   }, [open])
+
+  // The mobile menu does not exist from md up; close it there so it cannot come back open when the
+  // window shrinks again.
+  useEffect(() => {
+    const query = window.matchMedia("(min-width: 768px)")
+    const onChange = (e: MediaQueryListEvent) => {
+      if (e.matches) setOpen(false)
+    }
+    query.addEventListener("change", onChange)
+    return () => query.removeEventListener("change", onChange)
+  }, [])
 
   const sellerLink =
     session?.user?.role === "seller_owner" ? { href: "/seller/dashboard", label: "Seller" } : null
@@ -145,6 +163,7 @@ export function NavBar() {
           <ThemeToggle />
           <CartLink />
           <NavIconButton
+            ref={triggerRef}
             type="button"
             onClick={() => setOpen((value) => !value)}
             aria-label={open ? "Close menu" : "Open menu"}
@@ -179,6 +198,7 @@ export function NavBar() {
       {/* Mobile dropdown panel */}
       <div
         id="mobile-menu"
+        ref={panelRef}
         inert={!open}
         className={cn(
           "absolute inset-x-0 top-full origin-top border-b border-subtle bg-card shadow-lg transition duration-200 ease-out md:hidden",
