@@ -34,7 +34,19 @@ const TOKENS = {
     "hover:bg-muted",
     "hover:text-foreground",
   ],
-  row: ["rounded-md", "px-3", "py-3", "text-base", "text-foreground", "hover:bg-muted"],
+  row: [
+    "h-auto",
+    "justify-start",
+    "rounded-md",
+    "px-3",
+    "py-3",
+    "text-base",
+    "font-normal",
+    "text-foreground",
+    "transition-none",
+    "hover:bg-muted",
+    "hover:text-foreground",
+  ],
 }
 const BAR_COMMON = [
   "absolute",

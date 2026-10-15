@@ -187,14 +187,16 @@ export function NavBar() {
       >
         <div className="flex flex-col gap-0.5 p-2">
           {[...NAV_LINKS, ...mobileAuthLinks].map((link) => (
-            <Link
+            <Button
               key={link.href}
-              href={link.href}
-              onClick={() => setOpen(false)}
-              className="rounded-md px-3 py-3 text-base text-foreground hover:bg-muted"
+              asChild
+              variant="ghost"
+              className="h-auto justify-start rounded-md px-3 py-3 text-base font-normal text-foreground transition-none hover:bg-muted hover:text-foreground"
             >
-              {link.label}
-            </Link>
+              <Link href={link.href} onClick={() => setOpen(false)}>
+                {link.label}
+              </Link>
+            </Button>
           ))}
         </div>
       </div>
