@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
-import { cn } from "@/lib/utils"
+import { SidebarLink } from "@bomy/ui/sidebar-link"
 
 const NAV = [
   { href: "/seller/dashboard", label: "Overview", exact: true },
@@ -44,20 +44,15 @@ export default function SellerDashboardLayout({ children }: { children: React.Re
           {NAV.map((item) => {
             const active = item.exact ? pathname === item.href : pathname.startsWith(item.href)
             return (
-              <Link
+              <SidebarLink
                 key={item.href}
-                href={item.href}
-                {...(active ? { "aria-current": "page" as const } : {})}
-                className={cn(
-                  "whitespace-nowrap px-5 py-2",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset",
-                  active
-                    ? "border-b-2 border-sidebar-indicator bg-sidebar-accent text-sidebar-strong md:border-b-0 md:border-l-2"
-                    : "hover:bg-sidebar-accent hover:text-sidebar-strong",
-                )}
+                asChild
+                orientation="strip"
+                active={active}
+                className="px-5 py-2"
               >
-                {item.label}
-              </Link>
+                <Link href={item.href}>{item.label}</Link>
+              </SidebarLink>
             )
           })}
         </nav>

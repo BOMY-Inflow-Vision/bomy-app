@@ -103,6 +103,10 @@ describe.each(FILES)("5a-2 status pairs: %s", (file) => {
       expect(ratio(get("accent-foreground"), get("accent"))).toBeGreaterThanOrEqual(4.5)
     })
 
+    it("sidebar links (5d-8): --sidebar-ring on --sidebar is >= 3:1 in both apps", () => {
+      expect(ratio(get("sidebar-ring"), get("sidebar"))).toBeGreaterThanOrEqual(3)
+    })
+
     it("page and footer links (5d-10): the focus ring is >= 3:1 on background, card and muted", () => {
       // verify-request link sits on bg-background (inside the card on bg-muted), tile rings on the
       // page background, footer links on bg-muted

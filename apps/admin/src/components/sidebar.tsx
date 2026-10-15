@@ -7,8 +7,8 @@ import { LogOut, Menu, X } from "lucide-react"
 
 import { signOutAction } from "@/app/auth/actions"
 import { Button } from "@bomy/ui/button"
+import { SidebarLink } from "@bomy/ui/sidebar-link"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { cn } from "@/lib/utils"
 
 const NAV = [
   { href: "/stores", label: "Stores" },
@@ -34,20 +34,11 @@ function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () 
       {NAV.map((item) => {
         const active = pathname.startsWith(item.href)
         return (
-          <Link
-            key={item.href}
-            href={item.href}
-            {...(onNavigate ? { onClick: onNavigate } : {})}
-            className={cn(
-              "px-4 py-2",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset",
-              active
-                ? "border-l-2 border-sidebar-indicator bg-sidebar-accent text-sidebar-strong"
-                : "hover:bg-sidebar-accent hover:text-sidebar-strong",
-            )}
-          >
-            {item.label}
-          </Link>
+          <SidebarLink key={item.href} asChild active={active} className="px-4 py-2">
+            <Link href={item.href} {...(onNavigate ? { onClick: onNavigate } : {})}>
+              {item.label}
+            </Link>
+          </SidebarLink>
         )
       })}
     </>

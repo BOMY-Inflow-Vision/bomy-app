@@ -133,3 +133,103 @@ describe("admin sidebar", () => {
     expect(active).toHaveLength(2)
   })
 })
+
+// Link classes and aria-current (PR 5d-8). Written first against the hand-made links (baseline);
+// after the SidebarLink swap the class strings must stay the same and aria-current is added.
+const ADMIN_COMMON = [
+  "px-4",
+  "py-2",
+  "focus-visible:outline-none",
+  "focus-visible:ring-2",
+  "focus-visible:ring-sidebar-ring",
+  "focus-visible:ring-inset",
+]
+const ADMIN_ACTIVE = [
+  "border-l-2",
+  "border-sidebar-indicator",
+  "bg-sidebar-accent",
+  "text-sidebar-strong",
+]
+const ADMIN_INACTIVE = ["hover:bg-sidebar-accent", "hover:text-sidebar-strong"]
+const hasAll = (el: Element, tokens: string[]) => tokens.every((t) => el.classList.contains(t))
+function renderAt(pathname: string) {
+  nav.pathname = pathname
+  act(() => root.render(<Sidebar email="admin@example.com" />))
+}
+const lists = () => [
+  [...container.querySelectorAll<HTMLAnchorElement>("aside nav a")],
+  [...container.querySelectorAll<HTMLAnchorElement>("#admin-mobile-menu nav a")],
+]
+const NAV_ITEMS = [
+  ["Stores", "/stores"],
+  ["Products", "/products"],
+  ["Users", "/users"],
+  ["Seller Inquiries", "/seller-inquiries"],
+  ["Product Cats", "/categories"],
+  ["Store Cats", "/store-categories"],
+  ["Memberships", "/memberships"],
+  ["Brand Subs", "/brand-subscriptions"],
+  ["Brand Plans", "/brand-plans"],
+  ["Goodie Box", "/goodie-box"],
+  ["Vouchers", "/vouchers"],
+  ["Sessions", "/checkout-sessions"],
+  ["Orders", "/orders"],
+  ["Payouts", "/payouts"],
+  ["Config", "/config"],
+]
+
+describe("admin sidebar links", () => {
+  it("keeps the fifteen items, their labels, destinations and order in both lists", () => {
+    renderAt("/stores")
+    for (const list of lists())
+      expect(list.map((a) => [a.textContent, a.getAttribute("href")])).toEqual(NAV_ITEMS)
+  })
+
+  it.each([
+    ["/stores", "Stores"],
+    ["/stores/abc", "Stores"],
+    ["/store-categories", "Store Cats"],
+    ["/seller-inquiries/xyz", "Seller Inquiries"],
+  ])("%s: one active link (%s) per list, the others hover-styled", (path, label) => {
+    renderAt(path)
+    for (const list of lists()) {
+      expect(list).toHaveLength(15)
+      const active = list.filter((a) => hasAll(a, ADMIN_ACTIVE))
+      expect(active.map((a) => a.textContent)).toEqual([label])
+      for (const a of list) {
+        expect(hasAll(a, ADMIN_COMMON)).toBe(true)
+        if (a !== active[0]) expect(hasAll(a, ADMIN_INACTIVE)).toBe(true)
+      }
+    }
+  })
+
+  it("an unmatched route has no active link in either list", () => {
+    renderAt("/not-a-page")
+    for (const list of lists()) expect(list.filter((a) => hasAll(a, ADMIN_ACTIVE))).toHaveLength(0)
+  })
+
+  it("marks the current page with aria-current in both lists, and only there", () => {
+    renderAt("/stores")
+    for (const list of lists()) {
+      expect(
+        list.filter((a) => a.getAttribute("aria-current") === "page").map((a) => a.textContent),
+      ).toEqual(["Stores"])
+      for (const a of list.filter((l) => l.textContent !== "Stores"))
+        expect(a.hasAttribute("aria-current")).toBe(false)
+    }
+    expect(container.querySelectorAll("[aria-current]")).toHaveLength(2)
+  })
+
+  it("an unmatched route has no current link in either list", () => {
+    renderAt("/not-a-page")
+    expect(container.querySelectorAll("[aria-current]")).toHaveLength(0)
+  })
+
+  it("the prefix rule marks the matching item on a detail route", () => {
+    renderAt("/seller-inquiries/xyz")
+    for (const list of lists())
+      expect(list.filter((a) => a.hasAttribute("aria-current")).map((a) => a.textContent)).toEqual([
+        "Seller Inquiries",
+      ])
+  })
+})
