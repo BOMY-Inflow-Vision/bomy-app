@@ -76,7 +76,7 @@ export default async function SellerDashboardPage() {
         <div className="rounded-xl border border-border bg-background p-6 text-center shadow-sm">
           <div className="text-3xl font-bold text-muted-foreground">—</div>
           <div className="mt-1 text-sm text-muted-foreground">Orders</div>
-          <div className="mt-1 text-xs text-primary/70">Coming soon</div>
+          <div className="mt-1 text-xs text-muted-foreground">Coming soon</div>
         </div>
       </div>
     </div>
