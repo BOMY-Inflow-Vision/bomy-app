@@ -339,12 +339,6 @@
     "rule": "R1-button",
     "file": "apps/web/src/components/nav-bar.tsx",
     "text": "<button",
-    "reason": "menu-trigger hamburger with animated bars"
-  },
-  {
-    "rule": "R1-button",
-    "file": "apps/web/src/components/nav-bar.tsx",
-    "text": "<button",
     "reason": "full-screen backdrop scrim button, not a visible control"
   },
   {
@@ -356,14 +350,8 @@
   {
     "rule": "R3b-bg-without-literal-text",
     "file": "apps/web/src/components/nav-bar.tsx",
-    "text": "className=\"fixed inset-x-0 bottom-0 top-14 -z-10 cursor-default bg-gray-900/20 md:hidden\"",
+    "text": "className=\"fixed inset-x-0 bottom-0 top-nav -z-10 cursor-default bg-gray-900/20 md:hidden\"",
     "reason": "overlay scrim with no text; must stay dark in both themes (bg-foreground would invert)"
-  },
-  {
-    "rule": "R4-arbitrary",
-    "file": "apps/web/src/components/toaster.tsx",
-    "text": "className=\"pointer-events-none fixed inset-x-4 top-[4.5rem] z-[60] sm:left-auto sm:w-80\"",
-    "reason": "top offset 4.5rem (nav height + gap); no spacing step 18 in Tailwind 3 default scale"
   },
   {
     "rule": "R1-button",
