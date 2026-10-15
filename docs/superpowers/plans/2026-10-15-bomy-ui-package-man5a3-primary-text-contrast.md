@@ -18,7 +18,7 @@ Dark surfaces: `--background`, `--card`, `--popover`/`--secondary`, `--muted`, `
 | -------------------------------------------------------- | ---------- | ---- | ------- | ----- | ------ |
 | **Now** `--primary` red-500 `4 64% 51%` = rgb(210,61,50) | 3.95       | 3.74 | 3.46    | 4.11  | 3.44   |
 | **Proposed** red-400 `4 70% 62%` = rgb(226,99,90)        | 5.46       | 5.18 | 4.79    | 5.69  | 4.76   |
-| Option B `4 70% 66%` = rgb(229,116,108)                  | 6.0        | 5.7  | 5.3     | 6.2   | 5.2    |
+| Option B `4 70% 66%` = rgb(229,116,108)                  | 6.24       | 5.92 | 5.47    | 6.50  | 5.44   |
 
 White (`--primary-foreground`) on the dark button fill: red-500 **4.71** (passes, kept); red-400 would be **3.41** (fails). That is why dark `--primary` cannot simply be raised.
 
