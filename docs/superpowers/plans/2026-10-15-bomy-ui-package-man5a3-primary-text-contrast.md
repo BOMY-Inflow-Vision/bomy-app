@@ -87,15 +87,15 @@ textColor: {
 
 - [ ] **Step 1:** apply Edit 1 to 4. Run the token and wiring tests: PASS. Run the full web suite: PASS (a source-text test may name the old class; fix only expectations). Commit: `fix(ui): readable brand-red text in dark mode via --primary-text (man-5a3)`.
 
-### Task 3: Ledger
+### Task 3: Browser proof and code gates
 
-- [ ] **Step 1:** Run the scanner (expect no exception changes). Resolve `man-5a3` with evidence limited to what was verified: the token and the numbers, the Tailwind mapping, the label, the browser results, and what was not evaluated. Expect **7 deferred (the Cards entries), 90 resolved**; scanner 0 deferred, 0 stale; `pnpm ui:audit --allow-deferred` exit 0; `ui:audit:test` 17 of 17; plain `pnpm ui:audit` still exit 1 (Cards only). Commit.
+- [ ] **Step 1 (compare with the baseline):** repeat the Task 1 capture and reconcile every call-site inventory row. Dark: every rendered `text-primary` instance is >= 4.5:1 against its real background and uses rgb(226,99,90); each unrendered instance has a documented source-to-surface mapping and a passing token test for that surface/state. A new or unmapped surface stops ledger resolution. Light: every rendered `text-primary` colour is identical; the "Coming soon" label is `text-muted-foreground` (6.06:1). Buttons, chips, pagination and Badge `default`: identical fill and text colours in both themes. Hover and focus rings unchanged. Record exactly which entries were browser-measured and which were covered only by source review and token tests.
+- [ ] **Step 2:** `pnpm install --frozen-lockfile`, `typecheck`, `lint`, the **full** web and admin test suites, `@bomy/ui` typecheck, `pnpm build` (`loading.tsx` moved aside and restored after), prettier on the diff, `git diff --check`, and the audit tests; delete temporary harness pages and stop the dev servers; `git diff --name-only main HEAD` has only the files in File Structure plus the plan. Stop if a gate fails.
 
-### Task 4: Browser proof and gates; stop before the push
+### Task 4: Ledger and PR; stop before the push
 
-- [ ] **Step 1 (compare with the baseline):** repeat the Task 1 capture and reconcile every call-site inventory row. Dark: every rendered `text-primary` instance is >= 4.5:1 against its real background and uses rgb(226,99,90); each unrendered instance has a documented source-to-surface mapping and a passing token test for that surface/state. A new or unmapped surface stops ledger resolution. Light: every rendered `text-primary` colour is identical; the "Coming soon" label is `text-muted-foreground` (6.06:1). Buttons, chips, pagination and Badge `default`: identical fill and text colours in both themes. Hover and focus rings unchanged. The PR body states exactly which entries were browser-measured and which were covered only by source review and token tests.
-- [ ] **Step 2:** `pnpm install --frozen-lockfile`, `typecheck`, `lint`, the **full** web and admin test suites, `@bomy/ui` typecheck, `pnpm build` (`loading.tsx` moved aside and restored after), prettier on the diff, `git diff --check`, audit gate and tests; delete temporary harness pages and stop the dev servers; `git diff --name-only main HEAD` has only the files in File Structure plus the plan.
-- [ ] **Step 3:** Write `.andy/man5a3-pr-body.md` (format of the 5d-7 body; ends with the 🤖 line; D34 to D37, the numbers, the one visible change in dark and the one label change in light, the not-evaluated list). Report to Charlie. **Push and open the PR only after his go. Do not merge.**
+- [ ] **Step 1:** Only after Task 3 passes, run the scanner (expect no exception changes). Resolve `man-5a3` with evidence limited to what was verified: the token and the numbers, the Tailwind mapping, the label, the browser results, and what was not evaluated. Expect **7 deferred (the Cards entries), 90 resolved**; scanner 0 deferred, 0 stale; `pnpm ui:audit --allow-deferred` exit 0; `ui:audit:test` 17 of 17; plain `pnpm ui:audit` still exit 1 (Cards only). Commit.
+- [ ] **Step 2:** Write `.andy/man5a3-pr-body.md` (format of the 5d-7 body; ends with the 🤖 line; D34 to D37, the numbers, the one visible change in dark and the one label change in light, the not-evaluated list; distinguish browser measurements from source review and token tests). Report to Charlie. **Push and open the PR only after his go. Do not merge.**
 - [ ] **After merge:** log `log/2026-10-…_PR<N>_man5a3-primary-text-contrast.md`, handoff, memory, delete branch. Then plain `pnpm ui:audit` fails only on the Cards entries.
 
 ## Visible and non-visual changes to disclose
@@ -106,5 +106,5 @@ textColor: {
 
 ## Self-review
 
-- **Coverage:** dark failures and the light 3.46:1 → Tasks 2; tests → Task 1; ledger → Task 3.
+- **Coverage:** dark failures and the light 3.46:1 → Task 2; tests → Task 1; post-change proof → Task 3; ledger → Task 4.
 - **Risks, in order:** a `text-primary` use on a surface not in the token list (e.g. a tinted `bg-*/10` fill) still failing (the browser pass checks real backgrounds); the Tailwind override also catching a utility that should stay `--primary` (`decoration-`, `caret-`, `accent-` use their own namespaces; verified by the wiring test and the build); `hover:text-primary` on a dark hover surface; the ledger's admin "class-less links" turning out to be a different colour source; a future `text-primary/NN` (the scan test).
