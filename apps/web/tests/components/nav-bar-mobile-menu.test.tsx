@@ -24,8 +24,8 @@ import { NavBar } from "@/components/nav-bar"
 
 // Class tokens (updated by the swaps; the plan says which).
 const TOKENS = {
-  bar: ["h-14"],
-  scrim: ["top-14", "md:hidden", "-z-10"],
+  bar: ["h-nav"],
+  scrim: ["top-nav", "md:hidden", "-z-10"],
   hamburger: [
     "rounded-md",
     "p-2.5",

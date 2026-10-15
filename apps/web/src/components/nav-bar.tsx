@@ -110,7 +110,7 @@ export function NavBar() {
 
   return (
     <nav className="sticky top-0 z-50 border-b border-subtle bg-card shadow-sm">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
+      <div className="mx-auto flex h-nav max-w-6xl items-center justify-between px-4">
         <Link href="/" className="text-lg font-extrabold tracking-tighter text-primary">
           BOMY
         </Link>
@@ -206,7 +206,7 @@ export function NavBar() {
           aria-hidden="true"
           tabIndex={-1}
           onClick={() => setOpen(false)}
-          className="fixed inset-x-0 bottom-0 top-14 -z-10 cursor-default bg-gray-900/20 md:hidden"
+          className="fixed inset-x-0 bottom-0 top-nav -z-10 cursor-default bg-gray-900/20 md:hidden"
         />
       )}
     </nav>

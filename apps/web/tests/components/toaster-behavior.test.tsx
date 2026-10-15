@@ -279,6 +279,6 @@ describe("position", () => {
         "sm:w-80",
       ]),
     )
-    expect(cls).toContain("top-[4.5rem]")
+    expect(cls).toContain("top-[calc(var(--nav-height)+1rem)]")
   })
 })
