@@ -42,7 +42,7 @@
 
 - **D24 (shared piece):** `FileDropzone` lives in `@bomy/ui` (the ledger and the approved inventory name it as the candidate), although it has one caller today. The alternative is to fix the input in place and keep the local label, which clears the keyboard bug but leaves `man-t12` deferred. Recommended: shared piece.
 - **D25 (keyboard fix):** the input becomes `sr-only` (still focusable) inside the `label`; the ring is drawn on the dashed box with `has-[:focus-visible]:ring-2 ring-ring ring-offset-2`. No separate button is added. Recommended over a visible "Browse" button, which would change the look.
-- **D26 (input reset):** the shared piece clears the input value right after it hands the file to `onFile` (today `image-manager` clears it at the end of the upload). Same effect (the same file can be picked again), one less thing for the caller to hold. Small timing change, disclosed.
+- **D26 (input reset):** the shared piece clears the input value right after it hands the file to `onFile` (today `image-manager` clears it at the end of a valid upload). This is a small behaviour change: a non-image or over-2 MB choice currently returns before the `finally` block, leaving the input value set, so choosing that same invalid file again does not fire `change`. The new piece permits an immediate retry. Disclose it in the PR.
 - **D27 (accessible name):** the name changes from "Upload image. Drag and drop or click to browse" to "Upload image", plus `aria-describedby` pointing at the existing hint paragraph. "Drag and drop" is noise for a keyboard user. Recommended; Bob may prefer to keep the old wording.
 
 ## Edit
@@ -71,7 +71,7 @@ It renders `<label ...drag handlers... className={cn(base, isDragOver ? over : i
 
 **Files:** create `apps/web/tests/seller-dashboard/image-manager.test.tsx`; create (uncommitted) `.andy/pr5d12-baseline.json`.
 
-- [ ] **Step 1 (jsdom):** mock `../../actions`, `@/components/toaster`; stub `XMLHttpRequest`. Tests on the current markup: the box exists with the idle classes and text "Add image"; drag enter shows "Drop to upload" and the over classes; drag leave with an inner-element enter/leave pair keeps the state until the counter hits 0; drop with an image file calls `getPresignedUploadUrl(type, size)` then the PUT then `addProductImage`, adds the thumbnail and toasts "Image uploaded"; drop with a non-image shows "Only image files are allowed"; an over-2 MB file shows "Image must be smaller than 2 MB"; while uploading the input is disabled, the percentage shows and a second drop is ignored; choosing a file through the input's `change` does the same as a drop. A baseline test named `file input is display:none today` asserts the input has class `hidden` (Task 3 flips it).
+- [ ] **Step 1 (jsdom):** mock `../../actions`, `@/components/toaster`; stub `XMLHttpRequest`. Tests on the current markup: the box exists with the idle classes and text "Add image"; the input has `accept="image/*"`; drag enter shows "Drop to upload" and the over classes; drag leave with an inner-element enter/leave pair keeps the state until the counter hits 0; after a drop, a fresh enter/leave cycle returns to idle (proves the counter reset); drop with an image file calls `getPresignedUploadUrl(type, size)` then the PUT then `addProductImage`, adds the thumbnail and toasts "Image uploaded"; drop with a non-image shows "Only image files are allowed"; an over-2 MB file shows "Image must be smaller than 2 MB"; while uploading the input is disabled, the percentage shows and a second drop is ignored; choosing a file through the input's `change` does the same as a drop. A baseline test named `file input is display:none today` asserts the input has class `hidden` (Task 3 flips it).
 - [ ] **Step 2 (browser baseline, Playwright, uncommitted):** sign in as the seeded seller (Mailhog magic link), open the edit page of one of that seller's products. Measure the upload box idle, with the real `browser_drop` drag-over, and mid-upload (slow the PUT if possible; otherwise report as not evaluated): box size, border style/width/colour, fill, text colour, icon box, light and dark, at 390 and 1280 px. Record that a real Tab sequence skips the upload box (the baseline of the gap). Save to `.andy/pr5d12-baseline.json`.
 - [ ] **Step 3:** run on unchanged source: PASS. Mutation-check four (drop the `dragCounter` reset in drop; remove the `uploading` early return in drop; change the 2 MB limit; remove `accept`); each must fail; restore.
 - [ ] **Step 4:** commit the test by explicit path: `test(ui): baseline of the product image drop zone (5d-12)`.
@@ -95,7 +95,7 @@ It renders `<label ...drag handlers... className={cn(base, isDragOver ? over : i
 
 - [ ] **Step 1 (compare with the baseline):** repeat the Task 1 capture; expected visual differences: none while idle, dragging or uploading.
 - [ ] **Step 2 (real keys):** Tab from the last thumbnail's controls to the upload box: the ring shows, on both themes, at 3:1 or better; a mouse click does not leave the ring; Enter and Space open the file chooser (`browser_file_upload` supplies a small image) and the upload completes with the toast and a new thumbnail; the real `browser_drop` still uploads; a text file is rejected with the same message.
-- [ ] **Step 3:** `pnpm install --frozen-lockfile`, `typecheck`, `lint`, the **full** web and admin test suites, `@bomy/ui` typecheck, `pnpm build` (`loading.tsx` moved aside, restored after; `rm -rf apps/admin/.next` after), prettier on the diff, `git diff --check`, audit gate and tests; `git diff --name-only main HEAD` has only the files in File Structure plus the plan.
+- [ ] **Step 3:** `pnpm install --frozen-lockfile`, `typecheck`, `lint`, the **full** web and admin test suites, `@bomy/ui` typecheck, `pnpm build` (`loading.tsx` moved aside, restored after), prettier on the diff, `git diff --check`, audit gate and tests; `git diff --name-only main HEAD` has only the files in File Structure plus the plan.
 - [ ] **Step 4:** Write `.andy/pr5d12-pr-body.md` (format of the 5d-8 body; ends with the 🤖 line; D24 to D27, measured deltas, visible and non-visual changes, observations, not-evaluated list). Report to Charlie. **Push and open the PR only after his go. Do not merge.**
 - [ ] **After merge:** log `log/2026-10-…_PR<N>_ui-pr5d12-file-dropzone.md`, handoff, memory, delete branch.
 
@@ -104,11 +104,12 @@ It renders `<label ...drag handlers... className={cn(base, isDragOver ? over : i
 1. Keyboard users can now reach and use the upload box (focus ring on keyboard focus only). New behaviour, small visual addition.
 2. The input is named "Upload image" and described by the hint (D27).
 3. New shared piece `@bomy/ui/file-dropzone`; two scanner exceptions removed.
-4. No other visual change expected; measured.
+4. The file input resets immediately after a choice, including an invalid file, so the same invalid file can be chosen again (D26). No other visual change expected; measured.
 
 ## Observations (not changed here)
 
 - While an upload runs, the box is `pointer-events-none`, so a file dropped on it falls through to the page and the browser may open the image. Unchanged; a separate fix.
+- A drag leave that occurs while the upload is disabled can take the old drag counter below zero. The shared piece preserves that existing counter logic in this slice; test and fix it separately if it is observed to stick the drag state.
 - A multi-file drop uploads the first file only, silently. Unchanged.
 
 ## Self-review
