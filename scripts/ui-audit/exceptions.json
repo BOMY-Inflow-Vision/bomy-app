@@ -126,18 +126,6 @@
     "reason": "icon-only drag-handle button (dnd-kit listeners)"
   },
   {
-    "rule": "R1-input",
-    "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/image-manager.tsx",
-    "text": "<input",
-    "reason": "type checkbox/file/hidden (no shared primitive)"
-  },
-  {
-    "rule": "R1-label",
-    "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/image-manager.tsx",
-    "text": "<label",
-    "reason": "label wraps checkbox/file input (no shared primitive)"
-  },
-  {
     "rule": "R5-inline-style",
     "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/image-manager.tsx",
     "text": "style={{ width: `${progress}%` }}",
