@@ -25,7 +25,7 @@
 ## Review Focus
 
 - **The picker works from the keyboard.** Tab reaches the upload box after the last thumbnail; the box shows a visible focus ring (and only for keyboard focus, not after a mouse click); Enter and Space open the file chooser; choosing a file runs the same upload as a click. While an upload runs the input is disabled, as today.
-- **The control has a name.** The input has an accessible name ("Upload image") and is described by the hint text under the grid (JPEG, PNG, WebP, 2 MB). The old `aria-label` sat on the `label`, which does not name the input it wraps.
+- **The control has a name.** The input has an accessible name ("Add product image") and is described by the hint text under the grid (JPEG, PNG, WebP, 2 MB). The old `aria-label` sat on the `label`, which does not name the input it wraps.
 - **Drag and drop behaves as before.** Enter shows "Drop to upload" and the primary colours; leave (including leaving onto a child element) clears them only when the counter reaches 0; drop clears the state, ignores the drop while uploading, and takes the first file only; a non-image or an over-2 MB file shows the same error text and toast.
 - **Nothing looks different when idle, dragging or uploading.** Box size, border, fill, text colour, icon and the progress bar are the same, measured before and after in light and dark.
 - **Choosing the same file twice still works.** The input value is cleared after each pick (see D26).
@@ -43,7 +43,7 @@
 - **D24 (shared piece):** `FileDropzone` lives in `@bomy/ui` (the ledger and the approved inventory name it as the candidate), although it has one caller today. The alternative is to fix the input in place and keep the local label, which clears the keyboard bug but leaves `man-t12` deferred. Recommended: shared piece.
 - **D25 (keyboard fix):** the input becomes `sr-only` (still focusable) inside the `label`; the ring is drawn on the dashed box with `has-[:focus-visible]:ring-2 ring-ring ring-offset-2`. No separate button is added. Recommended over a visible "Browse" button, which would change the look.
 - **D26 (input reset):** the shared piece clears the input value right after it hands the file to `onFile` (today `image-manager` clears it at the end of a valid upload). This is a small behaviour change: a non-image or over-2 MB choice currently returns before the `finally` block, leaving the input value set, so choosing that same invalid file again does not fire `change`. The new piece permits an immediate retry. Disclose it in the PR.
-- **D27 (accessible name):** the name changes from "Upload image. Drag and drop or click to browse" to "Upload image", plus `aria-describedby` pointing at the existing hint paragraph. "Drag and drop" is noise for a keyboard user. Recommended; Bob may prefer to keep the old wording.
+- **D27 (accessible name):** the name changes from "Upload image. Drag and drop or click to browse" to "Add product image", plus `aria-describedby` pointing at the existing hint paragraph. This distinguishes the product gallery picker from the body editor's "Upload image" button on the same page. "Drag and drop" is noise for a keyboard user.
 
 ## Edit
 
@@ -63,7 +63,7 @@ type FileDropzoneProps = {
 
 It renders `<label ...drag handlers... className={cn(base, isDragOver ? over : idle, disabled && "pointer-events-none", className)}>` with the same class strings as today plus the focus ring, then `{children}`, then `<input ref type="file" className="sr-only" accept disabled aria-label aria-describedby onChange>`. `onChange` calls `onFile(file)` then clears the value. The drag handlers are copied unchanged (counter ref; `handleDragEnter` returns early when `disabled`; `handleDrop` resets, returns early when `disabled`, passes `files[0]`).
 
-2. `image-manager.tsx`: `processFile` stays; the `<label>` block becomes `<FileDropzone onFile={(f) => void processFile(f)} accept="image/*" disabled={uploading} aria-label="Upload image" aria-describedby={hintId}>{({ isDragOver }) => uploading ? (progress text + bar) : (icon + "Add image"/"Drop to upload")}</FileDropzone>`; `fileInputRef`, `dragCounter`, `isDragOver` state and the four handlers are removed; the hint `<p>` gets `id={hintId}` from `useId()`.
+2. `image-manager.tsx`: `processFile` stays; the `<label>` block becomes `<FileDropzone onFile={(f) => void processFile(f)} accept="image/*" disabled={uploading} aria-label="Add product image" aria-describedby={hintId}>{({ isDragOver }) => uploading ? (progress text + bar) : (icon + "Add image"/"Drop to upload")}</FileDropzone>`; `fileInputRef`, `dragCounter`, `isDragOver` state and the four handlers are removed; the hint `<p>` gets `id={hintId}` from `useId()`.
 
 ---
 
@@ -85,7 +85,7 @@ It renders `<label ...drag handlers... className={cn(base, isDragOver ? over : i
 
 ### Task 3: Image manager
 
-- [ ] **Step 1:** Apply Edit 2. Flip the baseline test: the input is no longer `hidden`; it has the name "Upload image" and the `aria-describedby`. All other baseline tests pass unchanged. Commit: `refactor(ui): product image upload uses FileDropzone (5d-12)`.
+- [ ] **Step 1:** Apply Edit 2. Flip the baseline test: the input is no longer `hidden`; it has the name "Add product image" and the `aria-describedby`. All other baseline tests pass unchanged. Commit: `refactor(ui): product image upload uses FileDropzone (5d-12)`.
 
 ### Task 4: Ledger
 
@@ -102,7 +102,7 @@ It renders `<label ...drag handlers... className={cn(base, isDragOver ? over : i
 ## Visible and non-visual changes to disclose
 
 1. Keyboard users can now reach and use the upload box (focus ring on keyboard focus only). New behaviour, small visual addition.
-2. The input is named "Upload image" and described by the hint (D27).
+2. The input is named "Add product image" and described by the hint (D27).
 3. New shared piece `@bomy/ui/file-dropzone`; two scanner exceptions removed.
 4. The file input resets immediately after a choice, including an invalid file, so the same invalid file can be chosen again (D26). No other visual change expected; measured.
 

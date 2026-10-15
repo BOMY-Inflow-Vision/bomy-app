@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 //
 // Product image upload box (PR 5d-12, man-t12). Written first against the hand-made drop zone
-// (baseline); after the FileDropzone swap only the "file input is display:none today" test changes.
+// (baseline); after the FileDropzone swap the hidden-input and accessible-name assertions change.
 import React, { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
@@ -114,7 +114,7 @@ describe("upload box markup", () => {
     mount()
     expect(input().classList.contains("hidden")).toBe(false)
     expect(input().classList.contains("sr-only")).toBe(true)
-    expect(input().getAttribute("aria-label")).toBe("Upload image")
+    expect(input().getAttribute("aria-label")).toBe("Add product image")
     const hint = container.querySelector(`[id="${input().getAttribute("aria-describedby")}"]`)
     expect(hint?.textContent).toContain("Max 2 MB per image")
   })

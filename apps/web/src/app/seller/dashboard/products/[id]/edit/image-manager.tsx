@@ -256,7 +256,7 @@ export function ImageManager({
             }}
             accept="image/*"
             disabled={uploading}
-            aria-label="Upload image"
+            aria-label="Add product image"
             aria-describedby={hintId}
           >
             {({ isDragOver }) =>

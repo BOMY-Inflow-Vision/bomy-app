@@ -32,9 +32,9 @@ export function FileDropzone({
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    // Clear right away so choosing the same file again fires change again.
-    e.target.value = ""
     if (file) onFile(file)
+    // Clear after handing off the file so choosing it again fires change again.
+    e.target.value = ""
   }
 
   function handleDragEnter(e: React.DragEvent) {
