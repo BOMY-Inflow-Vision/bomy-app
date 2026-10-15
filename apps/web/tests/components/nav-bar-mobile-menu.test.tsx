@@ -27,8 +27,9 @@ const TOKENS = {
   bar: ["h-nav"],
   scrim: ["top-nav", "md:hidden", "-z-10"],
   hamburger: [
+    "size-11",
     "rounded-md",
-    "p-2.5",
+    "transition-none",
     "text-muted-foreground",
     "hover:bg-muted",
     "hover:text-foreground",

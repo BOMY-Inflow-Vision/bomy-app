@@ -144,13 +144,13 @@ export function NavBar() {
         <div className="flex items-center gap-1 md:hidden">
           <ThemeToggle />
           <CartLink />
-          <button
+          <NavIconButton
             type="button"
             onClick={() => setOpen((value) => !value)}
             aria-label={open ? "Close menu" : "Open menu"}
             aria-expanded={open}
             aria-controls="mobile-menu"
-            className="inline-flex items-center justify-center rounded-md p-2.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="size-11 rounded-md transition-none"
           >
             <span className="relative flex h-6 w-6 items-center justify-center" aria-hidden="true">
               <span
@@ -172,7 +172,7 @@ export function NavBar() {
                 )}
               />
             </span>
-          </button>
+          </NavIconButton>
         </div>
       </div>
 
