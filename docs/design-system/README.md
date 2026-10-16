@@ -56,7 +56,7 @@ Values are computed from the source hexes in `tokens/colors.css` — spot-check 
 | `--foreground` | `8 22% 14%` | unchanged |
 | `--muted-foreground` | `12 14% 37%` | unchanged |
 | `--primary`, `--primary-text`, `--ring` | `0 45% 42%` (soft red `#9A3B3B`) | `--primary` `2 50% 50%` (fill, white 5.1:1); `--primary-text` `4 55% 66%` |
-| `--destructive` | `4 80% 37%` (own alarm red, split from primary) | unchanged (`4 70% 62%`) |
+| `--destructive` | `4 80% 37%` (own alarm red, split from primary) | `4 70% 66%` (was `4 70% 62%`; lifted so text on its `/20` active tint stays at least 4.5:1) |
 | `--border` (dividers) | `19 34% 83%` | unchanged |
 | `--input` (control border) | `12 18% 48%`, at least 3:1 on every field surface | `28 12% 46%` |
 
