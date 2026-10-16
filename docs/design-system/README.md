@@ -24,6 +24,7 @@ Replace the `:root` block's color variables with BOMY's tokens (converted to sha
   --popover-foreground: 231 49% 15%;
   --primary: 4 71% 43%;            /* red-600 */
   --primary-foreground: 0 0% 100%;
+  --primary-text: 4 71% 43%;       /* text-primary reads this; = red-600 here, red-400 in .dark */
   --secondary: 37 45% 94%;         /* sand-100 */
   --secondary-foreground: 231 49% 15%;
   --muted: 37 45% 94%;             /* sand-100 */
@@ -38,7 +39,7 @@ Replace the `:root` block's color variables with BOMY's tokens (converted to sha
   --radius: 0.625rem;              /* was 0.5rem */
 }
 ```
-Values are computed from the source hexes in `tokens/colors.css` — spot-check with a color tool before shipping. The `.dark` block can be ported the same way from the `.dark` section of `tokens/colors.css` if/when dark mode ships (not wired up in `bomy-app` today).
+Values are computed from the source hexes in `tokens/colors.css` — spot-check with a color tool before shipping. Both apps already use a `.dark` block (same mapping, values in each app's `globals.css`). In dark, `--primary-text` is red-400 (`4 70% 62%`) while `--primary` stays red-500 for fills: white on red-500 is 4.71:1, but red-500 text on dark surfaces is only 3.4 to 4.1:1.
 
 **Flag for the team:** BOMY's `--destructive` and `--primary` are the same red (the brand color doubles as the danger color in the source system). If destructive actions need to read as distinct from primary CTAs, consider `red-700`/`red-800` for destructive instead — confirm with whoever owns the design system before deviating.
 

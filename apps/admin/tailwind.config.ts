@@ -12,6 +12,14 @@ const config: Config = {
       screens: { "2xl": "1400px" },
     },
     extend: {
+      // text-primary reads --primary-text (readable on dark surfaces); bg-, border- and ring-primary
+      // keep --primary, and text-primary-foreground is the white-on-red text.
+      textColor: {
+        primary: {
+          DEFAULT: "hsl(var(--primary-text))",
+          foreground: "hsl(var(--primary-foreground))",
+        },
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

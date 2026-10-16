@@ -12,6 +12,7 @@
     --popover-foreground: 231 49% 15%;
     --primary: 4 71% 43%; /* red-600 */
     --primary-foreground: 0 0% 100%;
+    --primary-text: 4 71% 43%; /* = --primary (red-600): text-primary on the light surfaces is 5.4 to 6.0:1 */
     --secondary: 37 45% 94%; /* sand-100 */
     --secondary-foreground: 231 49% 15%;
     --muted: 37 45% 94%; /* sand-100 */
@@ -70,6 +71,7 @@
     --popover-foreground: 40 60% 98%; /* sand-50 */
     --primary: 4 64% 51%; /* red-500 */
     --primary-foreground: 0 0% 100%;
+    --primary-text: 4 70% 62%; /* red-400: text-primary on dark surfaces (4.8 to 5.7:1). --primary (red-500) stays for fills, white on it is 4.71:1 */
     --secondary: 32 21% 12%; /* surface-raised */
     --secondary-foreground: 40 60% 98%; /* sand-50 */
     --muted: 30 29% 5%; /* surface-sunken */
