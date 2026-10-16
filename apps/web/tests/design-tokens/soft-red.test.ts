@@ -1,5 +1,5 @@
 // Soft-red storefront redesign, R1. Web only (admin keeps its own tokens): the blush ground Charlie
-// chose (#EFDED7), the soft-red primary, a control border that stays visible on blank fields, and a
+// chose (#EFDED7) as the tint colour on a nearly white page, the soft-red primary, a control border that stays visible on blank fields, and a
 // destructive red that stays distinct from the primary action.
 import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
@@ -46,16 +46,16 @@ const dark = tokens(CSS, ".dark")
 
 describe("soft red palette values (light)", () => {
   it.each([
-    ["background", "18 43% 89%"], // #EFDED7, Charlie's blush
+    ["background", "20 50% 98%"], // nearly white (Charlie: the page ground must not read as coloured)
     ["foreground", "8 22% 14%"],
-    ["card", "22 52% 96%"],
-    ["popover", "22 52% 96%"],
+    ["card", "0 0% 100%"],
+    ["popover", "0 0% 100%"],
     ["primary", "0 45% 42%"],
     ["primary-text", "0 45% 42%"],
-    ["muted", "18 40% 91%"],
-    ["secondary", "18 40% 91%"],
+    ["muted", "18 40% 95%"], // pale tint: the seller and account page ground must not read as coloured
+    ["secondary", "18 40% 95%"],
     ["muted-foreground", "12 14% 37%"],
-    ["accent", "18 50% 94%"],
+    ["accent", "18 50% 92%"],
     ["accent-foreground", "0 45% 42%"],
     ["border", "19 34% 83%"],
     ["input", "12 18% 48%"],

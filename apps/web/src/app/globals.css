@@ -5,20 +5,20 @@
 @layer base {
   :root {
     --nav-height: 3.5rem; /* NavBar bar height; the scrim and the toast offset derive from it */
-    --background: 18 43% 89%; /* blush #EFDED7 (soft-red redesign) */
+    --background: 20 50% 98%; /* nearly white, warm (soft-red redesign); blush is the tint colour below */
     --foreground: 8 22% 14%; /* warm ink #2A1D1B */
-    --card: 22 52% 96%; /* #FAF3EF */
+    --card: 0 0% 100%;
     --card-foreground: 8 22% 14%;
-    --popover: 22 52% 96%;
+    --popover: 0 0% 100%;
     --popover-foreground: 8 22% 14%;
     --primary: 0 45% 42%; /* soft red #9A3B3B */
     --primary-foreground: 0 0% 100%;
     --primary-text: 0 45% 42%; /* = --primary: text-primary on the light surfaces is 4.7 to 6.2:1 */
-    --secondary: 18 40% 91%; /* blush tint; warning text must stay >= 4.5 on it */
+    --secondary: 18 40% 95%; /* pale tint. Blush #EFDED7 returns as a storefront tile token in R4 */
     --secondary-foreground: 8 22% 14%;
-    --muted: 18 40% 91%;
+    --muted: 18 40% 95%;
     --muted-foreground: 12 14% 37%; /* #6B5651 */
-    --accent: 18 50% 94%;
+    --accent: 18 50% 92%;
     --accent-foreground: 0 45% 42%;
     --destructive: 4 80% 37%; /* alarm red #AA1313-ish, deeper and more saturated than the primary. Its own value since the soft-red
       redesign: the primary action is now soft red, so Delete must stay distinct from it. */
