@@ -80,7 +80,7 @@
     --muted-foreground: 35 22% 65%; /* sand-400 */
     --accent: 358 34% 15%; /* surface-accent */
     --accent-foreground: 5 74% 75%; /* red-300 */
-    --destructive: 4 70% 62%; /* red-400 */
+    --destructive: 4 70% 66%; /* alarm red, lighter than red-400 so text on its /20 active tint stays >= 4.5 */
     --destructive-foreground: 3 68% 6%; /* dark ink: white on red-400 is only 3.41:1 */
     --border: 34 22% 22%; /* border-default */
     --input: 28 12% 46%; /* control border #837467: >= 3:1 on every dark surface */

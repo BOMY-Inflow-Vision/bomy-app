@@ -41,6 +41,9 @@ const ratio = (a: RGB, b: RGB) => {
 const distance = (a: RGB, b: RGB) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2])
 const WHITE: RGB = [1, 1, 1]
 
+const over = (fg: RGB, bg: RGB, alpha: number): RGB =>
+  fg.map((v, i) => v * alpha + bg[i]! * (1 - alpha)) as RGB
+
 const light = tokens(CSS, ":root")
 const dark = tokens(CSS, ".dark")
 
@@ -111,5 +114,20 @@ describe.each([
   it("destructive is its own colour: not the primary, and far enough from it to tell apart", () => {
     expect(t["destructive"]).not.toBe(t["primary"])
     expect(distance(get("destructive"), get("primary"))).toBeGreaterThanOrEqual(0.15)
+  })
+
+  it("destructive uses by state: field-error border >= 3 and text on its hover tint (/10) >= 4.5 on every surface", () => {
+    for (const s of surfaces) {
+      expect(ratio(get("destructive"), get(s)), `border on ${s}`).toBeGreaterThanOrEqual(3)
+      const tint = over(get("destructive"), get(s), 0.1)
+      expect(ratio(get("destructive"), tint), `text on ${s} tint 0.1`).toBeGreaterThanOrEqual(4.5)
+    }
+  })
+  it("destructive active state (active:bg-destructive/20, only the membership manage button, which sits on bg-background) keeps its text >= 4.5", () => {
+    const tint = over(get("destructive"), get("background"), 0.2)
+    expect(ratio(get("destructive"), tint)).toBeGreaterThanOrEqual(4.5)
+  })
+  it("destructive solid (Button, Badge) keeps its foreground >= 4.5 at rest", () => {
+    expect(ratio(get("destructive-foreground"), get("destructive"))).toBeGreaterThanOrEqual(4.5)
   })
 })
