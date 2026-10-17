@@ -1,6 +1,6 @@
 // Pins the shared --nav-height variable (ledger entry man-b9b, fixed in PR 5d-7): the NavBar bar,
 // the mobile scrim's top edge and the web toast offset all derive from one variable, so they
-// cannot drift. The toast sits 1 rem below the bar.
+// cannot drift. The nav is a floating pill --nav-offset below the top, and the toast sits 1 rem below it.
 import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import { expect, it } from "vitest"
@@ -32,7 +32,9 @@ it("the bar, the scrim and the toast container all use the variable", () => {
   const toaster = read("components/toaster.tsx")
   expect(nav).toMatch(/flex h-nav items-center justify-between rounded-full/)
   expect(nav).toMatch(/pointer-events-auto fixed inset-x-0 bottom-0 top-nav-clear /)
-  expect(toaster).toMatch(/fixed inset-x-4 top-\[calc\(var\(--nav-height\)\+1rem\)\]/)
+  expect(toaster).toMatch(
+    /fixed inset-x-4 top-\[calc\(var\(--nav-height\)\+var\(--nav-offset\)\+1rem\)\]/,
+  )
   // no leftover hard-coded copies of the height
   expect(nav).not.toMatch(/\bh-14\b|\btop-14\b/)
   expect(toaster).not.toContain("top-[4.5rem]")
