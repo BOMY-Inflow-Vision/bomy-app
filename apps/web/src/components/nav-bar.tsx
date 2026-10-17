@@ -32,14 +32,17 @@ const SIGN_IN_HREF = "/auth/sign-in"
 function CartLink() {
   const { itemCount, hydrated } = useCart()
   return (
-    <NavIconButton asChild className="relative [&_svg]:size-6">
+    <NavIconButton
+      asChild
+      className="relative bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground hover:brightness-90 [&_svg]:size-6"
+    >
       <Link href="/cart" aria-label="Cart">
         <ShoppingCart strokeWidth={1.5} aria-hidden="true" />
         {hydrated && itemCount > 0 && (
           <Badge
             key={itemCount}
             variant="default"
-            className="absolute -right-0.5 -top-0.5 h-4 w-4 animate-badge-pop justify-center border-0 p-0 text-[10px] font-bold motion-reduce:animate-none"
+            className="absolute -right-0.5 -top-0.5 h-4 w-4 animate-badge-pop justify-center border-0 bg-card p-0 text-[10px] font-bold text-foreground ring-1 ring-primary motion-reduce:animate-none"
           >
             {itemCount > 99 ? "99+" : itemCount}
           </Badge>
@@ -124,111 +127,119 @@ export function NavBar() {
 
   const mobileAuthLinks = [...(sellerLink ? [sellerLink] : []), accountLink]
 
-  const desktopLinkClass = "text-sm text-muted-foreground hover:text-foreground"
+  const desktopLinkClass = "text-sm font-medium text-muted-foreground hover:text-foreground"
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-subtle bg-card shadow-sm">
-      <div className="mx-auto flex h-nav max-w-6xl items-center justify-between px-4">
-        <Link href="/" className="text-lg font-extrabold tracking-tighter text-primary">
-          BOMY
-        </Link>
+    <nav
+      aria-label="Main"
+      className="pointer-events-none sticky top-0 z-50 px-4 pt-[var(--nav-offset)]"
+    >
+      <div className="pointer-events-auto relative mx-auto max-w-5xl">
+        <div className="flex h-nav items-center justify-between rounded-full border border-subtle bg-card pl-6 pr-2 shadow-md">
+          <Link href="/" className="font-display text-lg font-bold tracking-tighter text-primary">
+            BOMY
+          </Link>
 
-        {/* Desktop nav */}
-        <div className="hidden items-center gap-4 md:flex">
-          {NAV_LINKS.map((link) => (
-            <Link key={link.href} href={link.href} className={desktopLinkClass}>
-              {link.label}
-            </Link>
-          ))}
-          <CartLink />
-          {sellerLink ? (
-            <SellerAccountMenu
-              accountHref={accountLink.href}
-              accountLabel={accountLink.label}
-              sellerHref={sellerLink.href}
-              sellerLabel={sellerLink.label}
-            />
-          ) : (
-            <NavIconButton asChild>
-              <Link href={accountLink.href} aria-label={accountLink.label}>
-                <User aria-hidden="true" />
-              </Link>
-            </NavIconButton>
-          )}
-          <ThemeToggle />
-        </div>
-
-        {/* Mobile trigger cluster */}
-        <div className="flex items-center gap-1 md:hidden">
-          <ThemeToggle />
-          <CartLink />
-          <NavIconButton
-            ref={triggerRef}
-            type="button"
-            onClick={() => setOpen((value) => !value)}
-            aria-label={open ? "Close menu" : "Open menu"}
-            aria-expanded={open}
-            aria-controls="mobile-menu"
-            className="size-11 rounded-md transition-none"
-          >
-            <span className="relative flex h-6 w-6 items-center justify-center" aria-hidden="true">
-              <span
-                className={cn(
-                  "absolute h-0.5 w-4 rounded-full bg-current transition-transform duration-300 ease-spring motion-reduce:transition-none",
-                  open ? "translate-y-0 rotate-45" : "-translate-y-1.5 rotate-0",
-                )}
-              />
-              <span
-                className={cn(
-                  "absolute h-0.5 w-4 rounded-full bg-current transition-opacity duration-150 motion-reduce:transition-none",
-                  open ? "opacity-0" : "opacity-100",
-                )}
-              />
-              <span
-                className={cn(
-                  "absolute h-0.5 w-4 rounded-full bg-current transition-transform duration-300 ease-spring motion-reduce:transition-none",
-                  open ? "translate-y-0 -rotate-45" : "translate-y-1.5 rotate-0",
-                )}
-              />
-            </span>
-          </NavIconButton>
-        </div>
-      </div>
-
-      {/* Mobile dropdown panel */}
-      <div
-        id="mobile-menu"
-        ref={panelRef}
-        inert={!open}
-        className={cn(
-          "absolute inset-x-0 top-full origin-top border-b border-subtle bg-card shadow-lg transition duration-200 ease-out md:hidden",
-          open ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-1 opacity-0",
-        )}
-      >
-        <div className="flex flex-col gap-0.5 p-2">
-          {[...NAV_LINKS, ...mobileAuthLinks].map((link) => (
-            <Button
-              key={link.href}
-              asChild
-              variant="ghost"
-              className="h-auto justify-start rounded-md px-3 py-3 text-base font-normal text-foreground transition-none hover:bg-muted hover:text-foreground"
-            >
-              <Link href={link.href} onClick={() => setOpen(false)}>
+          {/* Desktop nav */}
+          <div className="hidden items-center gap-4 md:flex">
+            {NAV_LINKS.map((link) => (
+              <Link key={link.href} href={link.href} className={desktopLinkClass}>
                 {link.label}
               </Link>
-            </Button>
-          ))}
+            ))}
+            <CartLink />
+            {sellerLink ? (
+              <SellerAccountMenu
+                accountHref={accountLink.href}
+                accountLabel={accountLink.label}
+                sellerHref={sellerLink.href}
+                sellerLabel={sellerLink.label}
+              />
+            ) : (
+              <NavIconButton asChild>
+                <Link href={accountLink.href} aria-label={accountLink.label}>
+                  <User aria-hidden="true" />
+                </Link>
+              </NavIconButton>
+            )}
+            <ThemeToggle />
+          </div>
+
+          {/* Mobile trigger cluster */}
+          <div className="flex items-center gap-1 md:hidden">
+            <ThemeToggle />
+            <CartLink />
+            <NavIconButton
+              ref={triggerRef}
+              type="button"
+              onClick={() => setOpen((value) => !value)}
+              aria-label={open ? "Close menu" : "Open menu"}
+              aria-expanded={open}
+              aria-controls="mobile-menu"
+              className="size-11 rounded-md transition-none"
+            >
+              <span
+                className="relative flex h-6 w-6 items-center justify-center"
+                aria-hidden="true"
+              >
+                <span
+                  className={cn(
+                    "absolute h-0.5 w-4 rounded-full bg-current transition-transform duration-300 ease-spring motion-reduce:transition-none",
+                    open ? "translate-y-0 rotate-45" : "-translate-y-1.5 rotate-0",
+                  )}
+                />
+                <span
+                  className={cn(
+                    "absolute h-0.5 w-4 rounded-full bg-current transition-opacity duration-150 motion-reduce:transition-none",
+                    open ? "opacity-0" : "opacity-100",
+                  )}
+                />
+                <span
+                  className={cn(
+                    "absolute h-0.5 w-4 rounded-full bg-current transition-transform duration-300 ease-spring motion-reduce:transition-none",
+                    open ? "translate-y-0 -rotate-45" : "translate-y-1.5 rotate-0",
+                  )}
+                />
+              </span>
+            </NavIconButton>
+          </div>
+        </div>
+
+        {/* Mobile dropdown panel */}
+        <div
+          id="mobile-menu"
+          ref={panelRef}
+          inert={!open}
+          className={cn(
+            "absolute inset-x-0 top-full mt-2 origin-top overflow-hidden rounded-bento border border-subtle bg-card shadow-lg transition duration-200 ease-out md:hidden",
+            open ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-1 opacity-0",
+          )}
+        >
+          <div className="flex flex-col gap-0.5 p-2">
+            {[...NAV_LINKS, ...mobileAuthLinks].map((link) => (
+              <Button
+                key={link.href}
+                asChild
+                variant="ghost"
+                className="h-auto justify-start rounded-md px-3 py-3 text-base font-normal text-foreground transition-none hover:bg-muted hover:text-foreground"
+              >
+                <Link href={link.href} onClick={() => setOpen(false)}>
+                  {link.label}
+                </Link>
+              </Button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Backdrop — tap outside to close */}
+      {/* Backdrop — tap outside to close. The nav shell is pointer-events-none, so the scrim opts back in. */}
       {open && (
         <button
           type="button"
           aria-hidden="true"
           tabIndex={-1}
           onClick={() => setOpen(false)}
-          className="fixed inset-x-0 bottom-0 top-nav -z-10 cursor-default bg-gray-900/20 md:hidden"
+          className="pointer-events-auto fixed inset-x-0 bottom-0 top-nav-clear -z-10 cursor-default bg-scrim/30 md:hidden"
         />
       )}
     </nav>
