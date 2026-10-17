@@ -72,24 +72,24 @@ Blush `#EFDED7` (18 43% 89%) is no longer the page ground. It becomes the storef
 
 ## File structure
 
-| File                                                                                          | Change                                                                   | PR  |
-| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | --- |
-| `apps/web/src/app/globals.css`                                                                | new token values, `.dark` too                                            | R1  |
-| `apps/web/tailwind.config.ts`                                                                 | `fontFamily.display` (R1). `rounded-bento` is added in R4                | R1  |
-| `apps/web/src/app/layout.tsx`                                                                 | swap fonts via `next/font/google`                                        | R1  |
-| `apps/web/tests/design-tokens/*.test.ts`                                                      | new expected pairs, including `--input` 3:1 (new `input-border.test.ts`) | R1  |
-| `docs/design-system/README.md`                                                                | document the new values                                                  | R1  |
-| `apps/web/src/components/nav-bar.tsx`, `nav-icon-button.tsx`                                  | floating pill nav, scrim token                                           | R2  |
-| `apps/web/src/components/footer.tsx`                                                          | blush footer                                                             | R2  |
-| `apps/web/src/app/page.tsx`                                                                   | bento home (today a placeholder)                                         | R3  |
-| `apps/web/src/components/product-card.tsx` (new)                                              | shared pastel product tile                                               | R4  |
-| `apps/web/src/app/products/page.tsx`, `brands/[slug]/products/page.tsx`                       | use ProductCard, filter pills                                            | R4  |
-| `apps/web/src/components/filter-pill.tsx` (new, web-only; no change to shared Badge variants) | pill style for category links                                            | R4  |
-| `apps/web/src/app/brands/**`                                                                  | spacing, type, tiles                                                     | R5a |
-| `apps/web/src/app/products/[storeSlug]/[productSlug]/**`                                      | spacing, type, tiles                                                     | R5b |
-| `apps/web/src/app/cart`, `checkout`, `auth`                                                   | type scale and cards only                                                | R5c |
-| `membership`, legal and info pages, `error.tsx`                                               | type scale and cards only                                                | R5d |
-| motion and dark-mode pass                                                                     | hover lift, reduced-motion guard                                         | R6  |
+| File                                                                                          | Change                                                                                                | PR  |
+| --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | --- |
+| `apps/web/src/app/globals.css`                                                                | new token values, `.dark` too                                                                         | R1  |
+| `apps/web/tailwind.config.ts`                                                                 | `fontFamily.display` (R1). `rounded-bento` is added in R2 (footer is its first user; see the R2 plan) | R1  |
+| `apps/web/src/app/layout.tsx`                                                                 | swap fonts via `next/font/google`                                                                     | R1  |
+| `apps/web/tests/design-tokens/*.test.ts`                                                      | new expected pairs, including `--input` 3:1 (new `input-border.test.ts`)                              | R1  |
+| `docs/design-system/README.md`                                                                | document the new values                                                                               | R1  |
+| `apps/web/src/components/nav-bar.tsx`, `nav-icon-button.tsx`                                  | floating pill nav, scrim token                                                                        | R2  |
+| `apps/web/src/components/footer.tsx`                                                          | blush footer                                                                                          | R2  |
+| `apps/web/src/app/page.tsx`                                                                   | bento home (today a placeholder)                                                                      | R3  |
+| `apps/web/src/components/product-card.tsx` (new)                                              | shared pastel product tile                                                                            | R4  |
+| `apps/web/src/app/products/page.tsx`, `brands/[slug]/products/page.tsx`                       | use ProductCard, filter pills                                                                         | R4  |
+| `apps/web/src/components/filter-pill.tsx` (new, web-only; no change to shared Badge variants) | pill style for category links                                                                         | R4  |
+| `apps/web/src/app/brands/**`                                                                  | spacing, type, tiles                                                                                  | R5a |
+| `apps/web/src/app/products/[storeSlug]/[productSlug]/**`                                      | spacing, type, tiles                                                                                  | R5b |
+| `apps/web/src/app/cart`, `checkout`, `auth`                                                   | type scale and cards only                                                                             | R5c |
+| `membership`, legal and info pages, `error.tsx`                                               | type scale and cards only                                                                             | R5d |
+| motion and dark-mode pass                                                                     | hover lift, reduced-motion guard                                                                      | R6  |
 
 ## PR sequence
 
