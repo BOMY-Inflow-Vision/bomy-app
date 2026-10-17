@@ -30,8 +30,8 @@ it("Tailwind exposes it as the nav spacing step", () => {
 it("the bar, the scrim and the toast container all use the variable", () => {
   const nav = read("components/nav-bar.tsx")
   const toaster = read("components/toaster.tsx")
-  expect(nav).toMatch(/mx-auto flex h-nav max-w-6xl/)
-  expect(nav).toMatch(/fixed inset-x-0 bottom-0 top-nav /)
+  expect(nav).toMatch(/flex h-nav items-center justify-between rounded-full/)
+  expect(nav).toMatch(/pointer-events-auto fixed inset-x-0 bottom-0 top-nav-clear /)
   expect(toaster).toMatch(/fixed inset-x-4 top-\[calc\(var\(--nav-height\)\+1rem\)\]/)
   // no leftover hard-coded copies of the height
   expect(nav).not.toMatch(/\bh-14\b|\btop-14\b/)

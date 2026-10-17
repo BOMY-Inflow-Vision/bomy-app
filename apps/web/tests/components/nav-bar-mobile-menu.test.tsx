@@ -24,8 +24,11 @@ import { NavBar } from "@/components/nav-bar"
 
 // Class tokens (updated by the swaps; the plan says which).
 const TOKENS = {
-  bar: ["h-nav"],
-  scrim: ["top-nav", "md:hidden", "-z-10"],
+  shell: ["pointer-events-none", "sticky", "z-50"],
+  frame: ["pointer-events-auto", "relative", "mx-auto", "max-w-5xl"],
+  bar: ["h-nav", "rounded-full"],
+  scrim: ["pointer-events-auto", "top-nav-clear", "md:hidden", "-z-10", "bg-scrim/30"],
+  panel: ["mt-2", "rounded-bento"],
   hamburger: [
     "size-11",
     "rounded-md",
@@ -221,12 +224,21 @@ describe("rows", () => {
 })
 
 describe("nav height", () => {
-  it("class tokens: bar height and scrim top (updated by the --nav-height change)", () => {
+  it("class tokens: floating shell, pill, panel and scrim (updated by the floating pill)", () => {
     mount()
-    const barEl = container.querySelector("nav > div")!
-    has(barEl, TOKENS.bar)
+    has(container.querySelector("nav")!, TOKENS.shell)
+    has(container.querySelector("nav > div")!, TOKENS.frame)
+    has(container.querySelector("nav > div > div")!, TOKENS.bar)
+    has(panel(), TOKENS.panel)
     click(hamburger())
     has(scrim()!, TOKENS.scrim)
+  })
+
+  it("the scrim sits inside a pointer-events-none shell, so it must opt back in to receive clicks", () => {
+    mount()
+    click(hamburger())
+    expect(container.querySelector("nav")!.classList.contains("pointer-events-none")).toBe(true)
+    expect(scrim()!.classList.contains("pointer-events-auto")).toBe(true)
   })
 })
 

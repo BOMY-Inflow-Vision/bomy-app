@@ -42,7 +42,22 @@ const BUTTON = [
 ]
 const TOKENS = {
   accountLink: BUTTON,
-  cartLink: [...BUTTON, "relative", "hover:text-foreground"],
+  // D5(a): the cart is the filled primary round button; its hover pair is named so the base muted
+  // hover classes are replaced, not left in force.
+  cartLink: [
+    "h-9",
+    "w-9",
+    "rounded-full",
+    "relative",
+    "bg-primary",
+    "text-primary-foreground",
+    "hover:bg-primary",
+    "hover:text-primary-foreground",
+    "hover:brightness-90",
+    "focus-visible:ring-1",
+    "focus-visible:ring-ring",
+  ],
+  // The count badge has its own surface so it stays visible on the filled button.
   pill: [
     "absolute",
     "-right-0.5",
@@ -50,8 +65,10 @@ const TOKENS = {
     "h-4",
     "w-4",
     "animate-badge-pop",
-    "bg-primary",
-    "text-primary-foreground",
+    "bg-card",
+    "text-foreground",
+    "ring-1",
+    "ring-primary",
   ],
   toggle: BUTTON,
 }
@@ -267,5 +284,15 @@ describe("class tokens (updated by the swap)", () => {
     has(byLabel(row, "Cart"), TOKENS.cartLink)
     has(byLabel(row, "Cart")!.querySelector("span"), TOKENS.pill)
     has(byLabel(row, "Switch to dark mode"), TOKENS.toggle)
+  })
+
+  it("the filled cart replaces the muted hover classes and the badge is not primary-on-primary", () => {
+    state.cart = { itemCount: 3, hydrated: true }
+    mount()
+    const cart = byLabel(desktopRow(), "Cart")!
+    for (const t of ["hover:bg-muted", "hover:text-foreground", "text-muted-foreground"]) {
+      expect(cart.classList.contains(t), `${t} must be gone`).toBe(false)
+    }
+    expect(cart.querySelector("span")!.classList.contains("bg-primary")).toBe(false)
   })
 })
