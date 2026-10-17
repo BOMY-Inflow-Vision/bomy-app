@@ -100,7 +100,7 @@ describe("nav tokens", () => {
 
 - [ ] **Step 2:** `pnpm --filter @bomy/web exec vitest run tests/design-tokens/nav-tokens.test.ts` and see it fail.
 - [ ] **Step 3:** Add to `globals.css` `:root`: `--nav-offset: 0.75rem; /* gap above the floating pill; toast and scrim clear it */` and `--scrim: 8 22% 14%;`. Add to `.dark`: `--scrim: 0 0% 0%;`. Add to `tailwind.config.ts`: `spacing: { nav: "var(--nav-height)", "nav-clear": "calc(var(--nav-height) + var(--nav-offset))" }`, `colors.scrim: "hsl(var(--scrim))"`, `borderRadius.bento: "1.75rem"`.
-- [ ] **Step 4:** Update `toaster-position-guard.test.ts` to also assert `--nav-offset` is defined once. Run the token and guard tests; the nav test still fails on the nav lines until Task 2.
+- [ ] **Step 4:** Update `toaster-position-guard.test.ts` to also assert `--nav-offset` is defined once. Run the token and guard tests. The two assertions that read `nav-bar.tsx` (no literal colour, uses `bg-scrim/`) are added in Task 2, so Task 1 commits a green test file.
 - [ ] **Step 5:** Commit with explicit paths.
 
 ## Task 2: Floating pill NavBar
@@ -132,7 +132,7 @@ Add one new behaviour test: the outer wrapper has `pointer-events-none` and the 
     </div>
     {/* mobile panel: className gains "mt-2 rounded-bento"; position stays absolute inset-x-0 top-full */}
   </div>
-  {/* scrim: className "fixed inset-x-0 bottom-0 top-nav-clear -z-10 cursor-default bg-scrim/30 md:hidden" */}
+  {/* scrim: className "pointer-events-auto fixed inset-x-0 bottom-0 top-nav-clear -z-10 cursor-default bg-scrim/30 md:hidden" */}
 </nav>
 ```
 
