@@ -125,7 +125,10 @@ Add one new behaviour test: the outer wrapper has `pointer-events-none` and the 
 - [ ] **Step 3: Implement.** Replace the `<nav className="sticky top-0 ...">` shell with:
 
 ```tsx
-<nav className="pointer-events-none sticky top-[var(--nav-offset)] z-50 px-4" aria-label="Main">
+<nav
+  className="pointer-events-none sticky top-0 z-50 px-4 pt-[var(--nav-offset)]"
+  aria-label="Main"
+>
   <div className="pointer-events-auto relative mx-auto max-w-5xl">
     <div className="flex h-nav items-center justify-between rounded-full border border-subtle bg-card pl-6 pr-2 shadow-md">
       {/* logo, desktop row, mobile cluster: markup and handlers unchanged */}

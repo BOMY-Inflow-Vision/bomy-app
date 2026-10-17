@@ -123,7 +123,7 @@ export function ToastProvider({
         aria-label="Notifications"
         aria-live="polite"
         aria-relevant="additions text"
-        className="pointer-events-none fixed inset-x-4 top-[calc(var(--nav-height)+1rem)] z-[60] sm:left-auto sm:w-80"
+        className="pointer-events-none fixed inset-x-4 top-[calc(var(--nav-height)+var(--nav-offset)+1rem)] z-[60] sm:left-auto sm:w-80"
       >
         <ol className="flex flex-col">
           {toasts.map((toast) => (
