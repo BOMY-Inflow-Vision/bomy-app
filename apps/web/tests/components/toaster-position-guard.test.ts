@@ -15,6 +15,13 @@ it("--nav-height is defined once, as 3.5rem (the 56 px bar)", () => {
   expect(defs[0]).toContain("3.5rem")
 })
 
+it("--nav-offset (the gap above the floating pill) is defined once, as 0.75rem", () => {
+  const css = read("app/globals.css")
+  const defs = css.match(/--nav-offset:\s*([\d.]+)rem/g) ?? []
+  expect(defs).toHaveLength(1)
+  expect(defs[0]).toContain("0.75rem")
+})
+
 it("Tailwind exposes it as the nav spacing step", () => {
   const cfg = readFileSync(resolve(__dirname, "../../tailwind.config.ts"), "utf8")
   expect(cfg).toContain('nav: "var(--nav-height)"')
