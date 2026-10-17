@@ -43,6 +43,25 @@ Values are computed from the source hexes in `tokens/colors.css` — spot-check 
 
 **Flag for the team:** BOMY's `--destructive` and `--primary` are the same red (the brand color doubles as the danger color in the source system). If destructive actions need to read as distinct from primary CTAs, consider `red-700`/`red-800` for destructive instead — confirm with whoever owns the design system before deviating.
 
+### `apps/web` soft-red override (R1, 2026-10-16)
+
+`apps/web` no longer uses the values above. Its `globals.css` carries the soft-red palette; `apps/admin` keeps the table above unchanged. Plan: `docs/superpowers/plans/2026-10-16-soft-red-storefront-redesign.md`.
+
+| Token | Light | Dark |
+|---|---|---|
+| `--background` | `20 50% 98%` (nearly white, warm) | unchanged |
+| `--card`, `--popover` | `0 0% 100%` | unchanged |
+| `--muted`, `--secondary` | `18 40% 95%` (pale tint) | unchanged |
+| `--accent` / `--accent-foreground` | `18 50% 92%` / `0 45% 42%` | unchanged |
+| `--foreground` | `8 22% 14%` | unchanged |
+| `--muted-foreground` | `12 14% 37%` | unchanged |
+| `--primary`, `--primary-text`, `--ring` | `0 45% 42%` (soft red `#9A3B3B`) | `--primary` `2 50% 50%` (fill, white 5.1:1); `--primary-text` `4 55% 66%` |
+| `--destructive` | `4 80% 37%` (own alarm red, split from primary) | `4 70% 66%` (was `4 70% 62%`; lifted so text on its `/20` active tint stays at least 4.5:1) |
+| `--border` (dividers) | `19 34% 83%` | unchanged |
+| `--input` (control border) | `12 18% 48%`, at least 3:1 on every field surface | `28 12% 46%` |
+
+Blush `#EFDED7` (`18 43% 89%`) is the tile colour. It is not a token yet; R4 adds it with the product tiles. Pinned by `apps/web/tests/design-tokens/soft-red.test.ts`. Fonts in `apps/web`: Bricolage Grotesque (`--font-display`, headings), Geist (`--font-sans`), Geist Mono (`--font-mono`).
+
 Delete or repurpose the unused `bomy` orange scale in `apps/web/tailwind.config.ts` — it's stock shadcn boilerplate, not BOMY's brand color, and nothing in the app references it yet.
 
 ## 2. Fonts

@@ -5,27 +5,27 @@
 @layer base {
   :root {
     --nav-height: 3.5rem; /* NavBar bar height; the scrim and the toast offset derive from it */
-    --background: 40 60% 98%; /* sand-50 */
-    --foreground: 231 49% 15%; /* navy-900 */
+    --background: 20 50% 98%; /* nearly white, warm (soft-red redesign); blush is the tint colour below */
+    --foreground: 8 22% 14%; /* warm ink #2A1D1B */
     --card: 0 0% 100%;
-    --card-foreground: 231 49% 15%;
+    --card-foreground: 8 22% 14%;
     --popover: 0 0% 100%;
-    --popover-foreground: 231 49% 15%;
-    --primary: 4 71% 43%; /* red-600 */
+    --popover-foreground: 8 22% 14%;
+    --primary: 0 45% 42%; /* soft red #9A3B3B */
     --primary-foreground: 0 0% 100%;
-    --primary-text: 4 71% 43%; /* = --primary (red-600): text-primary on the light surfaces is 5.4 to 6.0:1 */
-    --secondary: 37 45% 94%; /* sand-100 */
-    --secondary-foreground: 231 49% 15%;
-    --muted: 37 45% 94%; /* sand-100 */
-    --muted-foreground: 34 19% 36%; /* sand-600 */
-    --accent: 5 73% 97%; /* red-50 */
-    --accent-foreground: 4 71% 43%; /* red-600 */
-    --destructive: 4 71% 43%; /* red-600 — brand red doubles as danger color in the source
-      system; see docs/design-system/README.md's flagged open item if this needs revisiting */
+    --primary-text: 0 45% 42%; /* = --primary: text-primary on the light surfaces is 4.7 to 6.2:1 */
+    --secondary: 18 40% 95%; /* pale tint. Blush #EFDED7 returns as a storefront tile token in R4 */
+    --secondary-foreground: 8 22% 14%;
+    --muted: 18 40% 95%;
+    --muted-foreground: 12 14% 37%; /* #6B5651 */
+    --accent: 18 50% 92%;
+    --accent-foreground: 0 45% 42%;
+    --destructive: 4 80% 37%; /* alarm red #AA1313-ish, deeper and more saturated than the primary. Its own value since the soft-red
+      redesign: the primary action is now soft red, so Delete must stay distinct from it. */
     --destructive-foreground: 0 0% 100%;
-    --border: 35 30% 81%; /* sand-300 */
-    --input: 35 30% 81%; /* sand-300 */
-    --ring: 4 64% 51%; /* red-500 */
+    --border: 19 34% 83%; /* decorative dividers */
+    --input: 12 18% 48%; /* control border #906D64: >= 3:1 on every field surface */
+    --ring: 0 45% 42%; /* = --primary */
     --radius: 0.625rem; /* was 0.5rem */
     --reward: 45 100% 55%; /* gold-400 */
     --reward-foreground: 45 100% 15%; /* gold-900 */
@@ -36,7 +36,7 @@
     --radius-control: var(--radius);
     --radius-input: var(--radius);
     --radius-card: 0.75rem;
-    --border-subtle: 36 36% 89%; /* sand-200 */
+    --border-subtle: 18 36% 87%;
 
     /* Status tokens (PR 5a): the design system's 700 level in light, 600 in dark; text, icon,
        border and solid fill share one value per theme. Contrast is pinned by
@@ -71,19 +71,19 @@
     --card-foreground: 40 60% 98%; /* sand-50 */
     --popover: 32 21% 12%; /* surface-raised */
     --popover-foreground: 40 60% 98%; /* sand-50 */
-    --primary: 4 64% 51%; /* red-500 */
+    --primary: 2 50% 50%; /* soft red fill: white 5.1:1, >= 3:1 on every dark surface */
     --primary-foreground: 0 0% 100%;
-    --primary-text: 4 70% 62%; /* red-400: text-primary on dark surfaces (4.8 to 5.7:1). --primary (red-500) stays for fills, white on it is 4.71:1 */
+    --primary-text: 4 55% 66%; /* text-primary on dark surfaces (5.6 to 6.7:1). --primary stays for fills */
     --secondary: 32 21% 12%; /* surface-raised */
     --secondary-foreground: 40 60% 98%; /* sand-50 */
     --muted: 30 29% 5%; /* surface-sunken */
     --muted-foreground: 35 22% 65%; /* sand-400 */
     --accent: 358 34% 15%; /* surface-accent */
     --accent-foreground: 5 74% 75%; /* red-300 */
-    --destructive: 4 70% 62%; /* red-400 */
-    --destructive-foreground: 3 68% 6%; /* dark ink: white on red-400 is only 3.41:1 */
+    --destructive: 4 70% 66%; /* was red-400 (4 70% 62%); lifted so text on its /20 active tint stays >= 4.5 */
+    --destructive-foreground: 3 68% 6%; /* dark ink: white on this red is under 4.5:1 */
     --border: 34 22% 22%; /* border-default */
-    --input: 34 22% 22%; /* border-default */
+    --input: 28 12% 46%; /* control border #837467: >= 3:1 on every dark surface */
     --ring: 4 70% 62%; /* focus-ring (red-400) */
     --reward: 45 100% 55%; /* gold-400, unchanged in dark */
     --reward-foreground: 45 100% 15%; /* gold-900, unchanged in dark */
@@ -123,6 +123,7 @@
   h4,
   h5,
   h6 {
+    @apply font-display;
     text-wrap: balance;
   }
   p {

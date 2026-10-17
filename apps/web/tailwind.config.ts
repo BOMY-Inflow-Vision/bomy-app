@@ -95,6 +95,7 @@ const config = {
         card: "var(--radius-card)",
       },
       fontFamily: {
+        display: ["var(--font-display)", ...fontFamily.sans],
         sans: ["var(--font-sans)", ...fontFamily.sans],
         mono: ["var(--font-mono)", ...fontFamily.mono],
       },

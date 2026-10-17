@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic"
 
 import type { Metadata } from "next"
-import { IBM_Plex_Mono, Plus_Jakarta_Sans } from "next/font/google"
+import { Bricolage_Grotesque, Geist, Geist_Mono } from "next/font/google"
 import { cookies } from "next/headers"
 
 import { Footer } from "@/components/footer"
@@ -14,15 +14,19 @@ import { ToastProvider } from "@/components/toaster"
 
 import "./globals.css"
 
-const plusJakartaSans = Plus_Jakarta_Sans({
+const bricolage = Bricolage_Grotesque({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
-  style: ["normal", "italic"],
+  weight: ["600", "700"],
+  variable: "--font-display",
+})
+const geist = Geist({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
   variable: "--font-sans",
 })
-const ibmPlexMono = IBM_Plex_Mono({
+const geistMono = Geist_Mono({
   subsets: ["latin"],
-  weight: ["400"],
+  weight: ["400", "500"],
   variable: "--font-mono",
 })
 
@@ -39,9 +43,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${plusJakartaSans.variable} ${ibmPlexMono.variable}`}
+      className={`${bricolage.variable} ${geist.variable} ${geistMono.variable}`}
     >
-      <body className={plusJakartaSans.className}>
+      <body className={geist.className}>
         <ThemeProvider>
           <SessionProvider>
             <ToastProvider flash={flash}>
