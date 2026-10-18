@@ -33,6 +33,9 @@ const ratio = (a: RGB, b: RGB) => {
   return (hi + 0.05) / (lo + 0.05)
 }
 const bright = (c: RGB, k: number): RGB => c.map((v) => Math.min(1, v * k)) as RGB
+/** `top` at `alpha` composited over `bottom`. */
+const over = (top: RGB, alpha: number, bottom: RGB): RGB =>
+  top.map((v, i) => v * alpha + bottom[i]! * (1 - alpha)) as RGB
 
 const WEB = resolve(__dirname, "../..")
 const css = readFileSync(resolve(WEB, "src/app/globals.css"), "utf8")
@@ -40,8 +43,28 @@ const tailwind = readFileSync(resolve(WEB, "tailwind.config.ts"), "utf8")
 const nav = readFileSync(resolve(WEB, "src/components/nav-bar.tsx"), "utf8")
 
 describe("nav tokens", () => {
-  it("defines --nav-offset once, as 0.75rem", () => {
+  it("--nav-height is 4rem (the 64 px pill)", () => {
+    expect(css.match(/--nav-height:\s*4rem/g)).toHaveLength(1)
+  })
+  it("--nav-offset is 0.75rem, and 1rem from 640 px (the pill's top gap)", () => {
     expect(css.match(/--nav-offset:\s*0\.75rem/g)).toHaveLength(1)
+    expect(css).toMatch(
+      /@media \(min-width: 640px\) \{\s*:root \{\s*--nav-offset:\s*1rem;\s*\}\s*\}/,
+    )
+  })
+  it("defines the fixed dark ink surface once, in :root only (same in both themes)", () => {
+    for (const n of ["ink", "ink-foreground", "ink-muted"]) {
+      expect(css.match(new RegExp(`--${n}:`, "g")), n).toHaveLength(1)
+    }
+    expect(tokensOf(css, ":root")["ink"]).toBeDefined()
+    expect(tailwind).toContain('ink: "hsl(var(--ink))"')
+    expect(tailwind).toContain('"ink-foreground": "hsl(var(--ink-foreground))"')
+    expect(tailwind).toContain('"ink-muted": "hsl(var(--ink-muted))"')
+  })
+  it("ink text and muted ink text are >= 4.5 on the ink surface", () => {
+    const t = tokensOf(css, ":root")
+    expect(ratio(rgb(t["ink-foreground"]!), rgb(t["ink"]!))).toBeGreaterThanOrEqual(4.5)
+    expect(ratio(rgb(t["ink-muted"]!), rgb(t["ink"]!))).toBeGreaterThanOrEqual(4.5)
   })
   it("defines --scrim in both themes (warm ink in light, black in dark)", () => {
     expect(css).toMatch(/:root \{[\s\S]*?--scrim:\s*8 22% 14%/)
@@ -75,6 +98,16 @@ describe.each([
     expect(
       ratio(bright(get("primary-foreground"), 0.9), bright(get("primary"), 0.9)),
     ).toBeGreaterThanOrEqual(4.5)
+  })
+  it("nav text on the 70% translucent pill, over every surface that exists today, is >= 4.5", () => {
+    // The future blush tile colour is tested in R4, when the token exists.
+    for (const under of ["background", "card", "muted", "accent"]) {
+      const pill = over(get("card"), 0.7, get(under))
+      expect(ratio(get("foreground"), pill), `foreground over ${under}`).toBeGreaterThanOrEqual(4.5)
+      expect(ratio(get("muted-foreground"), pill), `muted over ${under}`).toBeGreaterThanOrEqual(
+        4.5,
+      )
+    }
   })
   it("the count badge text (--foreground on --card) is >= 4.5", () => {
     expect(ratio(get("foreground"), get("card"))).toBeGreaterThanOrEqual(4.5)

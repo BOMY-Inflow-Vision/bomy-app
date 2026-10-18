@@ -8,18 +8,19 @@ import { expect, it } from "vitest"
 const SRC = resolve(__dirname, "../../src")
 const read = (p: string) => readFileSync(resolve(SRC, p), "utf8")
 
-it("--nav-height is defined once, as 3.5rem (the 56 px bar)", () => {
+it("--nav-height is defined once, as 4rem (the 64 px pill)", () => {
   const css = read("app/globals.css")
   const defs = css.match(/--nav-height:\s*([\d.]+)rem/g) ?? []
   expect(defs).toHaveLength(1)
-  expect(defs[0]).toContain("3.5rem")
+  expect(defs[0]).toContain("4rem")
 })
 
-it("--nav-offset (the gap above the floating pill) is defined once, as 0.75rem", () => {
+it("--nav-offset (the gap above the floating pill) is 0.75rem, then 1rem from 640 px", () => {
   const css = read("app/globals.css")
   const defs = css.match(/--nav-offset:\s*([\d.]+)rem/g) ?? []
-  expect(defs).toHaveLength(1)
+  expect(defs).toHaveLength(2)
   expect(defs[0]).toContain("0.75rem")
+  expect(defs[1]).toContain("1rem")
 })
 
 it("Tailwind exposes it as the nav spacing step", () => {

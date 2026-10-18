@@ -44,7 +44,7 @@ describe("NavBar auth gating", () => {
   it("seller_owner: desktop row places Seller after the cart icon, nested under the account icon", () => {
     const html = render({ user: { role: "seller_owner" } })
     const desktopRow = html.slice(
-      html.indexOf("hidden items-center gap-4 md:flex"),
+      html.indexOf("hidden flex-1 items-center md:flex"),
       html.indexOf("flex items-center gap-1 md:hidden"),
     )
     const cartIdx = desktopRow.indexOf('href="/cart"')
@@ -78,7 +78,7 @@ describe("NavBar responsive structure", () => {
 
   it("keeps a desktop-only row and a mobile-only panel that is inert when closed", () => {
     const html = render(null)
-    expect(html).toContain("hidden items-center gap-4 md:flex") // desktop row
+    expect(html).toContain("hidden flex-1 items-center md:flex") // desktop row
     expect(html).toContain("md:hidden") // mobile-only blocks
     expect(html).toContain('inert=""') // closed panel removed from a11y tree + tab order
   })

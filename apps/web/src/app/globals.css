@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    --nav-height: 3.5rem; /* NavBar bar height; the scrim and the toast offset derive from it */
+    --nav-height: 4rem; /* NavBar pill height (64 px); the scrim and the toast offset derive from it */
     --nav-offset: 0.75rem; /* gap above the floating pill; the toast and the scrim clear it */
     --scrim: 8 22% 14%; /* mobile-menu backdrop colour (used with an alpha) */
     --background: 20 50% 98%; /* nearly white, warm (soft-red redesign); blush is the tint colour below */
@@ -62,6 +62,18 @@
     --sidebar-border: 231 47% 28%; /* navy-700 */
     --sidebar-indicator: 4 70% 62%; /* red-400: active-link bar */
     --sidebar-ring: 5 74% 75%; /* red-300: keyboard focus */
+
+    /* Footer card: always-dark warm ink, identical in both themes (like the sidebar). */
+    --ink: 8 22% 11%;
+    --ink-foreground: 20 50% 98%;
+    --ink-muted: 18 14% 70%;
+  }
+
+  /* The pill sits 1 rem below the top from 640 px; the toast and the scrim clear it. */
+  @media (min-width: 640px) {
+    :root {
+      --nav-offset: 1rem;
+    }
   }
 
   /* Ported from docs/design-system/tokens/colors.css's .dark block — same semantic

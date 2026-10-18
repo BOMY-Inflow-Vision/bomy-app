@@ -5,7 +5,6 @@ import { MoreHorizontal, ShoppingCart, User } from "lucide-react"
 import { useSession } from "next-auth/react"
 import React, { useEffect, useRef, useState } from "react"
 
-import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
 import {
   DropdownMenu,
@@ -17,6 +16,7 @@ import { ButtonGroup } from "@/components/ui/button-group"
 import { NavIconButton } from "@/components/nav-icon-button"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { useCart } from "@/lib/cart"
+import { useScrolled } from "@/lib/use-scrolled"
 import { cn } from "@/lib/utils"
 
 const NAV_LINKS = [
@@ -34,19 +34,25 @@ function CartLink() {
   return (
     <NavIconButton
       asChild
-      className="relative bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground hover:brightness-90 [&_svg]:size-6"
+      className="relative h-12 w-auto gap-2 bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary hover:text-primary-foreground hover:brightness-90 [&_svg]:size-5"
     >
       <Link href="/cart" aria-label="Cart">
         <ShoppingCart strokeWidth={1.5} aria-hidden="true" />
-        {hydrated && itemCount > 0 && (
-          <Badge
-            key={itemCount}
-            variant="default"
-            className="absolute -right-0.5 -top-0.5 h-4 w-4 animate-badge-pop justify-center border-0 bg-card p-0 text-[10px] font-bold text-foreground ring-1 ring-primary motion-reduce:animate-none"
-          >
-            {itemCount > 99 ? "99+" : itemCount}
-          </Badge>
-        )}
+        <span data-cart-label className="hidden lg:inline">
+          Cart
+        </span>
+        {/* The counter sits inside the pill, beside the label. Before the cart is read from storage
+            it keeps its place but shows no number, so the pill never jumps or shows a wrong count. */}
+        <span
+          key={itemCount}
+          data-cart-count
+          className={cn(
+            "grid size-6 animate-badge-pop place-items-center rounded-full bg-card text-xs font-medium tabular-nums text-foreground motion-reduce:animate-none",
+            !hydrated && "opacity-0",
+          )}
+        >
+          {hydrated ? (itemCount > 99 ? "99+" : itemCount) : ""}
+        </span>
       </Link>
     </NavIconButton>
   )
@@ -90,6 +96,7 @@ function SellerAccountMenu({
 export function NavBar() {
   const { data: session } = useSession()
   const [open, setOpen] = useState(false)
+  const scrolled = useScrolled()
   const triggerRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -127,42 +134,50 @@ export function NavBar() {
 
   const mobileAuthLinks = [...(sellerLink ? [sellerLink] : []), accountLink]
 
-  const desktopLinkClass = "text-sm font-medium text-muted-foreground hover:text-foreground"
+  const desktopLinkClass =
+    "rounded-full px-3 py-2 text-sm font-medium text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground"
 
   return (
     <nav
       aria-label="Main"
-      className="pointer-events-none sticky top-0 z-50 px-4 pt-[var(--nav-offset)]"
+      className="pointer-events-none sticky top-0 z-50 px-3 pt-[var(--nav-offset)] sm:px-5"
     >
-      <div className="pointer-events-auto relative mx-auto max-w-5xl">
-        <div className="flex h-nav items-center justify-between rounded-full border border-subtle bg-card pl-6 pr-2 shadow-md">
+      <div className="pointer-events-auto relative mx-auto max-w-[1400px]">
+        <div
+          data-scrolled={scrolled}
+          className="flex h-nav items-center justify-between rounded-full border border-subtle bg-card/70 pl-5 pr-2 shadow-sm backdrop-blur-md transition-[background-color,box-shadow] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] data-[scrolled=true]:bg-card/95 data-[scrolled=true]:shadow-md motion-reduce:transition-none"
+        >
           <Link href="/" className="font-display text-lg font-bold tracking-tighter text-primary">
             BOMY
           </Link>
 
           {/* Desktop nav */}
-          <div className="hidden items-center gap-4 md:flex">
-            {NAV_LINKS.map((link) => (
-              <Link key={link.href} href={link.href} className={desktopLinkClass}>
-                {link.label}
-              </Link>
-            ))}
-            <CartLink />
-            {sellerLink ? (
-              <SellerAccountMenu
-                accountHref={accountLink.href}
-                accountLabel={accountLink.label}
-                sellerHref={sellerLink.href}
-                sellerLabel={sellerLink.label}
-              />
-            ) : (
-              <NavIconButton asChild>
-                <Link href={accountLink.href} aria-label={accountLink.label}>
-                  <User aria-hidden="true" />
+          <div className="hidden flex-1 items-center md:flex">
+            <div className="flex flex-1 items-center justify-center gap-1">
+              {NAV_LINKS.map((link) => (
+                <Link key={link.href} href={link.href} className={desktopLinkClass}>
+                  {link.label}
                 </Link>
-              </NavIconButton>
-            )}
-            <ThemeToggle />
+              ))}
+            </div>
+            <div className="flex items-center gap-2">
+              <CartLink />
+              {sellerLink ? (
+                <SellerAccountMenu
+                  accountHref={accountLink.href}
+                  accountLabel={accountLink.label}
+                  sellerHref={sellerLink.href}
+                  sellerLabel={sellerLink.label}
+                />
+              ) : (
+                <NavIconButton asChild>
+                  <Link href={accountLink.href} aria-label={accountLink.label}>
+                    <User aria-hidden="true" />
+                  </Link>
+                </NavIconButton>
+              )}
+              <ThemeToggle />
+            </div>
           </div>
 
           {/* Mobile trigger cluster */}
@@ -210,8 +225,9 @@ export function NavBar() {
           id="mobile-menu"
           ref={panelRef}
           inert={!open}
+          data-lenis-prevent
           className={cn(
-            "absolute inset-x-0 top-full mt-2 origin-top overflow-hidden rounded-bento border border-subtle bg-card shadow-lg transition duration-200 ease-out md:hidden",
+            "absolute inset-x-0 top-full mt-2 max-h-[calc(100dvh-var(--nav-height)-var(--nav-offset)-1.25rem)] origin-top overflow-y-auto overflow-x-hidden overscroll-contain rounded-bento border border-subtle bg-card shadow-lg transition duration-200 ease-out md:hidden",
             open ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-1 opacity-0",
           )}
         >

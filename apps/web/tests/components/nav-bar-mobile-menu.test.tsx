@@ -24,11 +24,26 @@ import { NavBar } from "@/components/nav-bar"
 
 // Class tokens (updated by the swaps; the plan says which).
 const TOKENS = {
-  shell: ["pointer-events-none", "sticky", "z-50"],
-  frame: ["pointer-events-auto", "relative", "mx-auto", "max-w-5xl"],
-  bar: ["h-nav", "rounded-full"],
+  shell: ["pointer-events-none", "sticky", "z-50", "px-3", "sm:px-5"],
+  frame: ["pointer-events-auto", "relative", "mx-auto", "max-w-[1400px]"],
+  bar: [
+    "h-nav",
+    "rounded-full",
+    "backdrop-blur-md",
+    "bg-card/70",
+    "data-[scrolled=true]:bg-card/95",
+    "motion-reduce:transition-none",
+  ],
   scrim: ["pointer-events-auto", "top-nav-clear", "md:hidden", "-z-10", "bg-scrim/30"],
-  panel: ["mt-2", "rounded-bento"],
+  // The panel scrolls on short screens: a height cap, vertical scroll, and Lenis stays out of it.
+  panel: [
+    "mt-2",
+    "rounded-bento",
+    "max-h-[calc(100dvh-var(--nav-height)-var(--nav-offset)-1.25rem)]",
+    "overflow-y-auto",
+    "overflow-x-hidden",
+    "overscroll-contain",
+  ],
   hamburger: [
     "size-11",
     "rounded-md",
@@ -239,6 +254,32 @@ describe("nav height", () => {
     click(hamburger())
     expect(container.querySelector("nav")!.classList.contains("pointer-events-none")).toBe(true)
     expect(scrim()!.classList.contains("pointer-events-auto")).toBe(true)
+  })
+})
+
+describe("scrolled pill", () => {
+  const bar = () => container.querySelector<HTMLElement>("nav > div > div")!
+  const scrollTo = (y: number) =>
+    act(() => {
+      Object.defineProperty(window, "scrollY", { value: y, configurable: true })
+      window.dispatchEvent(new Event("scroll"))
+    })
+  afterEach(() => {
+    Object.defineProperty(window, "scrollY", { value: 0, configurable: true })
+  })
+
+  it("data-scrolled is false at the top and true after 9 px of scroll, and back", () => {
+    mount()
+    expect(bar().getAttribute("data-scrolled")).toBe("false")
+    scrollTo(9)
+    expect(bar().getAttribute("data-scrolled")).toBe("true")
+    scrollTo(0)
+    expect(bar().getAttribute("data-scrolled")).toBe("false")
+  })
+
+  it("the panel keeps Lenis out of its own scroll", () => {
+    mount()
+    expect(panel().hasAttribute("data-lenis-prevent")).toBe(true)
   })
 })
 

@@ -45,9 +45,11 @@ const TOKENS = {
   // D5(a): the cart is the filled primary round button; its hover pair is named so the base muted
   // hover classes are replaced, not left in force.
   cartLink: [
-    "h-9",
-    "w-9",
+    "h-12",
+    "w-auto",
+    "gap-2",
     "rounded-full",
+    "px-4",
     "relative",
     "bg-primary",
     "text-primary-foreground",
@@ -58,17 +60,16 @@ const TOKENS = {
     "focus-visible:ring-ring",
   ],
   // The count badge has its own surface so it stays visible on the filled button.
+  // The counter sits inside the pill, beside the label: a round inline chip, never overlapping.
   pill: [
-    "absolute",
-    "-right-0.5",
-    "-top-0.5",
-    "h-4",
-    "w-4",
+    "grid",
+    "size-6",
+    "place-items-center",
+    "rounded-full",
     "animate-badge-pop",
     "bg-card",
     "text-foreground",
-    "ring-1",
-    "ring-primary",
+    "tabular-nums",
   ],
   toggle: BUTTON,
 }
@@ -228,16 +229,32 @@ describe("tab order", () => {
 })
 
 describe("cart count pill", () => {
-  const pill = () => byLabel(desktopRow(), "Cart")!.querySelector("span")
+  const pill = () => byLabel(desktopRow(), "Cart")!.querySelector<HTMLElement>("[data-cart-count]")
 
-  it("is absent at 0 and before hydration", () => {
+  it("shows 0 for an empty cart (D7), so the pill keeps its width as the count changes", () => {
     mount()
-    expect(pill()).toBeNull()
-    act(() => root.unmount())
-    root = createRoot(container)
+    expect(pill()!.textContent).toBe("0")
+    expect(pill()!.classList.contains("opacity-0")).toBe(false)
+  })
+
+  it("before hydration it keeps its place but shows no number and is invisible", () => {
     state.cart = { itemCount: 3, hydrated: false }
     mount()
-    expect(pill()).toBeNull()
+    expect(pill()!.classList.contains("opacity-0")).toBe(true)
+    expect(pill()!.textContent).not.toBe("3")
+  })
+
+  it("has a visible Cart label (hidden below lg) and no overlap by construction", () => {
+    state.cart = { itemCount: 3, hydrated: true }
+    mount()
+    const cart = byLabel(desktopRow(), "Cart")!
+    const label = cart.querySelector<HTMLElement>("[data-cart-label]")!
+    expect(label.textContent).toBe("Cart")
+    has(label, ["hidden", "lg:inline"])
+    expect(cart.getAttribute("aria-label")).toBe("Cart")
+    for (const t of ["absolute", "-top-0.5", "-right-0.5", "ring-1"]) {
+      expect(pill()!.classList.contains(t), `${t} must not be on the counter`).toBe(false)
+    }
   })
 
   it("shows the count, caps at 99+, and stays unlabeled", () => {
@@ -282,7 +299,7 @@ describe("class tokens (updated by the swap)", () => {
     const row = desktopRow()
     has(byLabel(row, "Sign in"), TOKENS.accountLink)
     has(byLabel(row, "Cart"), TOKENS.cartLink)
-    has(byLabel(row, "Cart")!.querySelector("span"), TOKENS.pill)
+    has(byLabel(row, "Cart")!.querySelector("[data-cart-count]"), TOKENS.pill)
     has(byLabel(row, "Switch to dark mode"), TOKENS.toggle)
   })
 
@@ -293,6 +310,6 @@ describe("class tokens (updated by the swap)", () => {
     for (const t of ["hover:bg-muted", "hover:text-foreground", "text-muted-foreground"]) {
       expect(cart.classList.contains(t), `${t} must be gone`).toBe(false)
     }
-    expect(cart.querySelector("span")!.classList.contains("bg-primary")).toBe(false)
+    expect(cart.querySelector("[data-cart-count]")!.classList.contains("bg-primary")).toBe(false)
   })
 })

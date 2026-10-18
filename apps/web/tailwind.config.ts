@@ -26,6 +26,9 @@ const config = {
       },
       colors: {
         scrim: "hsl(var(--scrim))",
+        ink: "hsl(var(--ink))",
+        "ink-foreground": "hsl(var(--ink-foreground))",
+        "ink-muted": "hsl(var(--ink-muted))",
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
