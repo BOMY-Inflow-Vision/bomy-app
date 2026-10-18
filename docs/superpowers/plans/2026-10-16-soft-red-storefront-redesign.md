@@ -142,3 +142,13 @@ Hover lift, optional scroll reveal, `prefers-reduced-motion` guard, full dark-mo
 ## Execution
 
 Not chosen yet. Recommend subagent-driven for R2 to R5 (separate files, clear tests) and native for R1 (one place, high blast radius).
+
+## Amendment 2026-10-17: Kvist parity
+
+Charlie asked for near-identical layout and motion to the Kvist demo (own text, images and logo). The measured spec is `docs/superpowers/plans/2026-10-17-kvist-parity-spec.md`. It overrides the looser design-language reading in this plan for R2, R3, R4 and R6:
+
+- R2: full-width blurred pill, cart pill with inline counter, Lenis smooth scroll, dark rounded footer with a giant cropped wordmark (see the R2 plan).
+- R3: home page follows the spec's section order (hero bento, marquee, browse bento, favourites with filter pills, promise cards, stats, testimonials, newsletter). No invented ratings, counts or reviews.
+- R4: ProductCard follows the favourites tile (tall pastel art area, badge, category, name, price, rating only if real data exists).
+- R6: reveal, hover, marquee, rotating badge, word reveal and counters, each measured first and each with a reduced-motion fallback.
+- R5a to R5d are unchanged except that they inherit the new nav, footer and scroll.
