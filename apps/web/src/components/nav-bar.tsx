@@ -114,7 +114,7 @@ export function NavBar() {
     return () => window.removeEventListener("keydown", onKey)
   }, [open])
 
-  // The mobile menu does not exist from md up; close it there so it cannot come back open when the
+  // The mobile menu does not exist from lg (1024 px) up; close it there so it cannot come back open when the
   // window shrinks again.
   useEffect(() => {
     const query = window.matchMedia("(min-width: 1024px)")

@@ -99,10 +99,10 @@ describe.each([
       ratio(bright(get("primary-foreground"), 0.9), bright(get("primary"), 0.9)),
     ).toBeGreaterThanOrEqual(4.5)
   })
-  it("nav text on the 70% translucent pill, over every surface that exists today, is >= 4.5", () => {
+  it("nav text on the 85% resting pill (bg-card/85), over every surface that exists today, is >= 4.5", () => {
     // The future blush tile colour is tested in R4, when the token exists.
     for (const under of ["background", "card", "muted", "accent"]) {
-      const pill = over(get("card"), 0.7, get(under))
+      const pill = over(get("card"), 0.85, get(under))
       expect(ratio(get("foreground"), pill), `foreground over ${under}`).toBeGreaterThanOrEqual(4.5)
       expect(ratio(get("muted-foreground"), pill), `muted over ${under}`).toBeGreaterThanOrEqual(
         4.5,

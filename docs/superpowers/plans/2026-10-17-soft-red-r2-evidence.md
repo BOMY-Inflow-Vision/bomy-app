@@ -64,7 +64,7 @@ The panel reads "Checkout is paused. We'll let you know when it's back.", no hor
 - Display scale 2 was emulated through the browser's device-metrics override, not a physical Retina display.
 - `tests/auth/magic-link-actions.test.ts` and `tests/auth/consent/actions.test.ts` need `DATABASE_URL`: not evaluated.
 
-## Task 5 results (final build, HEAD before the audit-ledger commit `b794913`, Lenis on)
+## Task 5 results (final build, HEAD `b794913`, before the audit-ledger commit `1ba9bec`, Lenis on)
 
 ### First Load JS, before and after Lenis
 
