@@ -114,3 +114,46 @@ Screenshots: `.playwright-mcp/r2-footer2-*.png`.
 - Pixel contrast of the pill at alpha 0.7 over a product photo: not run. The pill sits over the near-white ground and cards in every view tested.
 - A real toast under the pill: only the position is pinned by `toaster-position-guard.test.ts`.
 - Safari, Firefox, touch devices, a physical Retina display, the two `DATABASE_URL` test files.
+
+## Task 5 follow-up (Charlie chose D6 option 1; checks that were open)
+
+Build from the final code (standalone `server.js`, Lenis on), seeded seller, a fresh signed-out context, and a new local buyer `r2-buyer-check@test.bomy` (signed in through Mailhog; I clicked "I Agree" on the consent page for this throwaway local user).
+
+### D6: hamburger switch moved from 768 px to 1024 px
+
+The desktop row, the mobile cluster, the mobile panel and the scrim now switch at `lg` (1024 px). The menu-close listener watches `(min-width: 1024px)`. Pinned tests updated first and seen failing (4, then 15 helper selectors), then passing.
+
+| State      | 768 to 1023 px                                                                                       | 1024 px                                                                                                                         | 1100 px      | 1440 px      |
+| ---------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------ | ------------ |
+| Seller     | hamburger layout, 0 controls outside the pill, no horizontal scroll (checked at 768, 800, 900, 1023) | desktop row; logo to first link 69 px, last link to cluster 69 px, links 36 px high (one line), cluster 9 px from the pill edge | 107 / 107 px | 277 / 277 px |
+| Buyer      | hamburger layout (768, 1023), 0 outside                                                              | desktop row, 0 outside                                                                                                          | 0 outside    | 0 outside    |
+| Signed out | hamburger layout (768, 1023), 0 outside                                                              | 87 px between links and cluster, links 36 px                                                                                    | 125 px       | 295 px       |
+
+Signed-out mobile at 320 and 390 px: 0 outside, no horizontal scroll. The buyer has no Seller menu (names: Cart, Account, Switch to dark mode).
+
+### Pill over a busy backdrop (contrast of the "Brands" link)
+
+Local seed photos come from `cdn.bomy.com` and do not load here, so the test used a fixed solid backdrop behind the pill (black, mid-grey, white, saturated red `#d00000`) and computed the ratio from the real pill colour and link colour (blur ignored). This is a worst-case sample, not a real photo.
+
+At the old resting alpha 0.7 the light theme failed 4.5:1 over black (3.23) and over red (3.82). The plan rule applied: raise the resting alpha, not below 0.85. `bg-card/70` became `bg-card/85` (test first). At 0.85:
+
+| Backdrop      | Light | Dark |
+| ------------- | ----- | ---- |
+| black         | 4.81  | 7.96 |
+| mid-grey      | 5.75  | 6.41 |
+| white         | 6.80  | 4.87 |
+| saturated red | 5.15  | 7.17 |
+
+Scrolled (alpha 0.95) was 6.09 or better in every light case at the earlier run. Worst resting value: 4.81:1 (light over pure black). A real photo was not evaluated.
+
+### Real toast
+
+"Store ID copied." from the seller dashboard Copy button: the toast top is 92 px (pill bottom 76) at 390 px and 96 px (pill bottom 80) at 1440 px, that is 16 px below the pill. Right edge 1424 at 1440 (16 px from the viewport edge); at 390 px it spans 16 to 374. Screenshots: `.playwright-mcp/r2-toast-390.png`, `.playwright-mcp/r2-toast-1440.png`.
+
+### Gates after these changes
+
+typecheck, lint and build exit 0. Web 802 passed, 281 skipped; 2 files need `DATABASE_URL`: not evaluated. Admin 251 passed. `ui:audit --allow-deferred` exit 0 (92 covered, 0 open, 0 stale); `ui:audit:test` 17 of 17.
+
+### Still not evaluated
+
+A real product photo behind the pill, Safari, Firefox, touch devices, a physical Retina display, the two `DATABASE_URL` test files.

@@ -75,7 +75,7 @@ Plan: `docs/superpowers/plans/2026-10-17-soft-red-r2-floating-nav-footer.md`. Ne
 | `rounded-bento` | `1.75rem` | bento card radius |
 | `animate-badge-pop` | keyframe | cart counter |
 
-Smooth scroll: `lenis` 1.3.27 (exact pin) in `src/components/smooth-scroll.tsx`, off under `prefers-reduced-motion: reduce`, off inside nested scrollers and open Radix popups. Nav: pill `max-w-[1400px]`, alpha 0.7 at rest and 0.95 after 8 px of scroll (`useScrolled`).
+Smooth scroll: `lenis` 1.3.27 (exact pin) in `src/components/smooth-scroll.tsx`, off under `prefers-reduced-motion: reduce`, off inside nested scrollers and open Radix popups. Nav: pill `max-w-[1400px]`, alpha 0.85 at rest and 0.95 after 8 px of scroll (`useScrolled`).
 
 Delete or repurpose the unused `bomy` orange scale in `apps/web/tailwind.config.ts` — it's stock shadcn boilerplate, not BOMY's brand color, and nothing in the app references it yet.
 

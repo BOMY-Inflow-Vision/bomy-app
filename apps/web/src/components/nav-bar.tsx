@@ -117,7 +117,7 @@ export function NavBar() {
   // The mobile menu does not exist from md up; close it there so it cannot come back open when the
   // window shrinks again.
   useEffect(() => {
-    const query = window.matchMedia("(min-width: 768px)")
+    const query = window.matchMedia("(min-width: 1024px)")
     const onChange = (e: MediaQueryListEvent) => {
       if (e.matches) setOpen(false)
     }
@@ -145,14 +145,14 @@ export function NavBar() {
       <div className="pointer-events-auto relative mx-auto max-w-[1400px]">
         <div
           data-scrolled={scrolled}
-          className="flex h-nav items-center justify-between rounded-full border border-subtle bg-card/70 pl-5 pr-2 shadow-sm backdrop-blur-md transition-[background-color,box-shadow] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] data-[scrolled=true]:bg-card/95 data-[scrolled=true]:shadow-md motion-reduce:transition-none"
+          className="flex h-nav items-center justify-between rounded-full border border-subtle bg-card/85 pl-5 pr-2 shadow-sm backdrop-blur-md transition-[background-color,box-shadow] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] data-[scrolled=true]:bg-card/95 data-[scrolled=true]:shadow-md motion-reduce:transition-none"
         >
           <Link href="/" className="font-display text-lg font-bold tracking-tighter text-primary">
             BOMY
           </Link>
 
           {/* Desktop nav */}
-          <div className="hidden flex-1 items-center md:flex">
+          <div className="hidden flex-1 items-center lg:flex">
             <div className="flex flex-1 items-center justify-center gap-1">
               {NAV_LINKS.map((link) => (
                 <Link key={link.href} href={link.href} className={desktopLinkClass}>
@@ -181,7 +181,7 @@ export function NavBar() {
           </div>
 
           {/* Mobile trigger cluster */}
-          <div className="flex items-center gap-1 md:hidden">
+          <div className="flex items-center gap-1 lg:hidden">
             <ThemeToggle />
             <CartLink />
             <NavIconButton
@@ -227,7 +227,7 @@ export function NavBar() {
           inert={!open}
           data-lenis-prevent
           className={cn(
-            "absolute inset-x-0 top-full mt-2 max-h-[calc(100dvh-var(--nav-height)-var(--nav-offset)-1.25rem)] origin-top overflow-y-auto overflow-x-hidden overscroll-contain rounded-bento border border-subtle bg-card shadow-lg transition duration-200 ease-out md:hidden",
+            "absolute inset-x-0 top-full mt-2 max-h-[calc(100dvh-var(--nav-height)-var(--nav-offset)-1.25rem)] origin-top overflow-y-auto overflow-x-hidden overscroll-contain rounded-bento border border-subtle bg-card shadow-lg transition duration-200 ease-out lg:hidden",
             open ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-1 opacity-0",
           )}
         >
@@ -255,7 +255,7 @@ export function NavBar() {
           aria-hidden="true"
           tabIndex={-1}
           onClick={() => setOpen(false)}
-          className="pointer-events-auto fixed inset-x-0 bottom-0 top-nav-clear -z-10 cursor-default bg-scrim/30 md:hidden"
+          className="pointer-events-auto fixed inset-x-0 bottom-0 top-nav-clear -z-10 cursor-default bg-scrim/30 lg:hidden"
         />
       )}
     </nav>

@@ -78,7 +78,7 @@ let container: HTMLDivElement
 let root: Root
 
 beforeEach(() => {
-  // jsdom has no matchMedia; the NavBar watches the md breakpoint (PR 5d-7).
+  // jsdom has no matchMedia; the NavBar watches the lg breakpoint (PR 5d-7).
   vi.stubGlobal(
     "matchMedia",
     vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })),
@@ -103,10 +103,10 @@ function mount() {
 }
 
 function desktopRow() {
-  return container.querySelector<HTMLElement>("div.hidden.md\\:flex")!
+  return container.querySelector<HTMLElement>("div.hidden.lg\\:flex")!
 }
 function mobileCluster() {
-  return container.querySelector<HTMLElement>("div.flex.items-center.gap-1.md\\:hidden")!
+  return container.querySelector<HTMLElement>("div.flex.items-center.gap-1.lg\\:hidden")!
 }
 function panel() {
   return container.querySelector<HTMLElement>("#mobile-menu")!

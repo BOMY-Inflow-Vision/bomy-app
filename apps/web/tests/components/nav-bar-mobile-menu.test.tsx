@@ -30,11 +30,11 @@ const TOKENS = {
     "h-nav",
     "rounded-full",
     "backdrop-blur-md",
-    "bg-card/70",
+    "bg-card/85",
     "data-[scrolled=true]:bg-card/95",
     "motion-reduce:transition-none",
   ],
-  scrim: ["pointer-events-auto", "top-nav-clear", "md:hidden", "-z-10", "bg-scrim/30"],
+  scrim: ["pointer-events-auto", "top-nav-clear", "lg:hidden", "-z-10", "bg-scrim/30"],
   // The panel scrolls on short screens: a height cap, vertical scroll, and Lenis stays out of it.
   panel: [
     "mt-2",
@@ -317,7 +317,7 @@ describe("Escape and focus (D29)", () => {
   })
 })
 
-describe("crossing the md breakpoint (D30)", () => {
+describe("crossing the lg breakpoint (D30)", () => {
   type Listener = (e: { matches: boolean }) => void
   let listeners: Listener[]
   beforeEach(() => {
@@ -339,7 +339,7 @@ describe("crossing the md breakpoint (D30)", () => {
       for (const l of listeners) l({ matches })
     })
 
-  it("reaching 768 px closes an open menu, and it stays closed when going back", () => {
+  it("reaching 1024 px closes an open menu, and it stays closed when going back", () => {
     mount()
     click(hamburger())
     expect(hamburger().getAttribute("aria-expanded")).toBe("true")
@@ -350,9 +350,9 @@ describe("crossing the md breakpoint (D30)", () => {
     expect(panel().hasAttribute("inert")).toBe(true)
   })
 
-  it("watches the md query and removes its listener on unmount", () => {
+  it("watches the lg query and removes its listener on unmount", () => {
     mount()
-    expect(window.matchMedia).toHaveBeenCalledWith("(min-width: 768px)")
+    expect(window.matchMedia).toHaveBeenCalledWith("(min-width: 1024px)")
     expect(listeners).toHaveLength(1)
     act(() => root.unmount())
     expect(listeners).toHaveLength(0)
