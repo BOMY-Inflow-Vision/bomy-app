@@ -32,7 +32,7 @@ Failure modes the spec implies but no screen test shows today:
 3. **No price** (`minPriceSen` null: product has no active variant) and **no category** (null). Expect: no "from RM" line and no empty label or empty gap.
 4. **Pill tray with many categories** (20+) at 320 px, and a category name that is very long. Expect: the tray wraps, pills stay at least 44 px tall to tap, no horizontal scroll.
 5. **Keyboard focus on the tile.** The tile clips its corners (`overflow-hidden`); the focus ring must still show fully. Expect: ring on the link, not clipped, in light and dark.
-6. **Search plus category together** (`?q=tea&category=<id>`) and an **invalid category id**. Expect: pills keep `q` in their links; an unknown id leaves "All" not active... see Task 4 test.
+6. **Search plus category together** (`?q=tea&category=<id>`) and an **invalid category id**. Expect: pills keep `q` in their links; an unknown id leaves no pill active, as today (Task 4 test).
 7. **A sold-out product** (all active variants at stock 0) and a **product with no variants**. Expect: "Sold out" only for the first; nothing for the second.
 
 ---
@@ -163,7 +163,7 @@ export interface ProductCardProps {
   minPriceSen?: number | null // full only; formatted with formatMyrSen
   badge?: "New" | "Sold out" | null // real-data badge (Task 5); null/absent = none
 }
-export function ProductCard(props: ProductCardProps): JSX.Element // renders <li>? No: renders the <Link>; pages keep their own <li>
+export function ProductCard(props: ProductCardProps): JSX.Element // renders the <Link> tile; pages keep their own <li>
 ```
 
 - [ ] **Step 1: Write the failing tests** (jsdom or `renderToStaticMarkup`, as `store-products-page.test.tsx` does):
