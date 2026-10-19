@@ -20,8 +20,15 @@ const config = {
           foreground: "hsl(var(--primary-foreground))",
         },
       },
-      spacing: { nav: "var(--nav-height)" },
+      spacing: {
+        nav: "var(--nav-height)",
+        "nav-clear": "calc(var(--nav-height) + var(--nav-offset))",
+      },
       colors: {
+        scrim: "hsl(var(--scrim))",
+        ink: "hsl(var(--ink))",
+        "ink-foreground": "hsl(var(--ink-foreground))",
+        "ink-muted": "hsl(var(--ink-muted))",
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -93,6 +100,7 @@ const config = {
         control: "var(--radius-control)",
         input: "var(--radius-input)",
         card: "var(--radius-card)",
+        bento: "1.75rem",
       },
       fontFamily: {
         display: ["var(--font-display)", ...fontFamily.sans],

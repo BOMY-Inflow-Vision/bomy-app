@@ -6,12 +6,14 @@ import { cookies } from "next/headers"
 
 import { Footer } from "@/components/footer"
 import { SessionProvider } from "@/components/session-provider"
+import { SmoothScroll } from "@/components/smooth-scroll"
 import { ThemeProvider } from "@/components/theme-provider"
 import { CartProvider } from "@/lib/cart"
 import { FLASH_TOAST_COOKIE } from "@/lib/flash-toast"
 import { NavBar } from "@/components/nav-bar"
 import { ToastProvider } from "@/components/toaster"
 
+import "lenis/dist/lenis.css"
 import "./globals.css"
 
 const bricolage = Bricolage_Grotesque({
@@ -50,6 +52,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <SessionProvider>
             <ToastProvider flash={flash}>
               <CartProvider>
+                <SmoothScroll />
                 <NavBar />
                 {children}
                 <Footer />

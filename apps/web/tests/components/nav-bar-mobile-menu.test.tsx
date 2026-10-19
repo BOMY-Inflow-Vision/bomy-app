@@ -24,8 +24,26 @@ import { NavBar } from "@/components/nav-bar"
 
 // Class tokens (updated by the swaps; the plan says which).
 const TOKENS = {
-  bar: ["h-nav"],
-  scrim: ["top-nav", "md:hidden", "-z-10"],
+  shell: ["pointer-events-none", "sticky", "z-50", "px-3", "sm:px-5"],
+  frame: ["pointer-events-auto", "relative", "mx-auto", "max-w-[1400px]"],
+  bar: [
+    "h-nav",
+    "rounded-full",
+    "backdrop-blur-md",
+    "bg-card/85",
+    "data-[scrolled=true]:bg-card/95",
+    "motion-reduce:transition-none",
+  ],
+  scrim: ["pointer-events-auto", "top-nav-clear", "lg:hidden", "-z-10", "bg-scrim/30"],
+  // The panel scrolls on short screens: a height cap, vertical scroll, and Lenis stays out of it.
+  panel: [
+    "mt-2",
+    "rounded-bento",
+    "max-h-[calc(100dvh-var(--nav-height)-var(--nav-offset)-1.25rem)]",
+    "overflow-y-auto",
+    "overflow-x-hidden",
+    "overscroll-contain",
+  ],
   hamburger: [
     "size-11",
     "rounded-md",
@@ -221,12 +239,47 @@ describe("rows", () => {
 })
 
 describe("nav height", () => {
-  it("class tokens: bar height and scrim top (updated by the --nav-height change)", () => {
+  it("class tokens: floating shell, pill, panel and scrim (updated by the floating pill)", () => {
     mount()
-    const barEl = container.querySelector("nav > div")!
-    has(barEl, TOKENS.bar)
+    has(container.querySelector("nav")!, TOKENS.shell)
+    has(container.querySelector("nav > div")!, TOKENS.frame)
+    has(container.querySelector("nav > div > div")!, TOKENS.bar)
+    has(panel(), TOKENS.panel)
     click(hamburger())
     has(scrim()!, TOKENS.scrim)
+  })
+
+  it("the scrim sits inside a pointer-events-none shell, so it must opt back in to receive clicks", () => {
+    mount()
+    click(hamburger())
+    expect(container.querySelector("nav")!.classList.contains("pointer-events-none")).toBe(true)
+    expect(scrim()!.classList.contains("pointer-events-auto")).toBe(true)
+  })
+})
+
+describe("scrolled pill", () => {
+  const bar = () => container.querySelector<HTMLElement>("nav > div > div")!
+  const scrollTo = (y: number) =>
+    act(() => {
+      Object.defineProperty(window, "scrollY", { value: y, configurable: true })
+      window.dispatchEvent(new Event("scroll"))
+    })
+  afterEach(() => {
+    Object.defineProperty(window, "scrollY", { value: 0, configurable: true })
+  })
+
+  it("data-scrolled is false at the top and true after 9 px of scroll, and back", () => {
+    mount()
+    expect(bar().getAttribute("data-scrolled")).toBe("false")
+    scrollTo(9)
+    expect(bar().getAttribute("data-scrolled")).toBe("true")
+    scrollTo(0)
+    expect(bar().getAttribute("data-scrolled")).toBe("false")
+  })
+
+  it("the panel keeps Lenis out of its own scroll", () => {
+    mount()
+    expect(panel().hasAttribute("data-lenis-prevent")).toBe(true)
   })
 })
 
@@ -264,7 +317,7 @@ describe("Escape and focus (D29)", () => {
   })
 })
 
-describe("crossing the md breakpoint (D30)", () => {
+describe("crossing the lg breakpoint (D30)", () => {
   type Listener = (e: { matches: boolean }) => void
   let listeners: Listener[]
   beforeEach(() => {
@@ -286,7 +339,7 @@ describe("crossing the md breakpoint (D30)", () => {
       for (const l of listeners) l({ matches })
     })
 
-  it("reaching 768 px closes an open menu, and it stays closed when going back", () => {
+  it("reaching 1024 px closes an open menu, and it stays closed when going back", () => {
     mount()
     click(hamburger())
     expect(hamburger().getAttribute("aria-expanded")).toBe("true")
@@ -297,9 +350,9 @@ describe("crossing the md breakpoint (D30)", () => {
     expect(panel().hasAttribute("inert")).toBe(true)
   })
 
-  it("watches the md query and removes its listener on unmount", () => {
+  it("watches the lg query and removes its listener on unmount", () => {
     mount()
-    expect(window.matchMedia).toHaveBeenCalledWith("(min-width: 768px)")
+    expect(window.matchMedia).toHaveBeenCalledWith("(min-width: 1024px)")
     expect(listeners).toHaveLength(1)
     act(() => root.unmount())
     expect(listeners).toHaveLength(0)

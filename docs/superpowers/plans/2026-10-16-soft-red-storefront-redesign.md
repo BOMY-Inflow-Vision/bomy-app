@@ -72,24 +72,24 @@ Blush `#EFDED7` (18 43% 89%) is no longer the page ground. It becomes the storef
 
 ## File structure
 
-| File                                                                                          | Change                                                                   | PR  |
-| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | --- |
-| `apps/web/src/app/globals.css`                                                                | new token values, `.dark` too                                            | R1  |
-| `apps/web/tailwind.config.ts`                                                                 | `fontFamily.display` (R1). `rounded-bento` is added in R4                | R1  |
-| `apps/web/src/app/layout.tsx`                                                                 | swap fonts via `next/font/google`                                        | R1  |
-| `apps/web/tests/design-tokens/*.test.ts`                                                      | new expected pairs, including `--input` 3:1 (new `input-border.test.ts`) | R1  |
-| `docs/design-system/README.md`                                                                | document the new values                                                  | R1  |
-| `apps/web/src/components/nav-bar.tsx`, `nav-icon-button.tsx`                                  | floating pill nav, scrim token                                           | R2  |
-| `apps/web/src/components/footer.tsx`                                                          | blush footer                                                             | R2  |
-| `apps/web/src/app/page.tsx`                                                                   | bento home (today a placeholder)                                         | R3  |
-| `apps/web/src/components/product-card.tsx` (new)                                              | shared pastel product tile                                               | R4  |
-| `apps/web/src/app/products/page.tsx`, `brands/[slug]/products/page.tsx`                       | use ProductCard, filter pills                                            | R4  |
-| `apps/web/src/components/filter-pill.tsx` (new, web-only; no change to shared Badge variants) | pill style for category links                                            | R4  |
-| `apps/web/src/app/brands/**`                                                                  | spacing, type, tiles                                                     | R5a |
-| `apps/web/src/app/products/[storeSlug]/[productSlug]/**`                                      | spacing, type, tiles                                                     | R5b |
-| `apps/web/src/app/cart`, `checkout`, `auth`                                                   | type scale and cards only                                                | R5c |
-| `membership`, legal and info pages, `error.tsx`                                               | type scale and cards only                                                | R5d |
-| motion and dark-mode pass                                                                     | hover lift, reduced-motion guard                                         | R6  |
+| File                                                                                          | Change                                                                                                | PR  |
+| --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | --- |
+| `apps/web/src/app/globals.css`                                                                | new token values, `.dark` too                                                                         | R1  |
+| `apps/web/tailwind.config.ts`                                                                 | `fontFamily.display` (R1). `rounded-bento` is added in R2 (footer is its first user; see the R2 plan) | R1  |
+| `apps/web/src/app/layout.tsx`                                                                 | swap fonts via `next/font/google`                                                                     | R1  |
+| `apps/web/tests/design-tokens/*.test.ts`                                                      | new expected pairs, including `--input` 3:1 (new `input-border.test.ts`)                              | R1  |
+| `docs/design-system/README.md`                                                                | document the new values                                                                               | R1  |
+| `apps/web/src/components/nav-bar.tsx`, `nav-icon-button.tsx`                                  | floating pill nav, scrim token                                                                        | R2  |
+| `apps/web/src/components/footer.tsx`                                                          | blush footer                                                                                          | R2  |
+| `apps/web/src/app/page.tsx`                                                                   | bento home (today a placeholder)                                                                      | R3  |
+| `apps/web/src/components/product-card.tsx` (new)                                              | shared pastel product tile                                                                            | R4  |
+| `apps/web/src/app/products/page.tsx`, `brands/[slug]/products/page.tsx`                       | use ProductCard, filter pills                                                                         | R4  |
+| `apps/web/src/components/filter-pill.tsx` (new, web-only; no change to shared Badge variants) | pill style for category links                                                                         | R4  |
+| `apps/web/src/app/brands/**`                                                                  | spacing, type, tiles                                                                                  | R5a |
+| `apps/web/src/app/products/[storeSlug]/[productSlug]/**`                                      | spacing, type, tiles                                                                                  | R5b |
+| `apps/web/src/app/cart`, `checkout`, `auth`                                                   | type scale and cards only                                                                             | R5c |
+| `membership`, legal and info pages, `error.tsx`                                               | type scale and cards only                                                                             | R5d |
+| motion and dark-mode pass                                                                     | hover lift, reduced-motion guard                                                                      | R6  |
 
 ## PR sequence
 
@@ -110,7 +110,7 @@ Changing fonts can reflow text, line breaks and card heights on every page, sell
 
 ### R2: Floating nav and footer
 
-Pill nav (logo, links, dark "Bag" pill). Keep all behaviour pinned by `nav-bar-mobile-menu.test.tsx` and `nav-icon-controls.test.tsx` (hamburger, Escape focus return, 768 px close). Replace `bg-gray-900/20` scrim with a token. Keep `--nav-height` and `spacing.nav` so the toaster offset stays right.
+Pill nav (logo, links, soft-red filled "Cart" pill (`bg-primary`) with the counter inside; resting pill alpha 0.85, 0.95 after scroll). Keep all behaviour pinned by `nav-bar-mobile-menu.test.tsx` and `nav-icon-controls.test.tsx` (hamburger, Escape focus return, 1024 px close; moved from 768 px on 2026-10-19 because the seller nav wrapped). Replace `bg-gray-900/20` scrim with a token. Keep `--nav-height` and `spacing.nav` so the toaster offset stays right.
 
 ### R3: Home page bento
 
@@ -142,3 +142,13 @@ Hover lift, optional scroll reveal, `prefers-reduced-motion` guard, full dark-mo
 ## Execution
 
 Not chosen yet. Recommend subagent-driven for R2 to R5 (separate files, clear tests) and native for R1 (one place, high blast radius).
+
+## Amendment 2026-10-17: Kvist parity
+
+Charlie asked for near-identical layout and motion to the Kvist demo (own text, images and logo). The measured spec is `docs/superpowers/plans/2026-10-17-kvist-parity-spec.md`. It overrides the looser design-language reading in this plan for R2, R3, R4 and R6:
+
+- R2: full-width blurred pill, cart pill with inline counter, Lenis smooth scroll, dark rounded footer with a giant cropped wordmark (see the R2 plan).
+- R3: home page follows the spec's section order (hero bento, marquee, browse bento, favourites with filter pills, promise cards, stats, testimonials, newsletter). No invented ratings, counts or reviews.
+- R4: ProductCard follows the favourites tile (tall pastel art area, badge, category, name, price, rating only if real data exists).
+- R6: reveal, hover, marquee, rotating badge, word reveal and counters, each measured first and each with a reduced-motion fallback.
+- R5a to R5d are unchanged except that they inherit the new nav, footer and scroll.
