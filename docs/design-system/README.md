@@ -62,6 +62,21 @@ Values are computed from the source hexes in `tokens/colors.css` — spot-check 
 
 Blush `#EFDED7` (`18 43% 89%`) is the tile colour. It is not a token yet; R4 adds it with the product tiles. Pinned by `apps/web/tests/design-tokens/soft-red.test.ts`. Fonts in `apps/web`: Bricolage Grotesque (`--font-display`, headings), Geist (`--font-sans`), Geist Mono (`--font-mono`).
 
+### `apps/web` floating nav, footer and smooth scroll (R2, 2026-10-19)
+
+Plan: `docs/superpowers/plans/2026-10-17-soft-red-r2-floating-nav-footer.md`. New in `apps/web` only:
+
+| Token or class | Value | Use |
+|---|---|---|
+| `--nav-height` | `4rem` | the 64 px nav pill; `h-nav`, `top-nav-clear`, toast offset |
+| `--nav-offset` | `0.75rem`, `1rem` from 640 px | gap above the floating pill |
+| `--scrim` / `bg-scrim` | `8 22% 14%` (dark `0 0% 0%`) | mobile menu scrim |
+| `--ink`, `--ink-foreground`, `--ink-muted` | `8 22% 11%`, `20 50% 98%`, `18 14% 70%` | dark footer card; same in both themes |
+| `rounded-bento` | `1.75rem` | bento card radius |
+| `animate-badge-pop` | keyframe | cart counter |
+
+Smooth scroll: `lenis` 1.3.27 (exact pin) in `src/components/smooth-scroll.tsx`, off under `prefers-reduced-motion: reduce`, off inside nested scrollers and open Radix popups. Nav: pill `max-w-[1400px]`, alpha 0.7 at rest and 0.95 after 8 px of scroll (`useScrolled`).
+
 Delete or repurpose the unused `bomy` orange scale in `apps/web/tailwind.config.ts` — it's stock shadcn boilerplate, not BOMY's brand color, and nothing in the app references it yet.
 
 ## 2. Fonts

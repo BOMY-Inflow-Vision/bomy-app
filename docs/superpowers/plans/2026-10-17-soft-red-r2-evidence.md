@@ -63,3 +63,54 @@ The panel reads "Checkout is paused. We'll let you know when it's back.", no hor
 - First Load JS change: the build reports "First Load JS shared by all: 101 kB" with Lenis; a build without Lenis was not run, so no before/after number. Lenis is 33 kB source, 8.3 kB gzipped by itself.
 - Display scale 2 was emulated through the browser's device-metrics override, not a physical Retina display.
 - `tests/auth/magic-link-actions.test.ts` and `tests/auth/consent/actions.test.ts` need `DATABASE_URL`: not evaluated.
+
+## Task 5 results (final build, HEAD before the audit-ledger commit `b794913`, Lenis on)
+
+### First Load JS, before and after Lenis
+
+Next's route table is identical with and without Lenis (101 kB shared, `/` 102 kB), because it does not count layout-level chunks. So the real script weight was summed (gzip, per page, from `app-build-manifest.json` plus `build-manifest.json`) for a build with and a build without Lenis (the no-Lenis build had zero Lenis chunks):
+
+| Page        | With Lenis | Without  | Delta |
+| ----------- | ---------- | -------- | ----- |
+| `/`         | 198.7 kB   | 193.4 kB | +5.3  |
+| `/cart`     | 202.1 kB   | 196.8 kB | +5.3  |
+| `/products` | 199.7 kB   | 194.4 kB | +5.3  |
+| `/privacy`  | 198.9 kB   | 193.5 kB | +5.4  |
+
+### Contrast, 18 views (390 / 767 / 1440 by `/`, `/products`, `/brands`, `/cart`, `/seller/dashboard`, `/account`)
+
+- Light: 0 text nodes below limit, worst 5.64:1, no horizontal scroll.
+- Dark (theme set through `localStorage.theme` then reload; every view confirmed `html.dark`): 0 below limit, worst 5.10:1, no horizontal scroll. An earlier dark run was discarded because no view was actually dark.
+- Cart hover (`brightness-90` on `bg-primary`, white text): about 6.3:1 by computation from the measured colours (text 4.5 needed). Counter on the pill: same pair, above 3:1.
+
+### Cart counter, seller state
+
+Counts 0, 99 and 100 (shows "99+") at 1440, 1024, 390 and 320 px: the 24x24 counter sits inside the cart, 0 px² overlap with the label, no horizontal scroll. Cart is 120x48 with the label (from `lg`), 84x48 without.
+
+### Interaction (real keys and mouse, production build)
+
+- Desktop Tab order: BOMY, Brands, Products, Membership, Sell with us, Become a provider, Cart, Account, Seller menu, theme toggle. Cart focus shows a 2 px outline plus ring.
+- 390 px menu: opens with `aria-expanded=true`; Escape closes from the button and from inside the panel (focus ends on the menu button both times); a click on the scrim at (195, 790) closes it; resizing to 1100 px closes it.
+- Side gap: the point (6, 40) at 1440 px hits `BODY`, not the nav shell, so clicks pass through the gutter.
+
+### Footer final geometry
+
+| Width | Card                      | Wordmark box                                                 | Notes                |
+| ----- | ------------------------- | ------------------------------------------------------------ | -------------------- |
+| 1440  | x=20, 1400 wide, 587 high | x=68, 1304 wide; letters 68 to 1372 (the card's inner edges) | no horizontal scroll |
+| 768   | full width less gutters   | x=68, 632 wide                                               | no horizontal scroll |
+| 390   | gutters 12 px             | x=36, 318 wide                                               | no horizontal scroll |
+
+Screenshots: `.playwright-mcp/r2-footer2-*.png`.
+
+### Gates
+
+`pnpm typecheck` and `pnpm lint` exit 0. `pnpm build` passed. Web tests: 802 passed, 281 skipped. Admin: 251 passed, 110 skipped. `pnpm ui:audit --allow-deferred` first FAILED (5 open hits, 2 stale entries in `scripts/ui-audit/exceptions.json`, caused by the new nav and footer classes); fixed in commit `1ba9bec`, now exit 0 (92 covered, 0 open, 0 stale). `pnpm ui:audit:test` 17 of 17.
+
+### Not evaluated (added in Task 5)
+
+- 768 to 1023 px: the seller nav does not fit at 768 px (see PR body, decision D6).
+- Signed-out and buyer (non-seller) nav in the browser: unit tests only.
+- Pixel contrast of the pill at alpha 0.7 over a product photo: not run. The pill sits over the near-white ground and cards in every view tested.
+- A real toast under the pill: only the position is pinned by `toaster-position-guard.test.ts`.
+- Safari, Firefox, touch devices, a physical Retina display, the two `DATABASE_URL` test files.
