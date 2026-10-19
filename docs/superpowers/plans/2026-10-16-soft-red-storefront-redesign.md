@@ -110,7 +110,7 @@ Changing fonts can reflow text, line breaks and card heights on every page, sell
 
 ### R2: Floating nav and footer
 
-Pill nav (logo, links, dark filled "Cart" pill with the counter inside; resting pill alpha 0.85, 0.95 after scroll). Keep all behaviour pinned by `nav-bar-mobile-menu.test.tsx` and `nav-icon-controls.test.tsx` (hamburger, Escape focus return, 1024 px close; moved from 768 px on 2026-10-19 because the seller nav wrapped). Replace `bg-gray-900/20` scrim with a token. Keep `--nav-height` and `spacing.nav` so the toaster offset stays right.
+Pill nav (logo, links, soft-red filled "Cart" pill (`bg-primary`) with the counter inside; resting pill alpha 0.85, 0.95 after scroll). Keep all behaviour pinned by `nav-bar-mobile-menu.test.tsx` and `nav-icon-controls.test.tsx` (hamburger, Escape focus return, 1024 px close; moved from 768 px on 2026-10-19 because the seller nav wrapped). Replace `bg-gray-900/20` scrim with a token. Keep `--nav-height` and `spacing.nav` so the toaster offset stays right.
 
 ### R3: Home page bento
 

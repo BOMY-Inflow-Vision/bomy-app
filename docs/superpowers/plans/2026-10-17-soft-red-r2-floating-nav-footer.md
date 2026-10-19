@@ -4,7 +4,7 @@
 
 **Goal:** Turn the full-width sticky top bar into a floating, full-width, blurred pill nav with the cart and its counter side by side (no overlap), add Lenis smooth scroll, restyle the footer as a dark rounded card with a giant cropped wordmark, and replace the last literal colour in public code (the mobile-menu scrim), with no behaviour change.
 
-**Architecture:** `NavBar` keeps its logic (menu state, Escape focus return, 768 px close, seller menu). Only the wrapper markup and classes change: a transparent sticky wrapper holds a rounded pill that turns more solid on scroll, and the mobile panel becomes a rounded card under the pill. New tokens (`--nav-offset`, `--scrim`, `--ink*`) and one radius (`rounded-bento`, 28 px) go through the token layer so the toaster, scrim and footer follow. A small client component starts Lenis (smooth scroll) and a small hook reports "scrolled" to the nav.
+**Architecture:** `NavBar` keeps its logic (menu state, Escape focus return, 1024 px close, seller menu). Only the wrapper markup and classes change: a transparent sticky wrapper holds a rounded pill that turns more solid on scroll, and the mobile panel becomes a rounded card under the pill. New tokens (`--nav-offset`, `--scrim`, `--ink*`) and one radius (`rounded-bento`, 28 px) go through the token layer so the toaster, scrim and footer follow. A small client component starts Lenis (smooth scroll) and a small hook reports "scrolled" to the nav.
 
 **Tech Stack:** Next 15.5, Tailwind 3.4, `@bomy/ui` Button, `lenis` (new, MIT, exact pin), Vitest (jsdom per file), Playwright MCP.
 
@@ -25,7 +25,7 @@
 
 ## Review Focus
 
-- **768 to 1023 px.** The five text links, the cart, the account control and the theme toggle must fit inside a pill that is narrower than today's full-width bar. If they do not fit, the plan has a fallback (D6). Measure before deciding.
+- **768 to 1023 px (historical risk; decided 2026-10-19: the menu switches at 1024 px).** The five text links, the cart, the account control and the theme toggle must fit inside a pill that is narrower than today's full-width bar. If they do not fit, the plan has a fallback (D6). Measure before deciding.
 - **Toast and scrim offsets.** Today they are `top-[calc(var(--nav-height)+1rem)]` and `top-nav`. A floating pill is lower by `--nav-offset`, so both must move, or the first toast hides under the pill.
 - **Sticky pill over scrolling content.** The wrapper must not block clicks in the empty side gaps, and content scrolling under the gap must not look broken.
 - **Seller, account and checkout pages share the nav.** Their sticky or full-height layouts must not get a double gap or an overlap.
@@ -38,7 +38,7 @@
 ## Decisions (Charlie, 2026-10-17)
 
 - **D5(a), amended by the parity request:** the cart keeps the word "Cart" and the `aria-label` "Cart", and becomes a pill (icon, label, then a round counter inside the pill, beside the label, never overlapping it). Fill stays the BOMY primary (soft red), not Kvist's black. Below `lg` the label hides and only icon and counter show (as the demo does on mobile).
-- **D6(a):** keep the 768 px breakpoint if the measured links fit. Order of fallbacks if they do not: (1) hide the cart label below `lg`, (2) tighten gaps, (3) only then (b) move the hamburger switch to 1024 px, and only with Charlie's go.
+- **D6(a) (historical; superseded by D6(b), chosen by Charlie 2026-10-19 after the 768 px fit failed):** keep the 768 px breakpoint if the measured links fit. Order of fallbacks if they do not: (1) hide the cart label below `lg`, (2) tighten gaps, (3) only then (b) move the hamburger switch to 1024 px, and only with Charlie's go.
 - **D7 (DECIDED yes, Charlie 2026-10-18):** show the counter at 0, as the demo does ("Bag 0"). Today the badge shows only when the count is above 0. Recommend yes: it keeps the pill the same width as the count changes (no jump). Tests that pin "no badge at 0" change on purpose.
 - **D8 (DECIDED yes, Charlie 2026-10-18, with the browser and reduced-motion checks in Task A2):** add the open-source `lenis` package (MIT), pinned to an exact version chosen at install time (`pnpm view lenis version`), no caret, as we did for Radix Select. First Load JS change is measured and reported in Task 5.
 - **D10 (Bob, plan default):** keep today's Tab order (Cart, Account, Seller menu, Theme) instead of the demo's account-before-cart order. A changed order would need its own approval and tests. Charlie may override; the pill then needs the cart moved in the DOM and the order tests rewritten on purpose.
@@ -46,8 +46,8 @@
 
 ## Options that were offered (kept for the record)
 
-- **D5 Cart control.** (a) Keep the cart as an icon with the count badge, restyled as the filled primary round button inside the pill. Copy stays "Cart". (b) Replace it with a "Bag (n)" text pill as in the mockup. That renames the control, breaks "label in name" unless the accessible name also becomes "Bag", and the site says "cart" everywhere else (`/cart`, "Your cart is empty"). **Recommend (a).** Choose (b) only if you also want the words "cart" changed to "bag" site-wide, which is a content decision.
-- **D6 Desktop breakpoint.** If the links do not fit at 768 to 1023 px after tightening spacing, (a) keep `md` (768 px) and let the pill carry a smaller link gap and `text-sm`; (b) move the switch to the hamburger up to `lg` (1024 px), which changes the `matchMedia` query and the pinned tests from 768 to 1024. **Recommend (a); use (b) only if the measurement fails.** The plan measures first.
+- **D5 Cart control (decided: (a) amended, a soft-red `bg-primary` pill that keeps the word "Cart" from `lg`, with the counter inside; options below are historical).** (a) Keep the cart as an icon with the count badge, restyled as the filled primary round button inside the pill. Copy stays "Cart". (b) Replace it with a "Bag (n)" text pill as in the mockup. That renames the control, breaks "label in name" unless the accessible name also becomes "Bag", and the site says "cart" everywhere else (`/cart`, "Your cart is empty"). **Recommend (a).** Choose (b) only if you also want the words "cart" changed to "bag" site-wide, which is a content decision.
+- **D6 Desktop breakpoint (decided by Charlie 2026-10-19: option (b), the switch is 1024 px; text below is the historical option list).** If the links do not fit at 768 to 1023 px after tightening spacing, (a) keep `md` (768 px) and let the pill carry a smaller link gap and `text-sm`; (b) move the switch to the hamburger up to `lg` (1024 px), which changes the `matchMedia` query and the pinned tests from 768 to 1024. **Recommend (a); use (b) only if the measurement fails.** The plan measures first.
 
 ## File structure
 
@@ -121,7 +121,7 @@ describe("nav tokens", () => {
 ```ts
 const TOKENS = {
   bar: ["h-nav", "rounded-full"],
-  scrim: ["top-nav-clear", "md:hidden", "-z-10", "bg-scrim/30", "pointer-events-auto"],
+  scrim: ["top-nav-clear", "lg:hidden", "-z-10", "bg-scrim/30", "pointer-events-auto"],
   // hamburger, row, panel tokens: unchanged except panel gains "rounded-bento" and "mt-2"
 }
 ```
@@ -141,11 +141,11 @@ Add one new behaviour test: the outer wrapper has `pointer-events-none` and the 
     </div>
     {/* mobile panel: className gains "mt-2 rounded-bento"; position stays absolute inset-x-0 top-full */}
   </div>
-  {/* scrim: className "pointer-events-auto fixed inset-x-0 bottom-0 top-nav-clear -z-10 cursor-default bg-scrim/30 md:hidden" */}
+  {/* scrim: className "pointer-events-auto fixed inset-x-0 bottom-0 top-nav-clear -z-10 cursor-default bg-scrim/30 lg:hidden" */}
 </nav>
 ```
 
-The logo becomes `font-display`. Link text moves to `font-medium`. Desktop gap and padding are set after the 768 px measurement (Task 5, D6).
+The logo becomes `font-display`. Link text moves to `font-medium`. Desktop gap and padding are set after the fit measurement (Task 5, D6; the switch is 1024 px).
 
 - [ ] **Step 3b (D5a): the filled cart button, explicit rest, hover and badge classes.** Tailwind-merge only drops a class when another class of the same variant and property follows it, so the hover pair must be named:
 
@@ -206,7 +206,7 @@ Add to `nav-tokens.test.ts`: white on `--primary` at `brightness(0.9)` is at lea
 - [ ] **Step 2: Failing tests.**
   - `nav-tokens.test.ts`: `--nav-height` is `4rem`; `--nav-offset` is `0.75rem` in `:root` and `1rem` inside `@media (min-width: 640px)`; `--ink`, `--ink-foreground`, `--ink-muted` defined once; `--ink-foreground` on `--ink` at least 4.5:1 and `--ink-muted` on `--ink` at least 4.5:1; nav text (`--muted-foreground`, `--foreground`) on `--card` at 70% alpha composited over every page surface that exists today (`--background`, `--card`, `--muted`, `--accent`), at least 4.5:1 in both themes. The future blush tile colour is NOT tested here; R4 adds that test when the token exists. Real images behind the pill are covered by a browser sample in Task 5 Step 4, not by a token test.
   - `use-scrolled.test.tsx`: false at `scrollY` 0; true after `scrollY` 9 and a `scroll` event; back to false; listener removed on unmount; listener registered `passive`.
-  - `nav-bar-mobile-menu.test.tsx` TOKENS: wrapper `px-3 sm:px-5`, frame `max-w-[1400px]`, bar `h-nav rounded-full backdrop-blur-md bg-card/70 data-[scrolled=true]:bg-card/95 motion-reduce:transition-none`. A behaviour test: bar has `data-scrolled="false"` at rest and `"true"` after a scroll event.
+  - `nav-bar-mobile-menu.test.tsx` TOKENS: wrapper `px-3 sm:px-5`, frame `max-w-[1400px]`, bar `h-nav rounded-full backdrop-blur-md bg-card/85 data-[scrolled=true]:bg-card/95 motion-reduce:transition-none`. A behaviour test: bar has `data-scrolled="false"` at rest and `"true"` after a scroll event.
   - `nav-icon-controls.test.tsx` holds the full Tab-order assertion as it is today: desktop `Cart`, `Account` (or `Account`, `Seller menu`), `Theme`; mobile `Theme`, `Cart`, `Open menu`; it fails if the order changes. The assertions exist; they are only extended, never loosened.
   - `nav-icon-controls.test.tsx`: the cart contains a visible text node "Cart" (class `hidden lg:inline`) and a counter `span` with `rounded-full bg-card text-foreground tabular-nums`; the counter has none of `absolute`, `-top-`, `-right-`, `ring-1` (no overlap by construction); the counter renders at count 0 (D7); `aria-label` stays "Cart"; the earlier hover pins (explicit `hover:bg-primary` and `hover:text-primary-foreground`, muted hover gone) stay.
 - [ ] **Step 2b: Mobile pill contents (Bob 3) and a panel that scrolls (Bob 2).**
@@ -220,11 +220,11 @@ Add to `nav-tokens.test.ts`: white on `--primary` at `brightness(0.9)` is at lea
   <div className="pointer-events-auto relative mx-auto max-w-[1400px]">
     <div
       data-scrolled={scrolled}
-      className="flex h-nav items-center justify-between rounded-full border border-subtle bg-card/70 pl-5 pr-2 shadow-sm backdrop-blur-md transition-[background-color,box-shadow] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] data-[scrolled=true]:bg-card/95 data-[scrolled=true]:shadow-md motion-reduce:transition-none"
+      className="flex h-nav items-center justify-between rounded-full border border-subtle bg-card/85 pl-5 pr-2 shadow-sm backdrop-blur-md transition-[background-color,box-shadow] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] data-[scrolled=true]:bg-card/95 data-[scrolled=true]:shadow-md motion-reduce:transition-none"
     >
 ```
 
-Desktop links sit in a `hidden flex-1 items-center justify-center gap-1 md:flex` group; each link `rounded-full px-3 py-2 text-sm font-medium text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground`. **DOM and Tab order stay exactly as today (Bob):** desktop is links, then Cart, then Account (or Account plus Seller menu when present), then Theme; mobile is Theme, Cart, then the menu button. No CSS `order` or `flex-row-reverse` trick, so the visual and Tab order match. This differs from the demo, which puts the account icon left of the cart; we keep the existing, tested order (decision D10, below). The right cluster is `ml-auto flex items-center gap-2` with the cart pill first:
+Desktop links sit in a `hidden flex-1 items-center justify-center gap-1 lg:flex` group; each link `rounded-full px-3 py-2 text-sm font-medium text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground`. **DOM and Tab order stay exactly as today (Bob):** desktop is links, then Cart, then Account (or Account plus Seller menu when present), then Theme; mobile is Theme, Cart, then the menu button. No CSS `order` or `flex-row-reverse` trick, so the visual and Tab order match. This differs from the demo, which puts the account icon left of the cart; we keep the existing, tested order (decision D10, below). The right cluster is `ml-auto flex items-center gap-2` with the cart pill first:
 
 ```tsx
 <NavIconButton
@@ -314,22 +314,22 @@ The first test passes on the old code (it pins the values); the second fails.
 
 ## Task 5: Evidence gates, docs, PR body
 
-- [ ] **Step 0: Geometry against the spec (1440 and 390 px).** Pill x 20 to 1420, height 64, top 16 at 1440; x 12, top 12 at 390. Cart pill and counter: counter rect is inside the cart rect and does not intersect the label rect (assert in the browser, not only by class). Scrolled alpha: computed background alpha 0.85 at the top (0.7 in the first draft, raised after the Task 5 contrast sample) and 0.95 after 9 px of scroll; transition 300 ms.
+- [ ] **Step 0: Geometry against the spec (1440 and 390 px).** Pill x 20 to 1420, height 64, top 16 at 1440; x 12, top 12 at 390. Cart pill and counter: counter rect is inside the cart rect and does not intersect the label rect (assert in the browser, not only by class). Scrolled alpha: computed background alpha 0.85 at the top (0.7 in the first draft; raised after the Task 5 contrast sample) and 0.95 after 9 px of scroll; transition 300 ms.
 - [ ] **Step 0b: Mobile fit across account states (Bob 3).** At 390, 360 and 320 px, signed out, signed in as a buyer, and signed in as the seeded seller, with the cart at 0, 9 and 99+ items (seed `bomy_cart`, then delete it): no overflow or wrap, hamburger and cart at least 44 px, logo not clipped, same pill content in all three states.
-- [ ] **Step 1: 768 px fit (D6 decision gate).** Honest risk: with the full cart pill the row may not fit at 768 px (five links, including "Sell with us" and "Become a provider", are wider than the demo's). In the browser at 767, 768, 900, 1023, 1024 and 1440 px, light and dark, signed out and as the seeded seller: record whether any element overflows or wraps, and the pill's inner width. Apply the D6 fallback order (hide the label below `lg`, then tighten gaps) and re-measure; only then ask Charlie about D6(b).
+- [ ] **Step 1: 768 px fit (D6 decision gate; outcome: the fit failed at 768 px, so the switch moved to 1024 px).** Honest risk: with the full cart pill the row may not fit at 768 px (five links, including "Sell with us" and "Become a provider", are wider than the demo's). In the browser at 767, 768, 900, 1023, 1024 and 1440 px, light and dark, signed out and as the seeded seller: record whether any element overflows or wraps, and the pill's inner width. Apply the D6 fallback order (hide the label below `lg`, then tighten gaps) and re-measure; only then ask Charlie about D6(b).
 - [ ] **Step 2: Real pages.** Load `/`, `/products`, `/brands`, `/cart`, `/auth/sign-in`, `/seller/dashboard`, `/account` at 390, 767, 1440 px in light and dark. Check: pill and panel visible, no overlap with page headings, seller sidebar sits below the pill with no double gap, text contrast alpha-composited with zero nodes below 4.5:1.
-- [ ] **Step 3: Interaction.** Real keys: Tab order across the pill, focus ring visible on the pill, open the menu, Escape from the menu button and from inside the panel (focus returns only in the second case), scrim click closes, resize 390 to 800 closes the menu. A real toast appears below the pill, not under it (screenshot).
+- [ ] **Step 3: Interaction.** Real keys: Tab order across the pill, focus ring visible on the pill, open the menu, Escape from the menu button and from inside the panel (focus returns only in the second case), scrim click closes, resize 390 to 1100 closes the menu (the switch is 1024 px). A real toast appears below the pill, not under it (screenshot).
 - [ ] **Step 3b: Scrim and hover in a real browser.** At 390 px open the menu and click a point on the page below the panel with a real mouse click (not a script `click()`); the menu must close. Click an empty side gap beside the pill while the menu is closed and confirm the click reaches the content under it. Hover the cart button and the badge: measure the rendered text against the fill, including the `brightness-90` filter, in light and dark (at least 4.5:1 for text, at least 3:1 for the badge ring). Confirm the badge is visible at counts 1 and 99+ (seed the `bomy_cart` local storage item, then delete it).
-- [ ] **Step 4: Scroll.** Scroll a long page (`/products`) and capture the pill over content in light and dark; confirm clicks in the side gaps reach the content. On a product page with photos, scroll so a photo sits behind the pill's link text, sample the rendered pixels behind three links, and compute contrast; report the numbers. If any sample is under 4.5:1, raise the resting alpha from 0.7 (not below 0.85) and re-measure. This is a sample, not a guarantee for arbitrary images, and the PR says so.
+- [ ] **Step 4: Scroll.** Scroll a long page (`/products`) and capture the pill over content in light and dark; confirm clicks in the side gaps reach the content. On a product page with photos, scroll so a photo sits behind the pill's link text, sample the rendered pixels behind three links, and compute contrast; report the numbers. If any sample is under 4.5:1, raise the resting alpha from the first-draft 0.7 (not below 0.85; shipped at 0.85) and re-measure. This is a sample, not a guarantee for arbitrary images, and the PR says so.
 - [ ] **Step 5: Gates.** `pnpm typecheck`, `pnpm lint`, `pnpm --filter @bomy/web test --run`, `pnpm --filter @bomy/admin test --run`, `pnpm build` (move `products/loading.tsx` aside and restore it), `pnpm ui:audit --allow-deferred`, `pnpm ui:audit:test`. Report the two `DATABASE_URL` test files as "not evaluated".
 - [ ] **Step 6: Docs and PR body.** Note the new tokens in `docs/design-system/README.md`; fix the parent plan (`rounded-bento` from R4 to R2); write `.andy/soft-red-r2-pr-body.md` with only verified claims; evidence file `docs/superpowers/plans/2026-10-17-soft-red-r2-evidence.md`. Stop before the push.
 
 ## Self-review
 
-- Spec coverage: floating pill nav (Tasks 2 and A1), blur and scroll alpha (A1), cart pill with inline counter (A1), smooth scroll (A2), mobile panel and scrim (Tasks 1 and 2), footer (Task 4), toast offset (Task 3, follows the new tokens), 768 px fit and D6 (Task 5), dark mode and keyboard (Task 5).
+- Spec coverage: floating pill nav (Tasks 2 and A1), blur and scroll alpha (A1), cart pill with inline counter (A1), smooth scroll (A2), mobile panel and scrim (Tasks 1 and 2), footer (Task 4), toast offset (Task 3, follows the new tokens), 768 to 1023 px fit and D6 (Task 5; the switch is 1024 px), dark mode and keyboard (Task 5).
 - Not in R2 (stay in R3 to R6, listed in the parity spec): hero bento, marquee, browse bento, filter pills, reveal and hover motion, rotating badge, word reveal, counters. Measure those motions in the slice that builds them.
 - Parity changes only the nav, footer and scroll feel. No behaviour of the menu changes; no copy changes; checkout stays off.
-- New review risks (A1, A2): contrast on a 70% translucent pill over the busiest content; Lenis fighting Radix scroll locks and nested scrollers; reduced-motion users must get native scroll and no transition; dependency added (D8).
+- New review risks (A1, A2): contrast on an 85% translucent pill (first draft 70%, raised in Task 5) over the busiest content; Lenis fighting Radix scroll locks and nested scrollers; reduced-motion users must get native scroll and no transition; dependency added (D8).
 - Placeholders: none. Footer and nav copy are unchanged, so no copy gate applies to R2.
 - Type consistency: `nav-clear`, `--nav-offset`, `--scrim`, `bg-scrim`, `rounded-bento` are named the same in every task.
 - Bob's two blockers are Task 2 Steps 3b and 3c and Task 5 Step 3b.
