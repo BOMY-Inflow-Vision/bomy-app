@@ -10,14 +10,27 @@ import React, { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
+type ScrollListener = (l: {
+  isScrolling: false | "smooth" | "native"
+  targetScroll: number
+  animatedScroll: number
+  scrollTo: (target: number, options: object) => void
+}) => void
 const lenis = vi.hoisted(() => ({
   ctor: vi.fn(),
   destroy: vi.fn(),
+  onScroll: null as unknown as ScrollListener | null,
 }))
 vi.mock("lenis", () => ({
   default: class {
     constructor(options: unknown) {
       lenis.ctor(options)
+    }
+    on(event: string, cb: ScrollListener) {
+      if (event === "scroll") lenis.onScroll = cb
+      return () => {
+        lenis.onScroll = null
+      }
     }
     destroy() {
       lenis.destroy()
@@ -25,7 +38,7 @@ vi.mock("lenis", () => ({
   },
 }))
 
-import { SmoothScroll, shouldPrevent } from "@/components/smooth-scroll"
+import { SmoothScroll, isPageScrollFree, shouldPrevent } from "@/components/smooth-scroll"
 ;(
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true
@@ -40,6 +53,7 @@ let root: Root
 beforeEach(() => {
   lenis.ctor.mockClear()
   lenis.destroy.mockClear()
+  lenis.onScroll = null
   reduce = { matches: false, listeners: [] }
   vi.stubGlobal(
     "matchMedia",
@@ -111,6 +125,29 @@ describe("shouldPrevent (Lenis walks the event path and asks about each node)", 
   })
 })
 
+describe("Radix scroll lock", () => {
+  // Radix (react-remove-scroll) sets data-scroll-locked on the body while a Select or menu is open.
+  // Found in the browser: Lenis moved the page 800 px behind an open Select, because the locked
+  // body ignores the pointer and the wheel event then targets <html>, so `prevent` is never asked.
+  it("isPageScrollFree is true normally and false while the body is locked", () => {
+    expect(isPageScrollFree()).toBe(true)
+    document.body.setAttribute("data-scroll-locked", "1")
+    try {
+      expect(isPageScrollFree()).toBe(false)
+    } finally {
+      document.body.removeAttribute("data-scroll-locked")
+    }
+    expect(isPageScrollFree()).toBe(true)
+  })
+  it("Lenis is given it as virtualScroll, which runs for every wheel and touch event", () => {
+    mount()
+    const options = lenis.ctor.mock.calls[0]![0] as Record<string, unknown>
+    expect(options["virtualScroll"]).toBe(isPageScrollFree)
+    act(() => root.unmount())
+    root = createRoot(container)
+  })
+})
+
 describe("<SmoothScroll />", () => {
   it("starts Lenis with the planned options", () => {
     mount()
@@ -156,6 +193,35 @@ describe("<SmoothScroll />", () => {
   it("renders nothing", () => {
     mount()
     expect(container.innerHTML).toBe("")
+  })
+})
+
+// Lenis ends a glide when the rounded animated value equals the rounded target. A target that is
+// exactly half a pixel (for example 4687.5 + 400 on a 2x display after a Tab focus scroll) is
+// approached from below and never reached, so Lenis stays "smooth" for seconds and pulls native
+// jumps (focus, PageDown) back. Found in the browser on a 2x display; see the R2 evidence.
+describe("half-pixel glide that never finishes", () => {
+  const glide = (isScrolling: false | "smooth" | "native", target: number, animated: number) => {
+    const scrollTo = vi.fn()
+    lenis.onScroll!({ isScrolling, targetScroll: target, animatedScroll: animated, scrollTo })
+    return scrollTo
+  }
+  beforeEach(() => mount())
+
+  it("snaps a smooth glide that is within 0.6 px of a half-pixel target to the whole pixel", () => {
+    const scrollTo = glide("smooth", 5087.5, 5087.453)
+    expect(scrollTo).toHaveBeenCalledTimes(1)
+    expect(scrollTo).toHaveBeenCalledWith(5088, { immediate: true, force: true })
+  })
+  it("does nothing while the glide is still travelling", () => {
+    expect(glide("smooth", 5087.5, 4900)).not.toHaveBeenCalled()
+  })
+  it("does nothing when Lenis is not smooth-scrolling", () => {
+    expect(glide(false, 5087.5, 5087.453)).not.toHaveBeenCalled()
+    expect(glide("native", 5087.5, 5087.453)).not.toHaveBeenCalled()
+  })
+  it("does nothing for a whole-pixel target (Lenis finishes those itself)", () => {
+    expect(glide("smooth", 5088, 5087.7)).not.toHaveBeenCalled()
   })
 })
 

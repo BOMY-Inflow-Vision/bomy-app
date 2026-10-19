@@ -25,12 +25,41 @@ Version check: 1.3.27 (published 2026-10-15) has `stopInertiaOnNavigate` (`dist/
 - Programmatic scrolls after a wheel hold (`scrollTo`, `scrollTo({behavior:'instant'})`, `documentElement.scrollTop`, `scrollIntoView`, `focus()`), 6 of 6; real keyboard: Tab, two wheel notches, Tab to an off-screen link scrolled it into view and held, 3 of 3.
 - Console: the only error seen was a missing `favicon.ico` (404), not related to this work.
 
-### Known Lenis edge (not fixed, reported)
+### Follow-up for Bob (2026-10-19): findings, fixes and re-runs
 
-When the page starts at an exact half pixel (`scrollIntoView` with centring gave `1922.5`) and the wheel adds a whole number, Lenis aims at `2322.5`, approaches it without reaching it, and stays in its "smooth" state for several seconds; during that time it pulls a native jump back (a second `scrollIntoView` was reverted). From a whole-number start the same sequence settles at once. A real device gives fractional wheel deltas, so an exact `.5` target is unlikely, and normal wheel scrolling, Tab focus scrolling and navigation all passed. Not seen with real input; noted for Bob.
+Run on the final production build (standalone `server.js`, `lenis` 1.3.27). Two real defects were found and fixed; each fix has a unit test and a browser re-run.
+
+1. **Half-pixel glide that never finishes (fixed).** Reproduced with real keyboard focus, not only a script: on a **2x display** (CDP `deviceScaleFactor: 2`), `Tab` to a link put the page at `4687.5`; one wheel notch (+400) aimed Lenis at `5087.5`, which it approaches from below and never reaches (Lenis ends a glide when the rounded values match, and 5087.5 rounds up while the value stays below). Lenis stayed "smooth" for seconds: `Shift+Tab` to a link above did **not** scroll (the link stayed off screen) and `PageDown` did nothing, 3 of 3 runs. At 1x the same sequence was fine. **Fix:** `instance.on("scroll")` snaps a smooth glide that is within 0.6 px of a half-pixel target to the whole pixel (`scrollTo(round(target), { immediate: true, force: true })`). **Re-run:** 2x, 3 of 3: the link is in view and `PageDown` moves +880 px; 1x unchanged. Impact before the fix: keyboard users on a Retina display who mix Tab and the wheel; the page ignored native scrolling for several seconds.
+2. **Page scrolled behind an open Radix Select or menu (fixed).** With Radix's scroll lock on (`body[data-scroll-locked]`), a wheel moved the page 0 to 800 px behind an open Select and an open Seller menu; the baseline (no Lenis) stayed at 0. The locked body ignores the pointer, so the wheel event targets `<html>` and Lenis never asks `prevent` about any element. **Fix:** `virtualScroll: isPageScrollFree`, which Lenis calls for every wheel and touch event and which returns `false` while the lock is set. **Re-run:** Select and menu both hold the page at 0 while open, and the wheel moves it again after Escape (800 px).
+3. **Radix Dialog:** the app has no Radix Dialog (`@bomy/ui` ships Select, DropdownMenu, Popover; no dialog package is installed). The modal scroll lock is covered by the Select and DropdownMenu results above, which use the same `react-remove-scroll` lock.
+
+### Keyboard keys (Space, PageDown, End and friends), final build, long page `/privacy`
+
+| Key       | Lenis on              | Baseline (reduced motion) |
+| --------- | --------------------- | ------------------------- |
+| Space     | 0 to 880              | 0 to 880                  |
+| PageDown  | 880 to 1760           | 880 to 1760               |
+| ArrowDown | 1760 to 1800          | 1760 to 1800              |
+| End       | 1800 to 2001 (bottom) | 1800 to 2001              |
+| PageUp    | 2001 to 1121          | 2001 to 1121              |
+| Home      | 1121 to 0             | 1121 to 0                 |
+
+A wheel notch after the keys still moves 800 px (Lenis) / 400 px (native).
+
+### Paused checkout panel (`/checkout`, checkout off)
+
+The panel reads "Checkout is paused. We'll let you know when it's back.", no horizontal overflow, Lenis class present. The page is only 909 px tall, so a notch moves it 9 px. Lenis re-measures a page about 300 ms after its height changes; a wheel inside that window is clamped to the old height and the next wheel works (800 px at a 300 ms wait, 9 px at 0 and 100 ms). That is normal Lenis behaviour.
+
+### Final-build re-run of the earlier gates (all pass)
+
+- Wheel gate, three runs: final 800, settled 975 ms, monotonic, no overshoot, at 125 ms 421 to 440.
+- Reduced motion: no `lenis` class, a 400 px notch moves 400 px, nav `transition-property: none`.
+- Navigation: link clicked 120 ms into a glide (y=441) opens `/brands` at 0; a footer link opens `/terms` at 0, Back restores 1600, Forward goes to `/terms` at 0.
+- Nested: real seller product table, account tabs and seller sidebar strip (390 px): a vertical wheel moves the page 400 px. Mobile panel at 390x420: scrolls itself (42 px), page stays 0.
 
 ### Not evaluated
 
 - Safari and Firefox; touch devices (touch scroll is left native, `syncTouch: false`); a Retina display.
 - First Load JS change: the build reports "First Load JS shared by all: 101 kB" with Lenis; a build without Lenis was not run, so no before/after number. Lenis is 33 kB source, 8.3 kB gzipped by itself.
+- Display scale 2 was emulated through the browser's device-metrics override, not a physical Retina display.
 - `tests/auth/magic-link-actions.test.ts` and `tests/auth/consent/actions.test.ts` need `DATABASE_URL`: not evaluated.
