@@ -342,18 +342,6 @@
     "reason": "full-screen backdrop scrim button, not a visible control"
   },
   {
-    "rule": "R4-arbitrary",
-    "file": "apps/web/src/components/nav-bar.tsx",
-    "text": "className=\"absolute -right-0.5 -top-0.5 h-4 w-4 animate-badge-pop justify-center border-0 p-0 text-[10px] font-bold motion-reduce:animate-none\"",
-    "reason": "cart badge 10px digit; no text-* step (xs=12px); specific px"
-  },
-  {
-    "rule": "R3b-bg-without-literal-text",
-    "file": "apps/web/src/components/nav-bar.tsx",
-    "text": "className=\"fixed inset-x-0 bottom-0 top-nav -z-10 cursor-default bg-gray-900/20 md:hidden\"",
-    "reason": "overlay scrim with no text; must stay dark in both themes (bg-foreground would invert)"
-  },
-  {
     "rule": "R1-button",
     "file": "apps/web/src/components/video-embed.tsx",
     "text": "<button",
@@ -532,5 +520,35 @@
     "file": "apps/admin/src/lib/utils.ts",
     "text": "// the stylesheet rather than on cn()'s call order (PR #124, recurred in PR #145 review \u2014 Bob).",
     "reason": "false positive: \"#124\"/\"#145\" are PR numbers in a comment, not colours"
+  },
+  {
+    "rule": "R4-arbitrary",
+    "file": "apps/web/src/components/nav-bar.tsx",
+    "text": "<div className=\"pointer-events-auto relative mx-auto max-w-[1400px]\">",
+    "reason": "nav pill column width 1400px; matches page frame, no max-w scale step"
+  },
+  {
+    "rule": "R4-arbitrary",
+    "file": "apps/web/src/components/footer.tsx",
+    "text": "const LABEL_CLASS = \"font-mono text-xs uppercase tracking-[0.16em] text-ink-muted\"",
+    "reason": "mono eyebrow tracking 0.16em; no tracking-* scale step"
+  },
+  {
+    "rule": "R4-arbitrary",
+    "file": "apps/web/src/components/footer.tsx",
+    "text": "<div className=\"relative mx-auto max-w-[1400px] overflow-hidden rounded-bento bg-ink px-6 pt-10 text-ink-foreground sm:rounded-[2.5rem] md:px-12 md:pt-14\">",
+    "reason": "footer card width 1400px and 2.5rem radius; no scale step"
+  },
+  {
+    "rule": "R4-arbitrary",
+    "file": "apps/web/src/components/footer.tsx",
+    "text": "className=\"mt-10 flex h-[0.62em] select-none justify-between overflow-hidden font-display text-[clamp(5rem,24vw,24rem)] font-bold leading-[0.8] tracking-tighter text-ink-foreground md:mt-16\"",
+    "reason": "decorative cropped wordmark; height and fluid size are tied to the font size"
+  },
+  {
+    "rule": "R4-arbitrary",
+    "file": "apps/web/src/components/footer.tsx",
+    "text": "<div className=\"relative mx-auto max-w-[1400px] overflow-hidden rounded-bento bg-ink px-6 pt-10 text-ink-foreground sm:rounded-[2.5rem] md:px-12 md:pt-14\">",
+    "reason": "footer card 2.5rem radius at sm and up; no radius scale step"
   }
 ]
