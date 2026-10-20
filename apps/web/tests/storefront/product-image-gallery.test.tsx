@@ -81,3 +81,66 @@ describe("ProductImageGallery behaviour", () => {
     })
   })
 })
+
+const has = (el: Element | null, tokens: string[]) => {
+  expect(el, tokens.join(" ")).not.toBeNull()
+  for (const t of tokens) expect(el!.classList.contains(t), `${t} on ${el!.className}`).toBe(true)
+}
+
+describe("ProductImageGallery R5b look", () => {
+  it("no images: a Package icon on a blush bento tile of the same square size, no emoji", () => {
+    mount(0)
+    const tile = container.firstElementChild!
+    has(tile, ["aspect-square", "rounded-bento", "bg-tint"])
+    const icon = tile.querySelector("svg")!
+    expect(icon.getAttribute("aria-hidden")).toBe("true")
+    expect(container.textContent).not.toContain("📦")
+  })
+
+  it("the main image tile is a blush bento tile", () => {
+    mount(3)
+    const frame = mainImg().parentElement!
+    has(frame, ["aspect-square", "rounded-bento", "bg-tint", "overflow-hidden"])
+    expect(frame.classList.contains("rounded-xl")).toBe(false)
+  })
+
+  it("the thumbnail strip scrolls inside its box with room for the focus ring", () => {
+    mount(3)
+    const strip = label("View image 1")!.parentElement!
+    has(strip, ["flex", "overflow-x-auto", "p-1.5"])
+  })
+
+  it("thumbnails keep their size and carry a focus ring with an offset", () => {
+    mount(3)
+    for (const n of [1, 2, 3]) {
+      has(label(`View image ${n}`), [
+        "h-16",
+        "w-16",
+        "shrink-0",
+        "rounded-lg",
+        "ring-2",
+        "focus-visible:outline-none",
+        "focus-visible:ring-ring",
+        "focus-visible:ring-offset-2",
+        "focus-visible:ring-offset-background",
+      ])
+    }
+  })
+
+  it("only the selected thumbnail is aria-current, and it keeps the selected ring colour", () => {
+    mount(3)
+    expect(label("View image 1")!.getAttribute("aria-current")).toBe("true")
+    expect(label("View image 2")!.hasAttribute("aria-current")).toBe(false)
+    has(label("View image 1"), ["ring-primary"])
+    has(label("View image 2"), ["ring-transparent"])
+    click(label("View image 2")!)
+    expect(label("View image 2")!.getAttribute("aria-current")).toBe("true")
+    expect(label("View image 1")!.hasAttribute("aria-current")).toBe(false)
+  })
+
+  it("the arrows keep their labels and positions", () => {
+    mount(3)
+    has(label("Previous image"), ["absolute", "left-2", "top-1/2", "rounded-full"])
+    has(label("Next image"), ["absolute", "right-2", "top-1/2", "rounded-full"])
+  })
+})
