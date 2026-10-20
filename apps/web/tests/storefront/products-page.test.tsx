@@ -31,6 +31,9 @@ const PRODUCT = {
   coverImageUrl: null,
   categoryName: "Tea",
   minPriceSen: 1250,
+  createdAt: new Date("2020-01-01T00:00:00Z"),
+  activeVariantCount: 1,
+  inStockVariantCount: 1,
 }
 
 async function render(sp: Record<string, string> = {}) {
@@ -100,6 +103,37 @@ describe("/products grid", () => {
     expect(a.textContent).toContain("Green Tea")
     expect(a.textContent).toContain("Acme")
     expect(a.textContent).toContain("from RM12.50")
+  })
+
+  it("shows Sold out for a product with no stock, New for a recent one, none otherwise", async () => {
+    getProducts.mockResolvedValue({
+      products: [
+        { ...PRODUCT, id: "p1", slug: "a", name: "Old Stocked" },
+        { ...PRODUCT, id: "p2", slug: "b", name: "Gone", inStockVariantCount: 0 },
+        { ...PRODUCT, id: "p3", slug: "c", name: "Fresh", createdAt: new Date() },
+        {
+          ...PRODUCT,
+          id: "p4",
+          slug: "d",
+          name: "Nothing",
+          activeVariantCount: 0,
+          inStockVariantCount: 0,
+          minPriceSen: null,
+        },
+      ],
+      total: 4,
+      page: 1,
+      totalPages: 1,
+    })
+    getCategories.mockResolvedValue(CATS)
+    const el = await ProductsPage({ searchParams: Promise.resolve({}) })
+    const d = new DOMParser().parseFromString(renderToStaticMarkup(el), "text/html")
+    const badgeOf = (slug: string) =>
+      d.querySelector(`ul li a[href="/products/acme/${slug}"] span.absolute`)?.textContent ?? null
+    expect(badgeOf("a")).toBeNull()
+    expect(badgeOf("b")).toBe("Sold out")
+    expect(badgeOf("c")).toBe("New")
+    expect(badgeOf("d")).toBeNull()
   })
 
   it("empty state keeps its words", async () => {
