@@ -143,6 +143,11 @@ export function ProductImageGallery({
               key={img.id}
               type="button"
               onClick={() => goTo(i)}
+              // Chrome leaves a part-hidden thumbnail where it is on Tab, which would clip its
+              // focus ring; scroll-px-2 on the strip gives the margin.
+              onFocus={(e) =>
+                e.currentTarget.scrollIntoView?.({ block: "nearest", inline: "nearest" })
+              }
               aria-current={i === activeIdx ? "true" : undefined}
               className={cn(
                 "h-16 w-16 shrink-0 rounded-lg ring-2 transition-all focus-visible:outline-none focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",

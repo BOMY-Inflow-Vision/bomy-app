@@ -3,7 +3,7 @@
 // focus rings) are asserted in the "R5b look" block added with the restyle.
 import React, { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
-import { afterEach, beforeEach, describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { ProductImageGallery } from "@/app/products/[storeSlug]/[productSlug]/product-image-gallery"
 ;(
@@ -139,6 +139,20 @@ describe("ProductImageGallery R5b look", () => {
     click(label("View image 2")!)
     expect(label("View image 2")!.getAttribute("aria-current")).toBe("true")
     expect(label("View image 1")!.hasAttribute("aria-current")).toBe(false)
+  })
+
+  it("focusing a thumbnail scrolls it fully into the strip (Chrome leaves a part-hidden one where it is)", () => {
+    const scrollIntoView = vi.fn()
+    Element.prototype.scrollIntoView = scrollIntoView
+    mount(3)
+    act(() => {
+      label("View image 3")!.dispatchEvent(new FocusEvent("focusin", { bubbles: true }))
+    })
+    expect(scrollIntoView).toHaveBeenCalledTimes(1)
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest", inline: "nearest" })
+    // Selecting still works exactly as before.
+    expect(mainImg().getAttribute("src")).toBe("https://img/0.jpg")
+    delete (Element.prototype as unknown as Record<string, unknown>)["scrollIntoView"]
   })
 
   it("the arrows keep their labels and positions", () => {
