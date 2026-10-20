@@ -26,7 +26,7 @@ const TOKENS = {
     "shadow-sm",
     "hover:shadow-md",
   ],
-  empty: ["rounded-card", "border", "border-dashed", "bg-transparent", "shadow-none"],
+  empty: ["rounded-bento", "border", "border-dashed", "bg-transparent", "shadow-none"],
   emptyText: ["py-16", "text-center"],
 }
 
@@ -118,5 +118,26 @@ describe("store products page", () => {
     )!
     has(emptyText, TOKENS.emptyText)
     has(emptyText.parentElement, TOKENS.empty)
+  })
+})
+
+describe("store products page header (R5a)", () => {
+  it("shares the page heading and wraps the back link under a long store name", async () => {
+    getStoreProducts.mockResolvedValue({
+      store: { name: "N".repeat(80), slug: "acme" },
+      products: [WITH_IMAGE],
+    })
+    const el = await StoreProductsPage({
+      params: Promise.resolve({ slug: "acme" }),
+      searchParams: Promise.resolve({}),
+    })
+    const doc = new DOMParser().parseFromString(renderToStaticMarkup(el), "text/html")
+    const h1 = doc.querySelector("h1")!
+    expect(h1.textContent).toBe("N".repeat(80))
+    has(h1, ["sm:text-4xl", "[overflow-wrap:anywhere]"])
+    const row = h1.closest("header")!.parentElement!
+    has(row, ["mb-6", "flex", "flex-wrap", "items-center", "justify-between", "gap-x-4", "gap-y-2"])
+    const back = row.querySelector('a[href="/brands/acme"]')!
+    expect(back.textContent).toContain("Back to storefront")
   })
 })

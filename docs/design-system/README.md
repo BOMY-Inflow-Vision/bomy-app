@@ -87,6 +87,8 @@ Plan: `docs/superpowers/plans/2026-10-20-soft-red-r4-product-card-pills-tint.md`
 | `aspect-tile` | `4 / 5` | tall tile art area |
 | `tracking-eyebrow` | `0.16em` | mono category label on tiles |
 | `ProductCard` (`src/components/product-card.tsx`) | `full` and `compact` | the one product tile for `/products` and the brand pages; real data only |
+| `PageHeading` (`src/components/page-heading.tsx`) | `align` start or center | the one page `h1` (+ optional description) on `/products`, `/brands` and the brand pages; long names wrap |
+| `BrandCard` (`src/components/brand-card.tsx`) | none | the one brand tile on `/brands`: initial avatar, category badges, 3-line excerpt, product count; real data only |
 | `CoverImage` (`src/components/cover-image.tsx`) | client | cover photo with the Package icon for a missing or failed image |
 | `FilterPills` / `FilterPill` (`src/components/filter-pill.tsx`) | rounded tray, active pill inverts (`bg-foreground`) | `/products` category links; navigation links with `aria-current`, not ARIA tabs |
 | `productBadge` (`src/lib/product-badge.ts`) | "Sold out" or "New" (14 days) | badges on `/products` only, from variant stock and `created_at` |

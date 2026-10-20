@@ -94,6 +94,16 @@ describe("/products category pills", () => {
   })
 })
 
+describe("/products heading", () => {
+  it("uses the shared heading, still reads Products, and keeps its mb-6 spacing", async () => {
+    const d = await render()
+    const h1 = d.querySelector("h1")!
+    expect(h1.textContent).toBe("Products")
+    expect(h1.classList.contains("sm:text-4xl")).toBe(true)
+    expect(h1.closest("header")!.classList.contains("mb-6")).toBe(true)
+  })
+})
+
 describe("/products grid", () => {
   it("each result is the shared tile: blush art area, name, store and price", async () => {
     const d = await render()
