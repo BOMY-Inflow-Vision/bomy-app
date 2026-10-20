@@ -84,7 +84,7 @@ export default async function StorePage({ params }: Props) {
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
           <div className="min-w-0 rounded-bento border border-border bg-card p-6">
             <h2 className="mb-4 text-lg font-semibold text-foreground">Our Story</h2>
-            <div className="prose prose-sm min-w-0 max-w-none dark:prose-invert [&_img]:h-auto [&_img]:max-w-full [overflow-wrap:anywhere]">
+            <div className="prose prose-sm min-w-0 max-w-none break-words dark:prose-invert [&_img]:h-auto [&_img]:max-w-full">
               <BodyRenderer html={store.bodyHtml} />
             </div>
           </div>

@@ -119,7 +119,10 @@ describe("brand store page top grid (R5a)", () => {
     const panel = h2.parentElement!
     has(panel, ["rounded-bento", "border", "border-border", "bg-card", "p-6"])
     const body = panel.querySelector(".prose")!
-    has(body, ["min-w-0", "[overflow-wrap:anywhere]", "[&_img]:h-auto", "[&_img]:max-w-full"])
+    // break-words, not anywhere: "anywhere" also shrinks table columns to one character each, which
+    // mangles a normal seller table on a phone; the table scrolls inside its own box instead.
+    has(body, ["min-w-0", "break-words", "[&_img]:h-auto", "[&_img]:max-w-full"])
+    expect(body.classList.contains("[overflow-wrap:anywhere]")).toBe(false)
     expect(body.textContent).toContain("Hello")
   })
 
