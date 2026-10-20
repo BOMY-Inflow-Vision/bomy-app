@@ -8,6 +8,20 @@ import { Button } from "@bomy/ui/button"
 
 type ProductImage = { id: string; url: string; altText: string | null }
 
+const STRIP_MARGIN_PX = 8
+
+function scrollThumbIntoStrip(thumb: HTMLElement) {
+  const strip = thumb.parentElement
+  if (!strip) return
+  const t = thumb.getBoundingClientRect()
+  const s = strip.getBoundingClientRect()
+  if (t.left < s.left + STRIP_MARGIN_PX) {
+    strip.scrollLeft += t.left - s.left - STRIP_MARGIN_PX
+  } else if (t.right > s.right - STRIP_MARGIN_PX) {
+    strip.scrollLeft += t.right - s.right + STRIP_MARGIN_PX
+  }
+}
+
 export function ProductImageGallery({
   images,
   productName,
@@ -144,10 +158,9 @@ export function ProductImageGallery({
               type="button"
               onClick={() => goTo(i)}
               // Chrome leaves a part-hidden thumbnail where it is on Tab, which would clip its
-              // focus ring; scroll-px-2 on the strip gives the margin.
-              onFocus={(e) =>
-                e.currentTarget.scrollIntoView?.({ block: "nearest", inline: "nearest" })
-              }
+              // focus ring. Scroll the strip itself (never scrollIntoView, which can also move the
+              // page) so the thumbnail sits at least 8 px inside both edges.
+              onFocus={(e) => scrollThumbIntoStrip(e.currentTarget)}
               aria-current={i === activeIdx ? "true" : undefined}
               className={cn(
                 "h-16 w-16 shrink-0 rounded-lg ring-2 transition-all focus-visible:outline-none focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",

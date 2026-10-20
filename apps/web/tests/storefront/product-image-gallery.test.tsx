@@ -141,17 +141,46 @@ describe("ProductImageGallery R5b look", () => {
     expect(label("View image 1")!.hasAttribute("aria-current")).toBe(false)
   })
 
-  it("focusing a thumbnail scrolls it fully into the strip (Chrome leaves a part-hidden one where it is)", () => {
+  it("focusing a part-hidden thumbnail scrolls the strip itself, never the page", () => {
     const scrollIntoView = vi.fn()
     Element.prototype.scrollIntoView = scrollIntoView
+    const pageScroll = vi.spyOn(window, "scrollTo").mockImplementation(() => undefined)
     mount(3)
-    act(() => {
-      label("View image 3")!.dispatchEvent(new FocusEvent("focusin", { bubbles: true }))
-    })
-    expect(scrollIntoView).toHaveBeenCalledTimes(1)
-    expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest", inline: "nearest" })
+    const strip = label("View image 1")!.parentElement as HTMLElement
+    const box = (left: number, right: number) =>
+      ({ left, right, top: 0, bottom: 64, width: right - left, height: 64 }) as DOMRect
+    strip.getBoundingClientRect = () => box(0, 300)
+    const rect = (n: number, left: number, right: number) => {
+      label(`View image ${n}`)!.getBoundingClientRect = () => box(left, right)
+    }
+    const focus = (n: number) =>
+      act(() => {
+        label(`View image ${n}`)!.dispatchEvent(new FocusEvent("focusin", { bubbles: true }))
+      })
+
+    // Hidden past the right edge by 22 px: scrolls right by 22 + the 8 px margin.
+    strip.scrollLeft = 0
+    rect(3, 258, 322)
+    focus(3)
+    expect(strip.scrollLeft).toBe(30)
+
+    // Flush at the left edge: scrolls back by the 8 px margin.
+    strip.scrollLeft = 100
+    rect(1, 0, 64)
+    focus(1)
+    expect(strip.scrollLeft).toBe(92)
+
+    // Already inside with the margin: no change.
+    strip.scrollLeft = 50
+    rect(2, 20, 84)
+    focus(2)
+    expect(strip.scrollLeft).toBe(50)
+
+    expect(scrollIntoView).not.toHaveBeenCalled()
+    expect(pageScroll).not.toHaveBeenCalled()
     // Selecting still works exactly as before.
     expect(mainImg().getAttribute("src")).toBe("https://img/0.jpg")
+    pageScroll.mockRestore()
     delete (Element.prototype as unknown as Record<string, unknown>)["scrollIntoView"]
   })
 
