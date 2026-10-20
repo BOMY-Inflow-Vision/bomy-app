@@ -1,9 +1,11 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { ArrowLeft, Package } from "lucide-react"
+import { ArrowLeft } from "lucide-react"
 
 import { Button } from "@bomy/ui/button"
 import { Card } from "@bomy/ui/card"
+
+import { ProductCard } from "@/components/product-card"
 
 import { getStoreProducts } from "./queries"
 
@@ -38,34 +40,13 @@ export default async function StoreProductsPage({ params, searchParams }: Props)
       ) : (
         <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {products.map((p) => (
-            <li key={p.id}>
-              <Link
+            <li key={p.id} className="min-w-0">
+              <ProductCard
+                variant="compact"
                 href={`/products/${store.slug}/${p.slug}`}
-                className="group block rounded-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <Card className="overflow-hidden bg-background hover:shadow-md">
-                  <div className="aspect-square bg-muted">
-                    {p.coverImageUrl ? (
-                      <img
-                        src={p.coverImageUrl}
-                        alt={p.name}
-                        width={400}
-                        height={400}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-full items-center justify-center text-muted-foreground">
-                        <Package aria-hidden="true" className="size-8" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-3">
-                    <p className="truncate text-sm font-medium text-foreground group-hover:text-primary">
-                      {p.name}
-                    </p>
-                  </div>
-                </Card>
-              </Link>
+                name={p.name}
+                coverImageUrl={p.coverImageUrl}
+              />
             </li>
           ))}
         </ul>

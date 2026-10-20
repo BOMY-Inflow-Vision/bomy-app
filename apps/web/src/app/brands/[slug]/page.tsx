@@ -5,6 +5,7 @@ import { CreditCard, Eye } from "lucide-react"
 
 import { auth } from "@/auth"
 import { BodyRenderer } from "@/components/body-renderer"
+import { ProductCard } from "@/components/product-card"
 import { AvatarGroup } from "@/components/ui/avatar-group"
 import { Button } from "@bomy/ui/button"
 import { VideoEmbed } from "@/components/video-embed"
@@ -33,44 +34,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       ...(store.ogImageUrl ? { images: [store.ogImageUrl] } : {}),
     },
   }
-}
-
-function ProductCard({
-  storeSlug,
-  product,
-}: {
-  storeSlug: string
-  product: { id: string; name: string; slug: string; coverImageUrl: string | null }
-}) {
-  return (
-    <li key={product.id}>
-      <Link
-        href={`/products/${storeSlug}/${product.slug}`}
-        className="group block overflow-hidden rounded-xl border border-border bg-background shadow-sm hover:shadow-md"
-      >
-        <div className="aspect-square bg-muted">
-          {product.coverImageUrl ? (
-            <img
-              src={product.coverImageUrl}
-              alt={product.name}
-              width={400}
-              height={400}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center text-3xl text-muted-foreground">
-              📦
-            </div>
-          )}
-        </div>
-        <div className="p-3">
-          <p className="truncate text-sm font-medium text-foreground group-hover:text-primary">
-            {product.name}
-          </p>
-        </div>
-      </Link>
-    </li>
-  )
 }
 
 export default async function StorePage({ params }: Props) {
@@ -134,19 +97,31 @@ export default async function StorePage({ params }: Props) {
         <>
           {categorySections.map((section) => (
             <section key={section.category.slug} className="flex flex-col gap-4">
-              <div className="flex items-baseline justify-between">
-                <h2 className="text-lg font-semibold text-foreground">{section.category.name}</h2>
+              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                <h2 className="min-w-0 text-lg font-semibold text-foreground [overflow-wrap:anywhere]">
+                  {section.category.name}
+                </h2>
                 {section.hasMore && (
                   <Button variant="link" size="sm" icon={<Eye />} asChild>
-                    <Link href={`/brands/${store.slug}/products?category=${section.category.slug}`}>
-                      View all in {section.category.name}
+                    <Link
+                      href={`/brands/${store.slug}/products?category=${section.category.slug}`}
+                      aria-label={`View all in ${section.category.name}`}
+                    >
+                      View all
                     </Link>
                   </Button>
                 )}
               </div>
               <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
                 {section.products.map((product) => (
-                  <ProductCard key={product.id} storeSlug={store.slug} product={product} />
+                  <li key={product.id} className="min-w-0">
+                    <ProductCard
+                      variant="compact"
+                      href={`/products/${store.slug}/${product.slug}`}
+                      name={product.name}
+                      coverImageUrl={product.coverImageUrl}
+                    />
+                  </li>
                 ))}
               </ul>
             </section>
@@ -154,7 +129,7 @@ export default async function StorePage({ params }: Props) {
 
           {uncategorized.products.length > 0 && (
             <section className="flex flex-col gap-4">
-              <div className="flex items-baseline justify-between">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                 <h2 className="text-lg font-semibold text-foreground">Uncategorized</h2>
                 {uncategorized.hasMore && (
                   <Button variant="link" size="sm" icon={<Eye />} asChild>
@@ -166,7 +141,14 @@ export default async function StorePage({ params }: Props) {
               </div>
               <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
                 {uncategorized.products.map((product) => (
-                  <ProductCard key={product.id} storeSlug={store.slug} product={product} />
+                  <li key={product.id} className="min-w-0">
+                    <ProductCard
+                      variant="compact"
+                      href={`/products/${store.slug}/${product.slug}`}
+                      name={product.name}
+                      coverImageUrl={product.coverImageUrl}
+                    />
+                  </li>
                 ))}
               </ul>
             </section>
