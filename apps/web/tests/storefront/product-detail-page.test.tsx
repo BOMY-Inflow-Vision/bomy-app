@@ -96,3 +96,67 @@ describe("ProductDetailPage structure", () => {
     ).rejects.toThrow("NOT_FOUND")
   })
 })
+
+const has = (el: Element | null, tokens: string[]) => {
+  expect(el, tokens.join(" ")).not.toBeNull()
+  for (const t of tokens) expect(el!.classList.contains(t), `${t} on ${el!.className}`).toBe(true)
+}
+
+describe("ProductDetailPage R5b look", () => {
+  it("breadcrumb is a labelled ordered list that wraps; the current item is marked and may break anywhere", async () => {
+    const d = await render()
+    const nav = d.querySelector("main nav")!
+    expect(nav.getAttribute("aria-label")).toBe("Breadcrumb")
+    const ol = nav.querySelector("ol")!
+    has(ol, ["flex", "min-w-0", "flex-wrap"])
+    const current = nav.querySelector('[aria-current="page"]')!
+    expect(current.textContent).toBe("Tea")
+    has(current, ["[overflow-wrap:anywhere]"])
+    for (const a of Array.from(nav.querySelectorAll("a"))) has(a, ["[overflow-wrap:anywhere]"])
+    for (const sep of Array.from(nav.querySelectorAll('[aria-hidden="true"]')))
+      expect(sep.textContent).toBe("/")
+  })
+
+  it("the h1 comes from PageHeading and the description is its description paragraph", async () => {
+    const d = await render()
+    const h1 = d.querySelector("h1")!
+    has(h1, ["sm:text-4xl", "[overflow-wrap:anywhere]"])
+    const p = Array.from(d.querySelectorAll("header p")).find(
+      (x) => x.textContent === "A fine tea.",
+    )
+    expect(p).toBeTruthy()
+    has(p!, ["text-base", "[overflow-wrap:anywhere]"])
+  })
+
+  it("the store eyebrow link uses the mono eyebrow style and breaks anywhere", async () => {
+    const d = await render()
+    const eyebrow = Array.from(d.querySelectorAll("article a")).find(
+      (a) => a.textContent === "Acme",
+    )!
+    has(eyebrow, ["font-mono", "uppercase", "tracking-eyebrow", "[overflow-wrap:anywhere]"])
+  })
+
+  it("both columns of the grid may shrink", async () => {
+    const d = await render()
+    const cols = Array.from(d.querySelector("article")!.children)
+    expect(cols).toHaveLength(2)
+    for (const c of cols) has(c, ["min-w-0"])
+  })
+
+  it("the details sit in a white bento panel; the story text breaks with break-words, not anywhere", async () => {
+    const d = await render({ bodyHtml: "<p>Hello story</p>" })
+    const section = d.querySelector("section")!
+    has(section, [
+      "max-w-3xl",
+      "min-w-0",
+      "rounded-bento",
+      "border",
+      "border-border",
+      "bg-card",
+      "p-6",
+    ])
+    const prose = section.querySelector(".prose")!
+    has(prose, ["min-w-0", "max-w-none", "break-words", "[&_img]:h-auto", "[&_img]:max-w-full"])
+    expect(prose.classList.contains("[overflow-wrap:anywhere]")).toBe(false)
+  })
+})
