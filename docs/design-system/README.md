@@ -77,6 +77,20 @@ Plan: `docs/superpowers/plans/2026-10-17-soft-red-r2-floating-nav-footer.md`. Ne
 
 Smooth scroll: `lenis` 1.3.27 (exact pin) in `src/components/smooth-scroll.tsx`, off under `prefers-reduced-motion: reduce`, off inside nested scrollers and open Radix popups. Nav: pill `max-w-[1400px]`, alpha 0.85 at rest and 0.95 after 8 px of scroll (`useScrolled`).
 
+### `apps/web` product tiles and category pills (R4, 2026-10-20)
+
+Plan: `docs/superpowers/plans/2026-10-20-soft-red-r4-product-card-pills-tint.md`. New in `apps/web` only (`@bomy/ui` and `apps/admin` unchanged):
+
+| Token or component | Value | Use |
+|---|---|---|
+| `--tint` / `bg-tint` | `18 43% 89%` (blush `#EFDED7`); dark `20 18% 14%` | storefront tile art area; never the page ground |
+| `aspect-tile` | `4 / 5` | tall tile art area |
+| `tracking-eyebrow` | `0.16em` | mono category label on tiles |
+| `ProductCard` (`src/components/product-card.tsx`) | `full` and `compact` | the one product tile for `/products` and the brand pages; real data only |
+| `CoverImage` (`src/components/cover-image.tsx`) | client | cover photo with the Package icon for a missing or failed image |
+| `FilterPills` / `FilterPill` (`src/components/filter-pill.tsx`) | rounded tray, active pill inverts (`bg-foreground`) | `/products` category links; navigation links with `aria-current`, not ARIA tabs |
+| `productBadge` (`src/lib/product-badge.ts`) | "Sold out" or "New" (14 days) | badges on `/products` only, from variant stock and `created_at` |
+
 Delete or repurpose the unused `bomy` orange scale in `apps/web/tailwind.config.ts` — it's stock shadcn boilerplate, not BOMY's brand color, and nothing in the app references it yet.
 
 ## 2. Fonts
