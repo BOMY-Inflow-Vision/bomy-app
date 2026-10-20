@@ -15,7 +15,9 @@ const shouldRun = Boolean(DATABASE_URL) && process.env["BOMY_RLS_READY"] === "1"
 
 describe.skipIf(!shouldRun)("getProducts badge counts (public read)", () => {
   let testDb: ReturnType<typeof makeDb>
-  const ownerId = randomUUID()
+  // The seeded system user owns the fixture store, so the test creates no user (bomy_app cannot
+  // delete users, and a created one would be left behind on every run).
+  const ownerId = SYSTEM_ACTOR
   let storeId: string
   const ids: Record<string, string> = {}
   const PROBE = "zzbadgeprobe"
@@ -35,12 +37,6 @@ describe.skipIf(!shouldRun)("getProducts badge counts (public read)", () => {
       testDb.db,
       { userId: SYSTEM_ACTOR, reason: "products badge test seed" },
       async (tx) => {
-        await tx.insert(schema.users).values({
-          id: ownerId,
-          email: `${ownerId}@test.bomy`,
-          role: "seller_owner",
-          name: "Badge Test Seller",
-        })
         const [store] = await tx
           .insert(schema.stores)
           .values({
@@ -94,7 +90,6 @@ describe.skipIf(!shouldRun)("getProducts badge counts (public read)", () => {
           await tx.delete(schema.products).where(inArray(schema.products.id, pids))
         }
         await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
-        // The bomy_app role cannot delete users (other storefront tests leave theirs too).
       },
     )
     await testDb.close()
