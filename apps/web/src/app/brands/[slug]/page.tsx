@@ -97,12 +97,17 @@ export default async function StorePage({ params }: Props) {
         <>
           {categorySections.map((section) => (
             <section key={section.category.slug} className="flex flex-col gap-4">
-              <div className="flex items-baseline justify-between">
-                <h2 className="text-lg font-semibold text-foreground">{section.category.name}</h2>
+              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                <h2 className="min-w-0 text-lg font-semibold text-foreground [overflow-wrap:anywhere]">
+                  {section.category.name}
+                </h2>
                 {section.hasMore && (
                   <Button variant="link" size="sm" icon={<Eye />} asChild>
-                    <Link href={`/brands/${store.slug}/products?category=${section.category.slug}`}>
-                      View all in {section.category.name}
+                    <Link
+                      href={`/brands/${store.slug}/products?category=${section.category.slug}`}
+                      aria-label={`View all in ${section.category.name}`}
+                    >
+                      View all
                     </Link>
                   </Button>
                 )}
@@ -124,7 +129,7 @@ export default async function StorePage({ params }: Props) {
 
           {uncategorized.products.length > 0 && (
             <section className="flex flex-col gap-4">
-              <div className="flex items-baseline justify-between">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                 <h2 className="text-lg font-semibold text-foreground">Uncategorized</h2>
                 {uncategorized.hasMore && (
                   <Button variant="link" size="sm" icon={<Eye />} asChild>
