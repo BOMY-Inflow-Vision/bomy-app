@@ -1,8 +1,9 @@
 import Link from "next/link"
 import { Search, X } from "lucide-react"
 
-import { cn } from "@/lib/utils"
-import { Badge } from "@bomy/ui/badge"
+import { BrandCard } from "@/components/brand-card"
+import { FilterPill, FilterPills } from "@/components/filter-pill"
+import { PageHeading } from "@/components/page-heading"
 import { Button } from "@bomy/ui/button"
 import { Pagination } from "@bomy/ui/pagination"
 import { Input } from "@bomy/ui/input"
@@ -40,10 +41,7 @@ export default async function BrandsPage({ searchParams }: Props) {
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Brands</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Discover sellers on BOMY</p>
-      </div>
+      <PageHeading title="Brands" description="Discover sellers on BOMY" className="mb-6" />
 
       {/* Search */}
       <form method="get" className="mb-6 flex gap-2">
@@ -70,116 +68,62 @@ export default async function BrandsPage({ searchParams }: Props) {
         )}
       </form>
 
-      <div className="flex flex-col gap-6 sm:flex-row">
-        {/* Category sidebar */}
-        {storeCategories.length > 0 && (
-          <aside className="w-full sm:w-44 sm:shrink-0">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Categories
-            </p>
-            <ul className="space-y-1">
-              <li>
-                <Link
-                  href={q ? `/brands?q=${encodeURIComponent(q)}` : "/brands"}
-                  className={cn(
-                    "block rounded-md px-3 py-1.5 text-sm",
-                    !category
-                      ? "bg-accent font-medium text-accent-foreground"
-                      : "text-foreground hover:bg-muted",
-                  )}
-                >
-                  All
-                </Link>
+      {storeCategories.length > 0 && (
+        <FilterPills label="Filter by category" className="mb-6">
+          <FilterPill asChild active={!category}>
+            <Link href={q ? `/brands?q=${encodeURIComponent(q)}` : "/brands"}>All</Link>
+          </FilterPill>
+          {storeCategories.map((cat) => {
+            const href = q
+              ? `/brands?q=${encodeURIComponent(q)}&category=${cat.id}`
+              : `/brands?category=${cat.id}`
+            return (
+              <FilterPill key={cat.id} asChild active={category === cat.id}>
+                <Link href={href}>{cat.name}</Link>
+              </FilterPill>
+            )
+          })}
+        </FilterPills>
+      )}
+
+      <section aria-label="Brand results" className="min-w-0">
+        <p className="mb-4 text-sm text-muted-foreground">
+          {total} brand{total !== 1 ? "s" : ""}
+          {q ? ` for "${q}"` : ""}
+        </p>
+
+        {brands.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border py-20 text-center text-sm text-muted-foreground">
+            No brands found.
+          </div>
+        ) : (
+          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {brands.map((b) => (
+              <li key={b.id} className="min-w-0">
+                <BrandCard
+                  href={`/brands/${b.slug}`}
+                  name={b.name}
+                  excerpt={b.excerpt}
+                  categories={b.categories}
+                  productCount={b.productCount}
+                />
               </li>
-              {storeCategories.map((cat) => {
-                const href = q
-                  ? `/brands?q=${encodeURIComponent(q)}&category=${cat.id}`
-                  : `/brands?category=${cat.id}`
-                return (
-                  <li key={cat.id}>
-                    <Link
-                      href={href}
-                      className={cn(
-                        "block rounded-md px-3 py-1.5 text-sm",
-                        category === cat.id
-                          ? "bg-accent font-medium text-accent-foreground"
-                          : "text-foreground hover:bg-muted",
-                      )}
-                    >
-                      {cat.name}
-                    </Link>
-                  </li>
-                )
-              })}
-            </ul>
-          </aside>
+            ))}
+          </ul>
         )}
 
-        {/* Brand grid */}
-        <section aria-label="Brand results" className="min-w-0 flex-1">
-          <p className="mb-4 text-sm text-muted-foreground">
-            {total} brand{total !== 1 ? "s" : ""}
-            {q ? ` for "${q}"` : ""}
-          </p>
-
-          {brands.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border py-20 text-center text-sm text-muted-foreground">
-              No brands found.
-            </div>
-          ) : (
-            <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {brands.map((b) => (
-                <li key={b.id}>
-                  <Link
-                    href={`/brands/${b.slug}`}
-                    className="group flex h-full flex-col rounded-xl border border-border bg-background p-5 shadow-sm transition-shadow hover:shadow-md"
-                  >
-                    {/* Top row: avatar left, category pills top-right */}
-                    <div className="mb-3 flex items-start justify-between gap-2">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-accent text-lg font-bold text-primary">
-                        {b.name.charAt(0).toUpperCase()}
-                      </div>
-                      {b.categories.length > 0 && (
-                        <div className="flex flex-wrap justify-end gap-1">
-                          {b.categories.map((cat) => (
-                            <Badge key={cat}>{cat}</Badge>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    <p className="font-semibold text-foreground group-hover:text-primary">
-                      {b.name}
-                    </p>
-
-                    {b.excerpt && (
-                      <p className="mt-1 flex-1 text-sm leading-relaxed text-muted-foreground">
-                        {b.excerpt}
-                      </p>
-                    )}
-
-                    <p className="mt-3 text-xs text-muted-foreground">
-                      {b.productCount} product{b.productCount !== 1 ? "s" : ""}
-                    </p>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {/* Pagination */}
-          <Pagination
-            page={page}
-            totalPages={totalPages}
-            buildHref={pageHref}
-            label="Brands pagination"
-            linkAs={Link}
-            size="lg"
-            collapse
-            className="mt-8 flex justify-center gap-1"
-          />
-        </section>
-      </div>
+        {/* Pagination */}
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          buildHref={pageHref}
+          label="Brands pagination"
+          linkAs={Link}
+          size="lg"
+          collapse
+          className="mt-8 flex justify-center gap-1"
+        />
+      </section>
     </main>
   )
 }
