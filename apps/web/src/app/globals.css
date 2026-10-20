@@ -26,6 +26,7 @@
       redesign: the primary action is now soft red, so Delete must stay distinct from it. */
     --destructive-foreground: 0 0% 100%;
     --border: 19 34% 83%; /* decorative dividers */
+    --tint: 18 43% 89%; /* blush #EFDED7: storefront tile colour (R4); never the page ground */
     --input: 12 18% 48%; /* control border #906D64: >= 3:1 on every field surface */
     --ring: 0 45% 42%; /* = --primary */
     --radius: 0.625rem; /* was 0.5rem */
@@ -98,6 +99,7 @@
     --destructive: 4 70% 66%; /* was red-400 (4 70% 62%); lifted so text on its /20 active tint stays >= 4.5 */
     --destructive-foreground: 3 68% 6%; /* dark ink: white on this red is under 4.5:1 */
     --border: 34 22% 22%; /* border-default */
+    --tint: 20 18% 14%; /* warm dark tile, lighter than --card */
     --input: 28 12% 46%; /* control border #837467: >= 3:1 on every dark surface */
     --ring: 4 70% 62%; /* focus-ring (red-400) */
     --reward: 45 100% 55%; /* gold-400, unchanged in dark */

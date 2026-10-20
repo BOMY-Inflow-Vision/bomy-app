@@ -26,6 +26,7 @@ const config = {
       },
       colors: {
         scrim: "hsl(var(--scrim))",
+        tint: "hsl(var(--tint))",
         ink: "hsl(var(--ink))",
         "ink-foreground": "hsl(var(--ink-foreground))",
         "ink-muted": "hsl(var(--ink-muted))",
@@ -92,6 +93,12 @@ const config = {
           ring: "hsl(var(--sidebar-ring))",
         },
         subtle: "hsl(var(--border-subtle))",
+      },
+      aspectRatio: {
+        tile: "4 / 5",
+      },
+      letterSpacing: {
+        eyebrow: "0.16em",
       },
       borderRadius: {
         lg: "var(--radius)",
