@@ -166,3 +166,83 @@ describe("VariantPicker behaviour", () => {
     expect(container.textContent).toContain("No variants available.")
   })
 })
+
+const has = (el: Element | null, tokens: string[]) => {
+  expect(el, tokens.join(" ")).not.toBeNull()
+  for (const t of tokens) expect(el!.classList.contains(t), `${t} on ${el!.className}`).toBe(true)
+}
+
+describe("VariantPicker R5b look", () => {
+  const LONG = "R5BLONGVARIANTNAME" + "X".repeat(42)
+  const set = [
+    v({ id: "a", name: "Small" }),
+    v({ id: "b", name: LONG }),
+    v({ id: "c", name: "Gone", stockCount: 0 }),
+  ]
+
+  it("the chooser is a labelled group", () => {
+    mount(set)
+    const group = container.querySelector('[role="group"]')!
+    const labelId = group.getAttribute("aria-labelledby")!
+    expect(container.querySelector(`#${labelId}`)!.textContent).toBe("Choose variant")
+  })
+
+  it("chips are pills at least 44 px tall that wrap long names inside their box", () => {
+    mount(set)
+    for (const name of ["Small", LONG, "Gone"]) {
+      has(chip(name), [
+        "rounded-full",
+        "min-h-11",
+        "max-w-full",
+        "whitespace-normal",
+        "text-left",
+        "[overflow-wrap:anywhere]",
+      ])
+    }
+  })
+
+  it("the selected chip is filled ink and pressed; the others are outlined and not pressed", () => {
+    mount(set)
+    has(chip("Small"), ["bg-foreground", "text-background"])
+    expect(chip("Small").getAttribute("aria-pressed")).toBe("true")
+    expect(chip(LONG).getAttribute("aria-pressed")).toBe("false")
+    expect(chip(LONG).classList.contains("bg-foreground")).toBe(false)
+    has(chip(LONG), ["border-input", "text-foreground"])
+    click(chip(LONG))
+    expect(chip(LONG).getAttribute("aria-pressed")).toBe("true")
+    expect(chip("Small").getAttribute("aria-pressed")).toBe("false")
+  })
+
+  it("every chip has a visible keyboard focus ring with an offset", () => {
+    mount(set)
+    for (const name of ["Small", LONG, "Gone"]) {
+      has(chip(name), [
+        "focus-visible:outline-none",
+        "focus-visible:ring-2",
+        "focus-visible:ring-ring",
+        "focus-visible:ring-offset-2",
+        "focus-visible:ring-offset-background",
+      ])
+    }
+  })
+
+  it("an unavailable chip stays struck through and disabled", () => {
+    mount(set)
+    has(chip("Gone"), ["line-through", "opacity-50"])
+    expect(chip("Gone").disabled).toBe(true)
+  })
+
+  it("the price may break anywhere and the root may shrink", () => {
+    mount(set)
+    const price = Array.from(container.querySelectorAll("p")).find((p) =>
+      /^RM/.test(p.textContent ?? ""),
+    )!
+    has(price, ["text-2xl", "font-bold", "text-primary", "[overflow-wrap:anywhere]"])
+    has(container.firstElementChild, ["min-w-0"])
+  })
+
+  it("Add to cart is full width on phones and auto width from sm", () => {
+    mount(set)
+    has(addButton(), ["w-full", "sm:w-auto"])
+  })
+})

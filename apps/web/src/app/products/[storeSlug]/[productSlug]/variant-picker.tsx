@@ -84,12 +84,18 @@ export function VariantPicker({ product, variants }: VariantPickerProps) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 space-y-4">
       {/* Variant selector */}
       {variants.length > 1 && (
         <div>
-          <p className="mb-2 text-sm font-medium text-foreground">Choose variant</p>
-          <div className="flex flex-wrap gap-2">
+          <p id="variant-chooser-label" className="mb-2 text-sm font-medium text-foreground">
+            Choose variant
+          </p>
+          <div
+            role="group"
+            aria-labelledby="variant-chooser-label"
+            className="flex flex-wrap gap-2"
+          >
             {variants.map((v) => {
               const vSpecial = v.fulfillmentMode === "backorder" || v.fulfillmentMode === "preorder"
               // Special-order variants stay selectable so buyers can see the badge;
@@ -100,10 +106,11 @@ export function VariantPicker({ product, variants }: VariantPickerProps) {
                   key={v.id}
                   type="button"
                   onClick={() => setSelectedId(v.id)}
+                  aria-pressed={v.id === selectedId}
                   className={cn(
-                    "rounded-lg border px-3 py-1.5 text-sm transition-colors",
+                    "inline-flex min-h-11 max-w-full items-center whitespace-normal rounded-full border px-4 py-2 text-left text-sm transition-colors [overflow-wrap:anywhere] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                     v.id === selectedId
-                      ? "border-primary bg-accent font-medium text-accent-foreground"
+                      ? "border-foreground bg-foreground font-medium text-background"
                       : "border-input text-foreground hover:border-primary",
                     unavailable && "opacity-50 line-through",
                   )}
@@ -120,7 +127,9 @@ export function VariantPicker({ product, variants }: VariantPickerProps) {
       {/* Price + stock / fulfillment status */}
       {selected && (
         <div className="space-y-1">
-          <p className="text-2xl font-bold text-primary">{formatMyrSen(selected.priceSen)}</p>
+          <p className="text-2xl font-bold text-primary [overflow-wrap:anywhere]">
+            {formatMyrSen(selected.priceSen)}
+          </p>
           {isSpecialOrder ? (
             <FulfillmentLabel mode={selected.fulfillmentMode} days={selected.preorderLeadDays} />
           ) : (
@@ -143,7 +152,7 @@ export function VariantPicker({ product, variants }: VariantPickerProps) {
         disabled={!canAddToCart}
         icon={added ? <Check /> : <ShoppingCart />}
         arrowOnHover={!added}
-        className="text-sm font-semibold shadow-sm disabled:cursor-not-allowed"
+        className="w-full text-sm font-semibold shadow-sm disabled:cursor-not-allowed sm:w-auto"
         size="lg"
       >
         {added ? "Added to cart" : "Add to cart"}
