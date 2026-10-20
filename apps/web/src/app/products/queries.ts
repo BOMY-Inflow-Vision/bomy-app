@@ -71,6 +71,9 @@ export async function getProducts({
         coverImageUrl: schema.products.coverImageUrl,
         categoryName: schema.categories.name,
         minPriceSen: sql<string>`min(${schema.productVariants.priceMyrSen})`,
+        createdAt: schema.products.createdAt,
+        activeVariantCount: sql<number>`count(${schema.productVariants.id})::int`,
+        inStockVariantCount: sql<number>`(count(${schema.productVariants.id}) filter (where ${schema.productVariants.stockCount} > 0))::int`,
       })
       .from(schema.products)
       .innerJoin(
@@ -95,6 +98,7 @@ export async function getProducts({
         schema.stores.name,
         schema.stores.slug,
         schema.products.coverImageUrl,
+        schema.products.createdAt,
         schema.categories.name,
       )
       .orderBy(orderBy)

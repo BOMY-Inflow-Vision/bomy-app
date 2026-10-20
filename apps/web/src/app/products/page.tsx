@@ -3,6 +3,7 @@ import { Search, X } from "lucide-react"
 
 import { FilterPill, FilterPills } from "@/components/filter-pill"
 import { ProductCard } from "@/components/product-card"
+import { productBadge } from "@/lib/product-badge"
 import { Button } from "@bomy/ui/button"
 import { Pagination } from "@bomy/ui/pagination"
 import { Input } from "@bomy/ui/input"
@@ -105,6 +106,12 @@ export default async function ProductsPage({ searchParams }: Props) {
                   categoryName={p.categoryName}
                   storeName={p.storeName}
                   minPriceSen={p.minPriceSen}
+                  badge={productBadge({
+                    createdAt: p.createdAt,
+                    activeVariantCount: p.activeVariantCount,
+                    inStockVariantCount: p.inStockVariantCount,
+                    now: new Date(),
+                  })}
                 />
               </li>
             ))}
