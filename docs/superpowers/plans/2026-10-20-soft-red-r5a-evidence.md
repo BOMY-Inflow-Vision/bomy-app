@@ -55,8 +55,18 @@ After cleanup every `r5fx` count (users, stores, products, store categories, ass
 
 ## Table behaviour (honest note)
 
-In the first pass the story wrapper used `[overflow-wrap:anywhere]`. At 320 px that let table cells shrink so far that header words broke one letter per line. I replaced it with `break-words` (`889b57c`) and rebuilt. Re-measured at 320 px on the new build: page scroll width 320 (no sideways scroll); the story table is 1,809 px wide and scrolls inside its own `overflow-x-auto` box; header cells are 141 to 153 px wide and one line tall (28 px); the story image and link stay inside the 238 px story column. This re-measure was run **at 320 px only**; the 390 / 768 / 1024 / 1440 table numbers above come from the first build. At 1024 px and wider the table fits without scrolling.
+In the first pass the story wrapper used `[overflow-wrap:anywhere]`. At 320 px that let table cells shrink so far that header words broke one letter per line. I replaced it with `break-words` (`889b57c`), rebuilt, and re-measured on that final build at all five widths (fixtures reloaded, then removed again; counts below).
+
+| Width | Page scrollW | Story column (left to right) | Table scroll box: scrollW / clientW | Box scrolls | Header cells: min width / max height | Image (right edge, h/w) | Link right edge |
+| ----- | ------------ | ---------------------------- | ----------------------------------- | ----------- | ------------------------------------ | ----------------------- | --------------- |
+| 1440  | 1440         | 249 to 679                   | 1809 / 430                          | yes         | 141 / 28                             | 679, 0.30               | 677             |
+| 1024  | 1024         | 41 to 471                    | 1809 / 430                          | yes         | 141 / 28                             | 471, 0.30               | 469             |
+| 768   | 768          | 41 to 343                    | 1809 / 302                          | yes         | 141 / 28                             | 343, 0.30               | 337             |
+| 390   | 390          | 41 to 349                    | 1809 / 308                          | yes         | 141 / 28                             | 349, 0.30               | 344             |
+| 320   | 320          | 41 to 279                    | 1809 / 238                          | yes         | 141 / 28                             | 279, 0.30               | 274             |
+
+Result: the 12-column fixture table (1,809 px of content) **scrolls sideways inside its own `overflow-x-auto` box at every width, including 1440 and 1024 px**, because the story column is only 430 px wide there. An earlier claim that it fits without scrolling from 1024 px was **wrong** and is removed. The page never scrolls sideways; header cells stay one line tall; the image and link stay inside the column; no element in the story text passes the column's right edge (tables excluded, they scroll in their box). A table with fewer or narrower columns may fit; I did not measure one.
 
 ## Not evaluated
 
-Real seller HTML beyond the fixtures; Safari; Firefox; touch devices; the two `DATABASE_URL` web test files; DB-gated suites generally (no query changed).
+Real seller HTML beyond the fixtures; story tables other than the 12-column fixture; Safari; Firefox; touch devices; the two `DATABASE_URL` web test files; DB-gated suites generally (no query changed).
