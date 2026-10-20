@@ -2,6 +2,7 @@ import Link from "next/link"
 import { Search, X } from "lucide-react"
 
 import { FilterPill, FilterPills } from "@/components/filter-pill"
+import { PageHeading } from "@/components/page-heading"
 import { ProductCard } from "@/components/product-card"
 import { productBadge } from "@/lib/product-badge"
 import { Button } from "@bomy/ui/button"
@@ -41,7 +42,7 @@ export default async function ProductsPage({ searchParams }: Props) {
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
-      <h1 className="mb-6 text-2xl font-bold text-foreground">Products</h1>
+      <PageHeading title="Products" className="mb-6" />
       {/* Search bar */}
       <form method="get" className="mb-6 flex gap-2">
         <Label htmlFor="products-search" className="sr-only">
