@@ -5,6 +5,7 @@ import { CreditCard, Eye } from "lucide-react"
 
 import { auth } from "@/auth"
 import { BodyRenderer } from "@/components/body-renderer"
+import { PageHeading } from "@/components/page-heading"
 import { ProductCard } from "@/components/product-card"
 import { AvatarGroup } from "@/components/ui/avatar-group"
 import { Button } from "@bomy/ui/button"
@@ -56,41 +57,45 @@ export default async function StorePage({ params }: Props) {
     ? await getBrandSubscriberAvatars(store.id)
     : { avatars: [], total: 0 }
 
+  const actions = (
+    <div className="flex min-w-0 flex-col gap-4">
+      {store.videoId && <VideoEmbed videoId={store.videoId} title={`${store.name} video`} />}
+      <Button asChild icon={<CreditCard />} className="self-start">
+        <Link href={`/brands/${store.slug}/subscribe`}>Subscribe</Link>
+      </Button>
+      {subscriberAvatars.length > 0 && (
+        <div className="flex items-center gap-3">
+          <AvatarGroup avatars={subscriberAvatars} total={subscriberCount} />
+          <p className="text-sm text-muted-foreground">
+            {subscriberCount === 1
+              ? "1 buyer is subscribed"
+              : `${subscriberCount} buyers are subscribed`}
+          </p>
+        </div>
+      )}
+    </div>
+  )
+
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-10 px-4 py-8">
-      <h1 className="text-center text-2xl font-bold text-foreground">{store.name}</h1>
+      <PageHeading title={store.name} align="center" />
 
-      <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-        <div>
-          {store.bodyHtml && (
-            <>
-              <h2 className="mb-4 text-lg font-semibold text-foreground">Our Story</h2>
-              <div className="prose prose-sm max-w-none dark:prose-invert">
-                <BodyRenderer html={store.bodyHtml} />
-              </div>
-            </>
-          )}
-        </div>
-        <div className="flex flex-col gap-4">
-          {store.videoId && <VideoEmbed videoId={store.videoId} title={`${store.name} video`} />}
-          <Button asChild icon={<CreditCard />} className="self-start">
-            <Link href={`/brands/${store.slug}/subscribe`}>Subscribe</Link>
-          </Button>
-          {subscriberAvatars.length > 0 && (
-            <div className="flex items-center gap-3">
-              <AvatarGroup avatars={subscriberAvatars} total={subscriberCount} />
-              <p className="text-sm text-muted-foreground">
-                {subscriberCount === 1
-                  ? "1 buyer is subscribed"
-                  : `${subscriberCount} buyers are subscribed`}
-              </p>
+      {store.bodyHtml ? (
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+          <div className="min-w-0 rounded-bento border border-border bg-card p-6">
+            <h2 className="mb-4 text-lg font-semibold text-foreground">Our Story</h2>
+            <div className="prose prose-sm min-w-0 max-w-none dark:prose-invert [&_img]:h-auto [&_img]:max-w-full [overflow-wrap:anywhere]">
+              <BodyRenderer html={store.bodyHtml} />
             </div>
-          )}
+          </div>
+          {actions}
         </div>
-      </div>
+      ) : (
+        actions
+      )}
 
       {categorySections.length === 0 && uncategorized.products.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border py-16 text-center text-sm text-muted-foreground">
+        <p className="rounded-bento border border-dashed border-border py-16 text-center text-sm text-muted-foreground">
           No products yet.
         </p>
       ) : (

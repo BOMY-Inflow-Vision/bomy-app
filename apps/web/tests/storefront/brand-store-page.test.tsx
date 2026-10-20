@@ -80,3 +80,77 @@ describe("brand store page section header with a long category name", () => {
     expect(d.querySelector('a[href^="/brands/acme/products"]')).toBeNull()
   })
 })
+
+async function renderStore(storeOver: Record<string, unknown> = {}, sections = true) {
+  getStorePage.mockResolvedValue({
+    store: { ...STORE, ...storeOver },
+    categorySections: sections
+      ? [{ category: { name: "Tea", slug: "tea" }, products: [PRODUCT], hasMore: false }]
+      : [],
+    uncategorized: { products: [], hasMore: false },
+  })
+  const el = await StorePage({ params: Promise.resolve({ slug: "acme" }) })
+  return new DOMParser().parseFromString(renderToStaticMarkup(el), "text/html")
+}
+const subscribe = (d: Document) => d.querySelector('a[href="/brands/acme/subscribe"]')!
+
+describe("brand store page heading (R5a)", () => {
+  it("uses the shared heading, centred, with a store name that may break anywhere", async () => {
+    const d = await renderStore({ name: "N".repeat(80) })
+    const h1 = d.querySelector("h1")!
+    expect(h1.textContent).toBe("N".repeat(80))
+    has(h1, ["sm:text-4xl", "[overflow-wrap:anywhere]"])
+    has(h1.closest("header"), ["text-center"])
+  })
+})
+
+describe("brand store page top grid (R5a)", () => {
+  it("with a story: a two-column grid whose two columns may both shrink", async () => {
+    const d = await renderStore({ bodyHtml: "<p>Hello</p>" })
+    const grid = d.querySelector("main > .grid")!
+    has(grid, ["grid", "grid-cols-1", "gap-8", "md:grid-cols-2"])
+    expect(grid.children).toHaveLength(2)
+    for (const col of Array.from(grid.children)) has(col, ["min-w-0"])
+  })
+
+  it("the story sits in a white bento panel and its text breaks anywhere with images bounded", async () => {
+    const d = await renderStore({ bodyHtml: "<p>Hello</p>" })
+    const h2 = Array.from(d.querySelectorAll("h2")).find((h) => h.textContent === "Our Story")!
+    const panel = h2.parentElement!
+    has(panel, ["rounded-bento", "border", "border-border", "bg-card", "p-6"])
+    const body = panel.querySelector(".prose")!
+    has(body, ["min-w-0", "[overflow-wrap:anywhere]", "[&_img]:h-auto", "[&_img]:max-w-full"])
+    expect(body.textContent).toContain("Hello")
+  })
+
+  it("without a story: no story column, no two-column grid, the right content takes the full row", async () => {
+    const d = await renderStore({ bodyHtml: null })
+    expect(d.body.textContent).not.toContain("Our Story")
+    expect(d.querySelector(".md\\:grid-cols-2")).toBeNull()
+    const column = subscribe(d).parentElement!
+    expect(column.parentElement!.tagName).toBe("MAIN")
+    has(column, ["min-w-0", "flex", "flex-col"])
+  })
+
+  it("the Subscribe link always shows; the video column child only with a videoId", async () => {
+    const without = await renderStore({ bodyHtml: null })
+    expect(subscribe(without).parentElement!.children).toHaveLength(1)
+    const withVideo = await renderStore({ bodyHtml: null, videoId: "dQw4w9WgXcQ" })
+    const column = subscribe(withVideo).parentElement!
+    expect(column.children.length).toBeGreaterThan(1)
+    expect(subscribe(withVideo)).not.toBeNull()
+  })
+
+  it("does not read subscriber avatars for an anonymous visitor", async () => {
+    await renderStore({ bodyHtml: null })
+    expect(getBrandSubscriberAvatars).not.toHaveBeenCalled()
+  })
+
+  it("the empty state is a dashed bento box", async () => {
+    const d = await renderStore({}, false)
+    const empty = Array.from(d.querySelectorAll("p")).find(
+      (p) => p.textContent === "No products yet.",
+    )!
+    has(empty, ["rounded-bento", "border", "border-dashed"])
+  })
+})
