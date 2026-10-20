@@ -16,13 +16,13 @@ vi.mock("next/navigation", () => ({
 import StoreProductsPage from "@/app/brands/[slug]/products/page"
 
 const TOKENS = {
-  link: ["group", "block", "rounded-card", "focus-visible:ring-2", "focus-visible:ring-ring"],
+  link: ["group", "block", "rounded-bento", "focus-visible:ring-2", "focus-visible:ring-ring"],
   tile: [
     "overflow-hidden",
-    "rounded-card",
+    "rounded-bento",
     "border",
     "border-border",
-    "bg-background",
+    "bg-card",
     "shadow-sm",
     "hover:shadow-md",
   ],

@@ -1,14 +1,14 @@
 import Link from "next/link"
 import { Search, X } from "lucide-react"
 
-import { cn } from "@/lib/utils"
-import { Badge } from "@bomy/ui/badge"
+import { FilterPill, FilterPills } from "@/components/filter-pill"
+import { ProductCard } from "@/components/product-card"
 import { Button } from "@bomy/ui/button"
 import { Pagination } from "@bomy/ui/pagination"
 import { Input } from "@bomy/ui/input"
 import { Label } from "@bomy/ui/label"
 
-import { formatMyrSen, getCategories, getProducts } from "./queries"
+import { getCategories, getProducts } from "./queries"
 
 interface Props {
   searchParams: Promise<{ q?: string; category?: string; page?: string }>
@@ -68,112 +68,59 @@ export default async function ProductsPage({ searchParams }: Props) {
         )}
       </form>
 
-      <div className="flex flex-col gap-6 sm:flex-row">
-        {/* Category sidebar */}
-        <aside className="w-full sm:w-44 sm:shrink-0">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Categories
-          </p>
-          <ul className="space-y-1">
-            <li>
-              <Link
-                href={q ? `/products?q=${encodeURIComponent(q)}` : "/products"}
-                className={cn(
-                  "block rounded-md px-3 py-1.5 text-sm",
-                  !category
-                    ? "bg-accent font-medium text-accent-foreground"
-                    : "text-foreground hover:bg-muted",
-                )}
-              >
-                All
-              </Link>
-            </li>
-            {categories.map((cat) => {
-              const href = q
-                ? `/products?q=${encodeURIComponent(q)}&category=${cat.id}`
-                : `/products?category=${cat.id}`
-              return (
-                <li key={cat.id}>
-                  <Link
-                    href={href}
-                    className={cn(
-                      "block rounded-md px-3 py-1.5 text-sm",
-                      category === cat.id
-                        ? "bg-accent font-medium text-accent-foreground"
-                        : "text-foreground hover:bg-muted",
-                    )}
-                  >
-                    {cat.name}
-                  </Link>
-                </li>
-              )
-            })}
+      <FilterPills label="Filter by category" className="mb-6">
+        <FilterPill asChild active={!category}>
+          <Link href={q ? `/products?q=${encodeURIComponent(q)}` : "/products"}>All</Link>
+        </FilterPill>
+        {categories.map((cat) => {
+          const href = q
+            ? `/products?q=${encodeURIComponent(q)}&category=${cat.id}`
+            : `/products?category=${cat.id}`
+          return (
+            <FilterPill key={cat.id} asChild active={category === cat.id}>
+              <Link href={href}>{cat.name}</Link>
+            </FilterPill>
+          )
+        })}
+      </FilterPills>
+
+      <section aria-label="Product results" className="min-w-0">
+        <p className="mb-4 text-sm text-muted-foreground">
+          {total} product{total !== 1 ? "s" : ""}
+          {q ? ` for "${q}"` : ""}
+        </p>
+
+        {products.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border py-20 text-center text-sm text-muted-foreground">
+            No products found.
+          </div>
+        ) : (
+          <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {products.map((p) => (
+              <li key={p.id} className="min-w-0">
+                <ProductCard
+                  href={`/products/${p.storeSlug}/${p.slug}`}
+                  name={p.name}
+                  coverImageUrl={p.coverImageUrl}
+                  categoryName={p.categoryName}
+                  storeName={p.storeName}
+                  minPriceSen={p.minPriceSen}
+                />
+              </li>
+            ))}
           </ul>
-        </aside>
+        )}
 
-        {/* Product grid */}
-        <section aria-label="Product results" className="min-w-0 flex-1">
-          <p className="mb-4 text-sm text-muted-foreground">
-            {total} product{total !== 1 ? "s" : ""}
-            {q ? ` for "${q}"` : ""}
-          </p>
-
-          {products.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border py-20 text-center text-sm text-muted-foreground">
-              No products found.
-            </div>
-          ) : (
-            <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-              {products.map((p) => (
-                <li key={p.id}>
-                  <Link
-                    href={`/products/${p.storeSlug}/${p.slug}`}
-                    className="group block overflow-hidden rounded-xl border border-border bg-background shadow-sm hover:shadow-md"
-                  >
-                    <div className="aspect-square bg-muted">
-                      {p.coverImageUrl ? (
-                        <img
-                          src={p.coverImageUrl}
-                          alt={p.name}
-                          width={400}
-                          height={400}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center text-3xl text-muted-foreground">
-                          📦
-                        </div>
-                      )}
-                    </div>
-                    <div className="p-3">
-                      {p.categoryName && <Badge className="mb-1">{p.categoryName}</Badge>}
-                      <p className="truncate text-sm font-medium text-foreground group-hover:text-primary">
-                        {p.name}
-                      </p>
-                      <p className="truncate text-xs text-muted-foreground">{p.storeName}</p>
-                      {p.minPriceSen != null && (
-                        <p className="mt-1 text-sm font-semibold text-primary">
-                          from {formatMyrSen(p.minPriceSen)}
-                        </p>
-                      )}
-                    </div>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {/* Pagination */}
-          <Pagination
-            page={page}
-            totalPages={totalPages}
-            buildHref={pageHref}
-            label="Products pagination"
-            linkAs={Link}
-            className="mt-8 flex flex-wrap justify-center gap-2"
-          />
-        </section>
-      </div>
+        {/* Pagination */}
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          buildHref={pageHref}
+          label="Products pagination"
+          linkAs={Link}
+          className="mt-8 flex flex-wrap justify-center gap-2"
+        />
+      </section>
     </main>
   )
 }

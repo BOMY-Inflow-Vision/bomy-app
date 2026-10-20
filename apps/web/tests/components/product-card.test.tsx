@@ -45,7 +45,13 @@ describe("ProductCard structure", () => {
 
   it("border and shadow stay on the first child, inside the link (existing store-products test)", () => {
     const d = render()
-    has(link(d).firstElementChild, ["border", "border-border", "shadow-sm", "bg-card"])
+    has(link(d).firstElementChild, [
+      "border",
+      "border-border",
+      "shadow-sm",
+      "hover:shadow-md",
+      "bg-card",
+    ])
   })
 
   it("art area is the blush tile at 4:5 and holds the image", () => {

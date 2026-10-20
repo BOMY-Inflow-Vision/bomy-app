@@ -35,7 +35,7 @@ export function ProductCard({
       href={href}
       className="group block min-w-0 rounded-bento focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
-      <div className="overflow-hidden rounded-bento border border-border bg-card shadow-sm">
+      <div className="overflow-hidden rounded-bento border border-border bg-card shadow-sm hover:shadow-md">
         <div className="relative aspect-tile bg-tint">
           <CoverImage src={coverImageUrl} alt={name} />
           {badge && (
