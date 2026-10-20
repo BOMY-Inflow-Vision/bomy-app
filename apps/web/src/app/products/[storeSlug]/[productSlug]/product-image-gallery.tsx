@@ -137,7 +137,7 @@ export function ProductImageGallery({
           just horizontally. With zero top/left padding its clip edge sat flush against the
           first button, cutting off the ring-2's 2px spread on exactly those two sides. */}
       {images.length > 1 && (
-        <div className="flex gap-2 overflow-x-auto p-1.5">
+        <div className="flex scroll-px-2 gap-2 overflow-x-auto p-1.5">
           {images.map((img, i) => (
             <button
               key={img.id}

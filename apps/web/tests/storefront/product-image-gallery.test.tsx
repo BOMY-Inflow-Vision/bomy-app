@@ -108,6 +108,9 @@ describe("ProductImageGallery R5b look", () => {
     mount(3)
     const strip = label("View image 1")!.parentElement!
     has(strip, ["flex", "overflow-x-auto", "p-1.5"])
+    // Tabbing to a thumbnail at the visible edge must scroll it in with a margin, or the strip
+    // clips the 4 px focus ring (found in the R5b browser check).
+    has(strip, ["scroll-px-2"])
   })
 
   it("thumbnails keep their size and carry a focus ring with an offset", () => {
