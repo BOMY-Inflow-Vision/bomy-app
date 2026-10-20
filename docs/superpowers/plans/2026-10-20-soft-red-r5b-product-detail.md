@@ -117,7 +117,7 @@ Today the variant chips and the gallery thumbnails are raw `<button>` elements w
 
 - [ ] **Step 1: Write failing tests** in `product-image-gallery.test.tsx`: fallback shows a Package icon (`aria-hidden`) on `bg-tint` with `rounded-bento`, same `aspect-square`, and no emoji text; main tile is `rounded-bento` on `bg-tint` (D5a); thumbnails stay 64 px with `rounded-lg`, carry the thumbnail focus classes and `aria-current` on the selected one (also when it is the focused one), and the strip is `overflow-x-auto p-1.5`; arrows keep their `aria-label`s and positions. Task 1 behaviour pins still pass.
 - [ ] **Step 2: Run; confirm new assertions fail, pins pass.**
-- [ ] **Step 3: Implement** radius, background and fallback only (import `Package` from `lucide-react`, as `CoverImage` does). Zoom, arrows, thumbnails, `img` sizes are not touched.
+- [ ] **Step 3: Implement** the radius, background and fallback (import `Package` from `lucide-react`, as `CoverImage` does). Add the specified focus classes and `aria-current` to the thumbnails, and change the strip padding to `p-1.5`. Preserve thumbnail size and selection handlers, zoom, arrows and `img` sizes.
 - [ ] **Step 4: Run all gallery tests; confirm pass.** Commit with explicit paths; check `git log`.
 
 ### Task 5: Browser proof, gates and docs
