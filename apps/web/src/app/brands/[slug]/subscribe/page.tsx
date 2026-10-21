@@ -9,6 +9,7 @@ import { isPendingAbandoned } from "@/lib/membership"
 import { paymentsEnabled } from "@/lib/payments-enabled"
 import { SubmitButton } from "@/components/submit-button"
 import { Button } from "@bomy/ui/button"
+import { PageHeading } from "@/components/page-heading"
 import { CreditCard, LogIn } from "lucide-react"
 import { getStorePlans, subscribeToBrand } from "./actions"
 
@@ -63,21 +64,28 @@ export default async function BrandSubscribePage({ params }: Props) {
   }
 
   const enabled = paymentsEnabled()
+  // One plan sits centred and narrow; two fill two columns; three fill three. Class names only.
+  const gridClass =
+    plans.length === 1
+      ? "grid-cols-1 sm:mx-auto sm:max-w-sm"
+      : plans.length === 2
+        ? "grid-cols-1 sm:grid-cols-2"
+        : "grid-cols-1 sm:grid-cols-3"
 
   return (
-    <main className="flex min-h-screen flex-col items-center bg-muted px-4 pt-20">
+    <main className="flex flex-col items-center px-4 py-10 sm:py-16">
       <div className="flex w-full max-w-2xl flex-col gap-8">
         <div className="flex flex-col gap-2 text-center">
-          <p className="text-sm font-semibold uppercase tracking-widest text-primary">
+          <p className="font-mono text-xs uppercase tracking-eyebrow text-primary">
             #2 Brand Subscription
           </p>
-          <h1 className="text-3xl font-bold text-foreground">{store.name}</h1>
+          <PageHeading title={store.name} align="center" />
           <p className="text-sm text-muted-foreground">
             Subscribe to unlock exclusive discounts on every order from this brand.
           </p>
         </div>
 
-        <ul className="grid gap-4 sm:grid-cols-3">
+        <ul className={`grid w-full gap-4 ${gridClass}`}>
           {plans.map((plan) => {
             const termLabel =
               plan.termMonths === 12 ? "12 months" : plan.termMonths === 6 ? "6 months" : "3 months"
@@ -87,23 +95,25 @@ export default async function BrandSubscribePage({ params }: Props) {
             return (
               <li
                 key={plan.id}
-                className="flex flex-col gap-4 rounded-2xl bg-background p-6 shadow-sm ring-1 ring-border"
+                className="flex min-w-0 flex-col gap-4 rounded-bento border border-border bg-card p-6 shadow-sm"
               >
                 <div className="flex flex-col gap-1">
                   <p className="text-xs font-semibold uppercase tracking-widest text-primary">
                     {termLabel}
                   </p>
-                  <p className="text-3xl font-bold text-foreground">{priceDisplay}</p>
+                  <p className="text-3xl font-bold text-foreground [overflow-wrap:anywhere]">
+                    {priceDisplay}
+                  </p>
                   <p className="text-xs text-muted-foreground">billed once</p>
                 </div>
 
                 <ul className="flex-1 space-y-2 text-sm text-muted-foreground">
-                  <li className="flex items-start gap-2">
+                  <li className="flex min-w-0 items-start gap-2">
                     <span className="mt-0.5 text-primary">✓</span>
                     {plan.discountPct}% off every order
                   </li>
                   {plan.description ? (
-                    <li className="flex items-start gap-2">
+                    <li className="flex min-w-0 items-start gap-2 [overflow-wrap:anywhere]">
                       <span className="mt-0.5 text-primary">✓</span>
                       {plan.description}
                     </li>

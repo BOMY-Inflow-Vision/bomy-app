@@ -11,8 +11,8 @@ type SignInSearchParams = Promise<{ consent?: string; error?: string | string[] 
 
 export default function SignInPage({ searchParams }: { searchParams: SignInSearchParams }) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-muted">
-      <div className="w-full max-w-sm rounded-2xl bg-background p-8 shadow-sm ring-1 ring-border">
+    <main className="flex min-h-[calc(100dvh-var(--nav-height)-var(--nav-offset))] items-center justify-center px-4 py-10">
+      <div className="w-full max-w-sm rounded-bento border border-border bg-card p-8 shadow-sm">
         <div className="mb-8 text-center">
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">Sign in to BOMY</h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -55,11 +55,17 @@ export default function SignInPage({ searchParams }: { searchParams: SignInSearc
 
         <p className="mt-6 text-center text-xs text-muted-foreground">
           By continuing you agree to our{" "}
-          <a href="/terms" className="underline">
+          <a
+            href="/terms"
+            className="rounded-sm underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
             Terms of Service
           </a>{" "}
           and{" "}
-          <a href="/privacy" className="underline">
+          <a
+            href="/privacy"
+            className="rounded-sm underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
             Privacy Policy
           </a>
           .

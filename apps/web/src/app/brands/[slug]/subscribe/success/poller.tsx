@@ -45,7 +45,7 @@ export function BrandSubscriptionPoller({
 
   if (initialActive) {
     return (
-      <div className="w-full max-w-md rounded-2xl bg-background p-10 text-center shadow-sm ring-1 ring-border">
+      <div className="w-full max-w-md rounded-bento border border-border bg-card p-8 text-center shadow-sm sm:p-10">
         <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-success-subtle">
           <svg
             className="h-8 w-8 text-success"
@@ -59,7 +59,7 @@ export function BrandSubscriptionPoller({
           </svg>
         </div>
         <h1 className="mb-2 text-xl font-semibold text-foreground">Subscription activated!</h1>
-        <p className="mb-6 text-sm text-muted-foreground">
+        <p className="mb-6 text-sm text-muted-foreground [overflow-wrap:anywhere]">
           You now get a discount on every order from {storeName}.
         </p>
         <Button asChild icon={<Eye />} className="w-full">
@@ -74,7 +74,7 @@ export function BrandSubscriptionPoller({
   // received — and give the user a real way out instead of a redirect loop.
   if (timedOut || !pendingFresh) {
     return (
-      <div className="w-full max-w-md rounded-2xl bg-background p-10 text-center shadow-sm ring-1 ring-border">
+      <div className="w-full max-w-md rounded-bento border border-border bg-card p-8 text-center shadow-sm sm:p-10">
         <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-accent">
           <svg
             className="h-8 w-8 text-primary"
@@ -122,7 +122,7 @@ export function BrandSubscriptionPoller({
   }
 
   return (
-    <div className="w-full max-w-md rounded-2xl bg-background p-10 text-center shadow-sm ring-1 ring-border">
+    <div className="w-full max-w-md rounded-bento border border-border bg-card p-8 text-center shadow-sm sm:p-10">
       <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-accent">
         <svg
           className="h-8 w-8 animate-spin text-primary"

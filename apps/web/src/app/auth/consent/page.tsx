@@ -19,8 +19,8 @@ export default async function ConsentPage() {
   const version = session.user.currentTosVersion ?? "current"
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-muted">
-      <div className="w-full max-w-lg rounded-2xl bg-background p-8 shadow-sm ring-1 ring-border">
+    <main className="flex min-h-[calc(100dvh-var(--nav-height)-var(--nav-offset))] items-center justify-center px-4 py-10">
+      <div className="w-full max-w-lg rounded-bento border border-border bg-card p-8 shadow-sm">
         <div className="mb-6 text-center">
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             Before you continue
@@ -34,11 +34,19 @@ export default async function ConsentPage() {
         <div className="mb-6 rounded-lg bg-muted p-4 text-sm text-foreground">
           <p>
             By clicking <strong>I Agree</strong>, you confirm you have read and accept our{" "}
-            <a href="/terms" target="_blank" className="text-foreground underline">
+            <a
+              href="/terms"
+              target="_blank"
+              className="text-foreground rounded-sm underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
               Terms of Service
             </a>{" "}
             and{" "}
-            <a href="/privacy" target="_blank" className="text-foreground underline">
+            <a
+              href="/privacy"
+              target="_blank"
+              className="text-foreground rounded-sm underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
               Privacy Policy
             </a>
             .

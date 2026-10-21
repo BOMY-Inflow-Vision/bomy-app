@@ -5,8 +5,8 @@ import { Card, CardContent } from "@bomy/ui/card"
 
 export default function VerifyRequestPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-muted">
-      <Card className="w-full max-w-sm bg-background text-center">
+    <main className="flex min-h-[calc(100dvh-var(--nav-height)-var(--nav-offset))] items-center justify-center px-4 py-10">
+      <Card className="w-full max-w-sm !rounded-bento bg-card text-center">
         <CardContent className="p-8">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
             <Mail aria-hidden="true" className="size-6 text-muted-foreground" />
