@@ -1,11 +1,26 @@
 "use client"
 
 import { useState } from "react"
+import { Package } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@bomy/ui/button"
 
 type ProductImage = { id: string; url: string; altText: string | null }
+
+const STRIP_MARGIN_PX = 8
+
+function scrollThumbIntoStrip(thumb: HTMLElement) {
+  const strip = thumb.parentElement
+  if (!strip) return
+  const t = thumb.getBoundingClientRect()
+  const s = strip.getBoundingClientRect()
+  if (t.left < s.left + STRIP_MARGIN_PX) {
+    strip.scrollLeft += t.left - s.left - STRIP_MARGIN_PX
+  } else if (t.right > s.right - STRIP_MARGIN_PX) {
+    strip.scrollLeft += t.right - s.right + STRIP_MARGIN_PX
+  }
+}
 
 export function ProductImageGallery({
   images,
@@ -19,8 +34,8 @@ export function ProductImageGallery({
 
   if (images.length === 0) {
     return (
-      <div className="flex aspect-square items-center justify-center rounded-xl bg-muted text-6xl text-muted-foreground">
-        📦
+      <div className="flex aspect-square items-center justify-center rounded-bento bg-tint text-muted-foreground">
+        <Package className="size-16" strokeWidth={1.25} aria-hidden="true" />
       </div>
     )
   }
@@ -51,7 +66,7 @@ export function ProductImageGallery({
     <div className="space-y-3">
       {/* Main image with zoom */}
       <div
-        className="relative aspect-square cursor-zoom-in overflow-hidden rounded-xl bg-muted"
+        className="relative aspect-square cursor-zoom-in overflow-hidden rounded-bento bg-tint"
         onMouseMove={handleMouseMove}
         onMouseLeave={() => setZoom(null)}
       >
@@ -136,14 +151,19 @@ export function ProductImageGallery({
           just horizontally. With zero top/left padding its clip edge sat flush against the
           first button, cutting off the ring-2's 2px spread on exactly those two sides. */}
       {images.length > 1 && (
-        <div className="flex gap-2 overflow-x-auto p-1">
+        <div className="flex scroll-px-2 gap-2 overflow-x-auto p-1.5">
           {images.map((img, i) => (
             <button
               key={img.id}
               type="button"
               onClick={() => goTo(i)}
+              // Chrome leaves a part-hidden thumbnail where it is on Tab, which would clip its
+              // focus ring. Scroll the strip itself (never scrollIntoView, which can also move the
+              // page) so the thumbnail sits at least 8 px inside both edges.
+              onFocus={(e) => scrollThumbIntoStrip(e.currentTarget)}
+              aria-current={i === activeIdx ? "true" : undefined}
               className={cn(
-                "h-16 w-16 shrink-0 rounded-lg ring-2 transition-all",
+                "h-16 w-16 shrink-0 rounded-lg ring-2 transition-all focus-visible:outline-none focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 i === activeIdx ? "ring-primary" : "ring-transparent hover:ring-border",
               )}
               aria-label={`View image ${i + 1}`}
@@ -151,7 +171,7 @@ export function ProductImageGallery({
               {/* overflow-hidden lives on this inner wrapper, not the button — clipping the
                   ring-2 itself (a box-shadow) against the same element it's drawn on cuts it
                   off, since the shadow needs to paint outside the border box */}
-              <span className="block h-full w-full overflow-hidden rounded-lg bg-muted">
+              <span className="block h-full w-full overflow-hidden rounded-lg bg-tint">
                 <img
                   src={img.url}
                   alt={img.altText ?? ""}
