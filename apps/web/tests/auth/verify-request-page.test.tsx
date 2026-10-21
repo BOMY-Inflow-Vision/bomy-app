@@ -17,10 +17,10 @@ const TOKENS = {
   box: [
     "w-full",
     "max-w-sm",
-    "rounded-card",
+    "rounded-bento",
     "border",
     "border-border",
-    "bg-background",
+    "bg-card",
     "text-center",
     "shadow-sm",
   ],
@@ -60,6 +60,21 @@ describe("verify-request page", () => {
     expect(svg.getAttribute("aria-hidden")).toBe("true")
     const medallion = svg.parentElement!
     has(medallion, ["h-12", "w-12", "rounded-full", "bg-muted"])
+  })
+
+  it("R5c look: main fills the viewport below the nav on the page ground and centres the card", () => {
+    const main = doc.querySelector("main")!
+    for (const t of [
+      "min-h-[calc(100dvh-var(--nav-height)-var(--nav-offset))]",
+      "flex",
+      "items-center",
+      "justify-center",
+      "px-4",
+      "py-10",
+    ])
+      expect(main.classList.contains(t), `${t} on ${main.className}`).toBe(true)
+    for (const t of ["min-h-screen", "bg-muted"]) expect(main.classList.contains(t)).toBe(false)
+    expect(doc.querySelector("main > div")!.classList.contains("bg-background")).toBe(false)
   })
 
   it("class tokens (updated by the swap)", () => {

@@ -62,3 +62,36 @@ describe("consent page: content", () => {
     expect(d.body.textContent).toContain("(version current)")
   })
 })
+
+const MAIN_MIN_H = "min-h-[calc(100dvh-var(--nav-height)-var(--nav-offset))]"
+
+describe("consent page: R5c look", () => {
+  it("main fills the viewport below the nav on the page ground and centres the card", async () => {
+    auth.mockResolvedValue({ user: { consentVersion: "v1", currentTosVersion: "v2" } })
+    const d = await render()
+    const main = d.querySelector("main")!
+    for (const t of [MAIN_MIN_H, "flex", "items-center", "justify-center", "px-4", "py-10"])
+      expect(main.classList.contains(t), `${t} on ${main.className}`).toBe(true)
+    for (const t of ["min-h-screen", "bg-muted"]) expect(main.classList.contains(t)).toBe(false)
+  })
+
+  it("the card is a white bento card with a border; the title keeps its size", async () => {
+    auth.mockResolvedValue({ user: { consentVersion: "v1", currentTosVersion: "v2" } })
+    const d = await render()
+    const card = d.querySelector("main > div")!
+    for (const t of [
+      "w-full",
+      "max-w-lg",
+      "rounded-bento",
+      "border",
+      "border-border",
+      "bg-card",
+      "shadow-sm",
+      "p-8",
+    ])
+      expect(card.classList.contains(t), `${t} on ${card.className}`).toBe(true)
+    for (const t of ["ring-1", "bg-background", "rounded-2xl"])
+      expect(card.classList.contains(t)).toBe(false)
+    expect(d.querySelector("h1")!.classList.contains("text-2xl")).toBe(true)
+  })
+})
