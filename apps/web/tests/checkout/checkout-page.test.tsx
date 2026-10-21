@@ -92,3 +92,39 @@ describe("CheckoutPage gating and structure", () => {
     )
   })
 })
+
+const has = (el: Element | null, tokens: string[]) => {
+  expect(el, tokens.join(" ")).not.toBeNull()
+  for (const t of tokens) expect(el!.classList.contains(t), `${t} on ${el!.className}`).toBe(true)
+}
+
+describe("CheckoutPage R5c look", () => {
+  it("the paused page: PageHeading title and a bento dashed card", async () => {
+    auth.mockResolvedValue({ user: { id: "u1" } })
+    readCheckoutEnabled.mockResolvedValue(false)
+    const d = await render()
+    has(d.querySelector("h1"), ["sm:text-4xl", "[overflow-wrap:anywhere]"])
+    has(d.querySelector("h1")!.parentElement, ["mb-4"])
+    const card = d.querySelector("main > div")!
+    has(card, [
+      "rounded-bento",
+      "border",
+      "border-dashed",
+      "border-input",
+      "bg-card",
+      "p-6",
+      "text-center",
+    ])
+    expect(card.classList.contains("bg-muted")).toBe(false)
+  })
+
+  it("the enabled page: PageHeading title above the stepper", async () => {
+    auth.mockResolvedValue({ user: { id: "u1" } })
+    readCheckoutEnabled.mockResolvedValue(true)
+    listAddresses.mockResolvedValue([ADDRESS])
+    const d = await render()
+    has(d.querySelector("h1"), ["sm:text-4xl"])
+    has(d.querySelector("h1")!.parentElement, ["mb-4"])
+    expect(d.querySelector('[role="group"][aria-label="Checkout progress"]')).not.toBeNull()
+  })
+})

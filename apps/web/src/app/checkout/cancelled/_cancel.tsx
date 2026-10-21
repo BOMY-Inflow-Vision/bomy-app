@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
 
+import { PageHeading } from "@/components/page-heading"
 import { useToast } from "@/components/toaster"
 import { Button } from "@bomy/ui/button"
 
@@ -69,7 +70,7 @@ export function CancelHandler() {
   if (state.phase === "error") {
     return (
       <main className="mx-auto max-w-3xl px-4 py-8 text-center">
-        <h1 className="mb-2 text-2xl font-bold text-foreground">Something went wrong</h1>
+        <PageHeading title="Something went wrong" align="center" className="mb-2" />
         <p className="mb-6 text-sm text-muted-foreground">
           We couldn&apos;t cancel your checkout. Please try again or contact support.
         </p>
@@ -82,7 +83,7 @@ export function CancelHandler() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8 text-center">
-      <h1 className="mb-2 text-2xl font-bold text-foreground">Checkout cancelled</h1>
+      <PageHeading title="Checkout cancelled" align="center" className="mb-2" />
       <p className="mb-6 text-sm text-muted-foreground">
         Your checkout has been cancelled. Your cart is still saved.
       </p>

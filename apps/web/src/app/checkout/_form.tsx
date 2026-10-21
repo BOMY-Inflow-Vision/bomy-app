@@ -186,7 +186,7 @@ export function CheckoutForm({ savedAddresses = [] }: { savedAddresses?: SavedAd
 
   if (items.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-input bg-muted p-6 text-center">
+      <div className="rounded-bento border border-dashed border-input bg-card p-6 text-center">
         <p className="text-sm text-muted-foreground">Your cart is empty.</p>
       </div>
     )
@@ -225,7 +225,7 @@ export function CheckoutForm({ savedAddresses = [] }: { savedAddresses?: SavedAd
             <div className="h-4 w-2/3 rounded bg-muted" />
           </div>
         ) : preview.ok ? (
-          <div className="divide-y divide-border rounded-lg border border-border bg-background">
+          <div className="divide-y divide-border rounded-2xl border border-border bg-card">
             {preview.storeRows.map((row) => (
               <div key={row.storeId} className="px-4 py-3 text-sm">
                 <div className="flex justify-between text-foreground">
@@ -303,7 +303,7 @@ export function CheckoutForm({ savedAddresses = [] }: { savedAddresses?: SavedAd
           </div>
         )}
         {selectedId !== "new" ? (
-          <div className="rounded-lg border border-border bg-muted p-4 text-sm text-foreground">
+          <div className="min-w-0 rounded-lg border border-border bg-muted p-4 text-sm text-foreground [overflow-wrap:anywhere]">
             {[
               address.name,
               address.phone,

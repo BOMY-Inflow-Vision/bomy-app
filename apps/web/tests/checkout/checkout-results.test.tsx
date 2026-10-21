@@ -239,3 +239,72 @@ describe("route pages wrap the handlers in Suspense with a Loading fallback", ()
     expect(html).toContain("animate-spin")
   })
 })
+
+const has = (el: Element | null, tokens: string[]) => {
+  expect(el, tokens.join(" ")).not.toBeNull()
+  for (const t of tokens) expect(el!.classList.contains(t), `${t} on ${el!.className}`).toBe(true)
+}
+const header = () => container.querySelector("h1")!.parentElement!
+
+describe("checkout results R5c look: every title is a PageHeading, centred where the page was", () => {
+  const centred: [string, string][] = [
+    ["paid", "mb-2"],
+    ["failed", "mb-2"],
+    ["expired", "mb-2"],
+    ["cancelled", "mb-2"],
+    ["payment_review_required", "mb-2"],
+    ["payment_review_resolved", "mb-2"],
+  ]
+  it.each(centred)("success %s", async (status, mb) => {
+    getCheckoutSessionStatus.mockResolvedValue({ ok: true, status })
+    await mount(<SuccessPoller />)
+    has(container.querySelector("h1"), ["sm:text-4xl", "[overflow-wrap:anywhere]"])
+    has(header(), ["text-center", mb])
+  })
+
+  it("polling title", async () => {
+    getCheckoutSessionStatus.mockResolvedValue({ ok: true, status: "pending_payment" })
+    await mount(<SuccessPoller />)
+    has(container.querySelector("h1"), ["sm:text-4xl"])
+    has(header(), ["text-center", "mb-2"])
+  })
+
+  it("not found keeps its start alignment", async () => {
+    params.value = "not-a-uuid"
+    await mount(<SuccessPoller />)
+    has(container.querySelector("h1"), ["sm:text-4xl"])
+    expect(header().classList.contains("text-center")).toBe(false)
+    has(header(), ["mb-4"])
+  })
+
+  it("still processing is centred with mb-4", async () => {
+    getCheckoutSessionStatus.mockResolvedValue({ ok: true, status: "pending_payment" })
+    await mount(<SuccessPoller />)
+    for (let i = 0; i < 30; i++) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2000)
+      })
+    }
+    has(container.querySelector("h1"), ["sm:text-4xl"])
+    has(header(), ["text-center", "mb-4"])
+  })
+
+  it("cancelled page: both titles are centred PageHeadings", async () => {
+    cancelPendingCheckout.mockResolvedValue({ ok: true })
+    await mount(<CancelHandler />)
+    has(container.querySelector("h1"), ["sm:text-4xl"])
+    has(header(), ["text-center", "mb-2"])
+    act(() => root.unmount())
+    root = createRoot(container)
+    cancelPendingCheckout.mockRejectedValue(new Error("boom"))
+    await mount(<CancelHandler />)
+    has(container.querySelector("h1"), ["sm:text-4xl"])
+    has(header(), ["text-center", "mb-2"])
+  })
+
+  it("every state keeps its main wrapper", async () => {
+    getCheckoutSessionStatus.mockResolvedValue({ ok: true, status: "paid" })
+    await mount(<SuccessPoller />)
+    has(container.querySelector("main"), ["mx-auto", "max-w-3xl", "px-4", "py-8", "text-center"])
+  })
+})
