@@ -27,16 +27,16 @@ Branch `feat/soft-red-r5c2-auth-subscribe`. Commits: B1 `e76fa1a` (pins on the o
 
 ## Subscribe pages
 
-| Check                                                   | Old                                         | New                                           |
-| ------------------------------------------------------- | ------------------------------------------- | --------------------------------------------- |
-| 80-char store name, page width at 1440/1024/768/390/320 | 2391 / 2183 / 2055 / 1818 / 1818 (overflow) | equals the viewport at all five               |
-| Store-name `h1` overflow                                | yes                                         | no (`PageHeading`, breaks anywhere)           |
-| 200-char plan description, plan card width at 390       | 1802 px                                     | 358 px                                        |
-| One plan at 1440                                        | left third of the grid (x 384, width 213)   | centred (x 528, width 384)                    |
-| Two plans at 1440                                       | two narrow cards on the left (213 each)     | two columns filling the width (328 each)      |
-| Three plans at 1440                                     | three columns (213 each)                    | same three columns                            |
-| Payments-off notice, long store, page width             | 2391 / 2183 / 2055 / 1818 / 1818            | equals the viewport; notice stays in its card |
-| Card radius and ground                                  | 16 px on a muted full-height ground         | 28 px white cards on the page ground          |
+| Check                                                   | Old                                                                 | New                                           |
+| ------------------------------------------------------- | ------------------------------------------------------------------- | --------------------------------------------- |
+| 80-char store name, page width at 1440/1024/768/390/320 | 2391 / 2183 / 2055 / 1818 / 1818 (overflow)                         | equals the viewport at all five               |
+| Store-name `h1` overflow                                | yes                                                                 | no (`PageHeading`, breaks anywhere)           |
+| 200-char plan description, plan card width at 390       | 1802 px                                                             | 358 px                                        |
+| One plan at 1440                                        | left third of the grid (x 384, width 213)                           | centred (x 528, width 384)                    |
+| Two plans at 1440                                       | two narrow cards on the left (213 each)                             | two columns filling the width (328 each)      |
+| Three plans at 1440                                     | three columns (213 each)                                            | same three columns                            |
+| Payments-off notice, long store, page width             | 2391 / 2183 / 2055 / 1818 / 1818                                    | equals the viewport; notice stays in its card |
+| Card radius and ground                                  | `rounded-2xl` (16 px, from the class) on a muted full-height ground | 28 px white cards on the page ground          |
 
 - Success page: the old `main` was a full viewport tall with the card at 160 px; the new `main` hugs the card (card top 144 at sm and up, 116 below). At 320x568 the old unconfirmed card ran off the viewport (156 to 638); the new one is fully in view (116 to 533).
 
