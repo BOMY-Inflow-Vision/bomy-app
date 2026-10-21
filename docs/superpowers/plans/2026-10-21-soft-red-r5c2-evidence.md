@@ -85,7 +85,7 @@ With an absurd price (RM9,999,999.99) the "Subscribe — RM…" label is clipped
   - **Cleaned** (owner SQL, one transaction): the 17 suite users with no audit link; their consents and one rate-limit row went by cascade. Audit total and null-actor count before and after: 238328 / 3885 both times.
   - **Retained:** 6 suite users that 86 audit rows point to (deleting them would blank the actor on append-only audit rows). One of the 2 rate-limit rows belongs to a retained user.
   - **After cleanup:** users 29177 (baseline 29171, **+6**); user_consents 1589 (baseline); action_rate_limits 1245 (+1, owned by a retained user); stores 2510, plans 1771, subscriptions 1512, addresses 3757, orders 0 (baseline). Fixture counts 0.
-  - **Charlie's R5c-1 acceptance does not carry over.** The 6 retained users need his explicit acceptance for R5c-2 before the push.
+  - **Accepted by Charlie on 2026-10-21 ("accept")**, after Bob approved the evidence: the 6 retained local dev test users (`@test.bomy`) and the 1 rate-limit row owned by one of them stay in the local database. This is the actor-linked exception in the plan (Task A4 Step 7), applied to R5c-2. R5c-1's acceptance did not carry over; this one is separate.
 - `admin_bypass_audit` (append-only, never deleted) grew 237976 -> 238328 = **+352**; null-actor count unchanged (3885):
   - old-code browser pass +26 (13:23-13:25 UTC), all "resolve store for brand subscription success page";
   - new-build browser pass +59 (13:25-13:38 UTC), the same reason;
