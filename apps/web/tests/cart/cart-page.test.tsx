@@ -158,32 +158,103 @@ describe("CartPage behaviour", () => {
   })
 })
 
-describe("CartPage thumbnail states (OLD behaviour, replaced by the D4a pins in Task A2)", () => {
-  it("no image renders no img and shows the emoji in a muted tile", () => {
+const has = (el: Element | null, tokens: string[]) => {
+  expect(el, tokens.join(" ")).not.toBeNull()
+  for (const t of tokens) expect(el!.classList.contains(t), `${t} on ${el!.className}`).toBe(true)
+}
+const LONG = "R5CLONGPRODUCT" + "X".repeat(66)
+
+describe("CartPage thumbnail states (D4a, replaces the old emoji and broken-image pins)", () => {
+  const tile = () => container.querySelector("li")!.firstElementChild!
+
+  it("no image: a Package icon on a blush tile, no img, no emoji", () => {
     mount([item({ coverImageUrl: null })])
-    const li = container.querySelector("li")!
-    expect(li.querySelector("img")).toBeNull()
-    expect(li.textContent).toContain("📦")
-    expect(li.querySelector("div.bg-muted")).not.toBeNull()
+    expect(container.querySelector("li img")).toBeNull()
+    expect(container.querySelector("li")!.textContent).not.toContain("📦")
+    const icon = tile().querySelector("svg")!
+    expect(icon.getAttribute("aria-hidden")).toBe("true")
+    has(tile(), ["relative", "size-16", "shrink-0", "overflow-hidden", "rounded-lg", "bg-tint"])
   })
 
-  it("an image URL renders an img with the product name as alt and 64x64", () => {
+  it("an image URL renders the img with the product name as alt", () => {
     mount([item({ coverImageUrl: "https://img/x.jpg" })])
-    const img = container.querySelector("li img")!
+    const img = tile().querySelector("img")!
     expect(img.getAttribute("src")).toBe("https://img/x.jpg")
     expect(img.getAttribute("alt")).toBe("Tea")
-    expect(img.getAttribute("width")).toBe("64")
-    expect(img.getAttribute("height")).toBe("64")
+    expect(tile().querySelector("svg")).toBeNull()
+    has(tile(), ["size-16", "bg-tint"])
   })
 
-  it("after an image error the img stays and no fallback appears (the browser shows its broken-image box)", () => {
+  it("after an image error the img is replaced by the Package icon (the one declared behaviour change)", () => {
     mount([item({ coverImageUrl: "https://img/broken.jpg" })])
-    const img = container.querySelector("li img")!
     act(() => {
-      img.dispatchEvent(new Event("error"))
+      tile().querySelector("img")!.dispatchEvent(new Event("error"))
     })
-    expect(container.querySelector("li img")).not.toBeNull()
-    expect(container.querySelector("li")!.textContent).not.toContain("📦")
-    expect(container.querySelector("li svg.lucide-package")).toBeNull()
+    expect(container.querySelector("li img")).toBeNull()
+    expect(tile().querySelector("svg")!.getAttribute("aria-hidden")).toBe("true")
+    has(tile(), ["size-16", "bg-tint"])
+  })
+})
+
+describe("CartPage R5c look", () => {
+  it("the title comes from PageHeading; the count is part of the title text", () => {
+    mount([item()])
+    const h1 = container.querySelector("h1")!
+    has(h1, ["sm:text-4xl", "[overflow-wrap:anywhere]"])
+    expect(h1.textContent).toBe("Your Cart (2)")
+    has(h1.parentElement, ["mb-6"])
+  })
+
+  it("the not-hydrated and empty titles are plain 'Your Cart' PageHeadings", () => {
+    mount([], false)
+    expect(container.querySelector("h1")!.textContent).toBe("Your Cart")
+    has(container.querySelector("h1"), ["sm:text-4xl"])
+    mount([])
+    expect(container.querySelector("h1")!.textContent).toBe("Your Cart")
+  })
+
+  it("rows are rounded-2xl white cards that may shrink", () => {
+    mount([item()])
+    const li = container.querySelector("li")!
+    has(li, ["min-w-0", "rounded-2xl", "border", "border-border", "bg-card"])
+    expect(li.classList.contains("rounded-xl")).toBe(false)
+    expect(li.classList.contains("bg-background")).toBe(false)
+  })
+
+  it("long product, store and variant names and prices break inside the row", () => {
+    mount([item({ productName: LONG, storeName: LONG, variantName: LONG })])
+    const li = container.querySelector("li")!
+    const link = li.querySelector("a")!
+    has(link, ["[overflow-wrap:anywhere]"])
+    const meta = Array.from(li.querySelectorAll("p")).find((p) => p.textContent.includes("·"))!
+    has(meta, ["[overflow-wrap:anywhere]"])
+    const price = Array.from(li.querySelectorAll("p")).find((p) => p.textContent.startsWith("RM"))!
+    has(price, ["[overflow-wrap:anywhere]"])
+    has(link.parentElement, ["min-w-0"])
+  })
+
+  it("the empty state and the subtotal card are bento cards on the white card colour", () => {
+    mount([])
+    const empty = Array.from(container.querySelectorAll("div")).find((d) =>
+      d.textContent.startsWith("Your cart is empty."),
+    )!
+    has(empty, ["rounded-bento", "border", "border-dashed", "bg-card", "text-center"])
+    mount([item()])
+    const summary = Array.from(container.querySelectorAll("div")).find(
+      (d) =>
+        d.firstElementChild?.textContent?.startsWith("Subtotal") && d.className.includes("rounded"),
+    )!
+    has(summary, ["rounded-bento", "border", "border-border", "bg-card", "p-6", "shadow-sm"])
+    has(summary.firstElementChild, ["gap-2"])
+    has(summary.querySelector(".font-bold"), ["[overflow-wrap:anywhere]"])
+  })
+
+  it("the quantity stepper keeps its labels and uses theme tokens only", () => {
+    mount([item()])
+    const stepper = byLabel("Increase quantity").closest("div.rounded-xl")!
+    has(stepper, ["border-input"])
+    for (const l of ["Increase quantity", "Decrease quantity"]) {
+      expect(byLabel(l).className).not.toMatch(/\b(?:gray|slate|zinc|neutral|red|blue)-\d/)
+    }
   })
 })
