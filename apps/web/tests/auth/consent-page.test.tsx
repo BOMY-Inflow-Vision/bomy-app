@@ -95,3 +95,21 @@ describe("consent page: R5c look", () => {
     expect(d.querySelector("h1")!.classList.contains("text-2xl")).toBe(true)
   })
 })
+
+describe("consent page: R5c focus rings", () => {
+  it("the terms and privacy links show a 2 px focus ring and still open in a new tab", async () => {
+    auth.mockResolvedValue({ user: { consentVersion: "v1", currentTosVersion: "v2" } })
+    const d = await render()
+    for (const href of ["/terms", "/privacy"]) {
+      const a = d.querySelector(`a[href="${href}"]`)!
+      expect(a.getAttribute("target")).toBe("_blank")
+      for (const t of [
+        "underline",
+        "focus-visible:outline-none",
+        "focus-visible:ring-2",
+        "focus-visible:ring-ring",
+      ])
+        expect(a.classList.contains(t), `${t} on ${a.className}`).toBe(true)
+    }
+  })
+})

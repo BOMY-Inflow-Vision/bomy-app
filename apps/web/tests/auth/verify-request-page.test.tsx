@@ -17,7 +17,9 @@ const TOKENS = {
   box: [
     "w-full",
     "max-w-sm",
-    "rounded-bento",
+    // Card carries rounded-card and the class merge does not know rounded-bento, so the 28 px bento
+    // corner needs the important modifier to win (checked in the browser: 28px, not 12px).
+    "!rounded-bento",
     "border",
     "border-border",
     "bg-card",

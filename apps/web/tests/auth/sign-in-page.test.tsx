@@ -130,3 +130,19 @@ describe("sign-in page: R5c look", () => {
     expect(d.querySelector("h1")!.classList.contains("text-2xl")).toBe(true)
   })
 })
+
+describe("sign-in page: R5c focus rings", () => {
+  it("the terms and privacy links show a 2 px focus ring", async () => {
+    const d = await render(false)
+    for (const href of ["/terms", "/privacy"]) {
+      const a = d.querySelector(`a[href="${href}"]`)!
+      for (const t of [
+        "underline",
+        "focus-visible:outline-none",
+        "focus-visible:ring-2",
+        "focus-visible:ring-ring",
+      ])
+        expect(a.classList.contains(t), `${t} on ${a.className}`).toBe(true)
+    }
+  })
+})

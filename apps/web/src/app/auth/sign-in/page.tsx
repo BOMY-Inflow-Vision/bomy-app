@@ -55,11 +55,17 @@ export default function SignInPage({ searchParams }: { searchParams: SignInSearc
 
         <p className="mt-6 text-center text-xs text-muted-foreground">
           By continuing you agree to our{" "}
-          <a href="/terms" className="underline">
+          <a
+            href="/terms"
+            className="rounded-sm underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
             Terms of Service
           </a>{" "}
           and{" "}
-          <a href="/privacy" className="underline">
+          <a
+            href="/privacy"
+            className="rounded-sm underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
             Privacy Policy
           </a>
           .

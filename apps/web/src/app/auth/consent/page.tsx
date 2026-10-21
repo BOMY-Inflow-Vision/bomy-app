@@ -34,11 +34,19 @@ export default async function ConsentPage() {
         <div className="mb-6 rounded-lg bg-muted p-4 text-sm text-foreground">
           <p>
             By clicking <strong>I Agree</strong>, you confirm you have read and accept our{" "}
-            <a href="/terms" target="_blank" className="text-foreground underline">
+            <a
+              href="/terms"
+              target="_blank"
+              className="text-foreground rounded-sm underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
               Terms of Service
             </a>{" "}
             and{" "}
-            <a href="/privacy" target="_blank" className="text-foreground underline">
+            <a
+              href="/privacy"
+              target="_blank"
+              className="text-foreground rounded-sm underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
               Privacy Policy
             </a>
             .
