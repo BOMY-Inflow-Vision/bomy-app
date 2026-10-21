@@ -40,7 +40,11 @@ function FulfillmentLabel({ mode, days }: { mode: string; days: number | null })
     return <Badge variant="warning">Back-order — ships when available</Badge>
   }
   if (mode === "preorder") {
-    return <Badge variant="info">Pre-order{days ? ` — ships in ${days} days` : ""}</Badge>
+    return (
+      <Badge variant="info">
+        Pre-order{days ? ` — ships in ${days} ${days === 1 ? "day" : "days"}` : ""}
+      </Badge>
+    )
   }
   return null
 }

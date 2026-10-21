@@ -108,9 +108,10 @@ describe("VariantPicker behaviour", () => {
     expect(container.textContent).toContain("Pre-order — ships in 14 days")
   })
 
-  it("keeps today's pre-order wording: 1 day reads '1 days'; no lead days shows no days", () => {
+  it("pre-order wording: 1 day is singular, other lead days stay plural, no lead days shows no days", () => {
     mount([
       v({ id: "a", name: "One", stockCount: 0, fulfillmentMode: "preorder", preorderLeadDays: 1 }),
+      v({ id: "c", name: "Two", stockCount: 0, fulfillmentMode: "preorder", preorderLeadDays: 2 }),
       v({
         id: "b",
         name: "None",
@@ -119,7 +120,10 @@ describe("VariantPicker behaviour", () => {
         preorderLeadDays: null,
       }),
     ])
-    expect(container.textContent).toContain("Pre-order — ships in 1 days")
+    expect(container.textContent).toContain("Pre-order — ships in 1 day")
+    expect(container.textContent).not.toContain("1 days")
+    click(chip("Two"))
+    expect(container.textContent).toContain("Pre-order — ships in 2 days")
     click(chip("None"))
     expect(container.textContent).toContain("Pre-order")
     expect(container.textContent).not.toContain("ships in")
