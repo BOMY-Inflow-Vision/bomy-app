@@ -4,6 +4,8 @@ import Link from "next/link"
 import { CreditCard, Minus, Plus, Search, Trash2 } from "lucide-react"
 
 import { Button } from "@bomy/ui/button"
+import { CoverImage } from "@/components/cover-image"
+import { PageHeading } from "@/components/page-heading"
 import { useToast } from "@/components/toaster"
 import { formatMyrSen } from "@/lib/format"
 import { useCart, type CartItem } from "@/lib/cart"
@@ -60,7 +62,7 @@ export default function CartPage() {
   if (!hydrated) {
     return (
       <main className="mx-auto max-w-3xl px-4 py-8">
-        <h1 className="text-2xl font-bold text-foreground">Your Cart</h1>
+        <PageHeading title="Your Cart" />
       </main>
     )
   }
@@ -69,12 +71,13 @@ export default function CartPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
-      <h1 className="mb-6 text-2xl font-bold text-foreground">
-        Your Cart {itemCount > 0 && <span className="text-muted-foreground">({itemCount})</span>}
-      </h1>
+      <PageHeading
+        title={itemCount > 0 ? `Your Cart (${itemCount})` : "Your Cart"}
+        className="mb-6"
+      />
 
       {items.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-input py-20 text-center">
+        <div className="rounded-bento border border-dashed border-input bg-card py-20 text-center">
           <p className="text-sm text-muted-foreground">Your cart is empty.</p>
           <Button variant="link" icon={<Search />} className="mt-4" asChild>
             <Link href="/products">Browse products</Link>
@@ -86,22 +89,10 @@ export default function CartPage() {
             {items.map((item) => (
               <li
                 key={item.variantId}
-                className="flex flex-wrap items-start gap-3 rounded-xl border border-border bg-background p-4 sm:flex-nowrap sm:gap-4"
+                className="flex min-w-0 flex-wrap items-start gap-3 rounded-2xl border border-border bg-card p-4 sm:flex-nowrap sm:gap-4"
               >
-                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-muted">
-                  {item.coverImageUrl ? (
-                    <img
-                      src={item.coverImageUrl}
-                      alt={item.productName}
-                      width={64}
-                      height={64}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-2xl text-muted-foreground">
-                      📦
-                    </div>
-                  )}
+                <div className="relative size-16 shrink-0 overflow-hidden rounded-lg bg-tint">
+                  <CoverImage src={item.coverImageUrl} alt={item.productName} />
                 </div>
 
                 {/* On mobile this sits in row 1 next to the image (flex-1 + justify-end
@@ -131,17 +122,17 @@ export default function CartPage() {
 
                 {/* w-full forces this onto its own wrapped row on mobile (row 2); on
                     sm: it un-wraps back between the image and actions. */}
-                <div className="w-full sm:order-2 sm:w-auto sm:flex-1">
+                <div className="w-full min-w-0 sm:order-2 sm:w-auto sm:flex-1">
                   <Link
                     href={`/products/${item.storeSlug}/${item.productSlug}`}
-                    className="text-sm font-medium text-foreground hover:text-primary"
+                    className="text-sm font-medium text-foreground [overflow-wrap:anywhere] hover:text-primary"
                   >
                     {item.productName}
                   </Link>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground [overflow-wrap:anywhere]">
                     {item.storeName} · {item.variantName}
                   </p>
-                  <p className="mt-1 text-sm font-semibold text-primary">
+                  <p className="mt-1 text-sm font-semibold text-primary [overflow-wrap:anywhere]">
                     {formatMyrSen(item.priceSen)}
                   </p>
                 </div>
@@ -149,10 +140,12 @@ export default function CartPage() {
             ))}
           </ul>
 
-          <div className="rounded-xl border border-border bg-background p-4">
-            <div className="flex items-center justify-between">
+          <div className="rounded-bento border border-border bg-card p-6 shadow-sm">
+            <div className="flex items-center justify-between gap-2">
               <span className="text-sm font-medium text-foreground">Subtotal</span>
-              <span className="text-lg font-bold text-foreground">{formatMyrSen(subtotal)}</span>
+              <span className="text-lg font-bold text-foreground [overflow-wrap:anywhere]">
+                {formatMyrSen(subtotal)}
+              </span>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
               Shipping, vouchers, and any brand-subscription discounts are applied at checkout — the

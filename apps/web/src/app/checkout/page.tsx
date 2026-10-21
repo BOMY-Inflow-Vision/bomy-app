@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 
 import { auth } from "@/auth"
+import { PageHeading } from "@/components/page-heading"
 import { Stepper } from "@/components/ui/stepper"
 
 import { listAddresses } from "../account/addresses/actions"
@@ -42,8 +43,8 @@ export default async function CheckoutPage() {
   if (!enabled) {
     return (
       <main className="mx-auto max-w-3xl px-4 py-8">
-        <h1 className="mb-4 text-2xl font-bold text-foreground">Checkout</h1>
-        <div className="rounded-xl border border-dashed border-input bg-muted p-6 text-center">
+        <PageHeading title="Checkout" className="mb-4" />
+        <div className="rounded-bento border border-dashed border-input bg-card p-6 text-center">
           <p className="text-sm text-muted-foreground">
             Checkout is paused. We&apos;ll let you know when it&apos;s back.
           </p>
@@ -67,7 +68,7 @@ export default async function CheckoutPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
-      <h1 className="mb-4 text-2xl font-bold text-foreground">Checkout</h1>
+      <PageHeading title="Checkout" className="mb-4" />
       <Stepper
         steps={CHECKOUT_STEPS}
         currentStep={1}

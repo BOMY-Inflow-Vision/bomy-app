@@ -7,6 +7,7 @@ import { ArrowLeft, Eye, RefreshCw } from "lucide-react"
 
 import type { CheckoutSessionStatus } from "@bomy/db"
 
+import { PageHeading } from "@/components/page-heading"
 import { useToast } from "@/components/toaster"
 import { Button } from "@bomy/ui/button"
 import { Stepper } from "@/components/ui/stepper"
@@ -105,7 +106,7 @@ export function SuccessPoller() {
         <div className="mb-6 flex justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-foreground" />
         </div>
-        <h1 className="mb-2 text-2xl font-bold text-foreground">Waiting for payment…</h1>
+        <PageHeading title="Waiting for payment…" align="center" className="mb-2" />
         <p className="text-sm text-muted-foreground">Please wait while we confirm your payment.</p>
       </main>
     )
@@ -114,7 +115,7 @@ export function SuccessPoller() {
   if (state.phase === "not_found") {
     return (
       <main className="mx-auto max-w-3xl px-4 py-8">
-        <h1 className="mb-4 text-2xl font-bold text-foreground">Session not found</h1>
+        <PageHeading title="Session not found" className="mb-4" />
         <p className="mb-6 text-sm text-muted-foreground">
           This checkout session doesn&apos;t exist or has already been processed.
         </p>
@@ -128,7 +129,7 @@ export function SuccessPoller() {
   if (state.phase === "timed_out") {
     return (
       <main className="mx-auto max-w-3xl px-4 py-8 text-center">
-        <h1 className="mb-4 text-2xl font-bold text-foreground">Still processing</h1>
+        <PageHeading title="Still processing" align="center" className="mb-4" />
         <p className="text-sm text-muted-foreground">
           Your payment is still being processed. Check your email or contact support if this
           persists.
@@ -153,7 +154,7 @@ function DoneView({ status }: { status: CheckoutSessionStatus }) {
           className="mb-8 text-left"
         />
         <div className="mb-4 text-4xl">✓</div>
-        <h1 className="mb-2 text-2xl font-bold text-foreground">Payment confirmed</h1>
+        <PageHeading title="Payment confirmed" align="center" className="mb-2" />
         <p className="mb-6 text-sm text-muted-foreground">
           Your order has been placed. You&apos;ll receive a confirmation email shortly.
         </p>
@@ -167,7 +168,7 @@ function DoneView({ status }: { status: CheckoutSessionStatus }) {
   if (status === "failed") {
     return (
       <main className="mx-auto max-w-3xl px-4 py-8 text-center">
-        <h1 className="mb-2 text-2xl font-bold text-foreground">Payment failed</h1>
+        <PageHeading title="Payment failed" align="center" className="mb-2" />
         <p className="mb-6 text-sm text-muted-foreground">
           Your payment was not successful. Please try again.
         </p>
@@ -181,7 +182,7 @@ function DoneView({ status }: { status: CheckoutSessionStatus }) {
   if (status === "expired") {
     return (
       <main className="mx-auto max-w-3xl px-4 py-8 text-center">
-        <h1 className="mb-2 text-2xl font-bold text-foreground">Session expired</h1>
+        <PageHeading title="Session expired" align="center" className="mb-2" />
         <p className="mb-6 text-sm text-muted-foreground">
           Your checkout session has expired. Please return to your cart and try again.
         </p>
@@ -195,7 +196,7 @@ function DoneView({ status }: { status: CheckoutSessionStatus }) {
   if (status === "cancelled") {
     return (
       <main className="mx-auto max-w-3xl px-4 py-8 text-center">
-        <h1 className="mb-2 text-2xl font-bold text-foreground">Checkout cancelled</h1>
+        <PageHeading title="Checkout cancelled" align="center" className="mb-2" />
         <p className="mb-6 text-sm text-muted-foreground">
           Your checkout was cancelled. Your cart is still saved.
         </p>
@@ -209,7 +210,7 @@ function DoneView({ status }: { status: CheckoutSessionStatus }) {
   // payment_review_required | payment_review_resolved
   return (
     <main className="mx-auto max-w-3xl px-4 py-8 text-center">
-      <h1 className="mb-2 text-2xl font-bold text-foreground">Payment under review</h1>
+      <PageHeading title="Payment under review" align="center" className="mb-2" />
       <p className="text-sm text-muted-foreground">
         Your payment is being reviewed. We&apos;ll email you once it&apos;s resolved.
       </p>
