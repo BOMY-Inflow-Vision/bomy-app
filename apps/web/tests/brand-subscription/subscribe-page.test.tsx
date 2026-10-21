@@ -175,3 +175,74 @@ describe("subscribe page: the three CTAs", () => {
     expect(d.querySelector('a[href^="/auth/sign-in"]')).toBeNull()
   })
 })
+
+const cls = (el: Element | null, tokens: string[]) => {
+  expect(el).not.toBeNull()
+  for (const t of tokens) expect(el!.classList.contains(t), `${t} on ${el!.className}`).toBe(true)
+}
+
+describe("subscribe page: R5c look", () => {
+  const LONG = "R5C2LONGSTORE".repeat(6) + "AB"
+
+  it("main is a plain padded column on the page ground (no full-height muted ground)", async () => {
+    getStorePlans.mockResolvedValue({ store: STORE, plans: [plan()] })
+    const d = await render()
+    const main = d.querySelector("main")!
+    cls(main, ["flex", "flex-col", "items-center", "px-4", "py-10", "sm:py-16"])
+    for (const t of ["min-h-screen", "bg-muted", "pt-20"])
+      expect(main.classList.contains(t)).toBe(false)
+  })
+
+  it("the store name is a centred PageHeading that may break anywhere", async () => {
+    getStorePlans.mockResolvedValue({ store: { id: "s1", name: LONG }, plans: [plan()] })
+    const d = await render()
+    const h1 = d.querySelector("h1")!
+    expect(h1.textContent).toBe(LONG)
+    cls(h1, ["text-3xl", "font-bold", "tracking-tight", "sm:text-4xl", "[overflow-wrap:anywhere]"])
+    cls(h1.parentElement, ["min-w-0", "text-center"])
+  })
+
+  it("the eyebrow uses the mono eyebrow style", async () => {
+    getStorePlans.mockResolvedValue({ store: STORE, plans: [plan()] })
+    const d = await render()
+    const eyebrow = Array.from(d.querySelectorAll("p")).find(
+      (p) => p.textContent === "#2 Brand Subscription",
+    )!
+    cls(eyebrow, ["font-mono", "text-xs", "uppercase", "tracking-eyebrow", "text-primary"])
+  })
+
+  it("plan cards are bento cards that can shrink and break long text", async () => {
+    getStorePlans.mockResolvedValue({
+      store: STORE,
+      plans: [plan({ priceMyrSen: 999999999n, description: "LONGPLANDESCRIPTION".repeat(10) })],
+    })
+    const d = await render()
+    const card = d.querySelector("main > div > ul > li")!
+    cls(card, ["min-w-0", "rounded-bento", "border", "border-border", "bg-card", "shadow-sm"])
+    for (const t of ["ring-1", "bg-background", "rounded-2xl"])
+      expect(card.classList.contains(t)).toBe(false)
+    const price = Array.from(card.querySelectorAll("p")).find(
+      (p) => p.textContent === "RM9999999.99",
+    )!
+    cls(price, ["[overflow-wrap:anywhere]"])
+    const desc = Array.from(card.querySelectorAll("li")).find((l) =>
+      l.textContent.includes("LONGPLAN"),
+    )!
+    cls(desc, ["min-w-0", "[overflow-wrap:anywhere]"])
+  })
+
+  it("the grid follows the plan count: one plan is centred and narrow, two fill two columns, three fill three", async () => {
+    const grid = async (n: number) => {
+      getStorePlans.mockResolvedValue({
+        store: STORE,
+        plans: Array.from({ length: n }, (_, i) =>
+          plan({ id: "p" + i, termMonths: [3, 6, 12][i] }),
+        ),
+      })
+      return (await render()).querySelector("main > div > ul")!
+    }
+    cls(await grid(1), ["grid", "gap-4", "grid-cols-1", "sm:mx-auto", "sm:max-w-sm", "w-full"])
+    cls(await grid(2), ["grid", "gap-4", "grid-cols-1", "sm:grid-cols-2", "w-full"])
+    cls(await grid(3), ["grid", "gap-4", "grid-cols-1", "sm:grid-cols-3", "w-full"])
+  })
+})

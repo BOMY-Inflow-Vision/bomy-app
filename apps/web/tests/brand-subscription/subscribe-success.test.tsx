@@ -201,3 +201,79 @@ describe("poller: the three renderings", () => {
     expect(router.refresh).toHaveBeenCalledTimes(1)
   })
 })
+
+describe("success page and poller: R5c look", () => {
+  it("main is a plain padded column on the page ground", async () => {
+    const main = (await renderPage()).querySelector("main")!
+    for (const t of ["flex", "items-start", "justify-center", "px-4", "py-10", "sm:py-16"])
+      expect(main.classList.contains(t), `${t} on ${main.className}`).toBe(true)
+    for (const t of ["min-h-screen", "bg-muted", "pt-20"])
+      expect(main.classList.contains(t)).toBe(false)
+  })
+
+  describe("cards", () => {
+    let container: HTMLDivElement
+    let root: Root
+    let Poller: typeof PollerModule.BrandSubscriptionPoller
+    beforeEach(async () => {
+      vi.useFakeTimers()
+      const real = await vi.importActual<typeof PollerModule>(
+        "@/app/brands/[slug]/subscribe/success/poller",
+      )
+      Poller = real.BrandSubscriptionPoller
+      container = document.createElement("div")
+      document.body.appendChild(container)
+      root = createRoot(container)
+    })
+    afterEach(() => {
+      act(() => root.unmount())
+      container.remove()
+      vi.useRealTimers()
+    })
+    const show = (
+      props: { initialActive: boolean; pendingFresh: boolean },
+      name = "Acme Goods",
+    ) => {
+      act(() => {
+        root.render(<Poller {...props} storeSlug="acme" storeName={name} />)
+      })
+      return container.firstElementChild!
+    }
+    const BENTO = [
+      "w-full",
+      "max-w-md",
+      "rounded-bento",
+      "border",
+      "border-border",
+      "bg-card",
+      "shadow-sm",
+      "p-8",
+      "sm:p-10",
+      "text-center",
+    ]
+
+    it("all three renderings are white bento cards; titles keep their size", () => {
+      for (const props of [
+        { initialActive: true, pendingFresh: false },
+        { initialActive: false, pendingFresh: true },
+        { initialActive: false, pendingFresh: false },
+      ]) {
+        const card = show(props)
+        for (const t of BENTO)
+          expect(card.classList.contains(t), `${t} on ${card.className}`).toBe(true)
+        for (const t of ["ring-1", "bg-background", "rounded-2xl", "p-10"])
+          expect(card.classList.contains(t)).toBe(false)
+        expect(card.querySelector("h1")!.classList.contains("text-xl")).toBe(true)
+      }
+    })
+
+    it("a long store name in the activated sentence breaks anywhere", () => {
+      const long = "R5C2LONGSTORE".repeat(6) + "AB"
+      show({ initialActive: true, pendingFresh: false }, long)
+      const p = Array.from(container.querySelectorAll("p")).find((x) =>
+        x.textContent.includes(long),
+      )!
+      expect(p.classList.contains("[overflow-wrap:anywhere]")).toBe(true)
+    })
+  })
+})

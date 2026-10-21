@@ -65,7 +65,7 @@ export default async function BrandSubscribeSuccessPage({ params }: Props) {
   const pendingFresh = sub?.status === "pending" && !isPendingAbandoned(sub, new Date())
 
   return (
-    <main className="flex min-h-screen items-start justify-center bg-muted px-4 pt-20">
+    <main className="flex items-start justify-center px-4 py-10 sm:py-16">
       <BrandSubscriptionPoller
         initialActive={sub?.status === "active"}
         pendingFresh={pendingFresh}
