@@ -53,8 +53,14 @@ Empty cart -> add Long + Normal -> raise Normal (RM69.90) -> remove Long (RM50.0
 
 - Baseline before fixtures: users 29165, stores 2510, products 521, variants 487, user_addresses 3757, checkout_sessions 7180, user_consents 1589, orders 0, admin_bypass_audit 237648.
 - Fixtures (marker `r5cfx`) were removed twice (after the old-code pass and after the new-build pass). Final `r5cfx` counts: all 0.
-- **DB-suite residue (not fixtures):** after the suites, users 29188 (+23, all `@test.bomy` emails created after the suite start) and user_consents 1601 (+12: 9 tos, 3 privacy). Other tables are at baseline (stores 2510, products 521, variants 487, addresses 3757, sessions 7180, orders 0). The app role cannot delete users; this residue was left in place and is local dev data only.
-- `admin_bypass_audit` (append-only, persistent) growth by cause: old-code browser pass +20; new-build browser pass +41; DB suites +267 (237709 -> 237976). Browser rows are mostly "read checkout_enabled gate" and `checkout_compensation:buyer_cancelled` (from viewing `/checkout/cancelled`).
+- **DB-suite residue and cleanup:** the suites created 23 `@test.bomy` users (all created 10:10:17-10:10:20 UTC, during the suite run) and 12 consent rows (9 tos, 3 privacy, all owned by those users). Dependents checked across every foreign key to `users`: `user_consents` 12 and `action_rate_limits` 2 (both `ON DELETE CASCADE`), and `admin_bypass_audit.actor_user_id` 86 rows (`ON DELETE SET NULL`). No other dependent table had rows.
+  - **Cleaned (owner SQL, one transaction):** the 17 suite users that no audit row points to. Their 12 consents and 2 rate-limit rows went with them by cascade. Audit total and null-actor count were checked before and after the delete: unchanged (237976 and 3885).
+  - **Kept:** the 6 suite users that 86 audit rows point to. Deleting them would set `actor_user_id` to null on those append-only audit rows, so they were left in place.
+  - **After cleanup:** users 29171 (baseline 29165, **+6**); user_consents 1589 (baseline, +0); stores 2510, products 521, variants 487, addresses 3757, checkout_sessions 7180, orders 0 (all baseline). Fixture (`r5cfx`) counts 0.
+  - **Deviation for Charlie to accept:** 6 local test users remain (`@test.bomy`, local dev DB only) so the audit rows keep their actor. Their consent rows are gone.
+- `admin_bypass_audit` (append-only, never deleted) grew 237648 -> 237976 = **+328**, every row dated 2026-10-21 09:57:36-10:10:20 UTC. Rows 09:45-10:00 bucket: 18; 10:00-10:15 bucket: 310.
+  - By time/cause: old-code browser pass +20; new-build browser pass +41 (both before 10:09:20); DB suites +267 (after 10:09:20).
+  - By reason: "read checkout_enabled gate" 74 (47 from browser page loads, 27 from suites); checkout app actions 37 (`checkout_compensation:buyer_cancelled` 19, `checkout_initiation` 8, `checkout_store_psp_ref` 7, other compensation 3); brand-subscription actions 15; "read tos_version for consent gate" 2; test helper rows 200 (seed, reset, setup, read, count, find, cleanup, teardown).
 - `platform_config.checkout_enabled` = `false` with the original `updated_at` and `updated_by`; flipped locally only for browser form views and restored.
 - `bomy-check` exits 1: the DB differs from the last export across many tables (sessions of earlier work too). Run `bomy-export` if switching machines.
 
