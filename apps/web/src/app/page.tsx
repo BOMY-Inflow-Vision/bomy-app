@@ -21,7 +21,7 @@ export function generateMetadata(): Metadata {
 export default async function Home() {
   const data = await getHomeData()
   return (
-    <main className="mx-auto min-w-0 max-w-6xl space-y-12 px-4 py-8">
+    <main className="mx-auto min-w-0 max-w-[1400px] space-y-12 px-3 py-8 sm:px-5">
       <Hero data={data} copy={HOME_COPY.hero} />
       <Marquee categories={data.categories} copy={HOME_COPY.marquee} />
       <Browse categories={data.categories} copy={HOME_COPY.browse} />

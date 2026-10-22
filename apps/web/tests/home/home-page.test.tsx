@@ -78,6 +78,20 @@ describe("Home page: module", () => {
     }
   })
 
+  it("the content is as wide as the header and the footer: max-w-[1400px] with px-3 sm:px-5", async () => {
+    const root = await mount(EMPTY)
+    const cls = root.querySelector("main")!.className
+    expect(cls).toMatch(/(^|\s)max-w-\[1400px\](\s|$)/)
+    expect(cls).toMatch(/(^|\s)px-3(\s|$)/)
+    expect(cls).toMatch(/(^|\s)sm:px-5(\s|$)/)
+    expect(cls).not.toMatch(/max-w-6xl|(^|\s)px-4(\s|$)/)
+    for (const f of ["src/components/nav-bar.tsx", "src/components/footer.tsx"]) {
+      const src = readFileSync(resolve(__dirname, "../..", f), "utf8")
+      expect(src, f).toMatch(/max-w-\[1400px\]/)
+      expect(src, f).toMatch(/px-3[^"]*sm:px-5/)
+    }
+  })
+
   it("reads only through getHomeData", () => {
     const src = readFileSync(resolve(__dirname, "../../src/app/page.tsx"), "utf8")
     expect(src).not.toMatch(/withAdmin|makeDb|@bomy\/db/)
