@@ -242,3 +242,5 @@ Charlie approved the copy as written, asked for the content width to equal the h
 **Decisions for Charlie:** (a) motion in R3 (items 1 to 4) or leave it all for R6; (b) if in R3, do we measure the missing rows first (adds one measuring pass) and include counters and word reveal. **Pick:** items 1 to 4 in R3 after Bob's review, the rest and `ProductCard` hover in R6, because items 1 to 4 are fully measured and low risk, and the others are not measured.
 
 Tests to add if approved: reduced-motion removes every animation class and shows the final state; `Reveal` renders its children visible in server output; no animation on `aria-hidden` shapes beyond the marquee and track; geometry re-measured at five widths (a moving marquee must not widen the page).
+
+**Outcome 2026-10-22:** Charlie chose R6 for all motion; nothing from this addendum is in R3. The measurements above stay as the starting point for R6.
