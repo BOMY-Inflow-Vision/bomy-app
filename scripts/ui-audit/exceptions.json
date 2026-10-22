@@ -550,5 +550,11 @@
     "file": "apps/web/src/components/footer.tsx",
     "text": "<div className=\"relative mx-auto max-w-[1400px] overflow-hidden rounded-bento bg-ink px-6 pt-10 text-ink-foreground sm:rounded-[2.5rem] md:px-12 md:pt-14\">",
     "reason": "footer card 2.5rem radius at sm and up; no radius scale step"
+  },
+  {
+    "rule": "R4-arbitrary",
+    "file": "apps/web/src/app/page.tsx",
+    "text": "<main className=\"mx-auto min-w-0 max-w-[1400px] space-y-12 px-3 py-8 sm:px-5\">",
+    "reason": "home content column is as wide as the nav pill and the footer card (1400px); no max-w scale step"
   }
 ]
