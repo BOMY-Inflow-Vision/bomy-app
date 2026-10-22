@@ -94,6 +94,17 @@ const config = {
         },
         subtle: "hsl(var(--border-subtle))",
       },
+      // Home hero only. Tight leading and tracking are part of the size, so every display line looks alike.
+      fontSize: {
+        display: [
+          "clamp(2.5rem, 1.5rem + 4.5vw, 5rem)",
+          { lineHeight: "0.95", letterSpacing: "-0.035em", fontWeight: "700" },
+        ],
+        "display-sm": [
+          "clamp(2rem, 1.25rem + 3vw, 3.5rem)",
+          { lineHeight: "0.95", letterSpacing: "-0.03em", fontWeight: "700" },
+        ],
+      },
       aspectRatio: {
         tile: "4 / 5",
       },
