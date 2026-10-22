@@ -21,19 +21,21 @@ export function generateMetadata(): Metadata {
 export default async function Home() {
   const data = await getHomeData()
   return (
-    <main className="mx-auto min-w-0 max-w-[1400px] space-y-12 px-3 py-8 sm:px-5">
-      <Hero data={data} copy={HOME_COPY.hero} />
-      <Marquee categories={data.categories} copy={HOME_COPY.marquee} />
-      <Browse categories={data.categories} copy={HOME_COPY.browse} />
-      <Favourites
-        products={data.favourites}
-        categories={data.categories}
-        copy={HOME_COPY.favourites}
-      />
-      <PromiseSection copy={HOME_COPY.promise} />
-      <Stats counts={data.counts} copy={HOME_COPY.stats} />
-      <Sellers brands={data.brands} copy={HOME_COPY.sellers} />
-      <Cta copy={HOME_COPY.cta} />
-    </main>
+    <div className="px-3 sm:px-5">
+      <main className="mx-auto min-w-0 max-w-[1400px] space-y-12 py-8">
+        <Hero data={data} copy={HOME_COPY.hero} />
+        <Marquee categories={data.categories} copy={HOME_COPY.marquee} />
+        <Browse categories={data.categories} copy={HOME_COPY.browse} />
+        <Favourites
+          products={data.favourites}
+          categories={data.categories}
+          copy={HOME_COPY.favourites}
+        />
+        <PromiseSection copy={HOME_COPY.promise} />
+        <Stats counts={data.counts} copy={HOME_COPY.stats} />
+        <Sellers brands={data.brands} copy={HOME_COPY.sellers} />
+        <Cta copy={HOME_COPY.cta} />
+      </main>
+    </div>
   )
 }

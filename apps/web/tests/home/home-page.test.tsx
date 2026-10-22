@@ -78,13 +78,16 @@ describe("Home page: module", () => {
     }
   })
 
-  it("the content is as wide as the header and the footer: max-w-[1400px] with px-3 sm:px-5", async () => {
+  it("the content has the header's and footer's edges: a px-3 sm:px-5 gutter around a max-w-[1400px] column", async () => {
     const root = await mount(EMPTY)
-    const cls = root.querySelector("main")!.className
-    expect(cls).toMatch(/(^|\s)max-w-\[1400px\](\s|$)/)
-    expect(cls).toMatch(/(^|\s)px-3(\s|$)/)
-    expect(cls).toMatch(/(^|\s)sm:px-5(\s|$)/)
-    expect(cls).not.toMatch(/max-w-6xl|(^|\s)px-4(\s|$)/)
+    const main = root.querySelector("main")!
+    expect(main.className).toMatch(/(^|\s)max-w-\[1400px\](\s|$)/)
+    expect(main.className).toMatch(/(^|\s)mx-auto(\s|$)/)
+    // the gutter is outside the 1400px box, so at wide screens the content edge equals the card edge
+    expect(main.className).not.toMatch(/(^|\s)(sm:)?px-\d/)
+    const gutter = main.parentElement!
+    expect(gutter.className).toMatch(/(^|\s)px-3(\s|$)/)
+    expect(gutter.className).toMatch(/(^|\s)sm:px-5(\s|$)/)
     for (const f of ["src/components/nav-bar.tsx", "src/components/footer.tsx"]) {
       const src = readFileSync(resolve(__dirname, "../..", f), "utf8")
       expect(src, f).toMatch(/max-w-\[1400px\]/)
