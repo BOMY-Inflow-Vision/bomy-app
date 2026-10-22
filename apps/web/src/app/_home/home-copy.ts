@@ -42,7 +42,11 @@ export const HOME_COPY = {
   },
   stats: {
     title: "BOMY in numbers",
-    labels: { brands: "Brands", products: "Products", categories: "Categories" },
+    labels: {
+      brands: (n: number) => (n === 1 ? "Brand" : "Brands"),
+      products: (n: number) => (n === 1 ? "Product" : "Products"),
+      categories: (n: number) => (n === 1 ? "Category" : "Categories"),
+    },
   },
   sellers: { title: "From our sellers", all: "All brands" },
   cta: {

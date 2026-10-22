@@ -30,7 +30,7 @@ export function Stats({
               {counts[k]}
             </p>
             <p className="mt-2 text-sm text-muted-foreground [overflow-wrap:anywhere]">
-              {copy.labels[k]}
+              {copy.labels[k](counts[k])}
             </p>
           </li>
         ))}

@@ -72,7 +72,15 @@ describe("Stats", () => {
     expect(q(root, "stat-brands")!.textContent).toContain("3")
     expect(q(root, "stat-products")!.textContent).toContain("9")
     expect(q(root, "stat-categories")!.textContent).toContain("12")
-    expect(q(root, "stat-brands")!.textContent).toContain("«stats.labels.brands»")
+    expect(q(root, "stat-brands")!.textContent).toContain("«stats.labels.brands(3)»")
+  })
+  it("a count of 1 reads as singular and every label gets its own number", () => {
+    const root = mountEl(
+      <Stats counts={{ brands: 1, products: 1, categories: 2 }} copy={copy.stats} />,
+    )
+    expect(q(root, "stat-brands")!.textContent).toContain("«stats.labels.brands(1)»")
+    expect(q(root, "stat-products")!.textContent).toContain("«stats.labels.products(1)»")
+    expect(q(root, "stat-categories")!.textContent).toContain("«stats.labels.categories(2)»")
   })
   it("renders nothing when every count is zero", () => {
     const root = mountEl(

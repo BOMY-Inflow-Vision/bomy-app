@@ -43,9 +43,6 @@ describe("home copy: shape", () => {
       "promise.statement",
       "promise.chip",
       "stats.title",
-      "stats.labels.brands",
-      "stats.labels.products",
-      "stats.labels.categories",
       "sellers.title",
       "sellers.all",
       "cta.title",
@@ -60,6 +57,16 @@ describe("home copy: shape", () => {
   it("home-copy.ts imports nothing", () => {
     const src = readFileSync(join(__dirname, "../../src/app/_home/home-copy.ts"), "utf8")
     expect(src).not.toMatch(/^\s*import\s/m)
+  })
+
+  it("stat labels agree with the number: 1 is singular, anything else plural", () => {
+    const L = HOME_COPY.stats.labels
+    expect([L.brands(1), L.products(1), L.categories(1)]).toEqual(["Brand", "Product", "Category"])
+    expect([L.brands(2), L.products(9), L.categories(12)]).toEqual([
+      "Brands",
+      "Products",
+      "Categories",
+    ])
   })
 
   it("builds the count wording from the unit only", () => {
