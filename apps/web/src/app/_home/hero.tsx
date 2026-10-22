@@ -75,7 +75,7 @@ export function Hero({ data, copy }: { data: HomeData; copy: HeroCopy }) {
         <Link
           href={`/products/${featured.storeSlug}/${featured.slug}`}
           data-home="hero-featured"
-          className="group flex min-w-0 flex-col overflow-hidden rounded-bento bg-tint p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background lg:row-span-2 lg:row-start-1"
+          className="group flex min-w-0 flex-col overflow-hidden rounded-bento bg-tint p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background lg:col-start-3 lg:row-span-2 lg:row-start-1"
         >
           <p className="mb-3 px-1 font-mono text-xs uppercase tracking-eyebrow text-muted-foreground [overflow-wrap:anywhere]">
             {copy.featured.label}

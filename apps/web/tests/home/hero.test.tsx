@@ -63,6 +63,17 @@ describe("Hero details", () => {
     expect(marker(root, "hero-featured-price")?.textContent).toContain("RM45.90")
   })
 
+  it("the tall featured card sits in the third column, so the visual order matches the Tab order", () => {
+    const root = mount(full)
+    const card = marker(root, "hero-featured")!
+    expect(card.className).toMatch(/lg:col-start-3/)
+    expect(card.className).toMatch(/lg:row-span-2/)
+    const html = root.innerHTML
+    expect(html.indexOf('data-home="hero-headline"')).toBeLessThan(
+      html.indexOf('data-home="hero-featured"'),
+    )
+  })
+
   it("the headline card has the heading and two links", () => {
     const root = mount(full)
     expect(root.querySelectorAll("h1")).toHaveLength(1)
