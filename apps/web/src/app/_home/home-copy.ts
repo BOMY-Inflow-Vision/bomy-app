@@ -6,7 +6,7 @@
 //
 // COPY GATE: HOME_COPY_STATUS stays "draft" until Charlie approves the words below. The merge-gate
 // test fails while it is "draft", and the PR does not merge until it is "approved".
-export const HOME_COPY_STATUS: "draft" | "approved" = "draft"
+export const HOME_COPY_STATUS: "draft" | "approved" = "approved"
 
 export const HOME_COPY = {
   meta: {
