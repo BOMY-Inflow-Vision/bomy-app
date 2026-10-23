@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { and, asc, desc, eq, ilike, or, sql, type SQL } from "drizzle-orm"
-import { Ban, CircleCheck, Plus, Search } from "lucide-react"
+import { Ban, CircleCheck, Plus, RotateCcw, Search } from "lucide-react"
 
 import { schema, withAdmin } from "@bomy/db"
 
@@ -15,7 +15,7 @@ import { FilterTab, FilterTabs } from "@bomy/ui/filter-tabs"
 import { Input } from "@bomy/ui/input"
 import { Label } from "@bomy/ui/label"
 import { Pagination } from "@/components/ui/pagination"
-import { approveStore, suspendStore } from "./actions"
+import { approveStore, reactivateStore, suspendStore } from "./actions"
 import { CopyId } from "./copy-id"
 
 const STORE_STATUSES = ["pending", "active", "suspended"] as const
@@ -213,6 +213,13 @@ export default async function StoresPage({
                         className="text-destructive"
                       >
                         Suspend
+                      </Button>
+                    </form>
+                  )}
+                  {row.status === "suspended" && (
+                    <form action={reactivateStore.bind(null, row.id)}>
+                      <Button variant="link" size="sm" type="submit" icon={<RotateCcw />}>
+                        Reactivate
                       </Button>
                     </form>
                   )}

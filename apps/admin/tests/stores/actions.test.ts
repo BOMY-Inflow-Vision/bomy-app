@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto"
 
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import {
   afterAll,
   afterEach,
@@ -30,6 +30,7 @@ import { revalidatePath } from "next/cache"
 import {
   approveStore,
   createStore,
+  reactivateStore,
   suspendStore,
   updateStoreSeo,
 } from "../../src/app/stores/actions"
@@ -402,5 +403,52 @@ describe.skipIf(!shouldRun)("approveStore / suspendStore server-form actions", (
     mockAuth.mockResolvedValue({ user: { id: adminId, role: "buyer" } })
     await expect(suspendStore(storeId)).resolves.toBeUndefined()
     expect(mockFlashToast).toHaveBeenCalledWith("error", "You don't have permission to do that.")
+  })
+
+  it("reactivateStore: reactivates a suspended store, writes an audit row, flashes success", async () => {
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test seed suspended" }, (tx) =>
+      tx.update(schema.stores).set({ status: "suspended" }).where(eq(schema.stores.id, storeId)),
+    )
+    await reactivateStore(storeId)
+    const { storeStatus } = await readStoreAndOwnerRole()
+    expect(storeStatus).toBe("active")
+    expect(mockFlashToast).toHaveBeenCalledWith("success", "Store reactivated.")
+    expect(mockRevalidatePath).toHaveBeenCalledWith("/stores")
+    const audit = await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "verify" }, (tx) =>
+      tx
+        .select({ id: schema.adminBypassAudit.id })
+        .from(schema.adminBypassAudit)
+        .where(
+          and(
+            eq(schema.adminBypassAudit.actorUserId, adminId),
+            eq(schema.adminBypassAudit.reason, "admin reactivate store"),
+          ),
+        ),
+    )
+    expect(audit).toHaveLength(1)
+  })
+
+  it("reactivateStore: leaves a pending store alone (approveStore owns that path)", async () => {
+    await reactivateStore(storeId)
+    const { storeStatus, ownerRole } = await readStoreAndOwnerRole()
+    expect(storeStatus).toBe("pending")
+    expect(ownerRole).toBe("buyer")
+    expect(mockFlashToast).toHaveBeenCalledWith("error", "Store is not suspended.")
+  })
+
+  it("reactivateStore: unknown store id flashes an error, no throw", async () => {
+    await expect(reactivateStore(randomUUID())).resolves.toBeUndefined()
+    expect(mockFlashToast).toHaveBeenCalledWith("error", "Store is not suspended.")
+  })
+
+  it("reactivateStore: a demoted admin gets a flashed error, no write", async () => {
+    await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test seed suspended" }, (tx) =>
+      tx.update(schema.stores).set({ status: "suspended" }).where(eq(schema.stores.id, storeId)),
+    )
+    mockAuth.mockResolvedValue({ user: { id: adminId, role: "buyer" } })
+    await expect(reactivateStore(storeId)).resolves.toBeUndefined()
+    expect(mockFlashToast).toHaveBeenCalledWith("error", "You don't have permission to do that.")
+    const { storeStatus } = await readStoreAndOwnerRole()
+    expect(storeStatus).toBe("suspended")
   })
 })
