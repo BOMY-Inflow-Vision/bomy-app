@@ -2,7 +2,7 @@
 
 import { randomUUID } from "node:crypto"
 
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
 
@@ -83,6 +83,41 @@ export async function suspendStore(storeId: string): Promise<void> {
 
   revalidatePath("/stores")
   await flashToast("success", "Store suspended.")
+}
+
+// Server-form trigger — same shape as suspendStore above. Only a suspended store can be
+// reactivated (a pending store still goes through approveStore, which also promotes the owner).
+export async function reactivateStore(storeId: string): Promise<void> {
+  const authz = await authorizeAdminAction()
+  if (!authz.ok) {
+    await flashToast("error", authz.error)
+    return
+  }
+
+  let reactivated: { id: string }[]
+  try {
+    reactivated = await withAdmin(
+      getDb(),
+      { userId: authz.adminId, reason: "admin reactivate store" },
+      async (tx) =>
+        tx
+          .update(schema.stores)
+          .set({ status: "active", updatedAt: new Date() })
+          .where(and(eq(schema.stores.id, storeId), eq(schema.stores.status, "suspended")))
+          .returning({ id: schema.stores.id }),
+    )
+  } catch {
+    await flashToast("error", "Could not reactivate store.")
+    return
+  }
+
+  if (reactivated.length === 0) {
+    await flashToast("error", "Store is not suspended.")
+    return
+  }
+
+  revalidatePath("/stores")
+  await flashToast("success", "Store reactivated.")
 }
 
 export type CreateStoreResult = { ok: true } | { ok: false; error: string }
