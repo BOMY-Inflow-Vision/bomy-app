@@ -4,6 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { ArrowLeft, RefreshCw } from "lucide-react"
 
+import { PageHeading } from "@/components/page-heading"
 import { useToast } from "@/components/toaster"
 import { Button } from "@bomy/ui/button"
 
@@ -24,11 +25,12 @@ export default function RouteError({
   }, [error, toast])
 
   return (
-    <main className="mx-auto flex max-w-lg flex-col items-center gap-4 px-4 py-24 text-center">
-      <h1 className="text-2xl font-bold text-foreground">Something went wrong</h1>
-      <p className="text-sm text-muted-foreground">
-        We couldn&apos;t finish that. Try again, or head back to the home page.
-      </p>
+    <main className="mx-auto flex max-w-lg flex-col items-center gap-6 px-4 py-24 text-center">
+      <PageHeading
+        align="center"
+        title="Something went wrong"
+        description="We couldn’t finish that. Try again, or head back to the home page."
+      />
       {error.digest && (
         <p className="max-w-full font-mono text-xs text-muted-foreground [overflow-wrap:anywhere]">
           Reference: {error.digest}
