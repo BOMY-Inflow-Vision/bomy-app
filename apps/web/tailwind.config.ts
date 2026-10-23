@@ -125,7 +125,13 @@ const config = {
         sans: ["var(--font-sans)", ...fontFamily.sans],
         mono: ["var(--font-mono)", ...fontFamily.mono],
       },
+      transitionDuration: {
+        // Scroll reveal settle time, measured on the Kvist reference (soft-red R6).
+        reveal: "900ms",
+      },
       transitionTimingFunction: {
+        // Exponential ease-out, the Kvist reference curve (soft-red R6).
+        "out-expo": "cubic-bezier(0.16, 1, 0.3, 1)",
         // Sampled spring (stiffness 600, damping 25, mass 1); settles in ~500ms.
         spring:
           "linear(0, 0.107, 0.347, 0.619, 0.856, 1.025, 1.121, 1.154, 1.144, 1.109, 1.067, 1.029, 1, 0.983, 0.976, 0.977, 0.982, 0.988, 0.995, 0.999, 1.002, 1.004, 1.004, 1.003, 1)",

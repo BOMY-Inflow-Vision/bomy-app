@@ -98,7 +98,10 @@ export function Hero({ data, copy }: { data: HomeData; copy: HeroCopy }) {
             )}
             <p className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-foreground [overflow-wrap:anywhere]">
               {copy.featured.cta}
-              <ArrowRight aria-hidden="true" className="size-4 shrink-0" />
+              <ArrowRight
+                aria-hidden="true"
+                className="size-4 shrink-0 transition-transform duration-300 ease-out-expo group-hover:translate-x-1 motion-reduce:transition-none"
+              />
             </p>
           </div>
         </Link>
@@ -117,7 +120,7 @@ export function Hero({ data, copy }: { data: HomeData; copy: HeroCopy }) {
             <span className="min-w-0">{copy.themed.sub}</span>
             <ArrowRight
               aria-hidden="true"
-              className="mt-0.5 size-4 shrink-0 transition-transform group-hover:translate-x-1"
+              className="mt-0.5 size-4 shrink-0 transition-transform duration-300 ease-out-expo group-hover:translate-x-1 motion-reduce:transition-none"
             />
           </p>
         </Link>
