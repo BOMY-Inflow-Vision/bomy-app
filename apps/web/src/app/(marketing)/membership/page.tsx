@@ -69,8 +69,8 @@ export default async function MembershipPage() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center bg-muted px-4 pt-20">
-      <Card className="w-full max-w-lg rounded-2xl text-center">
+    <main className="flex min-h-screen flex-col items-center px-4 pt-20">
+      <Card className="w-full max-w-lg !rounded-bento text-center">
         <CardContent className="flex flex-col gap-4 p-5 sm:p-10">
           <div className="flex flex-col gap-8">
             <div className="flex flex-col gap-2">

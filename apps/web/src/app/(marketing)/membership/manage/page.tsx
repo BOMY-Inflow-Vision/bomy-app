@@ -43,8 +43,8 @@ export default async function MembershipManagePage() {
   const isCancelling = sub.cancelledAt !== null
 
   return (
-    <main className="flex min-h-screen flex-col items-center bg-muted px-4 pt-20">
-      <Card className="w-full max-w-lg rounded-2xl">
+    <main className="flex min-h-screen flex-col items-center px-4 pt-20">
+      <Card className="w-full max-w-lg !rounded-bento">
         <CardContent className="p-10">
           <div className="mb-6 flex items-center gap-3">
             {isCancelling ? (

@@ -36,4 +36,16 @@ describe("LegalPageLayout", () => {
     expect(html).toContain("Body content here.")
     expect(html).toContain("Second paragraph.")
   })
+
+  it("renders one h1 and puts the body in a bento card", () => {
+    const html = renderToStaticMarkup(
+      <LegalPageLayout title="Test Policy" intro="A short summary.">
+        <p>Body content.</p>
+      </LegalPageLayout>,
+    )
+    expect(html.match(/<h1/g)).toHaveLength(1)
+    expect(html).toMatch(
+      /<div class="[^"]*rounded-bento[^"]*bg-card[^"]*"[^>]*><p>Body content\.<\/p>/,
+    )
+  })
 })

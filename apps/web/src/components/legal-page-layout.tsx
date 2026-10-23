@@ -1,5 +1,7 @@
 import React from "react"
 
+import { PageHeading } from "@/components/page-heading"
+
 type LegalPageLayoutProps = {
   title: string
   intro: string
@@ -11,14 +13,14 @@ export function LegalPageLayout({ title, intro, lastUpdated, children }: LegalPa
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-8 px-4 py-12">
       <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold">{title}</h1>
-        <p className="text-lg text-muted-foreground">{intro}</p>
+        <PageHeading title={title} description={intro} />
         {lastUpdated && (
           <p className="text-sm text-muted-foreground">Last updated: {lastUpdated}</p>
         )}
       </div>
-      <hr />
-      <div className="space-y-6 leading-relaxed text-foreground">{children}</div>
+      <div className="min-w-0 space-y-6 rounded-bento border border-border bg-card p-6 leading-relaxed text-foreground [overflow-wrap:anywhere] sm:p-10">
+        {children}
+      </div>
     </main>
   )
 }

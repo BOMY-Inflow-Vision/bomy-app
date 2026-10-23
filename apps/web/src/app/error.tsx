@@ -30,7 +30,9 @@ export default function RouteError({
         We couldn&apos;t finish that. Try again, or head back to the home page.
       </p>
       {error.digest && (
-        <p className="font-mono text-xs text-muted-foreground">Reference: {error.digest}</p>
+        <p className="max-w-full font-mono text-xs text-muted-foreground [overflow-wrap:anywhere]">
+          Reference: {error.digest}
+        </p>
       )}
       <div className="flex flex-wrap justify-center gap-3">
         <Button type="button" icon={<RefreshCw />} onClick={reset}>
