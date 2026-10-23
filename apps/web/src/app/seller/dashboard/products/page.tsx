@@ -27,6 +27,23 @@ export default async function SellerProductsPage({
   const { status } = await searchParams
   const products = await getSellerProducts(status)
 
+  if (products === null) {
+    return (
+      <div className="p-8">
+        <h1 className="mb-6 text-xl font-semibold text-foreground">Products</h1>
+        <div className="rounded-xl border border-border bg-background p-12 text-center shadow-sm">
+          <p className="font-medium text-foreground">Your store is not active.</p>
+          <p className="mt-2 text-muted-foreground">
+            You cannot manage products while your store is suspended or waiting for approval.
+          </p>
+          <Button variant="link" size="sm" className="mt-3" asChild>
+            <Link href="/contact">Contact us</Link>
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="p-8">
       <div className="mb-6 flex items-center justify-between">

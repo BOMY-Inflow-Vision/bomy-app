@@ -58,6 +58,7 @@ import {
   getBodyImageUploadUrl,
   getPresignedUploadUrl,
   getProductForEdit,
+  getSellerProducts,
   reactivateVariant,
   removeProductImage,
   reorderImages,
@@ -1173,6 +1174,17 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       formData.set("variant_stock_0", "5")
       const result = await createProduct(formData)
       expect(result).toEqual({ ok: false, error: "No active store found for this seller" })
+    })
+
+    it("getSellerProducts returns null (not a throw) for a suspended store", async () => {
+      mockAuth.mockResolvedValue({
+        user: {
+          id: suspendedUserId,
+          role: "seller_owner",
+          email: `suspended-${suspendedUserId.slice(0, 8)}@test.bomy`,
+        },
+      })
+      await expect(getSellerProducts()).resolves.toBeNull()
     })
 
     it("updateVariant returns a typed error for suspended store", async () => {
