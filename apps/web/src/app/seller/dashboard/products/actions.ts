@@ -99,44 +99,55 @@ async function resolveStore(tx: Database, userId: string): Promise<string> {
 
 // ─── Read ──────────────────────────────────────────────────────────────────
 
+// Returns null when the seller has no active store (e.g. it is suspended) so the page can show
+// a message; resolveStore's "no active store" is an expected state, not a server fault.
 export async function getSellerProducts(statusFilter?: string) {
   const session = await requireSeller()
 
-  return withTenant(
-    getDb(),
-    { userId: session.user.id, userRole: session.user.role },
-    async (tx) => {
-      const storeId = await resolveStore(tx, session.user.id)
+  try {
+    return await withTenant(
+      getDb(),
+      { userId: session.user.id, userRole: session.user.role },
+      async (tx) => {
+        const storeId = await resolveStore(tx, session.user.id)
 
-      const conditions = [eq(schema.products.storeId, storeId)]
-      if (statusFilter && ["draft", "active", "archived"].includes(statusFilter)) {
-        conditions.push(eq(schema.products.status, statusFilter as "draft" | "active" | "archived"))
-      }
+        const conditions = [eq(schema.products.storeId, storeId)]
+        if (statusFilter && ["draft", "active", "archived"].includes(statusFilter)) {
+          conditions.push(
+            eq(schema.products.status, statusFilter as "draft" | "active" | "archived"),
+          )
+        }
 
-      return tx
-        .select({
-          id: schema.products.id,
-          name: schema.products.name,
-          slug: schema.products.slug,
-          status: schema.products.status,
-          coverImageUrl: schema.products.coverImageUrl,
-          createdAt: schema.products.createdAt,
-        })
-        .from(schema.products)
-        .where(
-          conditions.length === 1
-            ? conditions[0]!
-            : and(
-                ...(conditions as [
-                  (typeof conditions)[0],
-                  (typeof conditions)[0],
-                  ...typeof conditions,
-                ]),
-              ),
-        )
-        .orderBy(schema.products.createdAt)
-    },
-  )
+        return tx
+          .select({
+            id: schema.products.id,
+            name: schema.products.name,
+            slug: schema.products.slug,
+            status: schema.products.status,
+            coverImageUrl: schema.products.coverImageUrl,
+            createdAt: schema.products.createdAt,
+          })
+          .from(schema.products)
+          .where(
+            conditions.length === 1
+              ? conditions[0]!
+              : and(
+                  ...(conditions as [
+                    (typeof conditions)[0],
+                    (typeof conditions)[0],
+                    ...typeof conditions,
+                  ]),
+                ),
+          )
+          .orderBy(schema.products.createdAt)
+      },
+    )
+  } catch (err) {
+    if (err instanceof Error && err.message === "No active store found for this seller") {
+      return null
+    }
+    throw err
+  }
 }
 
 export async function getProductForEdit(productId: string) {
