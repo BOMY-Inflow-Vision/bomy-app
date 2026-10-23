@@ -3,6 +3,7 @@ import Link from "next/link"
 import React from "react"
 import { Search, Store } from "lucide-react"
 
+import { PageHeading } from "@/components/page-heading"
 import { Button } from "@bomy/ui/button"
 import { Card, CardContent } from "@bomy/ui/card"
 
@@ -45,15 +46,13 @@ const pillars = [
 export default function AboutPage() {
   return (
     <main className="bg-background">
-      <section className="border-b border-border bg-muted">
-        <div className="mx-auto flex max-w-5xl flex-col items-center gap-5 px-4 py-20 text-center">
-          <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
-            The home of authentic Malaysian brands.
-          </h1>
-          <p className="max-w-2xl text-lg text-muted-foreground">
-            We bring Malaysia&rsquo;s best-loved makers together under one trusted roof — for
-            shoppers here and around the world.
-          </p>
+      <section>
+        <div className="mx-auto max-w-5xl px-4 py-16">
+          <PageHeading
+            align="center"
+            title="The home of authentic Malaysian brands."
+            description="We bring Malaysia’s best-loved makers together under one trusted roof — for shoppers here and around the world."
+          />
         </div>
       </section>
 
@@ -70,8 +69,8 @@ export default function AboutPage() {
         </p>
       </section>
 
-      <section className="border-t border-border bg-muted">
-        <div className="mx-auto flex max-w-5xl flex-col gap-8 px-4 py-16">
+      <section className="mx-auto w-full max-w-5xl px-4 py-8">
+        <div className="flex min-w-0 flex-col gap-8 rounded-bento bg-tint p-6 sm:p-10">
           <div className="flex flex-col gap-3">
             <h2 className="text-2xl font-bold text-foreground">Why BOMY exists</h2>
             <p className="max-w-3xl text-muted-foreground">
@@ -95,7 +94,7 @@ export default function AboutPage() {
         <ul className="grid grid-cols-1 gap-6 md:grid-cols-3">
           {pillars.map((p) => (
             <li key={p.title}>
-              <Card className="h-full">
+              <Card className="h-full !rounded-bento">
                 <CardContent className="flex flex-col gap-3 p-6">
                   <h3 className="text-lg font-semibold text-foreground">{p.title}</h3>
                   <p className="text-sm leading-relaxed text-muted-foreground">{p.body}</p>
@@ -106,8 +105,8 @@ export default function AboutPage() {
         </ul>
       </section>
 
-      <section className="border-t border-border bg-muted">
-        <div className="mx-auto flex max-w-5xl flex-col items-center gap-6 px-4 py-16 text-center">
+      <section className="mx-auto w-full max-w-5xl px-4 py-8">
+        <div className="flex min-w-0 flex-col items-center gap-6 rounded-bento bg-tint p-6 text-center sm:p-10">
           <div className="flex flex-col items-center gap-4">
             <h2 className="text-2xl font-bold text-foreground">
               Built for Malaysian brands ready to grow.

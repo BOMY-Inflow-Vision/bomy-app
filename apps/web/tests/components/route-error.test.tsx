@@ -31,4 +31,9 @@ describe("RouteError", () => {
     const html = render(Object.assign(new Error("boom"), { digest: "272438949" }))
     expect(html).toContain("272438949")
   })
+
+  it("lets a long unbroken digest wrap inside the page", () => {
+    const html = render(Object.assign(new Error("boom"), { digest: "x".repeat(120) }))
+    expect(html).toMatch(/\[overflow-wrap:anywhere\][^>]*>Reference/)
+  })
 })
