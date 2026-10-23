@@ -9,6 +9,7 @@ import { auth } from "@/auth"
 import { getDb } from "@/lib/db"
 import { HEADER_PILL_CLASS, storeStatusVariant } from "@/lib/status-badge"
 import { CopyStoreId } from "./copy-store-id"
+import { StoreStatusNotice } from "./store-status-notice"
 
 export default async function SellerDashboardPage() {
   const session = await auth()
@@ -45,6 +46,7 @@ export default async function SellerDashboardPage() {
 
   return (
     <div className="p-8">
+      <StoreStatusNotice status={store.status} />
       <div className="mb-6 rounded-xl border border-border bg-background p-6 shadow-sm">
         <div className="flex items-start justify-between">
           <div>
