@@ -39,6 +39,7 @@ describe("Marquee motion", () => {
   it("moves only when motion is allowed; reduced motion shows one still copy", () => {
     const track = q(render(), "marquee")!.querySelector("[data-marquee-track]")!
     expect(track.className).toContain("motion-safe:animate-marquee")
+    expect(track.className).toContain("data-[paused=true]:[animation-play-state:paused]")
     const copies = [...track.children]
     expect(copies).toHaveLength(2)
     expect(copies[0]!.className).not.toContain("motion-reduce:hidden")
@@ -149,13 +150,13 @@ describe("Marquee pause button", () => {
     act(() => root.render(<Marquee categories={[]} copy={sentinelCopy().marquee} />))
     const button = host.querySelector("button")!
     const track = host.querySelector<HTMLElement>("[data-marquee-track]")!
-    expect(track.style.animationPlayState).toBe("running")
+    expect(track.getAttribute("data-paused")).toBe("false")
     act(() => button.click())
     expect(button.getAttribute("aria-label")).toBe("Play moving words")
-    expect(track.style.animationPlayState).toBe("paused")
+    expect(track.getAttribute("data-paused")).toBe("true")
     act(() => button.click())
     expect(button.getAttribute("aria-label")).toBe("Pause moving words")
-    expect(track.style.animationPlayState).toBe("running")
+    expect(track.getAttribute("data-paused")).toBe("false")
     act(() => root.unmount())
     host.remove()
   })

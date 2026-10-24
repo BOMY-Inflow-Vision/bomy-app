@@ -46,8 +46,8 @@ export function Marquee({
       >
         <div
           data-marquee-track
-          style={{ animationPlayState: paused ? "paused" : "running" }}
-          className="flex w-max motion-safe:animate-marquee"
+          data-paused={paused}
+          className="flex w-max motion-safe:animate-marquee data-[paused=true]:[animation-play-state:paused]"
         >
           {list(false)}
           {list(true)}
