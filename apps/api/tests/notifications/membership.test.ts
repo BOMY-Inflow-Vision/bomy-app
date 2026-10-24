@@ -20,6 +20,18 @@ describe("sendRenewalEmail", () => {
     expect(call.text).toContain("/membership/manage")
   })
 
+  it("says '1 day' for one day and 'N days' otherwise", async () => {
+    const sendMail = vi.fn<Mailer["sendMail"]>().mockResolvedValue(undefined)
+    const mailer: Mailer = { sendMail, close: vi.fn() }
+    const periodEnd = new Date("2027-01-15T00:00:00Z")
+
+    await sendRenewalEmail(mailer, { email: "u@e.com", periodEnd, daysBefore: 1 })
+    await sendRenewalEmail(mailer, { email: "u@e.com", periodEnd, daysBefore: 7 })
+
+    expect(sendMail.mock.calls[0]![0].subject).toBe("Your BOMY membership renews in 1 day")
+    expect(sendMail.mock.calls[1]![0].subject).toBe("Your BOMY membership renews in 7 days")
+  })
+
   it("propagates errors from mailer.sendMail", async () => {
     const sendMail = vi.fn<Mailer["sendMail"]>().mockRejectedValue(new Error("SMTP down"))
     const mailer: Mailer = { sendMail, close: vi.fn() }
