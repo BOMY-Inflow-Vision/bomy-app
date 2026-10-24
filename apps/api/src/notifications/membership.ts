@@ -10,7 +10,7 @@ export async function sendRenewalEmail(
 
   await mailer.sendMail({
     to: opts.email,
-    subject: `Your BOMY membership renews in ${opts.daysBefore} days`,
+    subject: `Your BOMY membership renews in ${opts.daysBefore} ${opts.daysBefore === 1 ? "day" : "days"}`,
     text: `Your BOMY membership will renew on ${dateStr}.\n\nManage your membership at ${manageUrl}`,
   })
 }

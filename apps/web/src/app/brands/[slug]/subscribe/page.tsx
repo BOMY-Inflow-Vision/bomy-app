@@ -6,16 +6,13 @@ import { schema, withTenant } from "@bomy/db"
 import { auth } from "@/auth"
 import { getDb } from "@/lib/db"
 import { isPendingAbandoned } from "@/lib/membership"
+import { senToMyr } from "@/lib/money"
 import { paymentsEnabled } from "@/lib/payments-enabled"
 import { SubmitButton } from "@/components/submit-button"
 import { Button } from "@bomy/ui/button"
 import { PageHeading } from "@/components/page-heading"
 import { CreditCard, LogIn } from "lucide-react"
 import { getStorePlans, subscribeToBrand } from "./actions"
-
-function senToMyr(sen: bigint): string {
-  return `RM${Number(sen) / 100}`
-}
 
 interface Props {
   params: Promise<{ slug: string }>
@@ -89,7 +86,7 @@ export default async function BrandSubscribePage({ params }: Props) {
           {plans.map((plan) => {
             const termLabel =
               plan.termMonths === 12 ? "12 months" : plan.termMonths === 6 ? "6 months" : "3 months"
-            const priceDisplay = senToMyr(plan.priceMyrSen)
+            const priceDisplay = `RM${senToMyr(plan.priceMyrSen)}`
             const action = subscribeToBrand.bind(null, plan.id)
 
             return (
@@ -130,7 +127,8 @@ export default async function BrandSubscribePage({ params }: Props) {
                 ) : session ? (
                   <form action={action}>
                     <SubmitButton icon={<CreditCard />} className="w-full">
-                      Subscribe — {priceDisplay}
+                      Subscribe
+                      <span className="sr-only"> — {priceDisplay}</span>
                     </SubmitButton>
                   </form>
                 ) : (
