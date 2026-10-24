@@ -81,6 +81,30 @@ describe("Reveal", () => {
     expect(fire).toBeNull()
   })
 
+  it("never hides a block that is partly on screen (top between the 83 % line and the bottom)", () => {
+    top = 800
+    const el = mount(<Reveal>hi</Reveal>)
+    expect(el.getAttribute("data-reveal")).toBe("shown")
+    expect(fire).toBeNull()
+  })
+
+  it("hides itself when the section inside renders nothing (keeps no gap)", () => {
+    const Empty = () => null
+    const el = mount(
+      <Reveal>
+        <Empty />
+      </Reveal>,
+    )
+    expect(el.matches(":empty")).toBe(true)
+    expect(el.className).toContain("empty:hidden")
+  })
+
+  it("prints a hidden block in full", () => {
+    const el = mount(<Reveal>hi</Reveal>)
+    expect(el.className).toContain("print:opacity-100")
+    expect(el.className).toContain("print:translate-y-0")
+  })
+
   it("never hides a block when reduced motion is on", () => {
     reduce = true
     const el = mount(<Reveal>hi</Reveal>)

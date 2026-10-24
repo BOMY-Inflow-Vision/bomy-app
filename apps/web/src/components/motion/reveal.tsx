@@ -13,7 +13,7 @@ type Phase = "shown" | "hidden"
 /**
  * Fade and rise on scroll. The server HTML is always visible: the hidden start state is set only
  * after script runs, only when motion is allowed, and only for a block that starts below the
- * trigger line. A block already on screen (or already scrolled past) is never hidden, so there is
+ * bottom of the screen. A block already on screen (or already scrolled past) is never hidden, so there is
  * no blink. Focus inside a hidden block shows it at once. Put this inside an `li`, never around one.
  */
 export function Reveal({
@@ -33,7 +33,9 @@ export function Reveal({
     const el = ref.current
     if (!el) return
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
-    if (el.getBoundingClientRect().top < window.innerHeight * TRIGGER_LINE) return
+    // Hide only a block that starts fully below the screen. One partly on screen stays shown, or
+    // it would fade out right after load. The 83 % line decides when a hidden block shows.
+    if (el.getBoundingClientRect().top < window.innerHeight) return
     setPhase("hidden")
     // Only the top edge counts, so a block taller than the screen still shows.
     const observer = new IntersectionObserver(
@@ -56,8 +58,9 @@ export function Reveal({
       onFocusCapture={() => setPhase("shown")}
       style={step > 0 ? { transitionDelay: `${step * STAGGER_MS}ms` } : undefined}
       className={cn(
-        "transition-[opacity,transform] duration-reveal ease-out-expo motion-reduce:transition-none",
-        phase === "hidden" && "translate-y-7 opacity-0",
+        // empty:hidden: a section that renders nothing must not keep its gap in `space-y-*`.
+        "transition-[opacity,transform] duration-reveal ease-out-expo empty:hidden motion-reduce:transition-none",
+        phase === "hidden" && "translate-y-7 opacity-0 print:translate-y-0 print:opacity-100",
         className,
       )}
     >
