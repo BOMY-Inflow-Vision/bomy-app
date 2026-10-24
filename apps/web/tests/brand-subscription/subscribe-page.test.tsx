@@ -133,7 +133,7 @@ describe("subscribe page: content", () => {
     const cards = d.querySelectorAll("main > div > ul > li")
     expect(cards).toHaveLength(3)
     expect(cards[0]!.textContent).toContain("3 months")
-    expect(cards[0]!.textContent).toContain("RM19.9")
+    expect(cards[0]!.textContent).toContain("RM19.90")
     expect(cards[0]!.textContent).toContain("10% off every order")
     expect(cards[0]!.textContent).toContain("billed once")
     expect(cards[1]!.textContent).toContain("6 months")
@@ -174,10 +174,18 @@ describe("subscribe page: the three CTAs", () => {
     // The price stays in the big text above and in the accessible name, but the visible label is
     // short so a very long price can never be cut off inside the fixed-height button.
     const hidden = button.querySelector(".sr-only")!
-    expect(hidden.textContent).toBe(" — RM19.9")
-    expect(button.textContent).toBe("Subscribe — RM19.9")
+    expect(hidden.textContent).toBe(" — RM19.90")
+    expect(button.textContent).toBe("Subscribe — RM19.90")
     expect(button.textContent.replace(hidden.textContent, "")).toBe("Subscribe")
     expect(d.querySelector('a[href^="/auth/sign-in"]')).toBeNull()
+  })
+})
+
+describe("subscribe page: price format", () => {
+  it("shows exactly two decimals (RM20.00, not RM20)", async () => {
+    getStorePlans.mockResolvedValue({ store: STORE, plans: [plan({ priceMyrSen: 2000n })] })
+    const d = await render()
+    expect(d.body.textContent).toContain("RM20.00")
   })
 })
 
