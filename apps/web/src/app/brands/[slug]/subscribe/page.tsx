@@ -130,7 +130,8 @@ export default async function BrandSubscribePage({ params }: Props) {
                 ) : session ? (
                   <form action={action}>
                     <SubmitButton icon={<CreditCard />} className="w-full">
-                      Subscribe — {priceDisplay}
+                      Subscribe
+                      <span className="sr-only"> — {priceDisplay}</span>
                     </SubmitButton>
                   </form>
                 ) : (
