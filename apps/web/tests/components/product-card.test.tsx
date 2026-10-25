@@ -105,8 +105,8 @@ describe("ProductCard full variant", () => {
     const price = para(d, (t) => t.includes("from RM12.50"))
     // same row: name and price are consecutive children, neither spans both columns
     expect(name.nextElementSibling).toBe(price)
-    expect(name.classList.contains("col-span-2")).toBe(false)
-    expect(price.classList.contains("col-span-2")).toBe(false)
+    // on a phone each takes the whole row (so the name is not squeezed); from sm they share a row
+    for (const el of [name, price]) has(el, ["col-span-2", "sm:col-span-1"])
     has(price, ["text-primary-text", "font-semibold", "whitespace-nowrap"])
     expect(price.classList.contains("text-primary")).toBe(false)
   })
@@ -125,6 +125,7 @@ describe("ProductCard full variant", () => {
     // children: category, name, store
     expect(text(d).children).toHaveLength(3)
     has(text(d).children[1]!, ["col-span-2", "line-clamp-2"])
+    expect(text(d).children[1]!.classList.contains("sm:col-span-1")).toBe(false)
   })
 
   it("no category: the name is first in the text block", () => {
