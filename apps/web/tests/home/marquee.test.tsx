@@ -52,8 +52,28 @@ describe("Marquee motion", () => {
       expect(c.className).toContain("min-w-[100vw]")
       expect(c.className).toContain("shrink-0")
       expect(c.className).toContain("justify-around")
+      // Never less than gap-6 between words; px-3 on each end makes the seam the same gap-6.
+      expect(c.className).toContain("gap-6")
+      expect(c.className).toContain("px-3")
     }
     expect(copies[0]!.textContent).toBe(copies[1]!.textContent)
+  })
+
+  it("each copy holds at least 9 items by repeating the whole word list (smaller gaps)", () => {
+    const track = q(render(), "marquee")!.querySelector("[data-marquee-track]")!
+    for (const c of track.children) {
+      const items = [...c.querySelectorAll("li")].map((li) => li.textContent)
+      expect(items).toHaveLength(9) // 3 words x 3
+      expect(items.slice(0, 3)).toEqual(copy)
+      expect(items.slice(3, 6)).toEqual(copy)
+    }
+  })
+
+  it("a list that is already long enough is not repeated", () => {
+    const many = Array.from({ length: 13 }, (_, i) => ({ id: `c${i}`, name: `Cat${i}` }))
+    const root = mountEl(<Marquee categories={many as never} copy={copy} />)
+    const first = q(root, "marquee")!.querySelector("[data-marquee-track]")!.children[0]!
+    expect(first.querySelectorAll("li")).toHaveLength(copy.length + 13)
   })
 
   it("the second copy repeats the words but is not read twice (whole band aria-hidden)", () => {

@@ -14,6 +14,8 @@ import type { HomeCategory } from "./home-types"
 // least a screen wide, so no gap shows at the right edge however few words there are. With reduced
 // motion the second copy and the pause button are hidden and the band stays still.
 // The pause button is outside the hidden band so keyboard and screen-reader users can stop it.
+const MIN_ITEMS = 9
+
 export function Marquee({
   categories,
   copy,
@@ -22,10 +24,16 @@ export function Marquee({
   copy: (typeof HOME_COPY)["marquee"]
 }) {
   const [paused, setPaused] = useState(false)
-  const words = [...copy, ...categories.map((c) => c.name)]
+  const base = [...copy, ...categories.map((c) => c.name)]
+  // Few words would sit far apart in a copy that is a screen wide, so the whole list repeats inside
+  // each copy until it holds at least MIN_ITEMS (3 words show 3 times). A long list is not repeated.
+  const words = Array.from(
+    { length: Math.ceil(MIN_ITEMS / Math.max(base.length, 1)) },
+    () => base,
+  ).flat()
   const list = (hideForReducedMotion: boolean) => (
     <ul
-      className={`flex min-w-[100vw] shrink-0 items-center justify-around whitespace-nowrap font-display text-lg text-foreground ${
+      className={`flex min-w-[100vw] shrink-0 items-center justify-around gap-6 whitespace-nowrap px-3 font-display text-lg text-foreground ${
         hideForReducedMotion ? "motion-reduce:hidden" : ""
       }`}
     >
