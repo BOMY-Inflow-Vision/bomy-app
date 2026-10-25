@@ -12,6 +12,7 @@ import { Button } from "@bomy/ui/button"
 import { VideoEmbed } from "@/components/video-embed"
 
 import { getBrandSubscriberAvatars, getStorePage } from "./queries"
+import { PageMain } from "@/components/page-main"
 
 interface Props {
   params: Promise<{ slug: string }>
@@ -77,7 +78,7 @@ export default async function StorePage({ params }: Props) {
   )
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-10 px-4 py-8">
+    <PageMain className="flex flex-col gap-10">
       <PageHeading title={store.name} align="center" />
 
       {store.bodyHtml ? (
@@ -117,7 +118,7 @@ export default async function StorePage({ params }: Props) {
                   </Button>
                 )}
               </div>
-              <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+              <ul className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3">
                 {section.products.map((product) => (
                   <li key={product.id} className="min-w-0">
                     <ProductCard
@@ -144,7 +145,7 @@ export default async function StorePage({ params }: Props) {
                   </Button>
                 )}
               </div>
-              <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+              <ul className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3">
                 {uncategorized.products.map((product) => (
                   <li key={product.id} className="min-w-0">
                     <ProductCard
@@ -160,6 +161,6 @@ export default async function StorePage({ params }: Props) {
           )}
         </>
       )}
-    </main>
+    </PageMain>
   )
 }

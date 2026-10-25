@@ -105,7 +105,7 @@ describe("CheckoutPage R5c look", () => {
     const d = await render()
     has(d.querySelector("h1"), ["sm:text-4xl", "[overflow-wrap:anywhere]"])
     has(d.querySelector("h1")!.parentElement, ["mb-4"])
-    const card = d.querySelector("main > div")!
+    const card = d.querySelector("main > div > div")!
     has(card, [
       "rounded-bento",
       "border",

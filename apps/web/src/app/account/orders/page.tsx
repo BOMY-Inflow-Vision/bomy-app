@@ -8,6 +8,7 @@ import { senToMyr } from "@/lib/money"
 
 import { AccountTabs } from "../account-tabs"
 import { fetchBuyerOrders } from "./queries"
+import { PageMain } from "@/components/page-main"
 
 export default async function BuyerOrdersPage() {
   const session = await auth()
@@ -24,7 +25,7 @@ export default async function BuyerOrdersPage() {
   }
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8">
+    <PageMain>
       <AccountTabs active="orders" />
       <h1 className="mb-6 text-2xl font-bold text-foreground">My Orders</h1>
 
@@ -66,6 +67,6 @@ export default async function BuyerOrdersPage() {
           </section>
         )
       })}
-    </main>
+    </PageMain>
   )
 }

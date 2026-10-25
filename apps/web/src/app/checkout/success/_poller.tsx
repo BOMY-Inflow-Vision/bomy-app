@@ -15,6 +15,7 @@ import { useCart } from "@/lib/cart"
 
 import { getCheckoutSessionStatus } from "../actions"
 import { CHECKOUT_STEPS } from "../steps"
+import { PageMain } from "@/components/page-main"
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const MAX_POLLS = 30
@@ -96,7 +97,7 @@ export function SuccessPoller() {
 
   if (state.phase === "polling") {
     return (
-      <main className="mx-auto max-w-3xl px-4 py-8 text-center">
+      <PageMain narrow className="text-center">
         <Stepper
           steps={CHECKOUT_STEPS}
           currentStep={2}
@@ -108,13 +109,13 @@ export function SuccessPoller() {
         </div>
         <PageHeading title="Waiting for payment…" align="center" className="mb-2" />
         <p className="text-sm text-muted-foreground">Please wait while we confirm your payment.</p>
-      </main>
+      </PageMain>
     )
   }
 
   if (state.phase === "not_found") {
     return (
-      <main className="mx-auto max-w-3xl px-4 py-8">
+      <PageMain narrow>
         <PageHeading title="Session not found" className="mb-4" />
         <p className="mb-6 text-sm text-muted-foreground">
           This checkout session doesn&apos;t exist or has already been processed.
@@ -122,19 +123,19 @@ export function SuccessPoller() {
         <Button asChild variant="link" icon={<ArrowLeft />} arrowOnHover={false}>
           <Link href="/cart">Back to cart</Link>
         </Button>
-      </main>
+      </PageMain>
     )
   }
 
   if (state.phase === "timed_out") {
     return (
-      <main className="mx-auto max-w-3xl px-4 py-8 text-center">
+      <PageMain narrow className="text-center">
         <PageHeading title="Still processing" align="center" className="mb-4" />
         <p className="text-sm text-muted-foreground">
           Your payment is still being processed. Check your email or contact support if this
           persists.
         </p>
-      </main>
+      </PageMain>
     )
   }
 
@@ -144,7 +145,7 @@ export function SuccessPoller() {
 function DoneView({ status }: { status: CheckoutSessionStatus }) {
   if (status === "paid") {
     return (
-      <main className="mx-auto max-w-3xl px-4 py-8 text-center">
+      <PageMain narrow className="text-center">
         {/* currentStep is one past the last index so every step (including
             Confirmation) renders as completed rather than "still active". */}
         <Stepper
@@ -161,13 +162,13 @@ function DoneView({ status }: { status: CheckoutSessionStatus }) {
         <Button asChild icon={<Eye />}>
           <Link href="/account/orders">View my orders</Link>
         </Button>
-      </main>
+      </PageMain>
     )
   }
 
   if (status === "failed") {
     return (
-      <main className="mx-auto max-w-3xl px-4 py-8 text-center">
+      <PageMain narrow className="text-center">
         <PageHeading title="Payment failed" align="center" className="mb-2" />
         <p className="mb-6 text-sm text-muted-foreground">
           Your payment was not successful. Please try again.
@@ -175,13 +176,13 @@ function DoneView({ status }: { status: CheckoutSessionStatus }) {
         <Button asChild icon={<RefreshCw />}>
           <Link href="/checkout">Try again</Link>
         </Button>
-      </main>
+      </PageMain>
     )
   }
 
   if (status === "expired") {
     return (
-      <main className="mx-auto max-w-3xl px-4 py-8 text-center">
+      <PageMain narrow className="text-center">
         <PageHeading title="Session expired" align="center" className="mb-2" />
         <p className="mb-6 text-sm text-muted-foreground">
           Your checkout session has expired. Please return to your cart and try again.
@@ -189,13 +190,13 @@ function DoneView({ status }: { status: CheckoutSessionStatus }) {
         <Button asChild icon={<ArrowLeft />} arrowOnHover={false}>
           <Link href="/cart">Back to cart</Link>
         </Button>
-      </main>
+      </PageMain>
     )
   }
 
   if (status === "cancelled") {
     return (
-      <main className="mx-auto max-w-3xl px-4 py-8 text-center">
+      <PageMain narrow className="text-center">
         <PageHeading title="Checkout cancelled" align="center" className="mb-2" />
         <p className="mb-6 text-sm text-muted-foreground">
           Your checkout was cancelled. Your cart is still saved.
@@ -203,17 +204,17 @@ function DoneView({ status }: { status: CheckoutSessionStatus }) {
         <Button asChild icon={<ArrowLeft />} arrowOnHover={false}>
           <Link href="/cart">Back to cart</Link>
         </Button>
-      </main>
+      </PageMain>
     )
   }
 
   // payment_review_required | payment_review_resolved
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8 text-center">
+    <PageMain narrow className="text-center">
       <PageHeading title="Payment under review" align="center" className="mb-2" />
       <p className="text-sm text-muted-foreground">
         Your payment is being reviewed. We&apos;ll email you once it&apos;s resolved.
       </p>
-    </main>
+    </PageMain>
   )
 }

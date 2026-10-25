@@ -47,7 +47,7 @@ export default function AboutPage() {
   return (
     <main className="bg-background">
       <section>
-        <div className="mx-auto max-w-5xl px-4 py-16">
+        <div className="mx-auto max-w-frame px-3 sm:px-5 py-16">
           <PageHeading
             align="center"
             title="The home of authentic Malaysian brands."
@@ -69,7 +69,7 @@ export default function AboutPage() {
         </p>
       </section>
 
-      <section className="mx-auto w-full max-w-5xl px-4 py-8">
+      <section className="mx-auto w-full max-w-frame px-3 sm:px-5 py-8">
         <div className="flex min-w-0 flex-col gap-8 rounded-bento bg-tint p-6 sm:p-10">
           <div className="flex flex-col gap-3">
             <h2 className="text-2xl font-bold text-foreground">Why BOMY exists</h2>
@@ -105,7 +105,7 @@ export default function AboutPage() {
         </ul>
       </section>
 
-      <section className="mx-auto w-full max-w-5xl px-4 py-8">
+      <section className="mx-auto w-full max-w-frame px-3 sm:px-5 py-8">
         <div className="flex min-w-0 flex-col items-center gap-6 rounded-bento bg-tint p-6 text-center sm:p-10">
           <div className="flex flex-col items-center gap-4">
             <h2 className="text-2xl font-bold text-foreground">

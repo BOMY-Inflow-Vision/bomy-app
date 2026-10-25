@@ -5,6 +5,7 @@ import { auth } from "@/auth"
 import { AccountTabs } from "../account-tabs"
 import { listAddresses } from "./actions"
 import { AddressManager } from "./address-manager"
+import { PageMain } from "@/components/page-main"
 
 export default async function AddressesPage() {
   const session = await auth()
@@ -13,7 +14,7 @@ export default async function AddressesPage() {
   const addresses = await listAddresses()
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8">
+    <PageMain>
       <AccountTabs active="addresses" />
       <div className="mx-auto max-w-2xl">
         <h1 className="mb-6 text-2xl font-bold text-foreground">Saved addresses</h1>
@@ -32,6 +33,6 @@ export default async function AddressesPage() {
           }))}
         />
       </div>
-    </main>
+    </PageMain>
   )
 }

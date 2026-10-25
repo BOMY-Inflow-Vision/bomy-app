@@ -7,6 +7,7 @@ import { BodyRenderer } from "@/components/body-renderer"
 import { PageHeading } from "@/components/page-heading"
 import { ProductImageGallery } from "./product-image-gallery"
 import { VariantPicker } from "./variant-picker"
+import { PageMain } from "@/components/page-main"
 
 interface Props {
   params: Promise<{ storeSlug: string; productSlug: string }>
@@ -43,7 +44,7 @@ export default async function ProductDetailPage({ params }: Props) {
   if (!product) notFound()
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8">
+    <PageMain>
       <nav aria-label="Breadcrumb" className="mb-6">
         <ol className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
           <li className="min-w-0">
@@ -116,6 +117,6 @@ export default async function ProductDetailPage({ params }: Props) {
           </div>
         </section>
       )}
-    </main>
+    </PageMain>
   )
 }

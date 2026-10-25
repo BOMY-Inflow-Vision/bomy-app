@@ -11,6 +11,7 @@ import { Input } from "@bomy/ui/input"
 import { Label } from "@bomy/ui/label"
 
 import { getCategories, getProducts } from "./queries"
+import { PageMain } from "@/components/page-main"
 
 interface Props {
   searchParams: Promise<{ q?: string; category?: string; page?: string }>
@@ -41,36 +42,43 @@ export default async function ProductsPage({ searchParams }: Props) {
   }
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8">
-      <PageHeading title="Products" className="mb-6" />
-      {/* Search bar */}
-      <form method="get" className="mb-6 flex gap-2">
-        <Label htmlFor="products-search" className="sr-only">
-          Search products
-        </Label>
-        <Input
-          id="products-search"
-          name="q"
-          defaultValue={q}
-          placeholder="Search products…"
-          className="min-w-0 flex-1"
-        />
-        {category && <input type="hidden" name="category" value={category} />}
-        <Button type="submit" icon={<Search />}>
-          Search
-        </Button>
-        {q && (
-          <Button variant="outline" icon={<X />} arrowOnHover={false} asChild>
-            <Link
-              href={category ? `/products?category=${encodeURIComponent(category)}` : "/products"}
-            >
-              Clear
-            </Link>
+    <PageMain>
+      <div className="mb-6 flex min-w-0 flex-col gap-6 rounded-bento bg-card p-6 sm:p-8 md:flex-row md:items-end md:justify-between">
+        <div className="min-w-0">
+          <p className="mb-3 font-mono text-xs uppercase tracking-eyebrow text-muted-foreground">
+            {total} product{total !== 1 ? "s" : ""}
+            {q ? ` for "${q}"` : ""}
+          </p>
+          <PageHeading title="Products" />
+        </div>
+        <form method="get" className="flex w-full min-w-0 gap-2 md:max-w-md">
+          <Label htmlFor="products-search" className="sr-only">
+            Search products
+          </Label>
+          <Input
+            id="products-search"
+            name="q"
+            defaultValue={q}
+            placeholder="Search products…"
+            className="min-w-0 flex-1"
+          />
+          {category && <input type="hidden" name="category" value={category} />}
+          <Button type="submit" icon={<Search />}>
+            Search
           </Button>
-        )}
-      </form>
+          {q && (
+            <Button variant="outline" icon={<X />} arrowOnHover={false} asChild>
+              <Link
+                href={category ? `/products?category=${encodeURIComponent(category)}` : "/products"}
+              >
+                Clear
+              </Link>
+            </Button>
+          )}
+        </form>
+      </div>
 
-      <FilterPills label="Filter by category" className="mb-6">
+      <FilterPills label="Filter by category" className="mb-8">
         <FilterPill asChild active={!category}>
           <Link href={q ? `/products?q=${encodeURIComponent(q)}` : "/products"}>All</Link>
         </FilterPill>
@@ -87,17 +95,12 @@ export default async function ProductsPage({ searchParams }: Props) {
       </FilterPills>
 
       <section aria-label="Product results" className="min-w-0">
-        <p className="mb-4 text-sm text-muted-foreground">
-          {total} product{total !== 1 ? "s" : ""}
-          {q ? ` for "${q}"` : ""}
-        </p>
-
         {products.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border py-20 text-center text-sm text-muted-foreground">
             No products found.
           </div>
         ) : (
-          <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          <ul className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3">
             {products.map((p) => (
               <li key={p.id} className="min-w-0">
                 <ProductCard
@@ -129,6 +132,6 @@ export default async function ProductsPage({ searchParams }: Props) {
           className="mt-8 flex flex-wrap justify-center gap-2"
         />
       </section>
-    </main>
+    </PageMain>
   )
 }

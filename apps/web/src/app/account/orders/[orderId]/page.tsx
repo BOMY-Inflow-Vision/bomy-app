@@ -8,6 +8,7 @@ import { senToMyr } from "@/lib/money"
 
 import { fetchBuyerOrderDetail } from "../queries"
 import { ConfirmDeliveryButton } from "./_confirm-delivery-button"
+import { PageMain } from "@/components/page-main"
 
 interface Props {
   params: Promise<{ orderId: string }>
@@ -25,7 +26,7 @@ export default async function BuyerOrderDetailPage({ params }: Props) {
     order.discountedSubtotalSen + order.shippingFeeSen - order.voucherContributionSen
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8">
+    <PageMain>
       <Button
         variant="link"
         size="sm"
@@ -103,6 +104,6 @@ export default async function BuyerOrderDetailPage({ params }: Props) {
       )}
 
       {order.fulfilmentStatus === "shipped" && <ConfirmDeliveryButton orderId={order.id} />}
-    </main>
+    </PageMain>
   )
 }

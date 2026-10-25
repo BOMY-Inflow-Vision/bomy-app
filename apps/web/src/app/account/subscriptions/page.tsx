@@ -11,6 +11,7 @@ import { Button } from "@bomy/ui/button"
 import { Card, CardContent } from "@bomy/ui/card"
 import { getDb } from "@/lib/db"
 import { AccountTabs } from "../account-tabs"
+import { PageMain } from "@/components/page-main"
 
 function formatDate(d: Date): string {
   return d.toLocaleDateString("en-MY", { day: "numeric", month: "short", year: "numeric" })
@@ -60,7 +61,7 @@ export default async function AccountSubscriptionsPage() {
   )
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8">
+    <PageMain>
       <h1 className="sr-only">Brand Subscriptions</h1>
       <AccountTabs active="subscriptions" />
       <div className="mx-auto max-w-2xl">
@@ -142,6 +143,6 @@ export default async function AccountSubscriptionsPage() {
           </CardContent>
         </Card>
       </div>
-    </main>
+    </PageMain>
   )
 }
