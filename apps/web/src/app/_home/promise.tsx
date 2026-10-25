@@ -1,5 +1,7 @@
 import Link from "next/link"
 
+import { WordReveal } from "@/components/motion/word-reveal"
+
 import type { HOME_COPY } from "./home-copy"
 
 // A statement card and a membership link. The words are all in the dark text colour. No price: the
@@ -15,7 +17,7 @@ export function PromiseSection({ copy }: { copy: (typeof HOME_COPY)["promise"] }
           data-promise-statement
           className="mt-4 min-w-0 font-display text-display-sm text-foreground [overflow-wrap:anywhere]"
         >
-          {copy.statement}
+          <WordReveal text={copy.statement} />
         </p>
       </div>
       <div className="flex min-w-0 items-center justify-center rounded-bento border border-border bg-card p-6">

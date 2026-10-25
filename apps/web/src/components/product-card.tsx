@@ -18,7 +18,8 @@ export interface ProductCardProps {
 
 // Shared storefront tile: blush 4:5 art area, then category, name, store and price. Renders the
 // whole tile as one link; the page keeps its own <li>. The focus ring sits on the link (not
-// clipped); the rounded clipping is on the inner wrapper.
+// clipped); the rounded clipping is on the inner wrapper. On hover or keyboard focus only the photo
+// layer scales (1.04, 0.7 s), so the badge stays put; touch screens and reduced motion get none.
 export function ProductCard({
   href,
   name,
@@ -35,9 +36,11 @@ export function ProductCard({
       href={href}
       className="group block min-w-0 rounded-bento focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
-      <div className="overflow-hidden rounded-bento border border-border bg-card shadow-sm hover:shadow-md">
+      <div className="isolate overflow-hidden rounded-bento border border-border bg-card shadow-sm hover:shadow-md">
         <div className="relative aspect-tile bg-tint">
-          <CoverImage src={coverImageUrl} alt={name} />
+          <div className="h-full w-full transition-transform duration-700 ease-out-expo motion-reduce:transition-none motion-safe:[@media(hover:hover)]:group-hover:scale-[1.04] motion-safe:group-focus-visible:scale-[1.04]">
+            <CoverImage src={coverImageUrl} alt={name} />
+          </div>
           {badge && (
             <span className="absolute left-3 top-3 rounded-full bg-card px-3 py-1 text-xs font-medium text-foreground">
               {badge}

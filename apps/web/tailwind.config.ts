@@ -173,6 +173,11 @@ const config = {
           from: { opacity: "0", transform: "scale(0.5)" },
           to: { opacity: "1", transform: "none" },
         },
+        // Slides the two-copy marquee track by exactly one copy, so the loop is seamless.
+        marquee: {
+          from: { transform: "translateX(0)" },
+          to: { transform: "translateX(-50%)" },
+        },
         "badge-pop": {
           from: { opacity: "0", transform: "scale(0.6)" },
           to: { opacity: "1", transform: "scale(1)" },
@@ -192,6 +197,9 @@ const config = {
         "step-pulse": "step-pulse 600ms cubic-bezier(0.23, 1, 0.32, 1) forwards",
         "avatar-pop-in":
           "avatar-pop-in 400ms linear(0, 0.107, 0.347, 0.619, 0.856, 1.025, 1.121, 1.154, 1.144, 1.109, 1.067, 1.029, 1, 0.983, 0.976, 0.977, 0.982, 0.988, 0.995, 0.999, 1.002, 1.004, 1.004, 1.003, 1) both",
+        // 45 s per copy: a copy is one screen wide, so the speed is about 2.2 % of the screen width
+        // per second, as measured on the Kvist reference (soft-red R6).
+        marquee: "marquee 45s linear infinite",
         "badge-pop": "badge-pop 180ms cubic-bezier(0.22, 1, 0.36, 1) both",
       },
     },

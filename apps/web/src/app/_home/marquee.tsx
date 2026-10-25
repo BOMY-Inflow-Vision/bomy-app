@@ -1,8 +1,21 @@
+"use client"
+
+import { Pause, Play } from "lucide-react"
+import { useState } from "react"
+
+import { Button } from "@bomy/ui/button"
+
 import type { HOME_COPY } from "./home-copy"
 import type { HomeCategory } from "./home-types"
 
-// A still band of words and real category names between the hero and the shop. Decoration only:
-// screen readers skip it, it never moves (motion is R6), and anything wider than the screen is cut.
+// A band of words and real category names between the hero and the shop. The words are decoration
+// (screen readers skip them) and anything wider than the screen is cut. Two identical copies sit
+// side by side and the track slides by exactly one copy, so the loop is seamless. Each copy is at
+// least a screen wide, so no gap shows at the right edge however few words there are. With reduced
+// motion the second copy and the pause button are hidden and the band stays still.
+// The pause button is outside the hidden band so keyboard and screen-reader users can stop it.
+const MIN_ITEMS = 9
+
 export function Marquee({
   categories,
   copy,
@@ -10,21 +23,54 @@ export function Marquee({
   categories: HomeCategory[]
   copy: (typeof HOME_COPY)["marquee"]
 }) {
-  const words = [...copy, ...categories.map((c) => c.name)]
-  return (
-    <div
-      data-home="marquee"
-      aria-hidden="true"
-      className="overflow-hidden rounded-full border border-border bg-card py-3"
+  const [paused, setPaused] = useState(false)
+  const base = [...copy, ...categories.map((c) => c.name)]
+  // Few words would sit far apart in a copy that is a screen wide, so the whole list repeats inside
+  // each copy until it holds at least MIN_ITEMS (3 words show 3 times). A long list is not repeated.
+  const words = Array.from(
+    { length: Math.ceil(MIN_ITEMS / Math.max(base.length, 1)) },
+    () => base,
+  ).flat()
+  const list = (hideForReducedMotion: boolean) => (
+    <ul
+      className={`flex min-w-[100vw] shrink-0 items-center justify-around gap-6 whitespace-nowrap px-3 font-display text-lg text-foreground ${
+        hideForReducedMotion ? "motion-reduce:hidden" : ""
+      }`}
     >
-      <ul className="flex w-max items-center gap-6 whitespace-nowrap px-6 font-display text-lg text-foreground">
-        {words.map((w, i) => (
-          <li key={`${i}-${w}`} className="flex items-center gap-6">
-            <span>{w}</span>
-            <span className="size-1.5 rounded-full bg-primary" />
-          </li>
-        ))}
-      </ul>
+      {words.map((w, i) => (
+        <li key={`${i}-${w}`} className="flex items-center gap-6">
+          <span>{w}</span>
+          <span className="size-1.5 rounded-full bg-primary" />
+        </li>
+      ))}
+    </ul>
+  )
+  return (
+    <div className="flex items-center gap-2">
+      <div
+        data-home="marquee"
+        aria-hidden="true"
+        className="min-w-0 flex-1 overflow-hidden rounded-full border border-border bg-card py-3"
+      >
+        <div
+          data-marquee-track
+          data-paused={paused}
+          className="flex w-max motion-safe:animate-marquee data-[paused=true]:[animation-play-state:paused]"
+        >
+          {list(false)}
+          {list(true)}
+        </div>
+      </div>
+      <Button
+        type="button"
+        variant="outline"
+        size="icon"
+        className="shrink-0 rounded-full motion-reduce:hidden"
+        aria-label={paused ? "Play moving words" : "Pause moving words"}
+        onClick={() => setPaused((p) => !p)}
+      >
+        {paused ? <Play aria-hidden="true" /> : <Pause aria-hidden="true" />}
+      </Button>
     </div>
   )
 }

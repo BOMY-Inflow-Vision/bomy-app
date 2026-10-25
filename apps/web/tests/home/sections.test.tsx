@@ -56,7 +56,9 @@ describe("Promise", () => {
   const root = mountEl(<PromiseCards copy={copy.promise} />)
   it("statement in the dark text colour, chip links to /membership, no price", () => {
     const s = root.querySelector("[data-promise-statement]")!
-    expect(s.textContent).toBe("«promise.statement»")
+    // The sentence is read once (sr-only); the visible word spans are hidden from screen readers.
+    expect(s.querySelector(".sr-only")!.textContent).toBe("«promise.statement»")
+    expect(s.querySelector("[aria-hidden='true']")!.textContent).toBe("«promise.statement»")
     expect(s.className).toMatch(/text-foreground/)
     expect(s.className).not.toMatch(/text-muted/)
     expect(root.querySelector("a[href='/membership']")!.textContent).toBe("«promise.chip»")

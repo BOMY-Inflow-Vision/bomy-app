@@ -56,7 +56,7 @@ describe("ProductCard structure", () => {
 
   it("art area is the blush tile at 4:5 and holds the image", () => {
     const d = render()
-    const art = link(d).querySelector("img")!.parentElement!
+    const art = link(d).querySelector("img")!.parentElement!.parentElement!
     has(art, ["bg-tint", "aspect-tile"])
     expect(link(d).querySelector("img")!.getAttribute("alt")).toBe("Tea")
   })
@@ -66,7 +66,10 @@ describe("ProductCard structure", () => {
     expect(link(d).querySelector("img")).toBeNull()
     expect(link(d).querySelector("svg")).not.toBeNull()
     expect(d.body.textContent).not.toContain("📦")
-    has(link(d).querySelector("svg")!.parentElement!.parentElement, ["bg-tint", "aspect-tile"])
+    has(link(d).querySelector("svg")!.parentElement!.parentElement!.parentElement, [
+      "bg-tint",
+      "aspect-tile",
+    ])
   })
 
   it("name: hover colour on the tile, wraps, clamps to two lines", () => {
@@ -110,7 +113,7 @@ describe("ProductCard full variant", () => {
   it("no category: no eyebrow, and the name is first in the body with no top margin", () => {
     const d = render({ ...full, categoryName: null })
     expect(d.querySelector("li p.font-mono")).toBeNull()
-    const body = link(d).querySelector("div > div:last-child")!
+    const body = link(d).firstElementChild!.lastElementChild!
     const first = body.firstElementChild!
     expect(first.textContent).toBe("Tea")
     expect(Array.from(first.classList).some((c) => /^m[ty]?-/.test(c))).toBe(false)
@@ -138,6 +141,36 @@ describe("ProductCard compact variant", () => {
     })
     expect(d.body.textContent).toBe("Tea")
     expect(d.querySelector("li p.font-mono")).toBeNull()
+  })
+})
+
+// R6b Task 3: on hover or keyboard focus the photo scales 1.04 inside the clip. Only an inner
+// layer scales, so the badge stays put; touch screens get no sticky hover; reduced motion gets none.
+describe("ProductCard hover motion", () => {
+  const layer = (d: Document) => link(d).querySelector("img")!.parentElement!
+
+  it("the photo sits in its own scaling layer, with the 0.7 s ease-out-expo transition", () => {
+    const d = render()
+    has(layer(d), ["h-full", "w-full", "transition-transform", "duration-700", "ease-out-expo"])
+  })
+
+  it("the layer scales on hover (hover-capable devices only) and on keyboard focus, never with reduced motion", () => {
+    const d = render()
+    has(layer(d), [
+      "motion-safe:[@media(hover:hover)]:group-hover:scale-[1.04]",
+      "motion-safe:group-focus-visible:scale-[1.04]",
+      "motion-reduce:transition-none",
+    ])
+  })
+
+  it("the clip is isolated so Safari keeps round corners while the photo scales", () => {
+    has(link(render()).firstElementChild, ["isolate", "overflow-hidden", "rounded-bento"])
+  })
+
+  it("the badge is outside the scaling layer", () => {
+    const d = render({ badge: "New" })
+    const badge = Array.from(d.querySelectorAll("li span")).find((s) => s.textContent === "New")!
+    expect(layer(d).contains(badge)).toBe(false)
   })
 })
 
