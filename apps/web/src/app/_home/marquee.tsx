@@ -1,7 +1,7 @@
 "use client"
 
 import { Pause, Play } from "lucide-react"
-import { useState } from "react"
+import { Fragment, useState } from "react"
 
 import { Button } from "@bomy/ui/button"
 
@@ -38,10 +38,10 @@ export function Marquee({
       }`}
     >
       {words.map((w, i) => (
-        <li key={`${i}-${w}`} className="flex items-center gap-6">
-          <span>{w}</span>
-          <span className="size-1.5 rounded-full bg-primary" />
-        </li>
+        <Fragment key={`${i}-${w}`}>
+          <li data-marquee-word>{w}</li>
+          <li data-marquee-dot className="size-1.5 rounded-full bg-primary" />
+        </Fragment>
       ))}
     </ul>
   )

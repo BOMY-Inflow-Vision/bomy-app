@@ -62,7 +62,7 @@ describe("Marquee motion", () => {
   it("each copy holds at least 9 items by repeating the whole word list (smaller gaps)", () => {
     const track = q(render(), "marquee")!.querySelector("[data-marquee-track]")!
     for (const c of track.children) {
-      const items = [...c.querySelectorAll("li")].map((li) => li.textContent)
+      const items = [...c.querySelectorAll("li[data-marquee-word]")].map((li) => li.textContent)
       expect(items).toHaveLength(9) // 3 words x 3
       expect(items.slice(0, 3)).toEqual(copy)
       expect(items.slice(3, 6)).toEqual(copy)
@@ -73,7 +73,22 @@ describe("Marquee motion", () => {
     const many = Array.from({ length: 13 }, (_, i) => ({ id: `c${i}`, name: `Cat${i}` }))
     const root = mountEl(<Marquee categories={many as never} copy={copy} />)
     const first = q(root, "marquee")!.querySelector("[data-marquee-track]")!.children[0]!
-    expect(first.querySelectorAll("li")).toHaveLength(copy.length + 13)
+    expect(first.querySelectorAll("li[data-marquee-word]")).toHaveLength(copy.length + 13)
+  })
+
+  it("every dot is its own item between two words, so extra space falls on both sides of it", () => {
+    const copies = [...q(render(), "marquee")!.querySelector("[data-marquee-track]")!.children]
+    for (const c of copies) {
+      const kids = [...c.children]
+      // word, dot, word, dot, ... and a dot last, so the loop seam looks like every other gap
+      kids.forEach((k, i) => {
+        expect(k.hasAttribute(i % 2 === 0 ? "data-marquee-word" : "data-marquee-dot")).toBe(true)
+      })
+      expect(kids[kids.length - 1]!.hasAttribute("data-marquee-dot")).toBe(true)
+      expect(kids.filter((k) => k.hasAttribute("data-marquee-dot"))).toHaveLength(
+        kids.filter((k) => k.hasAttribute("data-marquee-word")).length,
+      )
+    }
   })
 
   it("the second copy repeats the words but is not read twice (whole band aria-hidden)", () => {
