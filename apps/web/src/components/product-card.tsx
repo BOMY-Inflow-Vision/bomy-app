@@ -80,11 +80,11 @@ export function ProductCard({
             {categoryName}
           </p>
         )}
-        {/* Plain template, not cn(): tailwind-merge reads text-card-name-sm as a colour and drops it. */}
         <p
-          className={`col-span-2 line-clamp-2 min-w-0 break-words text-card-name-sm font-medium leading-snug text-foreground lg:row-start-2 lg:line-clamp-1 lg:text-card-name ${
-            showPrice ? "lg:col-span-1" : "lg:col-span-2"
-          }`}
+          className={cn(
+            "col-span-2 line-clamp-2 min-w-0 break-words text-card-name-sm font-medium leading-snug text-foreground lg:row-start-2 lg:line-clamp-1 lg:text-card-name",
+            showPrice ? "lg:col-span-1" : "lg:col-span-2",
+          )}
         >
           {name}
         </p>

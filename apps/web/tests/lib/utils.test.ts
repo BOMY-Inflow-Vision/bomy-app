@@ -35,3 +35,15 @@ describe("cn — custom animate classes", () => {
     expect(cn("animate-toast-in", "animate-spin")).toBe("animate-spin")
   })
 })
+
+describe("cn — custom text sizes", () => {
+  it("keeps a custom text size next to a text colour", () => {
+    expect(cn("text-card-name-sm", "text-foreground")).toBe("text-card-name-sm text-foreground")
+    expect(cn("text-display", "text-primary")).toBe("text-display text-primary")
+  })
+
+  it("a later custom size replaces an earlier size", () => {
+    expect(cn("text-xs", "text-card-meta")).toBe("text-card-meta")
+    expect(cn("text-card-name", "text-card-name-sm")).toBe("text-card-name-sm")
+  })
+})
