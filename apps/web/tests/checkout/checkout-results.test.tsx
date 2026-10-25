@@ -305,6 +305,14 @@ describe("checkout results R5c look: every title is a PageHeading, centred where
   it("every state keeps its main wrapper", async () => {
     getCheckoutSessionStatus.mockResolvedValue({ ok: true, status: "paid" })
     await mount(<SuccessPoller />)
-    has(container.querySelector("main"), ["mx-auto", "max-w-3xl", "px-4", "py-8", "text-center"])
+    has(container.querySelector("main"), [
+      "mx-auto",
+      "max-w-frame",
+      "px-3",
+      "sm:px-5",
+      "py-8",
+      "text-center",
+    ])
+    has(container.querySelector("main > div"), ["mx-auto", "max-w-3xl"])
   })
 })

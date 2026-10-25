@@ -10,6 +10,7 @@ import { Input } from "@bomy/ui/input"
 import { Label } from "@bomy/ui/label"
 
 import { getBrands, getStoreCategories } from "./queries"
+import { PageMain } from "@/components/page-main"
 
 interface Props {
   searchParams: Promise<{ q?: string; category?: string; page?: string }>
@@ -40,7 +41,7 @@ export default async function BrandsPage({ searchParams }: Props) {
   }
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8">
+    <PageMain>
       <PageHeading title="Brands" description="Discover sellers on BOMY" className="mb-6" />
 
       {/* Search */}
@@ -124,6 +125,6 @@ export default async function BrandsPage({ searchParams }: Props) {
           className="mt-8 flex justify-center gap-1"
         />
       </section>
-    </main>
+    </PageMain>
   )
 }

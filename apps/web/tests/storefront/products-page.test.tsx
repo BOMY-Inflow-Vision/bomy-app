@@ -95,12 +95,25 @@ describe("/products category pills", () => {
 })
 
 describe("/products heading", () => {
-  it("uses the shared heading, still reads Products, and keeps its mb-6 spacing", async () => {
+  it("uses the shared heading and still reads Products", async () => {
     const d = await render()
     const h1 = d.querySelector("h1")!
     expect(h1.textContent).toBe("Products")
     expect(h1.classList.contains("sm:text-4xl")).toBe(true)
-    expect(h1.closest("header")!.classList.contains("mb-6")).toBe(true)
+  })
+
+  // Kvist shop look: one rounded box holds the product count, the big title and the search.
+  it("the count, the title and the search form share one rounded white box", async () => {
+    const d = await render()
+    const box = d.querySelector("h1")!.closest(".rounded-bento")!
+    expect(box).not.toBeNull()
+    for (const c of ["bg-card", "min-w-0"]) expect(box.classList.contains(c)).toBe(true)
+    expect(box.querySelector("form")).not.toBeNull()
+    expect(box.querySelector("input[name=q]")).not.toBeNull()
+    expect(box.textContent).toMatch(/\d+ products?/)
+    // the box comes before the category pills
+    const pillsNav = d.querySelector('nav[aria-label="Filter by category"]')!
+    expect(box.compareDocumentPosition(pillsNav) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 })
 
@@ -113,6 +126,15 @@ describe("/products grid", () => {
     expect(a.textContent).toContain("Green Tea")
     expect(a.textContent).toContain("Acme")
     expect(a.textContent).toContain("from RM12.50")
+  })
+
+  it("the grid is 2 columns on a phone and 3 from a small screen up, never 4", async () => {
+    const d = await render()
+    const grid = d.querySelector('section[aria-label="Product results"] ul')!
+    for (const c of ["grid", "grid-cols-2", "sm:grid-cols-3", "gap-x-4", "gap-y-8"]) {
+      expect(grid.classList.contains(c), `${c} on ${grid.className}`).toBe(true)
+    }
+    expect(Array.from(grid.classList).some((c) => /grid-cols-4$/.test(c))).toBe(false)
   })
 
   it("shows Sold out for a product with no stock, New for a recent one, none otherwise", async () => {

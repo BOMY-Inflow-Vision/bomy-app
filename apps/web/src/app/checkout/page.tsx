@@ -8,6 +8,7 @@ import { listAddresses } from "../account/addresses/actions"
 import { readCheckoutEnabled } from "./actions"
 import { CheckoutForm } from "./_form"
 import { CHECKOUT_STEPS } from "./steps"
+import { PageMain } from "@/components/page-main"
 
 // A JWT session survives up to 30 days (see CLAUDE.md auth notes) and isn't re-validated
 // against the DB on every request, so a deleted/orphaned account can still present a
@@ -42,14 +43,14 @@ export default async function CheckoutPage() {
   }
   if (!enabled) {
     return (
-      <main className="mx-auto max-w-3xl px-4 py-8">
+      <PageMain narrow>
         <PageHeading title="Checkout" className="mb-4" />
         <div className="rounded-bento border border-dashed border-input bg-card p-6 text-center">
           <p className="text-sm text-muted-foreground">
             Checkout is paused. We&apos;ll let you know when it&apos;s back.
           </p>
         </div>
-      </main>
+      </PageMain>
     )
   }
 
@@ -67,7 +68,7 @@ export default async function CheckoutPage() {
   }))
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8">
+    <PageMain narrow>
       <PageHeading title="Checkout" className="mb-4" />
       <Stepper
         steps={CHECKOUT_STEPS}
@@ -76,6 +77,6 @@ export default async function CheckoutPage() {
         className="mb-8"
       />
       <CheckoutForm savedAddresses={savedAddresses} />
-    </main>
+    </PageMain>
   )
 }

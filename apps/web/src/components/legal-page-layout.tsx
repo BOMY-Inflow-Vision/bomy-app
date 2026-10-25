@@ -1,6 +1,7 @@
 import React from "react"
 
 import { PageHeading } from "@/components/page-heading"
+import { PageMain } from "@/components/page-main"
 
 type LegalPageLayoutProps = {
   title: string
@@ -11,7 +12,7 @@ type LegalPageLayoutProps = {
 
 export function LegalPageLayout({ title, intro, lastUpdated, children }: LegalPageLayoutProps) {
   return (
-    <main className="mx-auto flex max-w-3xl flex-col gap-8 px-4 py-12">
+    <PageMain narrow className="py-12" innerClassName="flex flex-col gap-8">
       <div className="flex flex-col gap-2">
         <PageHeading title={title} description={intro} />
         {lastUpdated && (
@@ -21,6 +22,6 @@ export function LegalPageLayout({ title, intro, lastUpdated, children }: LegalPa
       <div className="min-w-0 space-y-6 rounded-bento border border-border bg-card p-6 leading-relaxed text-foreground [overflow-wrap:anywhere] sm:p-10">
         {children}
       </div>
-    </main>
+    </PageMain>
   )
 }

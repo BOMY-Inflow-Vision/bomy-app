@@ -10,6 +10,7 @@ import { useToast } from "@/components/toaster"
 import { Button } from "@bomy/ui/button"
 
 import { cancelPendingCheckout } from "../actions"
+import { PageMain } from "@/components/page-main"
 
 type CancelState =
   | { phase: "cancelling" }
@@ -58,18 +59,18 @@ export function CancelHandler() {
 
   if (state.phase === "cancelling" || state.phase === "redirecting") {
     return (
-      <main className="mx-auto max-w-3xl px-4 py-8 text-center">
+      <PageMain narrow className="text-center">
         <div className="mb-6 flex justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-foreground" />
         </div>
         <p className="text-sm text-muted-foreground">Cancelling your checkout…</p>
-      </main>
+      </PageMain>
     )
   }
 
   if (state.phase === "error") {
     return (
-      <main className="mx-auto max-w-3xl px-4 py-8 text-center">
+      <PageMain narrow className="text-center">
         <PageHeading title="Something went wrong" align="center" className="mb-2" />
         <p className="mb-6 text-sm text-muted-foreground">
           We couldn&apos;t cancel your checkout. Please try again or contact support.
@@ -77,12 +78,12 @@ export function CancelHandler() {
         <Button asChild variant="link" icon={<ArrowLeft />} arrowOnHover={false}>
           <Link href="/cart">Back to cart</Link>
         </Button>
-      </main>
+      </PageMain>
     )
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8 text-center">
+    <PageMain narrow className="text-center">
       <PageHeading title="Checkout cancelled" align="center" className="mb-2" />
       <p className="mb-6 text-sm text-muted-foreground">
         Your checkout has been cancelled. Your cart is still saved.
@@ -90,6 +91,6 @@ export function CancelHandler() {
       <Button asChild icon={<ArrowLeft />} arrowOnHover={false}>
         <Link href="/cart">Back to cart</Link>
       </Button>
-    </main>
+    </PageMain>
   )
 }

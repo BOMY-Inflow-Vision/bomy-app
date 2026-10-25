@@ -9,6 +9,7 @@ import { PageHeading } from "@/components/page-heading"
 import { ProductCard } from "@/components/product-card"
 
 import { getStoreProducts } from "./queries"
+import { PageMain } from "@/components/page-main"
 
 interface Props {
   params: Promise<{ slug: string }>
@@ -24,7 +25,7 @@ export default async function StoreProductsPage({ params, searchParams }: Props)
   const { store, products } = data
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8">
+    <PageMain>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <PageHeading title={store.name} />
         <Button variant="link" size="sm" icon={<ArrowLeft />} arrowOnHover={false} asChild>
@@ -39,7 +40,7 @@ export default async function StoreProductsPage({ params, searchParams }: Props)
           </p>
         </Card>
       ) : (
-        <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        <ul className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3">
           {products.map((p) => (
             <li key={p.id} className="min-w-0">
               <ProductCard
@@ -52,6 +53,6 @@ export default async function StoreProductsPage({ params, searchParams }: Props)
           ))}
         </ul>
       )}
-    </main>
+    </PageMain>
   )
 }

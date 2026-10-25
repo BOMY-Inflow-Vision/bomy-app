@@ -20,6 +20,8 @@ const config = {
           foreground: "hsl(var(--primary-foreground))",
         },
       },
+      // Page frame: 1440 px minus 2 x 20 px gutters = 1400 px of content (nav bar, footer, pages).
+      maxWidth: { frame: "1440px" },
       spacing: {
         nav: "var(--nav-height)",
         "nav-clear": "calc(var(--nav-height) + var(--nav-offset))",

@@ -75,6 +75,15 @@ describe("Favourites details", () => {
     expect(q(root, "favourites-grid")).not.toBeNull()
   })
 
+  it("the grid is 2 columns on a phone and 3 on a large screen, never 4", () => {
+    const root = mount([product(1)], cats)
+    const grid = q(root, "favourites-grid")!
+    for (const c of ["grid-cols-2", "lg:grid-cols-3", "gap-x-4", "gap-y-8"]) {
+      expect(grid.classList.contains(c), `${c} on ${grid.className}`).toBe(true)
+    }
+    expect(Array.from(grid.classList).some((c) => /grid-cols-4$/.test(c))).toBe(false)
+  })
+
   it("one product: exactly one card, a single list item, linked to its page", () => {
     const root = mount([product(1)], cats)
     const items = q(root, "favourites-grid")!.querySelectorAll(":scope > li")
@@ -87,9 +96,9 @@ describe("Favourites details", () => {
     expect(root.innerHTML).toBe("")
   })
 
-  it("shows at most eight cards", () => {
+  it("shows at most six cards (two full rows of three)", () => {
     const root = mount(OVERFULL.favourites, OVERFULL.categories)
-    expect(q(root, "favourites-grid")!.querySelectorAll(":scope > li")).toHaveLength(8)
+    expect(q(root, "favourites-grid")!.querySelectorAll(":scope > li")).toHaveLength(6)
   })
 
   it("badges come from the data: New for a recent product, Sold out when nothing is in stock", () => {

@@ -11,6 +11,7 @@ import { AvatarUploader } from "./avatar-uploader"
 import { CopyUserId } from "./copy-user-id"
 import { NameEditor } from "./name-editor"
 import { SignOutButton } from "./sign-out-button"
+import { PageMain } from "@/components/page-main"
 
 let _client: ReturnType<typeof makeDb> | null = null
 function getDb() {
@@ -39,7 +40,7 @@ export default async function AccountPage() {
   )
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8">
+    <PageMain>
       <h1 className="sr-only">My Account</h1>
       <AccountTabs active="profile" />
       <div className="mx-auto max-w-md">
@@ -75,6 +76,6 @@ export default async function AccountPage() {
           </CardContent>
         </Card>
       </div>
-    </main>
+    </PageMain>
   )
 }

@@ -7,7 +7,7 @@ import { productBadge } from "@/lib/product-badge"
 import type { HOME_COPY } from "./home-copy"
 import type { HomeCategory, HomeProduct } from "./home-types"
 
-const CARD_LIMIT = 8
+const CARD_LIMIT = 6
 
 // The newest products with category shortcuts. With no products the whole section is absent: no
 // heading, no empty frame, no pills that lead nowhere. `now` is only for tests.
@@ -44,7 +44,10 @@ export function Favourites({
           ))}
         </FilterPills>
       ) : null}
-      <ul data-home="favourites-grid" className="grid min-w-0 grid-cols-2 gap-4 lg:grid-cols-4">
+      <ul
+        data-home="favourites-grid"
+        className="grid min-w-0 grid-cols-2 gap-x-4 gap-y-8 lg:grid-cols-3"
+      >
         {products.slice(0, CARD_LIMIT).map((p) => (
           <li key={p.id} className="min-w-0">
             <ProductCard

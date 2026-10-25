@@ -17,15 +17,7 @@ import StoreProductsPage from "@/app/brands/[slug]/products/page"
 
 const TOKENS = {
   link: ["group", "block", "rounded-bento", "focus-visible:ring-2", "focus-visible:ring-ring"],
-  tile: [
-    "overflow-hidden",
-    "rounded-bento",
-    "border",
-    "border-border",
-    "bg-card",
-    "shadow-sm",
-    "hover:shadow-md",
-  ],
+  tile: ["overflow-hidden", "rounded-bento", "bg-tint", "aspect-tile"],
   empty: ["rounded-bento", "border", "border-dashed", "bg-transparent", "shadow-none"],
   emptyText: ["py-16", "text-center"],
 }
@@ -68,14 +60,11 @@ describe("store products page", () => {
     expect(name.closest(".group")).not.toBeNull()
   })
 
-  it("the whole tile, border included, is inside the link", async () => {
+  it("the whole tile, picture and text, is inside the one link", async () => {
     const doc = await render([WITH_IMAGE])
     const link = doc.querySelector("li a")!
-    const border = Array.from(link.querySelectorAll("*"))
-      .concat(link)
-      .find((e) => e.classList.contains("border") && e.classList.contains("shadow-sm"))
-    expect(border).toBeDefined()
-    expect(link.contains(border!)).toBe(true)
+    expect(link.querySelector("img")).not.toBeNull()
+    expect(link.textContent).toContain(WITH_IMAGE.name)
   })
 
   it("a product without a cover image shows a placeholder, a product with one does not", async () => {

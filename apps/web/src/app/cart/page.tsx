@@ -9,6 +9,7 @@ import { PageHeading } from "@/components/page-heading"
 import { useToast } from "@/components/toaster"
 import { formatMyrSen } from "@/lib/format"
 import { useCart, type CartItem } from "@/lib/cart"
+import { PageMain } from "@/components/page-main"
 
 function QuantityStepper({
   value,
@@ -61,16 +62,16 @@ export default function CartPage() {
 
   if (!hydrated) {
     return (
-      <main className="mx-auto max-w-3xl px-4 py-8">
+      <PageMain narrow>
         <PageHeading title="Your Cart" />
-      </main>
+      </PageMain>
     )
   }
 
   const subtotal = items.reduce((sum, item) => sum + item.priceSen * item.quantity, 0)
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8">
+    <PageMain narrow>
       <PageHeading
         title={itemCount > 0 ? `Your Cart (${itemCount})` : "Your Cart"}
         className="mb-6"
@@ -157,6 +158,6 @@ export default function CartPage() {
           </div>
         </div>
       )}
-    </main>
+    </PageMain>
   )
 }
