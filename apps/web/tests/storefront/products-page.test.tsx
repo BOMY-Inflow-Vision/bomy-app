@@ -118,11 +118,11 @@ describe("/products heading", () => {
 })
 
 describe("/products grid", () => {
-  it("each result is the shared tile: blush art area, name, store and price", async () => {
+  it("each result is the shared tile: pastel art area, name, store and price", async () => {
     const d = await render()
     const a = d.querySelector('ul li a[href="/products/acme/green-tea"]')!
     expect(a).not.toBeNull()
-    expect(a.querySelector(".bg-tint.aspect-tile")).not.toBeNull()
+    expect(a.querySelector('[class*="bg-tile-"].aspect-tile')).not.toBeNull()
     expect(a.textContent).toContain("Green Tea")
     expect(a.textContent).toContain("Acme")
     expect(a.textContent).toContain("from RM12.50")
@@ -131,7 +131,15 @@ describe("/products grid", () => {
   it("the grid is 2 columns on a phone and 3 from a small screen up, never 4", async () => {
     const d = await render()
     const grid = d.querySelector('section[aria-label="Product results"] ul')!
-    for (const c of ["grid", "grid-cols-2", "sm:grid-cols-3", "gap-x-4", "gap-y-8"]) {
+    for (const c of [
+      "grid",
+      "grid-cols-2",
+      "sm:grid-cols-3",
+      "gap-x-3",
+      "gap-y-7",
+      "sm:gap-x-4",
+      "sm:gap-y-10",
+    ]) {
       expect(grid.classList.contains(c), `${c} on ${grid.className}`).toBe(true)
     }
     expect(Array.from(grid.classList).some((c) => /grid-cols-4$/.test(c))).toBe(false)
@@ -183,7 +191,7 @@ describe("/products grid", () => {
     const el = await ProductsPage({ searchParams: Promise.resolve({}) })
     const d = new DOMParser().parseFromString(renderToStaticMarkup(el), "text/html")
     const badgeOf = (slug: string) =>
-      d.querySelector(`ul li a[href="/products/acme/${slug}"] span.absolute`)?.textContent ?? null
+      d.querySelector(`ul li a[href="/products/acme/${slug}"] span.z-10`)?.textContent ?? null
     expect(badgeOf("a")).toBeNull()
     expect(badgeOf("b")).toBe("Sold out")
     expect(badgeOf("c")).toBe("New")

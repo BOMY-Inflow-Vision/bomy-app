@@ -17,7 +17,7 @@ import StoreProductsPage from "@/app/brands/[slug]/products/page"
 
 const TOKENS = {
   link: ["group", "block", "rounded-bento", "focus-visible:ring-2", "focus-visible:ring-ring"],
-  tile: ["overflow-hidden", "rounded-bento", "bg-tint", "aspect-tile"],
+  tile: ["overflow-hidden", "rounded-bento", "aspect-tile"],
   empty: ["rounded-bento", "border", "border-dashed", "bg-transparent", "shadow-none"],
   emptyText: ["py-16", "text-center"],
 }
@@ -53,10 +53,10 @@ describe("store products page", () => {
     expect(doc.querySelectorAll("img")).toHaveLength(1)
   })
 
-  it("the product name changes colour on hover of the tile", async () => {
+  it("the product name keeps its colour on hover (the picture moves instead)", async () => {
     const doc = await render([WITH_IMAGE])
     const name = doc.querySelector("li p")!
-    expect(name.classList.contains("group-hover:text-primary")).toBe(true)
+    expect(name.classList.contains("group-hover:text-primary")).toBe(false)
     expect(name.closest(".group")).not.toBeNull()
   })
 

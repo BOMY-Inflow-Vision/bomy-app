@@ -102,7 +102,7 @@ export default async function ProductsPage({ searchParams }: Props) {
               No products found.
             </div>
           ) : (
-            <ul className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3">
+            <ul className="grid grid-cols-2 gap-x-3 gap-y-7 sm:gap-x-4 sm:gap-y-10 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3">
               {products.map((p) => (
                 <li key={p.id} className="min-w-0">
                   <ProductCard

@@ -118,7 +118,7 @@ export default async function StorePage({ params }: Props) {
                   </Button>
                 )}
               </div>
-              <ul className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3">
+              <ul className="grid grid-cols-2 gap-x-3 gap-y-7 sm:gap-x-4 sm:gap-y-10 sm:grid-cols-3">
                 {section.products.map((product) => (
                   <li key={product.id} className="min-w-0">
                     <ProductCard
@@ -145,7 +145,7 @@ export default async function StorePage({ params }: Props) {
                   </Button>
                 )}
               </div>
-              <ul className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3">
+              <ul className="grid grid-cols-2 gap-x-3 gap-y-7 sm:gap-x-4 sm:gap-y-10 sm:grid-cols-3">
                 {uncategorized.products.map((product) => (
                   <li key={product.id} className="min-w-0">
                     <ProductCard

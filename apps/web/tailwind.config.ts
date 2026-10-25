@@ -33,6 +33,14 @@ const config = {
       colors: {
         scrim: "hsl(var(--scrim))",
         tint: "hsl(var(--tint))",
+        tile: {
+          sage: "hsl(var(--tile-sage))",
+          butter: "hsl(var(--tile-butter))",
+          sky: "hsl(var(--tile-sky))",
+          sand: "hsl(var(--tile-sand))",
+          stone: "hsl(var(--tile-stone))",
+          blush: "hsl(var(--tile-blush))",
+        },
         ink: "hsl(var(--ink))",
         "ink-foreground": "hsl(var(--ink-foreground))",
         "ink-muted": "hsl(var(--ink-muted))",
@@ -100,8 +108,12 @@ const config = {
         },
         subtle: "hsl(var(--border-subtle))",
       },
-      // Home hero only. Tight leading and tracking are part of the size, so every display line looks alike.
+      // Home hero only (display*). Tight leading and tracking are part of the size, so every display line looks alike.
+      // card-*: the product card text sizes measured on the Kvist shop (13 / 15 / 17 px).
       fontSize: {
+        "card-meta": ["0.8125rem", { lineHeight: "1.5" }],
+        "card-name-sm": ["0.9375rem", { lineHeight: "1.375" }],
+        "card-name": ["1.0625rem", { lineHeight: "1.375" }],
         display: [
           "clamp(2.5rem, 1.5rem + 4.5vw, 5rem)",
           { lineHeight: "0.95", letterSpacing: "-0.035em", fontWeight: "700" },

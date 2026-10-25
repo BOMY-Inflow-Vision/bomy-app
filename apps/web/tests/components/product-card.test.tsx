@@ -1,9 +1,14 @@
 // @vitest-environment jsdom
+//
+// Product card = the Kvist shop card, value for value (measured 2026-10-25 on
+// demo.codeandchill.store/kvist/shop at 1440 px): pastel tile (radius 1.75rem, 4:5), a cut-out
+// picture inset 11% / 15% with a soft oval shadow, badge pill with blur, text under the tile with
+// the price on the right. Hover (hover devices) lifts and turns the picture, thins the shadow.
 import React from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vitest"
 
-import { ProductCard, type ProductCardProps } from "@/components/product-card"
+import { ProductCard, TILE_TONES, type ProductCardProps } from "@/components/product-card"
 
 function render(props: Partial<ProductCardProps> = {}) {
   const html = renderToStaticMarkup(
@@ -19,6 +24,8 @@ function render(props: Partial<ProductCardProps> = {}) {
 const link = (d: Document) => d.querySelector("li a")!
 const tile = (d: Document) => link(d).firstElementChild!
 const text = (d: Document) => link(d).lastElementChild!
+const layer = (d: Document) => tile(d).querySelector("img")!.parentElement!
+const shadow = (d: Document) => tile(d).querySelector('[aria-hidden="true"]')!
 const has = (el: Element | null, tokens: string[]) => {
   expect(el).not.toBeNull()
   for (const t of tokens) expect(el!.classList.contains(t), `${t} on ${el!.className}`).toBe(true)
@@ -42,115 +49,205 @@ describe("ProductCard structure", () => {
       "focus-visible:ring-ring",
     ])
     expect(link(d).classList.contains("overflow-hidden")).toBe(false)
-    has(tile(d), ["overflow-hidden", "rounded-bento"])
+    has(tile(d), ["overflow-hidden", "rounded-bento", "isolate"])
   })
 
-  it("Kvist look: the picture tile has no border and no shadow, and no white card around the text", () => {
+  it("tile: 4:5, relative, no border and no shadow, and no white card around the text", () => {
     const d = render({ categoryName: "Tea", storeName: "Acme", minPriceSen: 100 })
-    for (const el of [link(d), tile(d), link(d).lastElementChild!]) {
+    has(tile(d), ["relative", "aspect-tile"])
+    for (const el of [link(d), tile(d), text(d)]) {
       for (const c of Array.from(el.classList)) {
         expect(c, `${c} on ${el.className}`).not.toMatch(/^(border|shadow|hover:shadow|bg-card)/)
       }
     }
   })
 
-  it("art area is the blush tile at 4:5 and holds the image", () => {
-    const d = render()
-    expect(link(d).querySelector("img")!.parentElement!.parentElement).toBe(tile(d))
-    has(tile(d), ["bg-tint", "aspect-tile", "relative"])
-    expect(link(d).querySelector("img")!.getAttribute("alt")).toBe("Tea")
+  it("the tile colour is one of the six Kvist pastels, stable for a product and varied across products", () => {
+    const toneOf = (href: string) =>
+      Array.from(tile(render({ href })).classList).filter((c) => c.startsWith("bg-tile-"))
+    expect(TILE_TONES).toHaveLength(6)
+    expect(render().querySelectorAll("li a")).toHaveLength(1)
+    const seen = new Set<string>()
+    for (let i = 0; i < 24; i++) {
+      const t = toneOf(`/products/s/p${i}`)
+      expect(t).toHaveLength(1)
+      expect(TILE_TONES).toContain(t[0])
+      expect(toneOf(`/products/s/p${i}`)).toEqual(t)
+      seen.add(t[0]!)
+    }
+    expect(seen.size).toBeGreaterThanOrEqual(4)
   })
 
-  it("no cover image: Package icon, same art classes, no emoji", () => {
+  it("no cover image: Package icon in the picture layer, same tile, no emoji", () => {
     const d = render({ coverImageUrl: null })
     expect(link(d).querySelector("img")).toBeNull()
-    expect(link(d).querySelector("svg")).not.toBeNull()
-    expect(d.body.textContent).not.toContain("📦")
     expect(tile(d).querySelector("svg")).not.toBeNull()
-    has(tile(d), ["bg-tint", "aspect-tile"])
+    expect(d.body.textContent).not.toContain("📦")
+    has(tile(d), ["aspect-tile", "rounded-bento"])
   })
 
-  it("name: hover colour on the tile, wraps, clamps to two lines", () => {
-    const d = render()
-    const name = Array.from(d.querySelectorAll("li p")).find((p) => p.textContent === "Tea")!
-    has(name, ["group-hover:text-primary", "break-words", "line-clamp-2", "font-medium"])
-    expect(name.closest(".group")).not.toBeNull()
-  })
-
-  it("an 80-character unbroken name adds no width or whitespace-nowrap class", () => {
+  it("name wraps, never forces a width, and keeps its colour on hover", () => {
     const d = render({ name: "x".repeat(80) })
     const name = Array.from(d.querySelectorAll("li p")).find(
       (p) => p.textContent === "x".repeat(80),
     )!
+    has(name, ["break-words", "font-medium", "leading-snug", "text-foreground"])
+    expect(Array.from(name.classList).some((c) => /group-hover:text/.test(c))).toBe(false)
     expect(
       Array.from(name.classList).some((c) => /^(w-|min-w-(?!0$)|whitespace-nowrap)/.test(c)),
     ).toBe(false)
   })
 })
 
-describe("ProductCard full variant", () => {
-  const full = {
-    categoryName: "Tea",
-    storeName: "Acme Store",
-    minPriceSen: 1250,
-  }
-  const para = (d: Document, test: (t: string) => boolean) =>
-    Array.from(d.querySelectorAll("li p")).find((p) => test(p.textContent))!
+describe("ProductCard picture and shadow (cut-out look)", () => {
+  it("the picture sits in a layer inset 11% (bottom 15%) and is contained, not cropped", () => {
+    const d = render()
+    has(layer(d), ["absolute", "inset-[11%]", "bottom-[15%]"])
+    has(link(d).querySelector("img"), ["size-full", "object-contain"])
+    expect(link(d).querySelector("img")!.classList.contains("object-cover")).toBe(false)
+  })
 
-  it("text sits under the tile on a two-column grid: name on the left, price on the right", () => {
-    const d = render(full)
-    has(text(d), ["grid", "grid-cols-[1fr_auto]", "items-baseline", "gap-x-3", "pt-3"])
-    // children: category, name, price, store (category and name share the text "Tea")
-    const name = text(d).children[1]!
-    const price = para(d, (t) => t.includes("from RM12.50"))
-    // same row: name and price are consecutive children, neither spans both columns
-    expect(name.nextElementSibling).toBe(price)
-    // below lg each takes the whole row (a 190 px tablet card would squeeze the name); from lg they share a row
-    for (const el of [name, price]) has(el, ["col-span-2", "lg:col-span-1"])
+  it("soft oval shadow under the picture: decorative, 58% wide, blurred, 55% opaque", () => {
+    const s = shadow(render())
+    has(s, [
+      "absolute",
+      "bottom-[13%]",
+      "left-1/2",
+      "h-6",
+      "w-[58%]",
+      "-translate-x-1/2",
+      "rounded-[50%]",
+      "bg-ink/25",
+      "blur-md",
+      "opacity-[0.55]",
+    ])
+    expect(s.textContent).toBe("")
+  })
+
+  it("hover (hover devices, motion allowed) lifts 14 px and turns -2 deg over 0.7 s ease-out-expo", () => {
+    const l = layer(render())
+    has(l, [
+      "transition-transform",
+      "duration-700",
+      "ease-out-expo",
+      "motion-reduce:transition-none",
+    ])
+    has(l, [
+      "motion-safe:[@media(hover:hover)]:group-hover:-translate-y-3.5",
+      "motion-safe:[@media(hover:hover)]:group-hover:-rotate-2",
+    ])
+  })
+
+  it("keyboard focus gets the same lift and turn", () => {
+    has(layer(render()), [
+      "motion-safe:group-focus-visible:-translate-y-3.5",
+      "motion-safe:group-focus-visible:-rotate-2",
+    ])
+  })
+
+  it("on hover the shadow thins to 32% and narrows to 78%, same timing", () => {
+    const s = shadow(render())
+    has(s, [
+      "transition-[opacity,transform]",
+      "duration-700",
+      "ease-out-expo",
+      "motion-reduce:transition-none",
+      "motion-safe:[@media(hover:hover)]:group-hover:opacity-[0.32]",
+      "motion-safe:[@media(hover:hover)]:group-hover:scale-x-[0.78]",
+      "motion-safe:group-focus-visible:opacity-[0.32]",
+      "motion-safe:group-focus-visible:scale-x-[0.78]",
+    ])
+  })
+
+  it("no scaling of the whole photo any more (the old 1.04 zoom is gone)", () => {
+    expect(link(render()).outerHTML).not.toContain("scale-[1.04]")
+  })
+})
+
+describe("ProductCard text (price on the right)", () => {
+  const full = { categoryName: "Tea", storeName: "Acme Store", minPriceSen: 1250 }
+  const kids = (d: Document) => Array.from(text(d).children)
+
+  it("text sits under the tile on the Kvist grid, with the Kvist padding", () => {
+    has(text(render(full)), [
+      "grid",
+      "grid-cols-[1fr_auto]",
+      "items-baseline",
+      "gap-x-3",
+      "px-1",
+      "pt-3",
+      "sm:px-1.5",
+      "sm:pt-4",
+    ])
+  })
+
+  it("DOM order is category, name, store, price (the phone order)", () => {
+    expect(kids(render(full)).map((k) => k.textContent)).toEqual([
+      "Tea",
+      "Tea",
+      "Acme Store",
+      "from RM12.50",
+    ])
+  })
+
+  it("phone: every line takes the full row; the price is on its own line, right-aligned", () => {
+    const [cat, name, store, price] = kids(render(full))
+    for (const el of [cat!, name!, store!, price!]) has(el, ["col-span-2"])
+    has(price!, ["mt-1", "text-right"])
+    has(name!, ["text-card-name-sm", "line-clamp-2"])
+    has(cat!, ["text-xs", "text-muted-foreground"])
+    has(store!, ["mt-1", "text-xs", "text-muted-foreground"])
+  })
+
+  it("from lg: category above, name under it, store third, price on the right across rows 1 and 2", () => {
+    const [cat, name, store, price] = kids(render(full))
+    has(cat!, ["lg:col-span-1", "lg:row-start-1", "lg:text-card-meta"])
+    has(name!, ["lg:col-span-1", "lg:row-start-2", "lg:line-clamp-1", "lg:text-card-name"])
+    has(store!, ["lg:col-span-1", "lg:row-start-3", "lg:text-card-meta"])
+    has(price!, [
+      "lg:col-span-1",
+      "lg:col-start-2",
+      "lg:row-span-2",
+      "lg:row-start-1",
+      "lg:self-end",
+      "lg:text-xl",
+      "lg:mt-0",
+    ])
+  })
+
+  it("price: display font, semibold, tabular, ink colour; no wrapping from lg, may wrap below", () => {
+    const price = kids(render(full))[3]!
     has(price, [
-      "text-primary-text",
+      "font-display",
       "font-semibold",
+      "tabular-nums",
+      "text-foreground",
+      "text-card-name",
       "lg:whitespace-nowrap",
       "[overflow-wrap:anywhere]",
     ])
-    // never nowrap below lg: a long price must wrap inside a 140 px card instead of spilling out
     expect(price.classList.contains("whitespace-nowrap")).toBe(false)
-    expect(price.classList.contains("text-primary")).toBe(false)
+    expect(price.classList.contains("text-primary-text")).toBe(false)
   })
 
-  it("category is a small plain line above, store a line below, both across the full width", () => {
-    const d = render(full)
-    const kids = Array.from(text(d).children)
-    expect(kids.map((k) => k.textContent)).toEqual(["Tea", "Tea", "from RM12.50", "Acme Store"])
-    has(kids[0]!, ["col-span-2", "text-xs", "text-muted-foreground", "truncate"])
-    expect(kids[0]!.classList.contains("font-mono")).toBe(false)
-    has(kids[3]!, ["col-span-2", "text-sm", "text-muted-foreground", "truncate"])
-  })
-
-  it("a very long price can wrap anywhere, so it stays inside a narrow card", () => {
+  it("a very long price can wrap anywhere below lg, so it stays inside a narrow card", () => {
     const d = render({ ...full, minPriceSen: 1299999999 })
-    const price = Array.from(d.querySelectorAll("li p")).find((p) =>
-      p.textContent.startsWith("from RM"),
-    )!
+    const price = kids(d)[3]!
     expect(price.textContent).toContain("12999999.99")
     has(price, ["[overflow-wrap:anywhere]"])
     expect(price.classList.contains("whitespace-nowrap")).toBe(false)
   })
 
-  it("no price: the name takes the whole row", () => {
+  it("no price: the name takes the whole row at every size", () => {
     const d = render({ ...full, minPriceSen: null })
-    // children: category, name, store
-    expect(text(d).children).toHaveLength(3)
-    has(text(d).children[1]!, ["col-span-2", "line-clamp-2"])
-    expect(text(d).children[1]!.classList.contains("lg:col-span-1")).toBe(false)
+    const [, name] = kids(d)
+    expect(kids(d)).toHaveLength(3)
+    has(name!, ["col-span-2", "lg:col-span-2"])
+    expect(name!.classList.contains("lg:col-span-1")).toBe(false)
   })
 
-  it("no category: the name is first in the text block", () => {
-    const d = render({ ...full, categoryName: null })
-    expect(text(d).firstElementChild!.textContent).toBe("Tea")
-  })
-
-  it("no store and no price render nothing", () => {
+  it("no category: the name is first in the text block; no store and no price render nothing", () => {
+    expect(kids(render({ ...full, categoryName: null }))[0]!.textContent).toBe("Tea")
     const d = render({ categoryName: "Tea", storeName: null, minPriceSen: null })
     expect(d.body.textContent).not.toContain("from RM")
     const empty = Array.from(d.querySelectorAll("li p")).filter((p) => p.textContent.trim() === "")
@@ -163,7 +260,7 @@ describe("ProductCard full variant", () => {
 })
 
 describe("ProductCard compact variant", () => {
-  it("shows only the image and the name, even if full fields are passed", () => {
+  it("shows only the picture and the name, even if full fields are passed", () => {
     const d = render({
       variant: "compact",
       categoryName: "Tea",
@@ -171,45 +268,29 @@ describe("ProductCard compact variant", () => {
       minPriceSen: 100,
     })
     expect(d.body.textContent).toBe("Tea")
-  })
-})
-
-// R6b Task 3: on hover or keyboard focus the photo scales 1.04 inside the clip. Only an inner
-// layer scales, so the badge stays put; touch screens get no sticky hover; reduced motion gets none.
-describe("ProductCard hover motion", () => {
-  const layer = (d: Document) => link(d).querySelector("img")!.parentElement!
-
-  it("the photo sits in its own scaling layer, with the 0.7 s ease-out-expo transition", () => {
-    const d = render()
-    has(layer(d), ["h-full", "w-full", "transition-transform", "duration-700", "ease-out-expo"])
-  })
-
-  it("the layer scales on hover (hover-capable devices only) and on keyboard focus, never with reduced motion", () => {
-    const d = render()
-    has(layer(d), [
-      "motion-safe:[@media(hover:hover)]:group-hover:scale-[1.04]",
-      "motion-safe:group-focus-visible:scale-[1.04]",
-      "motion-reduce:transition-none",
-    ])
-  })
-
-  it("the clip is isolated so Safari keeps round corners while the photo scales", () => {
-    has(tile(render()), ["isolate", "overflow-hidden", "rounded-bento"])
-  })
-
-  it("the badge is outside the scaling layer", () => {
-    const d = render({ badge: "New" })
-    const badge = Array.from(d.querySelectorAll("li span")).find((s) => s.textContent === "New")!
-    expect(layer(d).contains(badge)).toBe(false)
+    expect(text(d).children).toHaveLength(1)
   })
 })
 
 describe("ProductCard badge", () => {
-  it.each(["New", "Sold out"] as const)("renders %s exactly once", (badge) => {
+  it.each(["New", "Sold out"] as const)("renders %s once, as the Kvist pill with blur", (badge) => {
     const d = render({ badge })
     const hits = Array.from(d.querySelectorAll("li span")).filter((s) => s.textContent === badge)
     expect(hits).toHaveLength(1)
-    has(hits[0]!, ["absolute", "rounded-full", "bg-card", "text-xs"])
+    has(hits[0]!, [
+      "absolute",
+      "left-4",
+      "top-4",
+      "z-10",
+      "rounded-full",
+      "bg-card/90",
+      "px-3",
+      "py-1",
+      "text-xs",
+      "font-medium",
+      "backdrop-blur",
+    ])
+    expect(layer(d).contains(hits[0]!)).toBe(false)
   })
   it("renders none when null or absent", () => {
     for (const badge of [null, undefined]) {

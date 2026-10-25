@@ -46,7 +46,7 @@ export function Favourites({
       ) : null}
       <ul
         data-home="favourites-grid"
-        className="grid min-w-0 grid-cols-2 gap-x-4 gap-y-8 lg:grid-cols-3"
+        className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-7 sm:gap-x-4 sm:gap-y-10 lg:grid-cols-3"
       >
         {products.slice(0, CARD_LIMIT).map((p) => (
           <li key={p.id} className="min-w-0">
