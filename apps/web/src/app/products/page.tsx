@@ -1,7 +1,8 @@
 import Link from "next/link"
 import { Search, X } from "lucide-react"
 
-import { FilterPill, FilterPills } from "@/components/filter-pill"
+import { CategoryRail } from "@/components/category-rail"
+import { FilterPill, RAIL_PILL } from "@/components/filter-pill"
 import { PageHeading } from "@/components/page-heading"
 import { ProductCard } from "@/components/product-card"
 import { productBadge } from "@/lib/product-badge"
@@ -78,60 +79,62 @@ export default async function ProductsPage({ searchParams }: Props) {
         </form>
       </div>
 
-      <FilterPills label="Filter by category" className="mb-8">
-        <FilterPill asChild active={!category}>
-          <Link href={q ? `/products?q=${encodeURIComponent(q)}` : "/products"}>All</Link>
-        </FilterPill>
-        {categories.map((cat) => {
-          const href = q
-            ? `/products?q=${encodeURIComponent(q)}&category=${cat.id}`
-            : `/products?category=${cat.id}`
-          return (
-            <FilterPill key={cat.id} asChild active={category === cat.id}>
-              <Link href={href}>{cat.name}</Link>
-            </FilterPill>
-          )
-        })}
-      </FilterPills>
+      <div className="lg:grid lg:grid-cols-rail lg:items-start lg:gap-8">
+        <CategoryRail label="Filter by category">
+          <FilterPill asChild active={!category} className={RAIL_PILL}>
+            <Link href={q ? `/products?q=${encodeURIComponent(q)}` : "/products"}>All</Link>
+          </FilterPill>
+          {categories.map((cat) => {
+            const href = q
+              ? `/products?q=${encodeURIComponent(q)}&category=${cat.id}`
+              : `/products?category=${cat.id}`
+            return (
+              <FilterPill key={cat.id} asChild active={category === cat.id} className={RAIL_PILL}>
+                <Link href={href}>{cat.name}</Link>
+              </FilterPill>
+            )
+          })}
+        </CategoryRail>
 
-      <section aria-label="Product results" className="min-w-0">
-        {products.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border py-20 text-center text-sm text-muted-foreground">
-            No products found.
-          </div>
-        ) : (
-          <ul className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3">
-            {products.map((p) => (
-              <li key={p.id} className="min-w-0">
-                <ProductCard
-                  href={`/products/${p.storeSlug}/${p.slug}`}
-                  name={p.name}
-                  coverImageUrl={p.coverImageUrl}
-                  categoryName={p.categoryName}
-                  storeName={p.storeName}
-                  minPriceSen={p.minPriceSen}
-                  badge={productBadge({
-                    createdAt: p.createdAt,
-                    activeVariantCount: p.activeVariantCount,
-                    inStockVariantCount: p.inStockVariantCount,
-                    now: new Date(),
-                  })}
-                />
-              </li>
-            ))}
-          </ul>
-        )}
+        <section aria-label="Product results" className="min-w-0">
+          {products.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border py-20 text-center text-sm text-muted-foreground">
+              No products found.
+            </div>
+          ) : (
+            <ul className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3">
+              {products.map((p) => (
+                <li key={p.id} className="min-w-0">
+                  <ProductCard
+                    href={`/products/${p.storeSlug}/${p.slug}`}
+                    name={p.name}
+                    coverImageUrl={p.coverImageUrl}
+                    categoryName={p.categoryName}
+                    storeName={p.storeName}
+                    minPriceSen={p.minPriceSen}
+                    badge={productBadge({
+                      createdAt: p.createdAt,
+                      activeVariantCount: p.activeVariantCount,
+                      inStockVariantCount: p.inStockVariantCount,
+                      now: new Date(),
+                    })}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
 
-        {/* Pagination */}
-        <Pagination
-          page={page}
-          totalPages={totalPages}
-          buildHref={pageHref}
-          label="Products pagination"
-          linkAs={Link}
-          className="mt-8 flex flex-wrap justify-center gap-2"
-        />
-      </section>
+          {/* Pagination */}
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            buildHref={pageHref}
+            label="Products pagination"
+            linkAs={Link}
+            className="mt-8 flex flex-wrap justify-center gap-2"
+          />
+        </section>
+      </div>
     </PageMain>
   )
 }

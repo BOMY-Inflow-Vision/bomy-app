@@ -22,6 +22,10 @@ const config = {
       },
       // Page frame: 1440 px minus 2 x 20 px gutters = 1400 px of content (nav bar, footer, pages).
       maxWidth: { frame: "1440px" },
+      // /products category rail: a left column (13.75rem) next to the product grid.
+      gridTemplateColumns: { rail: "13.75rem minmax(0, 1fr)" },
+      // The rail scrolls inside itself when taller than the screen below the floating nav bar.
+      maxHeight: { rail: "calc(100dvh - var(--nav-height) - var(--nav-offset) - 3rem)" },
       spacing: {
         nav: "var(--nav-height)",
         "nav-clear": "calc(var(--nav-height) + var(--nav-offset))",
