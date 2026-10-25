@@ -105,9 +105,16 @@ describe("ProductCard full variant", () => {
     const price = para(d, (t) => t.includes("from RM12.50"))
     // same row: name and price are consecutive children, neither spans both columns
     expect(name.nextElementSibling).toBe(price)
-    // on a phone each takes the whole row (so the name is not squeezed); from sm they share a row
-    for (const el of [name, price]) has(el, ["col-span-2", "sm:col-span-1"])
-    has(price, ["text-primary-text", "font-semibold", "whitespace-nowrap"])
+    // below lg each takes the whole row (a 190 px tablet card would squeeze the name); from lg they share a row
+    for (const el of [name, price]) has(el, ["col-span-2", "lg:col-span-1"])
+    has(price, [
+      "text-primary-text",
+      "font-semibold",
+      "lg:whitespace-nowrap",
+      "[overflow-wrap:anywhere]",
+    ])
+    // never nowrap below lg: a long price must wrap inside a 140 px card instead of spilling out
+    expect(price.classList.contains("whitespace-nowrap")).toBe(false)
     expect(price.classList.contains("text-primary")).toBe(false)
   })
 
@@ -120,12 +127,22 @@ describe("ProductCard full variant", () => {
     has(kids[3]!, ["col-span-2", "text-sm", "text-muted-foreground", "truncate"])
   })
 
+  it("a very long price can wrap anywhere, so it stays inside a narrow card", () => {
+    const d = render({ ...full, minPriceSen: 1299999999 })
+    const price = Array.from(d.querySelectorAll("li p")).find((p) =>
+      p.textContent.startsWith("from RM"),
+    )!
+    expect(price.textContent).toContain("12999999.99")
+    has(price, ["[overflow-wrap:anywhere]"])
+    expect(price.classList.contains("whitespace-nowrap")).toBe(false)
+  })
+
   it("no price: the name takes the whole row", () => {
     const d = render({ ...full, minPriceSen: null })
     // children: category, name, store
     expect(text(d).children).toHaveLength(3)
     has(text(d).children[1]!, ["col-span-2", "line-clamp-2"])
-    expect(text(d).children[1]!.classList.contains("sm:col-span-1")).toBe(false)
+    expect(text(d).children[1]!.classList.contains("lg:col-span-1")).toBe(false)
   })
 
   it("no category: the name is first in the text block", () => {

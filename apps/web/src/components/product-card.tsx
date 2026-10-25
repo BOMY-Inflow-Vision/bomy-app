@@ -57,13 +57,13 @@ export function ProductCard({
         <p
           className={cn(
             "line-clamp-2 min-w-0 break-words text-base font-medium leading-snug text-foreground group-hover:text-primary",
-            showPrice ? "col-span-2 sm:col-span-1" : "col-span-2",
+            showPrice ? "col-span-2 lg:col-span-1" : "col-span-2",
           )}
         >
           {name}
         </p>
         {showPrice && (
-          <p className="col-span-2 mt-1 whitespace-nowrap text-base font-semibold text-primary-text sm:col-span-1 sm:mt-0">
+          <p className="col-span-2 mt-1 text-base font-semibold text-primary-text [overflow-wrap:anywhere] lg:col-span-1 lg:mt-0 lg:whitespace-nowrap">
             from {formatMyrSen(minPriceSen)}
           </p>
         )}
