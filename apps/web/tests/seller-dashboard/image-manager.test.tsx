@@ -289,6 +289,20 @@ describe("cut-out tick on each image", () => {
     expect(boxes()[1]!.checked).toBe(false)
   })
 
+  it("the box is disabled while its save runs, so a fast second click cannot race the first", async () => {
+    let finish!: (v: { ok: true }) => void
+    m.setImageCutout.mockReturnValue(new Promise((r) => (finish = r)))
+    mountWith()
+    act(() => boxes()[0]!.click())
+    expect(boxes()[0]!.disabled).toBe(true)
+    expect(boxes()[1]!.disabled).toBe(false)
+    act(() => boxes()[0]!.click())
+    expect(m.setImageCutout).toHaveBeenCalledTimes(1)
+    act(() => finish({ ok: true }))
+    await flush()
+    expect(boxes()[0]!.disabled).toBe(false)
+  })
+
   it("if saving fails, the box goes back and the error shows", async () => {
     m.setImageCutout.mockResolvedValue({ ok: false, error: "Image not found or not authorized" })
     mountWith()

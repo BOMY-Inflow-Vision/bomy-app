@@ -51,11 +51,13 @@ function SortableImageThumb({
   image,
   onRemove,
   onCutoutChange,
+  cutoutPending,
   helpId,
 }: {
   image: ProductImage
   onRemove: (id: string) => void
   onCutoutChange: (id: string, isCutout: boolean) => void
+  cutoutPending: boolean
   helpId: string
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -108,6 +110,7 @@ function SortableImageThumb({
           id={`cutout-${image.id}`}
           type="checkbox"
           checked={image.isCutout}
+          disabled={cutoutPending}
           onChange={(e) => onCutoutChange(image.id, e.target.checked)}
           aria-describedby={helpId}
           className="mt-0.5 shrink-0 rounded"
@@ -132,6 +135,8 @@ export function ImageManager({
   const [error, setError] = useState<string | null>(null)
   const hintId = useId()
   const cutoutHelpId = useId()
+  // Images whose cut-out save is running: their box is disabled so two fast clicks cannot race.
+  const [cutoutPending, setCutoutPending] = useState<ReadonlySet<string>>(new Set())
 
   useEffect(() => {
     setImages(initialImages)
@@ -242,8 +247,14 @@ export function ImageManager({
   }
 
   async function handleCutoutChange(imageId: string, isCutout: boolean) {
+    setCutoutPending((prev) => new Set(prev).add(imageId))
     setImages((prev) => prev.map((img) => (img.id === imageId ? { ...img, isCutout } : img)))
     const result = await setImageCutout(imageId, isCutout)
+    setCutoutPending((prev) => {
+      const next = new Set(prev)
+      next.delete(imageId)
+      return next
+    })
     if (!result.ok) {
       setImages((prev) =>
         prev.map((img) => (img.id === imageId ? { ...img, isCutout: !isCutout } : img)),
@@ -282,6 +293,7 @@ export function ImageManager({
                   onCutoutChange={(id, next) => {
                     void handleCutoutChange(id, next)
                   }}
+                  cutoutPending={cutoutPending.has(img.id)}
                   helpId={cutoutHelpId}
                 />
               ))}

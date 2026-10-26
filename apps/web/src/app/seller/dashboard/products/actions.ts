@@ -891,6 +891,9 @@ export async function removeProductImage(imageId: string): Promise<ProductAction
       .from(schema.products)
       .where(eq(schema.products.id, removedProductId))
       .limit(1)
+      // Lock the product row so a cut-out tick in flight (setImageCutout locks it too) cannot
+      // interleave with the cover hand-over and leave the cached flag wrong.
+      .for("update")
 
     if (prod?.coverImageUrl === removedUrl) {
       const [next] = await tx
