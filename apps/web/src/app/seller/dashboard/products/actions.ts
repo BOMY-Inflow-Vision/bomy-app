@@ -1002,8 +1002,20 @@ export async function reorderImages(
         return { ok: false as const, error: "Product not found or not authorized" }
       }
 
+      // Lock the product row first, like removeProductImage and setImageCutout, so the cover and
+      // its cached cut-out flag cannot be changed by two of these at once.
+      await tx
+        .select({ id: schema.products.id })
+        .from(schema.products)
+        .where(eq(schema.products.id, productId))
+        .for("update")
+
       const existing = await tx
-        .select({ id: schema.productImages.id })
+        .select({
+          id: schema.productImages.id,
+          url: schema.productImages.url,
+          isCutout: schema.productImages.isCutout,
+        })
         .from(schema.productImages)
         .where(eq(schema.productImages.productId, productId))
 
@@ -1024,6 +1036,15 @@ export async function reorderImages(
           .update(schema.productImages)
           .set({ sortOrder: i })
           .where(eq(schema.productImages.id, orderedImageIds[i]!))
+      }
+
+      // The first picture is the cover. The cut-out flag of the cover is cached on the product.
+      const first = existing.find((img) => img.id === orderedImageIds[0])
+      if (first) {
+        await tx
+          .update(schema.products)
+          .set({ coverImageUrl: first.url, coverIsCutout: first.isCutout })
+          .where(eq(schema.products.id, productId))
       }
       return { ok: true as const }
     },
