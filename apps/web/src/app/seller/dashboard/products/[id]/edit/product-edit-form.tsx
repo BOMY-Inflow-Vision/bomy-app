@@ -50,7 +50,6 @@ import {
 type Category = { id: string; name: string; isActive: boolean }
 type Product = {
   id: string
-  coverIsCutout: boolean
   name: string
   slug: string
   description: string | null
@@ -369,25 +368,6 @@ export function ProductEditForm({
                   rows={3}
                   defaultValue={product.description ?? ""}
                 />
-              </div>
-              <div className="col-span-2">
-                <Label
-                  htmlFor="coverIsCutout"
-                  className="flex items-center gap-2 text-sm font-medium text-foreground"
-                >
-                  <input
-                    id="coverIsCutout"
-                    name="coverIsCutout"
-                    type="checkbox"
-                    defaultChecked={product.coverIsCutout}
-                    aria-describedby="coverIsCutout-help"
-                    className="rounded"
-                  />
-                  This picture has no background (cut-out)
-                </Label>
-                <p id="coverIsCutout-help" className="mt-1 text-xs text-muted-foreground">
-                  Shows the product floating on the coloured tile.
-                </p>
               </div>
               <div className="col-span-2">
                 <Label

@@ -172,6 +172,10 @@ const MIGRATIONS = [
     name: "0033_product_cover_is_cutout",
     file: join(__dirname, "../drizzle/0033_product_cover_is_cutout.sql"),
   },
+  {
+    name: "0034_product_image_is_cutout",
+    file: join(__dirname, "../drizzle/0034_product_image_is_cutout.sql"),
+  },
 ]
 
 try {

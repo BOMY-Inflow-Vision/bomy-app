@@ -156,7 +156,6 @@ describe("W3/W4 ProductEditForm", () => {
     description: null,
     categoryId: "c-2",
     status: "archived" as const,
-    coverIsCutout: false,
     metaTitle: null,
     metaDescription: null,
     ogImageUrl: null,
@@ -175,32 +174,11 @@ describe("W3/W4 ProductEditForm", () => {
     expect(fd.get("status")).toBe("archived")
   })
 
-  it("has the cut-out tick box: off by default, posts 'on' only when ticked", async () => {
+  it("has no product-level cut-out tick (the tick lives on each image)", async () => {
     await render(<ProductEditForm product={product} variants={[]} categories={categories} />)
-    const box = byId("coverIsCutout")
-    if (!(box instanceof HTMLInputElement)) throw new Error("not an input")
-    expect(box.type).toBe("checkbox")
-    expect(box.checked).toBe(false)
-    expect(box.labels?.[0]?.textContent).toContain("This picture has no background (cut-out)")
-    expect(document.getElementById("coverIsCutout-help")?.textContent).toBe(
-      "Shows the product floating on the coloured tile.",
-    )
+    expect(document.getElementById("coverIsCutout")).toBeNull()
     await submit()
     expect(sentFormData(actions.updateProduct, 1).get("coverIsCutout")).toBeNull()
-  })
-
-  it("the tick box starts ticked for a product already marked as a cut-out", async () => {
-    await render(
-      <ProductEditForm
-        product={{ ...product, coverIsCutout: true }}
-        variants={[]}
-        categories={categories}
-      />,
-    )
-    const box = byId("coverIsCutout")
-    expect(box instanceof HTMLInputElement && box.checked).toBe(true)
-    await submit()
-    expect(sentFormData(actions.updateProduct, 1).get("coverIsCutout")).toBe("on")
   })
 
   it('choosing "No category" posts ""', async () => {
