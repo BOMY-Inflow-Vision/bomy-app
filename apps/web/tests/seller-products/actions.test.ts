@@ -1074,11 +1074,19 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
           name: "Reorder Images Product",
           slug: `reorder-images-${productId.slice(0, 8)}`,
           status: "draft",
+          coverImageUrl: "https://example.test/a.jpg",
+          coverIsCutout: false,
         })
         await tx.insert(schema.productImages).values([
           { id: imageAId, productId, url: "https://example.test/a.jpg", sortOrder: 0 },
           { id: imageBId, productId, url: "https://example.test/b.jpg", sortOrder: 1 },
-          { id: imageCId, productId, url: "https://example.test/c.jpg", sortOrder: 2 },
+          {
+            id: imageCId,
+            productId,
+            url: "https://example.test/c.jpg",
+            sortOrder: 2,
+            isCutout: true,
+          },
         ])
         await tx.insert(schema.products).values({
           id: foreignProductId,
@@ -1123,6 +1131,29 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       expect(byId.get(imageCId)).toBe(0)
       expect(byId.get(imageAId)).toBe(1)
       expect(byId.get(imageBId)).toBe(2)
+    })
+
+    it("makes the first picture the cover and copies its cut-out flag to the product", async () => {
+      mockAuth.mockResolvedValue({
+        user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
+      })
+      const readCover = () =>
+        withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test assert" }, async (tx) => {
+          const [row] = await tx
+            .select({
+              url: schema.products.coverImageUrl,
+              cutout: schema.products.coverIsCutout,
+            })
+            .from(schema.products)
+            .where(eq(schema.products.id, productId))
+          return row
+        })
+
+      await reorderImages(productId, [imageCId, imageAId, imageBId])
+      expect(await readCover()).toEqual({ url: "https://example.test/c.jpg", cutout: true })
+
+      await reorderImages(productId, [imageBId, imageCId, imageAId])
+      expect(await readCover()).toEqual({ url: "https://example.test/b.jpg", cutout: false })
     })
 
     it("returns a typed error when orderedIds is missing an image", async () => {
