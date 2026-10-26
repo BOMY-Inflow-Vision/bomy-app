@@ -246,7 +246,7 @@ describe("choosing a file", () => {
 })
 
 describe("cut-out tick on each image", () => {
-  const LABEL = "This picture has no background (cut-out)"
+  const LABEL = "Transparent background"
   const imgs = [
     { id: "i1", url: "https://cdn.test/a.jpg", altText: null, sortOrder: 0, isCutout: false },
     { id: "i2", url: "https://cdn.test/b.png", altText: "Chair", sortOrder: 1, isCutout: true },

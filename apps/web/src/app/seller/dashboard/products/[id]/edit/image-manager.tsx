@@ -115,7 +115,7 @@ function SortableImageThumb({
           aria-describedby={helpId}
           className="mt-0.5 shrink-0 rounded"
         />
-        This picture has no background (cut-out)
+        Transparent background
       </Label>
     </div>
   )
