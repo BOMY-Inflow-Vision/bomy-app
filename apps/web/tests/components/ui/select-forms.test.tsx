@@ -174,6 +174,13 @@ describe("W3/W4 ProductEditForm", () => {
     expect(fd.get("status")).toBe("archived")
   })
 
+  it("has no product-level cut-out tick (the tick lives on each image)", async () => {
+    await render(<ProductEditForm product={product} variants={[]} categories={categories} />)
+    expect(document.getElementById("coverIsCutout")).toBeNull()
+    await submit()
+    expect(sentFormData(actions.updateProduct, 1).get("coverIsCutout")).toBeNull()
+  })
+
   it('choosing "No category" posts ""', async () => {
     await render(<ProductEditForm product={product} variants={[]} categories={categories} />)
     await typeahead("categoryId", "N")

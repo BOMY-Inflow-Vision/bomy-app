@@ -64,6 +64,7 @@ import {
   reorderImages,
   reorderVariants,
   saveProductBody,
+  setImageCutout,
   updateProduct,
   updateVariant,
 } from "../../src/app/seller/dashboard/products/actions"
@@ -346,6 +347,41 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       expect(row!.metaTitle).toBe("Product Meta Title")
       expect(row!.metaDescription).toBe("Product meta description")
       expect(row!.ogImageUrl).toBe("https://cdn.example.com/product-og.png")
+    })
+
+    it("saving the product form leaves the cover cut-out flag alone (the flag lives on each image)", async () => {
+      mockAuth.mockResolvedValue({
+        user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
+      })
+      await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test setup" }, async (tx) =>
+        tx
+          .update(schema.products)
+          .set({ coverIsCutout: true })
+          .where(eq(schema.products.id, productId)),
+      )
+      await updateProduct(
+        productId,
+        fd({
+          name: "Updated Product",
+          slug: "updated-product",
+          categoryId: "",
+          description: "Updated desc",
+          status: "active",
+          coverIsCutout: "",
+        }),
+      )
+      const [row] = await withAdmin(
+        testDb.db,
+        { userId: SYSTEM_ACTOR, reason: "test assert" },
+        async (tx) => tx.select().from(schema.products).where(eq(schema.products.id, productId)),
+      )
+      expect(row!.coverIsCutout).toBe(true)
+      await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) =>
+        tx
+          .update(schema.products)
+          .set({ coverIsCutout: false })
+          .where(eq(schema.products.id, productId)),
+      )
     })
 
     it("rejects an invalid ogImageUrl without writing anything", async () => {
@@ -1501,6 +1537,113 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
   })
 
   // ─── getPresignedUploadUrl size enforcement ──────────────────────────────
+
+  // ─── per-image cut-out flag ──────────────────────────────────────────────
+
+  describe("setImageCutout", () => {
+    let prodId: string
+    let coverImg: string
+    let otherImg: string
+    const coverUrl = "https://cdn.example.com/products/cut-cover.jpg"
+    const otherUrl = "https://cdn.example.com/products/cut-other.jpg"
+
+    const readProduct = async () => {
+      const [row] = await withAdmin(
+        testDb.db,
+        { userId: SYSTEM_ACTOR, reason: "test assert" },
+        async (tx) => tx.select().from(schema.products).where(eq(schema.products.id, prodId)),
+      )
+      return row!
+    }
+    const readImage = async (id: string) => {
+      const [row] = await withAdmin(
+        testDb.db,
+        { userId: SYSTEM_ACTOR, reason: "test assert" },
+        async (tx) => tx.select().from(schema.productImages).where(eq(schema.productImages.id, id)),
+      )
+      return row!
+    }
+    const asSeller = (id: string, email: string) =>
+      mockAuth.mockResolvedValue({ user: { id, role: "seller_owner", email } })
+
+    beforeAll(async () => {
+      prodId = randomUUID()
+      coverImg = randomUUID()
+      otherImg = randomUUID()
+      await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test setup" }, async (tx) => {
+        await tx.insert(schema.products).values({
+          id: prodId,
+          storeId,
+          name: "Cutout Product",
+          slug: `cutout-${prodId.slice(0, 8)}`,
+          status: "active",
+          coverImageUrl: coverUrl,
+        })
+        await tx.insert(schema.productImages).values([
+          { id: coverImg, productId: prodId, url: coverUrl, sortOrder: 0 },
+          { id: otherImg, productId: prodId, url: otherUrl, sortOrder: 1 },
+        ])
+      })
+    })
+
+    afterAll(async () => {
+      await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
+        await tx.delete(schema.productImages).where(eq(schema.productImages.productId, prodId))
+        await tx.delete(schema.products).where(eq(schema.products.id, prodId))
+      })
+    })
+
+    it("a new image is a normal photo and the product starts as normal", async () => {
+      expect((await readImage(coverImg)).isCutout).toBe(false)
+      expect((await readProduct()).coverIsCutout).toBe(false)
+    })
+
+    it("ticking a picture that is not the cover marks that image only; the card stays normal", async () => {
+      asSeller(sellerId, "seller@test.bomy")
+      expect(await setImageCutout(otherImg, true)).toEqual({ ok: true })
+      expect((await readImage(otherImg)).isCutout).toBe(true)
+      expect((await readProduct()).coverIsCutout).toBe(false)
+    })
+
+    it("ticking the cover picture turns the card flag on; unticking turns it off", async () => {
+      asSeller(sellerId, "seller@test.bomy")
+      expect(await setImageCutout(coverImg, true)).toEqual({ ok: true })
+      expect((await readImage(coverImg)).isCutout).toBe(true)
+      expect((await readProduct()).coverIsCutout).toBe(true)
+      expect(await setImageCutout(coverImg, false)).toEqual({ ok: true })
+      expect((await readImage(coverImg)).isCutout).toBe(false)
+      expect((await readProduct()).coverIsCutout).toBe(false)
+    })
+
+    it("another seller cannot change the flag", async () => {
+      asSeller(otherSellerId, "other@test.bomy")
+      expect(await setImageCutout(coverImg, true)).toEqual({
+        ok: false,
+        error: "Image not found or not authorized",
+      })
+      expect((await readImage(coverImg)).isCutout).toBe(false)
+    })
+
+    it("removing the cover passes the cover to the next image, with that image's own flag", async () => {
+      asSeller(sellerId, "seller@test.bomy")
+      process.env["S3_PUBLIC_URL"] = "https://cdn.example.com"
+      await setImageCutout(coverImg, false)
+      // otherImg is still a cut-out from the test above; coverImg is a normal photo.
+      expect(await removeProductImage(coverImg)).toEqual({ ok: true })
+      const p = await readProduct()
+      expect(p.coverImageUrl).toBe(otherUrl)
+      expect(p.coverIsCutout).toBe(true)
+    })
+
+    it("removing the last image clears the cover and the flag", async () => {
+      asSeller(sellerId, "seller@test.bomy")
+      process.env["S3_PUBLIC_URL"] = "https://cdn.example.com"
+      expect(await removeProductImage(otherImg)).toEqual({ ok: true })
+      const p = await readProduct()
+      expect(p.coverImageUrl).toBeNull()
+      expect(p.coverIsCutout).toBe(false)
+    })
+  })
 
   describe("getPresignedUploadUrl", () => {
     it("rejects contentLength over 2 MB", async () => {

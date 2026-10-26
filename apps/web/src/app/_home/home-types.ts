@@ -6,6 +6,7 @@ export interface HomeProduct {
   storeName: string
   storeSlug: string
   coverImageUrl: string | null
+  coverIsCutout: boolean
   categoryName: string | null
   minPriceSen: number | null
   createdAt: Date

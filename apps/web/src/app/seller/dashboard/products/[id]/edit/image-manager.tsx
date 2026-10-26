@@ -24,6 +24,7 @@ import { useToast } from "@/components/toaster"
 import { Button } from "@bomy/ui/button"
 import { Card, CardContent } from "@bomy/ui/card"
 import { FileDropzone } from "@bomy/ui/file-dropzone"
+import { Label } from "@bomy/ui/label"
 import { createSerializedRunner } from "@/lib/serialized-runner"
 import { cn } from "@/lib/utils"
 
@@ -32,6 +33,7 @@ import {
   getPresignedUploadUrl,
   removeProductImage,
   reorderImages,
+  setImageCutout,
 } from "../../actions"
 
 type ProductImage = {
@@ -39,6 +41,7 @@ type ProductImage = {
   url: string
   altText: string | null
   sortOrder: number
+  isCutout: boolean
 }
 
 // Wraps one image thumbnail as a dnd-kit sortable grid item, with its own
@@ -47,9 +50,15 @@ type ProductImage = {
 function SortableImageThumb({
   image,
   onRemove,
+  onCutoutChange,
+  cutoutPending,
+  helpId,
 }: {
   image: ProductImage
   onRemove: (id: string) => void
+  onCutoutChange: (id: string, isCutout: boolean) => void
+  cutoutPending: boolean
+  helpId: string
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: image.id,
@@ -93,6 +102,21 @@ function SortableImageThumb({
           />
         </svg>
       </Button>
+      <Label
+        htmlFor={`cutout-${image.id}`}
+        className="mt-1 flex w-24 items-start gap-1 text-xs font-normal leading-tight text-muted-foreground"
+      >
+        <input
+          id={`cutout-${image.id}`}
+          type="checkbox"
+          checked={image.isCutout}
+          disabled={cutoutPending}
+          onChange={(e) => onCutoutChange(image.id, e.target.checked)}
+          aria-describedby={helpId}
+          className="mt-0.5 shrink-0 rounded"
+        />
+        Transparent background
+      </Label>
     </div>
   )
 }
@@ -110,6 +134,9 @@ export function ImageManager({
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const hintId = useId()
+  const cutoutHelpId = useId()
+  // Images whose cut-out save is running: their box is disabled so two fast clicks cannot race.
+  const [cutoutPending, setCutoutPending] = useState<ReadonlySet<string>>(new Set())
 
   useEffect(() => {
     setImages(initialImages)
@@ -219,6 +246,24 @@ export function ImageManager({
     toast.success("Image removed")
   }
 
+  async function handleCutoutChange(imageId: string, isCutout: boolean) {
+    setCutoutPending((prev) => new Set(prev).add(imageId))
+    setImages((prev) => prev.map((img) => (img.id === imageId ? { ...img, isCutout } : img)))
+    const result = await setImageCutout(imageId, isCutout)
+    setCutoutPending((prev) => {
+      const next = new Set(prev)
+      next.delete(imageId)
+      return next
+    })
+    if (!result.ok) {
+      setImages((prev) =>
+        prev.map((img) => (img.id === imageId ? { ...img, isCutout: !isCutout } : img)),
+      )
+      setError(result.error)
+      toast.error(result.error)
+    }
+  }
+
   return (
     <Card>
       <CardContent className="p-6">
@@ -245,6 +290,11 @@ export function ImageManager({
                   onRemove={(id) => {
                     void handleRemove(id)
                   }}
+                  onCutoutChange={(id, next) => {
+                    void handleCutoutChange(id, next)
+                  }}
+                  cutoutPending={cutoutPending.has(img.id)}
+                  helpId={cutoutHelpId}
                 />
               ))}
             </SortableContext>
@@ -286,6 +336,11 @@ export function ImageManager({
           </FileDropzone>
         </div>
 
+        {images.length > 0 && (
+          <p id={cutoutHelpId} className="mb-2 text-xs text-muted-foreground">
+            Shows the product floating on the coloured tile.
+          </p>
+        )}
         <p id={hintId} className="text-xs text-muted-foreground">
           JPEG, PNG, WebP. Max 2 MB per image. Images are uploaded directly to cloud storage.
         </p>

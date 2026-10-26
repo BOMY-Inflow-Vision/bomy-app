@@ -143,6 +143,64 @@ describe("ProductCard picture (photo covers the tile)", () => {
   })
 })
 
+describe("ProductCard cut-out picture (seller ticked 'no background')", () => {
+  const cut = () => render({ cutout: true })
+  const shadow = (d: Document) => tile(d).querySelector('[aria-hidden="true"]:not(svg)')!
+
+  it("the picture sits in a layer inset 11% (bottom 15%) and is contained, not cropped", () => {
+    const d = cut()
+    has(layer(d), ["absolute", "inset-[11%]", "bottom-[15%]"])
+    has(link(d).querySelector("img"), ["size-full", "object-contain"])
+    expect(link(d).querySelector("img")!.classList.contains("object-cover")).toBe(false)
+  })
+
+  it("soft oval shadow under the picture: decorative, 58% wide, blurred, 55% opaque", () => {
+    const s = shadow(cut())
+    has(s, [
+      "absolute",
+      "bottom-[13%]",
+      "left-1/2",
+      "h-6",
+      "w-[58%]",
+      "-translate-x-1/2",
+      "rounded-[50%]",
+      "bg-ink/25",
+      "blur-md",
+      "opacity-[0.55]",
+    ])
+    expect(s.textContent).toBe("")
+  })
+
+  it("hover lifts 14 px and turns -2 deg (no growing), and the shadow thins to 32% and narrows to 78%", () => {
+    const d = cut()
+    has(layer(d), [
+      "motion-safe:[@media(hover:hover)]:group-hover:-translate-y-3.5",
+      "motion-safe:[@media(hover:hover)]:group-hover:-rotate-2",
+      "motion-safe:group-focus-visible:-translate-y-3.5",
+      "motion-safe:group-focus-visible:-rotate-2",
+    ])
+    expect(layer(d).className).not.toMatch(/scale-/)
+    has(shadow(d), [
+      "transition-[opacity,transform]",
+      "duration-700",
+      "ease-out-expo",
+      "motion-reduce:transition-none",
+      "motion-safe:[@media(hover:hover)]:group-hover:opacity-[0.32]",
+      "motion-safe:[@media(hover:hover)]:group-hover:scale-x-[0.78]",
+      "motion-safe:group-focus-visible:opacity-[0.32]",
+      "motion-safe:group-focus-visible:scale-x-[0.78]",
+    ])
+  })
+
+  it("a normal photo (no flag, or false) has no shadow and no inset", () => {
+    for (const props of [{}, { cutout: false }]) {
+      const d = render(props)
+      expect(tile(d).querySelector('[aria-hidden="true"]:not(svg)')).toBeNull()
+      expect(layer(d).classList.contains("inset-0")).toBe(true)
+    }
+  })
+})
+
 describe("ProductCard text (price on the right)", () => {
   const full = { categoryName: "Tea", storeName: "Acme Store", minPriceSen: 1250 }
   const kids = (d: Document) => Array.from(text(d).children)

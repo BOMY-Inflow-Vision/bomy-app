@@ -11,6 +11,7 @@ const m = vi.hoisted(() => ({
   addProductImage: vi.fn(),
   removeProductImage: vi.fn(),
   reorderImages: vi.fn(),
+  setImageCutout: vi.fn(),
   toast: { success: vi.fn(), error: vi.fn() },
 }))
 vi.mock("@/app/seller/dashboard/products/actions", () => m)
@@ -241,5 +242,73 @@ describe("choosing a file", () => {
     await flush()
     expect(m.getPresignedUploadUrl).toHaveBeenCalledTimes(1)
     expect(m.getPresignedUploadUrl).toHaveBeenCalledWith("image/png", 10)
+  })
+})
+
+describe("cut-out tick on each image", () => {
+  const LABEL = "Transparent background"
+  const imgs = [
+    { id: "i1", url: "https://cdn.test/a.jpg", altText: null, sortOrder: 0, isCutout: false },
+    { id: "i2", url: "https://cdn.test/b.png", altText: "Chair", sortOrder: 1, isCutout: true },
+  ]
+  const mountWith = () =>
+    act(() => {
+      root.render(<ImageManager productId="prod-1" images={imgs} />)
+    })
+  const boxes = () =>
+    Array.from(container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'))
+
+  it("every image has a ticked-or-not box with the approved label, saved state shown", () => {
+    mountWith()
+    expect(boxes()).toHaveLength(2)
+    expect(boxes().map((b) => b.checked)).toEqual([false, true])
+    for (const b of boxes()) expect(b.labels?.[0]?.textContent).toContain(LABEL)
+  })
+
+  it("the approved help text shows once", () => {
+    mountWith()
+    const hits = container.textContent.split("Shows the product floating on the coloured tile.")
+    expect(hits).toHaveLength(2)
+  })
+
+  it("ticking calls setImageCutout with the image id and true, and keeps the tick", async () => {
+    m.setImageCutout.mockResolvedValue({ ok: true })
+    mountWith()
+    act(() => boxes()[0]!.click())
+    await flush()
+    expect(m.setImageCutout).toHaveBeenCalledWith("i1", true)
+    expect(boxes()[0]!.checked).toBe(true)
+  })
+
+  it("unticking sends false", async () => {
+    m.setImageCutout.mockResolvedValue({ ok: true })
+    mountWith()
+    act(() => boxes()[1]!.click())
+    await flush()
+    expect(m.setImageCutout).toHaveBeenCalledWith("i2", false)
+    expect(boxes()[1]!.checked).toBe(false)
+  })
+
+  it("the box is disabled while its save runs, so a fast second click cannot race the first", async () => {
+    let finish!: (v: { ok: true }) => void
+    m.setImageCutout.mockReturnValue(new Promise((r) => (finish = r)))
+    mountWith()
+    act(() => boxes()[0]!.click())
+    expect(boxes()[0]!.disabled).toBe(true)
+    expect(boxes()[1]!.disabled).toBe(false)
+    act(() => boxes()[0]!.click())
+    expect(m.setImageCutout).toHaveBeenCalledTimes(1)
+    act(() => finish({ ok: true }))
+    await flush()
+    expect(boxes()[0]!.disabled).toBe(false)
+  })
+
+  it("if saving fails, the box goes back and the error shows", async () => {
+    m.setImageCutout.mockResolvedValue({ ok: false, error: "Image not found or not authorized" })
+    mountWith()
+    act(() => boxes()[0]!.click())
+    await flush()
+    expect(boxes()[0]!.checked).toBe(false)
+    expect(m.toast.error).toHaveBeenCalledWith("Image not found or not authorized")
   })
 })

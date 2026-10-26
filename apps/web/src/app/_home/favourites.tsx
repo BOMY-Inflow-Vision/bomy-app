@@ -54,6 +54,7 @@ export function Favourites({
               href={`/products/${p.storeSlug}/${p.slug}`}
               name={p.name}
               coverImageUrl={p.coverImageUrl}
+              cutout={p.coverIsCutout}
               categoryName={p.categoryName}
               storeName={p.storeName}
               minPriceSen={p.minPriceSen}

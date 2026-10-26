@@ -48,6 +48,7 @@ export default async function StoreProductsPage({ params, searchParams }: Props)
                 href={`/products/${store.slug}/${p.slug}`}
                 name={p.name}
                 coverImageUrl={p.coverImageUrl}
+                cutout={p.coverIsCutout}
               />
             </li>
           ))}

@@ -755,7 +755,16 @@ export async function reorderVariants(
 // ─── Image mutations ───────────────────────────────────────────────────────
 
 export type AddProductImageResult =
-  | { ok: true; image: { id: string; url: string; altText: string | null; sortOrder: number } }
+  | {
+      ok: true
+      image: {
+        id: string
+        url: string
+        altText: string | null
+        sortOrder: number
+        isCutout: boolean
+      }
+    }
   | { ok: false; error: string }
 
 export async function addProductImage(
@@ -815,11 +824,12 @@ export async function addProductImage(
           url: schema.productImages.url,
           altText: schema.productImages.altText,
           sortOrder: schema.productImages.sortOrder,
+          isCutout: schema.productImages.isCutout,
         })
 
       await tx
         .update(schema.products)
-        .set({ coverImageUrl: url })
+        .set({ coverImageUrl: url, coverIsCutout: false })
         .where(and(eq(schema.products.id, productId), isNull(schema.products.coverImageUrl)))
 
       return { ok: true as const, image: inserted! }
@@ -881,10 +891,13 @@ export async function removeProductImage(imageId: string): Promise<ProductAction
       .from(schema.products)
       .where(eq(schema.products.id, removedProductId))
       .limit(1)
+      // Lock the product row so a cut-out tick in flight (setImageCutout locks it too) cannot
+      // interleave with the cover hand-over and leave the cached flag wrong.
+      .for("update")
 
     if (prod?.coverImageUrl === removedUrl) {
       const [next] = await tx
-        .select({ url: schema.productImages.url })
+        .select({ url: schema.productImages.url, isCutout: schema.productImages.isCutout })
         .from(schema.productImages)
         .where(eq(schema.productImages.productId, removedProductId))
         .orderBy(
@@ -895,12 +908,71 @@ export async function removeProductImage(imageId: string): Promise<ProductAction
         .limit(1)
       await tx
         .update(schema.products)
-        .set({ coverImageUrl: next?.url ?? null })
+        .set({ coverImageUrl: next?.url ?? null, coverIsCutout: next?.isCutout ?? false })
         .where(eq(schema.products.id, removedProductId))
     }
   })
 
   revalidatePath(`/seller/dashboard/products/${imageRows[0].productId}/edit`)
+  return { ok: true }
+}
+
+// The seller ticks or unticks "cut-out" on one picture. The cover picture's flag is cached on the
+// product row (cover_is_cutout) so the storefront queries need no join; both writes share one
+// transaction so they cannot drift apart.
+export async function setImageCutout(
+  imageId: string,
+  isCutout: boolean,
+): Promise<ProductActionResult> {
+  const session = await requireSeller()
+
+  const result = await withTenant(
+    getDb(),
+    { userId: session.user.id, userRole: session.user.role },
+    async (tx) => {
+      const rows = await tx
+        .select({
+          id: schema.productImages.id,
+          productId: schema.productImages.productId,
+          url: schema.productImages.url,
+          coverImageUrl: schema.products.coverImageUrl,
+        })
+        .from(schema.productImages)
+        .innerJoin(schema.products, eq(schema.products.id, schema.productImages.productId))
+        .innerJoin(schema.stores, eq(schema.stores.id, schema.products.storeId))
+        .where(
+          and(
+            eq(schema.productImages.id, imageId),
+            eq(schema.stores.ownerId, session.user.id),
+            eq(schema.stores.status, "active"),
+          ),
+        )
+        .limit(1)
+        .for("update", { of: schema.products })
+      const image = rows[0]
+      if (!image) return { ok: false as const, error: "Image not found or not authorized" }
+
+      await tx
+        .update(schema.productImages)
+        .set({ isCutout })
+        .where(eq(schema.productImages.id, imageId))
+      if (image.coverImageUrl === image.url) {
+        await tx
+          .update(schema.products)
+          .set({ coverIsCutout: isCutout })
+          .where(eq(schema.products.id, image.productId))
+      }
+      return { ok: true as const, productId: image.productId }
+    },
+  ).catch((err) => {
+    if (isRlsViolation(err))
+      return { ok: false as const, error: "Image not found or not authorized" }
+    throw err
+  })
+
+  if (!result.ok) return result
+
+  revalidatePath(`/seller/dashboard/products/${result.productId}/edit`)
   return { ok: true }
 }
 

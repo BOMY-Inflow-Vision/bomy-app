@@ -89,6 +89,7 @@ export async function getFavourites(): Promise<HomeProduct[]> {
     storeName: p.storeName,
     storeSlug: p.storeSlug,
     coverImageUrl: p.coverImageUrl,
+    coverIsCutout: p.coverIsCutout,
     categoryName: p.categoryName,
     minPriceSen: p.minPriceSen,
     createdAt: p.createdAt,

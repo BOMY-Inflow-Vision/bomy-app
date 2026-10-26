@@ -18,6 +18,7 @@ interface ProductCard {
   name: string
   slug: string
   coverImageUrl: string | null
+  coverIsCutout: boolean
 }
 
 export const getStorePage = cache(async (slug: string) => {
@@ -72,6 +73,7 @@ export const getStorePage = cache(async (slug: string) => {
           name: schema.products.name,
           slug: schema.products.slug,
           coverImageUrl: schema.products.coverImageUrl,
+          coverIsCutout: schema.products.coverIsCutout,
           categoryId: schema.products.categoryId,
           rn: sql<number>`row_number() over (partition by ${schema.products.categoryId} order by ${schema.products.createdAt} asc, ${schema.products.id} asc)`.as(
             "rn",
@@ -93,6 +95,7 @@ export const getStorePage = cache(async (slug: string) => {
         name: ranked.name,
         slug: ranked.slug,
         coverImageUrl: ranked.coverImageUrl,
+        coverIsCutout: ranked.coverIsCutout,
         categoryId: ranked.categoryId,
       })
       .from(ranked)
@@ -108,6 +111,7 @@ export const getStorePage = cache(async (slug: string) => {
         name: p.name,
         slug: p.slug,
         coverImageUrl: p.coverImageUrl,
+        coverIsCutout: p.coverIsCutout,
       }
       if (p.categoryId === null) {
         uncategorizedProducts.push(card)

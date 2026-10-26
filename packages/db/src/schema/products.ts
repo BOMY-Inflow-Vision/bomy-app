@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm"
 import {
+  boolean,
   check,
   customType,
   index,
@@ -40,6 +41,8 @@ export const products = pgTable(
     searchVector: tsvector("search_vector"),
     status: productStatusEnum("status").notNull().default("draft"),
     coverImageUrl: text("cover_image_url"),
+    // Seller-ticked (migration 0033): the cover picture is a cut-out, shown inset with a shadow on the card.
+    coverIsCutout: boolean("cover_is_cutout").notNull().default(false),
     bodyHtml: text("body_html"),
     bodyRevision: integer("body_revision").notNull().default(0),
     // SEO metadata (migration 0030) — all optional, seller/admin editable.

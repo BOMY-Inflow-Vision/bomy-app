@@ -32,6 +32,7 @@ export function product(i: number, over: Partial<HomeProduct> = {}): HomeProduct
     storeName: `Store ${i % 3}`,
     storeSlug: `store-${i % 3}`,
     coverImageUrl: `https://img.test/p${i}.jpg`,
+    coverIsCutout: false,
     categoryName: `Category ${i % 3}`,
     minPriceSen: 1000 + i,
     createdAt: new Date("2026-10-01T00:00:00Z"),
