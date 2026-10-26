@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 //
-// Product card = the Kvist shop card, value for value (measured 2026-10-25 on
-// demo.codeandchill.store/kvist/shop at 1440 px): pastel tile (radius 1.75rem, 4:5), a cut-out
-// picture inset 11% / 15% with a soft oval shadow, badge pill with blur, text under the tile with
-// the price on the right. Hover (hover devices) lifts and turns the picture, thins the shadow.
+// Product card = the Kvist shop card layout (measured 2026-10-25 on demo.codeandchill.store/kvist/shop
+// at 1440 px): pastel tile (radius 1.75rem, 4:5), badge pill with blur, text under the tile with the
+// price on the right. Charlie's call (2026-10-26): sellers upload normal photos, so the photo covers the
+// whole tile (no inset, no oval shadow). On hover (hover devices) the photo lifts, turns and grows
+// a little, so the turn never shows an empty corner.
 import React from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vitest"
@@ -25,7 +26,6 @@ const link = (d: Document) => d.querySelector("li a")!
 const tile = (d: Document) => link(d).firstElementChild!
 const text = (d: Document) => link(d).lastElementChild!
 const layer = (d: Document) => tile(d).querySelector("img")!.parentElement!
-const shadow = (d: Document) => tile(d).querySelector('[aria-hidden="true"]')!
 const has = (el: Element | null, tokens: string[]) => {
   expect(el).not.toBeNull()
   for (const t of tokens) expect(el!.classList.contains(t), `${t} on ${el!.className}`).toBe(true)
@@ -99,32 +99,19 @@ describe("ProductCard structure", () => {
   })
 })
 
-describe("ProductCard picture and shadow (cut-out look)", () => {
-  it("the picture sits in a layer inset 11% (bottom 15%) and is contained, not cropped", () => {
+describe("ProductCard picture (photo covers the tile)", () => {
+  it("the picture layer fills the whole tile and the photo is cropped to cover, not contained", () => {
     const d = render()
-    has(layer(d), ["absolute", "inset-[11%]", "bottom-[15%]"])
-    has(link(d).querySelector("img"), ["size-full", "object-contain"])
-    expect(link(d).querySelector("img")!.classList.contains("object-cover")).toBe(false)
+    has(layer(d), ["absolute", "inset-0"])
+    has(link(d).querySelector("img"), ["h-full", "w-full", "object-cover"])
+    expect(link(d).querySelector("img")!.classList.contains("object-contain")).toBe(false)
   })
 
-  it("soft oval shadow under the picture: decorative, 58% wide, blurred, 55% opaque", () => {
-    const s = shadow(render())
-    has(s, [
-      "absolute",
-      "bottom-[13%]",
-      "left-1/2",
-      "h-6",
-      "w-[58%]",
-      "-translate-x-1/2",
-      "rounded-[50%]",
-      "bg-ink/25",
-      "blur-md",
-      "opacity-[0.55]",
-    ])
-    expect(s.textContent).toBe("")
+  it("no oval shadow under the picture (it would show on the photo)", () => {
+    expect(tile(render()).querySelector('[aria-hidden="true"]:not(svg)')).toBeNull()
   })
 
-  it("hover (hover devices, motion allowed) lifts 14 px and turns -2 deg over 0.7 s ease-out-expo", () => {
+  it("hover (hover devices, motion allowed) lifts 14 px, turns -2 deg and grows to 110% over 0.7 s ease-out-expo", () => {
     const l = layer(render())
     has(l, [
       "transition-transform",
@@ -135,28 +122,20 @@ describe("ProductCard picture and shadow (cut-out look)", () => {
     has(l, [
       "motion-safe:[@media(hover:hover)]:group-hover:-translate-y-3.5",
       "motion-safe:[@media(hover:hover)]:group-hover:-rotate-2",
+      "motion-safe:[@media(hover:hover)]:group-hover:scale-110",
     ])
   })
 
-  it("keyboard focus gets the same lift and turn", () => {
+  it("keyboard focus gets the same lift, turn and grow", () => {
     has(layer(render()), [
       "motion-safe:group-focus-visible:-translate-y-3.5",
       "motion-safe:group-focus-visible:-rotate-2",
+      "motion-safe:group-focus-visible:scale-110",
     ])
   })
 
-  it("on hover the shadow thins to 32% and narrows to 78%, same timing", () => {
-    const s = shadow(render())
-    has(s, [
-      "transition-[opacity,transform]",
-      "duration-700",
-      "ease-out-expo",
-      "motion-reduce:transition-none",
-      "motion-safe:[@media(hover:hover)]:group-hover:opacity-[0.32]",
-      "motion-safe:[@media(hover:hover)]:group-hover:scale-x-[0.78]",
-      "motion-safe:group-focus-visible:opacity-[0.32]",
-      "motion-safe:group-focus-visible:scale-x-[0.78]",
-    ])
+  it("the tile clips the moving photo (overflow-hidden, rounded, isolate)", () => {
+    has(tile(render()), ["overflow-hidden", "rounded-bento", "isolate"])
   })
 
   it("no scaling of the whole photo any more (the old 1.04 zoom is gone)", () => {

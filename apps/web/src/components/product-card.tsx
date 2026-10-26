@@ -34,13 +34,13 @@ function toneFor(href: string) {
   return TILE_TONES[h % TILE_TONES.length]!
 }
 
-// Shared storefront tile, the Kvist shop card value for value (measured 2026-10-25): a pastel 4:5
-// tile with a cut-out picture inset 11% and a soft oval shadow under it, then the text under the
+// Shared storefront tile, the Kvist shop card layout (measured 2026-10-25): a pastel 4:5 tile whose
+// photo covers the whole tile (sellers upload normal photos, not cut-outs), then the text under the
 // tile: category, name, store, and the price on the right (from lg; on a phone the price is its own
 // right-aligned line). Renders the whole tile as one link; the page keeps its own <li>. The focus
 // ring sits on the link (not clipped); the rounded clipping is on the tile. On hover or keyboard
-// focus the picture lifts 14 px and turns -2 deg and the shadow thins (0.7 s ease-out-expo); touch
-// screens and reduced motion get none.
+// focus the photo lifts 14 px, turns -2 deg and grows to 110% (0.7 s ease-out-expo); the growth keeps
+// the turn from showing an empty corner. Touch screens and reduced motion get none.
 export function ProductCard({
   href,
   name,
@@ -61,12 +61,8 @@ export function ProductCard({
       <div
         className={cn("relative isolate aspect-tile overflow-hidden rounded-bento", toneFor(href))}
       >
-        <span
-          aria-hidden="true"
-          className="absolute bottom-[13%] left-1/2 h-6 w-[58%] -translate-x-1/2 rounded-[50%] bg-ink/25 opacity-[0.55] blur-md transition-[opacity,transform] duration-700 ease-out-expo motion-reduce:transition-none motion-safe:[@media(hover:hover)]:group-hover:opacity-[0.32] motion-safe:[@media(hover:hover)]:group-hover:scale-x-[0.78] motion-safe:group-focus-visible:opacity-[0.32] motion-safe:group-focus-visible:scale-x-[0.78]"
-        />
-        <div className="absolute inset-[11%] bottom-[15%] transition-transform duration-700 ease-out-expo motion-reduce:transition-none motion-safe:[@media(hover:hover)]:group-hover:-translate-y-3.5 motion-safe:[@media(hover:hover)]:group-hover:-rotate-2 motion-safe:group-focus-visible:-translate-y-3.5 motion-safe:group-focus-visible:-rotate-2">
-          <CoverImage src={coverImageUrl} alt={name} fit="contain" />
+        <div className="absolute inset-0 transition-transform duration-700 ease-out-expo motion-reduce:transition-none motion-safe:[@media(hover:hover)]:group-hover:-translate-y-3.5 motion-safe:[@media(hover:hover)]:group-hover:-rotate-2 motion-safe:[@media(hover:hover)]:group-hover:scale-110 motion-safe:group-focus-visible:-translate-y-3.5 motion-safe:group-focus-visible:-rotate-2 motion-safe:group-focus-visible:scale-110">
+          <CoverImage src={coverImageUrl} alt={name} />
         </div>
         {badge && (
           <span className="absolute left-4 top-4 z-10 rounded-full bg-card/90 px-3 py-1 text-xs font-medium text-foreground backdrop-blur">

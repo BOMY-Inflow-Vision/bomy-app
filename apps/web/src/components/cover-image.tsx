@@ -7,16 +7,7 @@ import { Package } from "lucide-react"
 // Package icon instead of a broken-image glyph. Failure is remembered per URL, so a card that
 // receives a new URL tries it again. Two failure paths: the img `error` event, and a mount check
 // (`complete` with no pixels) for an image that failed before React hydrated.
-export function CoverImage({
-  src,
-  alt,
-  fit = "cover",
-}: {
-  src: string | null
-  alt: string
-  /** `contain` keeps a cut-out picture whole (product tiles); `cover` crops to fill (default). */
-  fit?: "cover" | "contain"
-}) {
+export function CoverImage({ src, alt }: { src: string | null; alt: string }) {
   const [failedSrc, setFailedSrc] = React.useState<string | null>(null)
   const ref = React.useRef<HTMLImageElement>(null)
 
@@ -39,7 +30,7 @@ export function CoverImage({
       alt={alt}
       width={400}
       height={400}
-      className={fit === "contain" ? "size-full object-contain" : "h-full w-full object-cover"}
+      className="h-full w-full object-cover"
       onError={() => setFailedSrc(src)}
     />
   )
