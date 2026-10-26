@@ -132,6 +132,18 @@
     "reason": "dynamic: width from upload progress %"
   },
   {
+    "rule": "R5-inline-style",
+    "file": "apps/web/src/components/toaster.tsx",
+    "text": "style={{ height: layout.height }}",
+    "reason": "dynamic: stack height from the measured toast heights"
+  },
+  {
+    "rule": "R5-inline-style",
+    "file": "apps/web/src/components/toaster.tsx",
+    "text": "style={{",
+    "reason": "dynamic: per-toast translateY/scale from the measured stack layout"
+  },
+  {
     "rule": "R1-button",
     "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/product-edit-form.tsx",
     "text": "<button",
