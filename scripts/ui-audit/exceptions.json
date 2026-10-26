@@ -158,6 +158,12 @@
   {
     "rule": "R1-input",
     "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/product-edit-form.tsx",
+    "text": "<input",
+    "reason": "type checkbox/file/hidden (no shared primitive)"
+  },
+  {
+    "rule": "R1-input",
+    "file": "apps/web/src/app/seller/dashboard/products/[id]/edit/product-edit-form.tsx",
     "text": "<input type=\"hidden\" name=\"attrs\" value=\"\" />",
     "reason": "type=hidden; no shared primitive"
   },

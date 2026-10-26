@@ -69,6 +69,7 @@ export async function getProducts({
         storeSlug: schema.stores.slug,
         storeId: schema.products.storeId,
         coverImageUrl: schema.products.coverImageUrl,
+        coverIsCutout: schema.products.coverIsCutout,
         categoryName: schema.categories.name,
         minPriceSen: sql<string>`min(${schema.productVariants.priceMyrSen})`,
         createdAt: schema.products.createdAt,

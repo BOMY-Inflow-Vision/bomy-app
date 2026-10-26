@@ -348,6 +348,32 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       expect(row!.ogImageUrl).toBe("https://cdn.example.com/product-og.png")
     })
 
+    it("saves the cut-out tick: on = true, box left unticked (absent) = false", async () => {
+      mockAuth.mockResolvedValue({
+        user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },
+      })
+      const base = {
+        name: "Updated Product",
+        slug: "updated-product",
+        categoryId: "",
+        description: "Updated desc",
+        status: "active",
+      }
+      const read = async () => {
+        const [row] = await withAdmin(
+          testDb.db,
+          { userId: SYSTEM_ACTOR, reason: "test assert" },
+          async (tx) => tx.select().from(schema.products).where(eq(schema.products.id, productId)),
+        )
+        return row!.coverIsCutout
+      }
+
+      await updateProduct(productId, fd({ ...base, coverIsCutout: "on" }))
+      expect(await read()).toBe(true)
+      await updateProduct(productId, fd(base))
+      expect(await read()).toBe(false)
+    })
+
     it("rejects an invalid ogImageUrl without writing anything", async () => {
       mockAuth.mockResolvedValue({
         user: { id: sellerId, role: "seller_owner", email: "seller@test.bomy" },

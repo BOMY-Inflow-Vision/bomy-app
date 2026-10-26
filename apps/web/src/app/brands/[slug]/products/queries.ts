@@ -45,6 +45,7 @@ export async function getStoreProducts(storeSlug: string, categorySlug: string |
         name: schema.products.name,
         slug: schema.products.slug,
         coverImageUrl: schema.products.coverImageUrl,
+        coverIsCutout: schema.products.coverIsCutout,
       })
       .from(schema.products)
       .where(and(...conditions))

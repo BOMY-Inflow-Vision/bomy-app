@@ -8,6 +8,8 @@ export interface ProductCardProps {
   href: string
   name: string
   coverImageUrl: string | null
+  /** The seller ticked "cut-out" for this picture: it floats inset on the tile with a shadow. Default: a normal photo that covers the tile. */
+  cutout?: boolean
   /** `compact` shows the image and the name only (brand pages). Default `full`. */
   variant?: "full" | "compact"
   categoryName?: string | null
@@ -16,6 +18,14 @@ export interface ProductCardProps {
   /** A badge proved by real data (see productBadge). Absent or null shows none. */
   badge?: "New" | "Sold out" | null
 }
+
+// The picture layer moves on hover (hover devices, motion allowed) and on keyboard focus. A cut-out
+// lifts and turns; a photo that covers the tile also grows to 110%, so the turn never shows an empty corner.
+const PICTURE_BASE =
+  "absolute transition-transform duration-700 ease-out-expo motion-reduce:transition-none motion-safe:[@media(hover:hover)]:group-hover:-translate-y-3.5 motion-safe:[@media(hover:hover)]:group-hover:-rotate-2 motion-safe:group-focus-visible:-translate-y-3.5 motion-safe:group-focus-visible:-rotate-2"
+const CUTOUT_PICTURE = "inset-[11%] bottom-[15%]"
+const PHOTO_PICTURE =
+  "inset-0 motion-safe:[@media(hover:hover)]:group-hover:scale-110 motion-safe:group-focus-visible:scale-110"
 
 // The six Kvist tile pastels. Full class names, so Tailwind sees them.
 export const TILE_TONES = [
@@ -45,6 +55,7 @@ export function ProductCard({
   href,
   name,
   coverImageUrl,
+  cutout = false,
   variant = "full",
   categoryName,
   storeName,
@@ -61,8 +72,14 @@ export function ProductCard({
       <div
         className={cn("relative isolate aspect-tile overflow-hidden rounded-bento", toneFor(href))}
       >
-        <div className="absolute inset-0 transition-transform duration-700 ease-out-expo motion-reduce:transition-none motion-safe:[@media(hover:hover)]:group-hover:-translate-y-3.5 motion-safe:[@media(hover:hover)]:group-hover:-rotate-2 motion-safe:[@media(hover:hover)]:group-hover:scale-110 motion-safe:group-focus-visible:-translate-y-3.5 motion-safe:group-focus-visible:-rotate-2 motion-safe:group-focus-visible:scale-110">
-          <CoverImage src={coverImageUrl} alt={name} />
+        {cutout && (
+          <span
+            aria-hidden="true"
+            className="absolute bottom-[13%] left-1/2 h-6 w-[58%] -translate-x-1/2 rounded-[50%] bg-ink/25 opacity-[0.55] blur-md transition-[opacity,transform] duration-700 ease-out-expo motion-reduce:transition-none motion-safe:[@media(hover:hover)]:group-hover:opacity-[0.32] motion-safe:[@media(hover:hover)]:group-hover:scale-x-[0.78] motion-safe:group-focus-visible:opacity-[0.32] motion-safe:group-focus-visible:scale-x-[0.78]"
+          />
+        )}
+        <div className={cn(PICTURE_BASE, cutout ? CUTOUT_PICTURE : PHOTO_PICTURE)}>
+          <CoverImage src={coverImageUrl} alt={name} fit={cutout ? "contain" : "cover"} />
         </div>
         {badge && (
           <span className="absolute left-4 top-4 z-10 rounded-full bg-card/90 px-3 py-1 text-xs font-medium text-foreground backdrop-blur">

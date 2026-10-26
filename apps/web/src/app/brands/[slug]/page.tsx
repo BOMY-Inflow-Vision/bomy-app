@@ -126,6 +126,7 @@ export default async function StorePage({ params }: Props) {
                       href={`/products/${store.slug}/${product.slug}`}
                       name={product.name}
                       coverImageUrl={product.coverImageUrl}
+                      cutout={product.coverIsCutout}
                     />
                   </li>
                 ))}
@@ -153,6 +154,7 @@ export default async function StorePage({ params }: Props) {
                       href={`/products/${store.slug}/${product.slug}`}
                       name={product.name}
                       coverImageUrl={product.coverImageUrl}
+                      cutout={product.coverIsCutout}
                     />
                   </li>
                 ))}

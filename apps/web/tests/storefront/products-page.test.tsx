@@ -29,6 +29,7 @@ const PRODUCT = {
   storeSlug: "acme",
   storeId: "s1",
   coverImageUrl: null,
+  coverIsCutout: false,
   categoryName: "Tea",
   minPriceSen: 1250,
   createdAt: new Date("2020-01-01T00:00:00Z"),
@@ -196,6 +197,25 @@ describe("/products grid", () => {
     expect(badgeOf("b")).toBe("Sold out")
     expect(badgeOf("c")).toBe("New")
     expect(badgeOf("d")).toBeNull()
+  })
+
+  it("a product the seller marked as a cut-out gets the cut-out card (shadow, inset); others do not", async () => {
+    getProducts.mockResolvedValue({
+      products: [
+        { ...PRODUCT, id: "p1", slug: "a", name: "Photo", coverIsCutout: false },
+        { ...PRODUCT, id: "p2", slug: "b", name: "Cutout", coverIsCutout: true },
+      ],
+      total: 2,
+      page: 1,
+      totalPages: 1,
+    })
+    getCategories.mockResolvedValue(CATS)
+    const el = await ProductsPage({ searchParams: Promise.resolve({}) })
+    const d = new DOMParser().parseFromString(renderToStaticMarkup(el), "text/html")
+    const shadowIn = (slug: string) =>
+      d.querySelector(`ul li a[href="/products/acme/${slug}"] [class*="blur-md"]`)
+    expect(shadowIn("a")).toBeNull()
+    expect(shadowIn("b")).not.toBeNull()
   })
 
   it("empty state keeps its words", async () => {

@@ -348,6 +348,8 @@ export async function updateProduct(
   const categoryId = str(formData, "categoryId") || null
   const description = str(formData, "description").trim() || null
   const status = (str(formData, "status") || "draft") as "draft" | "active" | "archived"
+  // A checkbox is only in the form data when ticked.
+  const coverIsCutout = formData.get("coverIsCutout") === "on"
 
   const seoValidated = validateSeoFields({
     metaTitle: formData.get("metaTitle"),
@@ -387,6 +389,7 @@ export async function updateProduct(
           categoryId,
           description,
           status,
+          coverIsCutout,
           metaTitle,
           metaDescription,
           ogImageUrl,
