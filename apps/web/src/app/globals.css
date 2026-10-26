@@ -27,6 +27,13 @@
     --destructive-foreground: 0 0% 100%;
     --border: 19 34% 83%; /* decorative dividers */
     --tint: 18 43% 89%; /* blush #EFDED7: storefront tile colour (R4); never the page ground */
+    /* Product tile pastels, the six Kvist shop tile colours (measured 2026-10-25). Decoration only: no text sits on them. */
+    --tile-sage: 92 24% 86%; /* #DBE4D3 */
+    --tile-butter: 46 61% 86%; /* #F1E7C6 */
+    --tile-sky: 215 36% 90%; /* #DBE3EE */
+    --tile-sand: 37 37% 88%; /* #EBE2D4 */
+    --tile-stone: 42 16% 88%; /* #E5E2DB */
+    --tile-blush: 18 43% 89%; /* = --tint */
     --input: 12 18% 48%; /* control border #906D64: >= 3:1 on every field surface */
     --ring: 0 45% 42%; /* = --primary */
     --radius: 0.625rem; /* was 0.5rem */
@@ -100,6 +107,12 @@
     --destructive-foreground: 3 68% 6%; /* dark ink: white on this red is under 4.5:1 */
     --border: 34 22% 22%; /* border-default */
     --tint: 20 18% 14%; /* warm dark tile, lighter than --card */
+    --tile-sage: 100 8% 15%;
+    --tile-butter: 45 14% 15%;
+    --tile-sky: 215 14% 15%;
+    --tile-sand: 36 12% 15%;
+    --tile-stone: 40 6% 15%;
+    --tile-blush: 20 18% 14%; /* = --tint */
     --input: 28 12% 46%; /* control border #837467: >= 3:1 on every dark surface */
     --ring: 4 70% 62%; /* focus-ring (red-400) */
     --reward: 45 100% 55%; /* gold-400, unchanged in dark */

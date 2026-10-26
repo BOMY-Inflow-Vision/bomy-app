@@ -78,7 +78,14 @@ describe("Favourites details", () => {
   it("the grid is 2 columns on a phone and 3 on a large screen, never 4", () => {
     const root = mount([product(1)], cats)
     const grid = q(root, "favourites-grid")!
-    for (const c of ["grid-cols-2", "lg:grid-cols-3", "gap-x-4", "gap-y-8"]) {
+    for (const c of [
+      "grid-cols-2",
+      "lg:grid-cols-3",
+      "gap-x-3",
+      "gap-y-7",
+      "sm:gap-x-4",
+      "sm:gap-y-10",
+    ]) {
       expect(grid.classList.contains(c), `${c} on ${grid.className}`).toBe(true)
     }
     expect(Array.from(grid.classList).some((c) => /grid-cols-4$/.test(c))).toBe(false)

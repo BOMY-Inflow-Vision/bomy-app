@@ -51,10 +51,10 @@ beforeEach(() => {
 })
 
 describe("/products category pills", () => {
-  it("a labelled nav lists All then every category, with no sidebar", async () => {
+  it("a labelled nav lists All then every category, once", async () => {
     const d = await render()
     expect(pills(d).map((a) => a.textContent)).toEqual(["All", "Tea", "Mugs"])
-    expect(d.querySelector("aside")).toBeNull()
+    expect(d.querySelectorAll('nav[aria-label="Filter by category"]')).toHaveLength(1)
   })
 
   it("All is the current pill when no category is set", async () => {
@@ -118,11 +118,11 @@ describe("/products heading", () => {
 })
 
 describe("/products grid", () => {
-  it("each result is the shared tile: blush art area, name, store and price", async () => {
+  it("each result is the shared tile: pastel art area, name, store and price", async () => {
     const d = await render()
     const a = d.querySelector('ul li a[href="/products/acme/green-tea"]')!
     expect(a).not.toBeNull()
-    expect(a.querySelector(".bg-tint.aspect-tile")).not.toBeNull()
+    expect(a.querySelector('[class*="bg-tile-"].aspect-tile')).not.toBeNull()
     expect(a.textContent).toContain("Green Tea")
     expect(a.textContent).toContain("Acme")
     expect(a.textContent).toContain("from RM12.50")
@@ -131,10 +131,40 @@ describe("/products grid", () => {
   it("the grid is 2 columns on a phone and 3 from a small screen up, never 4", async () => {
     const d = await render()
     const grid = d.querySelector('section[aria-label="Product results"] ul')!
-    for (const c of ["grid", "grid-cols-2", "sm:grid-cols-3", "gap-x-4", "gap-y-8"]) {
+    for (const c of [
+      "grid",
+      "grid-cols-2",
+      "sm:grid-cols-3",
+      "gap-x-3",
+      "gap-y-7",
+      "sm:gap-x-4",
+      "sm:gap-y-10",
+    ]) {
       expect(grid.classList.contains(c), `${c} on ${grid.className}`).toBe(true)
     }
     expect(Array.from(grid.classList).some((c) => /grid-cols-4$/.test(c))).toBe(false)
+  })
+
+  // Kvist-like shop with a sticky category column on the left (from lg) and a sticky pill row on a phone.
+  it("lg layout: the category rail on the left, the products on the right", async () => {
+    const d = await render()
+    const nav = d.querySelector('nav[aria-label="Filter by category"]')!
+    const results = d.querySelector('section[aria-label="Product results"]')!
+    const layout = nav.closest(".lg\\:grid")!
+    expect(layout).not.toBeNull()
+    for (const c of ["lg:grid", "lg:grid-cols-rail", "lg:gap-8"]) {
+      expect(layout.classList.contains(c), `${c} on ${layout.className}`).toBe(true)
+    }
+    expect(layout.contains(results)).toBe(true)
+    // the rail comes first in the document, so it is the left column and first for keyboard users
+    expect(nav.compareDocumentPosition(results) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it("the product grid is 2 columns from lg (the rail takes room) and 3 from xl", async () => {
+    const grid = (await render()).querySelector('section[aria-label="Product results"] ul')!
+    for (const c of ["grid-cols-2", "sm:grid-cols-3", "lg:grid-cols-2", "xl:grid-cols-3"]) {
+      expect(grid.classList.contains(c), `${c} on ${grid.className}`).toBe(true)
+    }
   })
 
   it("shows Sold out for a product with no stock, New for a recent one, none otherwise", async () => {
@@ -161,7 +191,7 @@ describe("/products grid", () => {
     const el = await ProductsPage({ searchParams: Promise.resolve({}) })
     const d = new DOMParser().parseFromString(renderToStaticMarkup(el), "text/html")
     const badgeOf = (slug: string) =>
-      d.querySelector(`ul li a[href="/products/acme/${slug}"] span.absolute`)?.textContent ?? null
+      d.querySelector(`ul li a[href="/products/acme/${slug}"] span.z-10`)?.textContent ?? null
     expect(badgeOf("a")).toBeNull()
     expect(badgeOf("b")).toBe("Sold out")
     expect(badgeOf("c")).toBe("New")

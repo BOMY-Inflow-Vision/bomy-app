@@ -9,6 +9,9 @@ import { extendTailwindMerge } from "tailwind-merge"
 const twMerge = extendTailwindMerge({
   extend: {
     classGroups: {
+      // Custom text sizes (tailwind.config.ts fontSize): without this, tailwind-merge reads them as
+      // text colours and drops them next to text-foreground.
+      "font-size": [{ text: ["card-meta", "card-name-sm", "card-name", "display", "display-sm"] }],
       rounded: [{ rounded: ["control", "input", "card"] }],
       animate: [
         {

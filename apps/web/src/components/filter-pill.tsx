@@ -56,3 +56,8 @@ export const FilterPill = React.forwardRef<HTMLAnchorElement, FilterPillProps>(
   },
 )
 FilterPill.displayName = "FilterPill"
+
+// Pill classes for use inside the rail: a fixed-size pill in the phone row, a full-width line in the
+// lg column (where a long name may wrap).
+export const RAIL_PILL =
+  "shrink-0 whitespace-nowrap lg:w-full lg:justify-start lg:whitespace-normal"
