@@ -42,21 +42,14 @@ describe("toastReducer", () => {
     expect(state.filter((t) => !t.leaving)).toHaveLength(MAX_TOASTS)
   })
 
-  it("refreshes an identical active toast instead of stacking a duplicate", () => {
+  it("stacks an identical message as its own toast, so the stack shows on every click", () => {
     const first = add([], 1, "Tote added to cart")
     const again = add(first, 2, "Tote added to cart")
-    expect(again).toHaveLength(1)
-    expect(again[0]?.id).toBe(1)
-    expect(again[0]?.bump).toBe((first[0]?.bump ?? 0) + 1)
+    expect(again.map((t) => t.id)).toEqual([1, 2])
   })
 
   it("stacks the same message when the type differs", () => {
     expect(add(add([], 1, "x", "success"), 2, "x", "info")).toHaveLength(2)
-  })
-
-  it("does not refresh a toast that is already leaving", () => {
-    const leaving = toastReducer(add([], 1, "x"), { type: "dismiss", id: 1 })
-    expect(add(leaving, 2, "x").map((t) => t.id)).toEqual([1, 2])
   })
 })
 

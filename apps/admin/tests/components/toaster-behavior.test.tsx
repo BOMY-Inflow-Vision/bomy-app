@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/x" }))
 
-import { MAX_TOASTS, ToastProvider, useToast } from "@/components/toaster"
+import { MAX_TOASTS, ToastProvider, stackLayout, useToast } from "@/components/toaster"
 ;(
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true
@@ -210,16 +210,15 @@ describe("timers, pause and queue", () => {
     expect(banners()[0]!.classList.contains("animate-toast-out")).toBe(true)
   })
 
-  it("an identical message refreshes the timer instead of stacking", () => {
+  it("an identical message stacks as its own toast with its own timer", () => {
     mount()
     act(() => api.warning("Same"))
     advance(2000)
     act(() => api.warning("Same"))
-    expect(rows()).toHaveLength(1)
-    advance(2000)
-    expect(banners()[0]!.classList.contains("animate-toast-out")).toBe(false)
+    expect(rows()).toHaveLength(2)
     advance(1000)
     expect(banners()[0]!.classList.contains("animate-toast-out")).toBe(true)
+    expect(banners()[1]!.classList.contains("animate-toast-out")).toBe(false)
   })
 
   it(`a ${MAX_TOASTS + 1}th distinct toast starts dismissing the oldest`, () => {
@@ -280,5 +279,34 @@ describe("position", () => {
       ]),
     )
     expect(cls).toContain("top-4")
+  })
+})
+
+describe("stack layout", () => {
+  const t = (id: number) => ({
+    id,
+    type: "info" as const,
+    message: `m${id}`,
+    leaving: false,
+  })
+
+  it("puts the newest toast in front at the top, older ones smaller and peeking below it", () => {
+    const { items, height } = stackLayout([t(1), t(2), t(3)], { 1: 60, 2: 60, 3: 60 }, false)
+    expect(items.get(3)).toEqual({ y: 0, scale: 1, behind: false })
+    expect(items.get(2)).toEqual({ y: 60 - 0.9 * 60 + 12, scale: 0.9, behind: true })
+    expect(items.get(1)?.scale).toBeCloseTo(0.8)
+    expect(items.get(1)?.y).toBeCloseTo(60 - 0.8 * 60 + 24)
+    expect(height).toBe(60 + 2 * 12)
+  })
+
+  it("spreads the toasts out with an 8 px gap when the stack is open", () => {
+    const { items, height } = stackLayout([t(1), t(2)], { 1: 50, 2: 70 }, true)
+    expect(items.get(2)).toEqual({ y: 0, scale: 1, behind: false })
+    expect(items.get(1)).toEqual({ y: 78, scale: 1, behind: false })
+    expect(height).toBe(70 + 8 + 50)
+  })
+
+  it("has no height with no toasts", () => {
+    expect(stackLayout([], {}, false).height).toBe(0)
   })
 })
