@@ -21,7 +21,6 @@ export interface ToastItem {
   type: ToastType
   message: string
   leaving: boolean
-  bump: number
 }
 
 type ToastAction =
@@ -81,11 +80,7 @@ export function toastReducer(state: ToastItem[], action: ToastAction): ToastItem
   switch (action.type) {
     case "add": {
       const { id, type, message } = action.toast
-      const duplicate = state.find((t) => !t.leaving && t.type === type && t.message === message)
-      if (duplicate) {
-        return state.map((t) => (t === duplicate ? { ...t, bump: t.bump + 1 } : t))
-      }
-      const next = [...state, { id, type, message, leaving: false, bump: 0 }]
+      const next = [...state, { id, type, message, leaving: false }]
       const active = next.filter((t) => !t.leaving)
       const overflow = new Set(
         active.slice(0, Math.max(0, active.length - MAX_TOASTS)).map((t) => t.id),
@@ -244,7 +239,7 @@ function ToastRow({
     observer.observe(node)
     return () => observer.disconnect()
   }, [toast.id, reportHeight])
-  const { id, leaving, bump } = toast
+  const { id, leaving } = toast
   const style = TOAST_STYLES[toast.type]
   // A toast behind the newest shows only its card edge until the stack opens.
   const hideContent = Boolean(slot?.behind) && !stackExpanded
@@ -257,7 +252,7 @@ function ToastRow({
     if (paused) return
     const timer = setTimeout(() => dispatch({ type: "dismiss", id }), DURATION_MS)
     return () => clearTimeout(timer)
-  }, [id, leaving, paused, bump, dispatch])
+  }, [id, leaving, paused, dispatch])
 
   return (
     <li

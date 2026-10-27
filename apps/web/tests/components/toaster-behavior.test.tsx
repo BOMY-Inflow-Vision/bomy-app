@@ -210,16 +210,15 @@ describe("timers, pause and queue", () => {
     expect(banners()[0]!.classList.contains("animate-toast-out")).toBe(true)
   })
 
-  it("an identical message refreshes the timer instead of stacking", () => {
+  it("an identical message stacks as its own toast with its own timer", () => {
     mount()
     act(() => api.warning("Same"))
     advance(2000)
     act(() => api.warning("Same"))
-    expect(rows()).toHaveLength(1)
-    advance(2000)
-    expect(banners()[0]!.classList.contains("animate-toast-out")).toBe(false)
+    expect(rows()).toHaveLength(2)
     advance(1000)
     expect(banners()[0]!.classList.contains("animate-toast-out")).toBe(true)
+    expect(banners()[1]!.classList.contains("animate-toast-out")).toBe(false)
   })
 
   it(`a ${MAX_TOASTS + 1}th distinct toast starts dismissing the oldest`, () => {
@@ -289,7 +288,6 @@ describe("stack layout", () => {
     type: "info" as const,
     message: `m${id}`,
     leaving: false,
-    bump: 0,
   })
 
   it("puts the newest toast in front at the top, older ones smaller and peeking below it", () => {
