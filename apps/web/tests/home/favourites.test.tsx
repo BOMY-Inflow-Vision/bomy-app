@@ -75,11 +75,12 @@ describe("Favourites details", () => {
     expect(q(root, "favourites-grid")).not.toBeNull()
   })
 
-  it("the grid is 2 columns on a phone and 3 on a large screen, never 4", () => {
+  it("the grid is 1 column on a phone, 2 from a small screen and 3 on a large screen, never 4", () => {
     const root = mount([product(1)], cats)
     const grid = q(root, "favourites-grid")!
     for (const c of [
-      "grid-cols-2",
+      "grid-cols-1",
+      "sm:grid-cols-2",
       "lg:grid-cols-3",
       "gap-x-3",
       "gap-y-7",

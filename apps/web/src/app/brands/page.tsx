@@ -105,8 +105,8 @@ export default async function BrandsPage({ searchParams }: Props) {
             <ul
               className={
                 hasRail
-                  ? "grid grid-cols-2 gap-x-3 gap-y-7 sm:grid-cols-3 sm:gap-x-4 sm:gap-y-10 lg:grid-cols-2 xl:grid-cols-3"
-                  : "grid grid-cols-2 gap-x-3 gap-y-7 sm:grid-cols-3 sm:gap-x-4 sm:gap-y-10 lg:grid-cols-4"
+                  ? "grid grid-cols-1 gap-x-3 gap-y-7 sm:grid-cols-2 md:grid-cols-3 sm:gap-x-4 sm:gap-y-10 lg:grid-cols-2 xl:grid-cols-3"
+                  : "grid grid-cols-1 gap-x-3 gap-y-7 sm:grid-cols-2 md:grid-cols-3 sm:gap-x-4 sm:gap-y-10 lg:grid-cols-4"
               }
             >
               {brands.map((b) => (

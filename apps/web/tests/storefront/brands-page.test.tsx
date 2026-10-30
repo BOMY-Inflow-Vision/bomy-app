@@ -67,7 +67,13 @@ describe("/brands category pills", () => {
   it("with the rail the cards use the same columns as /products", async () => {
     const d = await render()
     const grid = d.querySelector("section[aria-label='Brand results'] ul")!
-    for (const c of ["grid-cols-2", "sm:grid-cols-3", "lg:grid-cols-2", "xl:grid-cols-3"]) {
+    for (const c of [
+      "grid-cols-1",
+      "sm:grid-cols-2",
+      "md:grid-cols-3",
+      "lg:grid-cols-2",
+      "xl:grid-cols-3",
+    ]) {
       expect(grid.classList.contains(c), c).toBe(true)
     }
   })
