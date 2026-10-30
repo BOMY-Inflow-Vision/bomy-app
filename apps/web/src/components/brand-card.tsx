@@ -49,7 +49,7 @@ export function BrandCard({ href, name, excerpt, categories, productCount }: Bra
         <p className="col-span-2 line-clamp-2 min-w-0 text-card-name-sm font-medium leading-snug text-foreground [overflow-wrap:anywhere] group-hover:text-primary lg:col-span-1 lg:text-card-name">
           {name}
         </p>
-        <p className="col-span-2 mt-1 text-xs text-muted-foreground lg:col-span-1 lg:col-start-2 lg:row-start-2 lg:mt-0 lg:self-end lg:whitespace-nowrap lg:text-card-meta">
+        <p className="col-span-2 mt-1 text-xs text-muted-foreground lg:col-span-1 lg:mt-0 lg:whitespace-nowrap lg:text-card-meta">
           {productCount} product{productCount !== 1 ? "s" : ""}
         </p>
         {excerpt ? (

@@ -138,3 +138,19 @@ describe("BrandCard product count", () => {
     expect(paragraph(render({ productCount: n }), text)).not.toBeNull()
   })
 })
+
+describe("BrandCard name row", () => {
+  it("from lg the count sits in the second column on the same row as the name, with or without categories", () => {
+    for (const categories of [undefined, ["Tea"]]) {
+      const d = render(categories ? { categories } : {})
+      const count = paragraph(d, "3 products")!
+      const name = paragraph(d, "Acme")!
+      has(name, ["lg:col-span-1"])
+      has(count, ["lg:col-span-1"])
+      for (const el of [name, count]) {
+        expect(Array.from(el.classList).some((c) => c.startsWith("lg:row-start-"))).toBe(false)
+        expect(Array.from(el.classList).some((c) => c.startsWith("lg:col-start-"))).toBe(false)
+      }
+    }
+  })
+})
