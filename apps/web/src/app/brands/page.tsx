@@ -98,7 +98,7 @@ export default async function BrandsPage({ searchParams }: Props) {
             No brands found.
           </div>
         ) : (
-          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="grid grid-cols-2 gap-x-3 gap-y-7 sm:grid-cols-3 sm:gap-x-4 sm:gap-y-10 lg:grid-cols-4">
             {brands.map((b) => (
               <li key={b.id} className="min-w-0">
                 <BrandCard

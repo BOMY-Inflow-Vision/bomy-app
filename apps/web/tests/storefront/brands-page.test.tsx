@@ -101,7 +101,7 @@ describe("/brands grid", () => {
     expect(a.textContent).toContain("Acme")
     expect(a.textContent).toContain("Good things")
     expect(a.textContent).toContain("2 products")
-    expect(a.querySelector(".bg-tint")).not.toBeNull()
+    expect(a.querySelector("[data-tile]")).not.toBeNull()
     expect(a.closest("li")!.classList.contains("min-w-0")).toBe(true)
   })
   it("empty state keeps its words", async () => {

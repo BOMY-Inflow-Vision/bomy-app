@@ -58,6 +58,7 @@ const FULL: HomeData = {
     storeName: "Feature Store",
     storeSlug: "feature-store",
     coverImageUrl: "https://img.test/f1.jpg",
+    coverIsCutout: false,
     minPriceSen: 4590,
   },
   favourites: Array.from({ length: 8 }, (_, i) => product(i + 1)),
