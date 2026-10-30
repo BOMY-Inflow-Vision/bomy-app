@@ -21,7 +21,7 @@ export interface ProductCardProps {
 
 // The picture layer moves on hover (hover devices, motion allowed) and on keyboard focus. A cut-out
 // lifts and turns; a photo that covers the tile also grows to 110%, so the turn never shows an empty corner.
-const PICTURE_BASE =
+export const PICTURE_BASE =
   "absolute transition-transform duration-700 ease-out-expo motion-reduce:transition-none motion-safe:[@media(hover:hover)]:group-hover:-translate-y-3.5 motion-safe:[@media(hover:hover)]:group-hover:-rotate-2 motion-safe:group-focus-visible:-translate-y-3.5 motion-safe:group-focus-visible:-rotate-2"
 const CUTOUT_PICTURE = "inset-[11%] bottom-[15%]"
 const PHOTO_PICTURE =
@@ -38,10 +38,55 @@ export const TILE_TONES = [
 ] as const
 
 // A stable tone per product (from its link), so a product keeps its colour on every page.
-function toneFor(href: string) {
+export function toneFor(href: string) {
   let h = 0
   for (let i = 0; i < href.length; i++) h = (h * 31 + href.charCodeAt(i)) >>> 0
   return TILE_TONES[h % TILE_TONES.length]!
+}
+
+// The pastel 4:5 tile with the picture layer: a normal photo covers it, a cut-out floats inset with
+// an oval shadow, both move on hover and focus of the surrounding `group`. Shared by the product
+// card and the home hero, so the two cannot drift. `tone` picks the pastel (any stable string).
+export function ProductTile({
+  tone,
+  name,
+  coverImageUrl,
+  cutout = false,
+  badge,
+  className,
+}: {
+  tone: string
+  name: string
+  coverImageUrl: string | null
+  cutout?: boolean
+  badge?: "New" | "Sold out" | null | undefined
+  className?: string
+}) {
+  return (
+    <div
+      data-tile
+      className={cn(
+        "relative isolate aspect-tile overflow-hidden rounded-bento",
+        toneFor(tone),
+        className,
+      )}
+    >
+      {cutout && (
+        <span
+          aria-hidden="true"
+          className="absolute bottom-[13%] left-1/2 h-6 w-[58%] -translate-x-1/2 rounded-[50%] bg-ink/25 opacity-[0.55] blur-md transition-[opacity,transform] duration-700 ease-out-expo motion-reduce:transition-none motion-safe:[@media(hover:hover)]:group-hover:opacity-[0.32] motion-safe:[@media(hover:hover)]:group-hover:scale-x-[0.78] motion-safe:group-focus-visible:opacity-[0.32] motion-safe:group-focus-visible:scale-x-[0.78]"
+        />
+      )}
+      <div className={cn(PICTURE_BASE, cutout ? CUTOUT_PICTURE : PHOTO_PICTURE)}>
+        <CoverImage src={coverImageUrl} alt={name} fit={cutout ? "contain" : "cover"} />
+      </div>
+      {badge && (
+        <span className="absolute left-4 top-4 z-10 rounded-full bg-card/90 px-3 py-1 text-xs font-medium text-foreground backdrop-blur">
+          {badge}
+        </span>
+      )}
+    </div>
+  )
 }
 
 // Shared storefront tile, the Kvist shop card layout (measured 2026-10-25): a pastel 4:5 tile whose
@@ -69,24 +114,13 @@ export function ProductCard({
       href={href}
       className="group block min-w-0 rounded-bento focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
-      <div
-        className={cn("relative isolate aspect-tile overflow-hidden rounded-bento", toneFor(href))}
-      >
-        {cutout && (
-          <span
-            aria-hidden="true"
-            className="absolute bottom-[13%] left-1/2 h-6 w-[58%] -translate-x-1/2 rounded-[50%] bg-ink/25 opacity-[0.55] blur-md transition-[opacity,transform] duration-700 ease-out-expo motion-reduce:transition-none motion-safe:[@media(hover:hover)]:group-hover:opacity-[0.32] motion-safe:[@media(hover:hover)]:group-hover:scale-x-[0.78] motion-safe:group-focus-visible:opacity-[0.32] motion-safe:group-focus-visible:scale-x-[0.78]"
-          />
-        )}
-        <div className={cn(PICTURE_BASE, cutout ? CUTOUT_PICTURE : PHOTO_PICTURE)}>
-          <CoverImage src={coverImageUrl} alt={name} fit={cutout ? "contain" : "cover"} />
-        </div>
-        {badge && (
-          <span className="absolute left-4 top-4 z-10 rounded-full bg-card/90 px-3 py-1 text-xs font-medium text-foreground backdrop-blur">
-            {badge}
-          </span>
-        )}
-      </div>
+      <ProductTile
+        tone={href}
+        name={name}
+        coverImageUrl={coverImageUrl}
+        cutout={cutout}
+        badge={badge}
+      />
       <div className="grid grid-cols-[1fr_auto] items-baseline gap-x-3 px-1 pt-3 sm:px-1.5 sm:pt-4">
         {full && categoryName && (
           <p className="col-span-2 truncate text-xs text-muted-foreground lg:col-span-1 lg:row-start-1 lg:text-card-meta">

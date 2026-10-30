@@ -51,14 +51,36 @@ describe("/brands heading", () => {
 })
 
 describe("/brands category pills", () => {
-  it("a labelled nav lists All then every category, with no sidebar", async () => {
+  it("a labelled nav lists All then every category", async () => {
     const d = await render()
     expect(pills(d).map((a) => a.textContent)).toEqual(["All", "Food", "Craft"])
+  })
+  it("the nav is the same left rail as /products: a column from lg, in a rail grid next to the results", async () => {
+    const d = await render()
+    const nav = d.querySelector('nav[aria-label="Filter by category"]')!
+    expect(nav.classList.contains("lg:flex-col")).toBe(true)
+    const wrapper = d.querySelector("section[aria-label='Brand results']")!.parentElement!
+    expect(wrapper.classList.contains("lg:grid-cols-rail")).toBe(true)
+    expect(wrapper.contains(nav)).toBe(true)
     expect(d.querySelector("aside")).toBeNull()
   })
-  it("no tray at all when there are no store categories", async () => {
+  it("with the rail the cards use the same columns as /products", async () => {
+    const d = await render()
+    const grid = d.querySelector("section[aria-label='Brand results'] ul")!
+    for (const c of ["grid-cols-2", "sm:grid-cols-3", "lg:grid-cols-2", "xl:grid-cols-3"]) {
+      expect(grid.classList.contains(c), c).toBe(true)
+    }
+  })
+  it("no rail at all when there are no store categories, and the cards use the full width", async () => {
     const d = await render({}, [])
     expect(d.querySelector('nav[aria-label="Filter by category"]')).toBeNull()
+    const wrapper = d.querySelector("section[aria-label='Brand results']")!.parentElement!
+    expect(wrapper.classList.contains("lg:grid-cols-rail")).toBe(false)
+    expect(
+      d
+        .querySelector("section[aria-label='Brand results'] ul")!
+        .classList.contains("lg:grid-cols-4"),
+    ).toBe(true)
   })
   it("All is current without a category; the chosen category is the only current pill", async () => {
     const none = await render()
@@ -101,7 +123,7 @@ describe("/brands grid", () => {
     expect(a.textContent).toContain("Acme")
     expect(a.textContent).toContain("Good things")
     expect(a.textContent).toContain("2 products")
-    expect(a.querySelector(".bg-tint")).not.toBeNull()
+    expect(a.querySelector("[data-tile]")).not.toBeNull()
     expect(a.closest("li")!.classList.contains("min-w-0")).toBe(true)
   })
   it("empty state keeps its words", async () => {
@@ -111,5 +133,12 @@ describe("/brands grid", () => {
   it("the count line keeps its words", async () => {
     const d = await render({ q: "ac" })
     expect(d.body.textContent).toContain('1 brand for "ac"')
+  })
+  it("the count line sits above the rail and the cards, so both start at the same height", async () => {
+    const d = await render()
+    const count = Array.from(d.querySelectorAll("p")).find((p) => p.textContent === "1 brand")!
+    const results = d.querySelector("section[aria-label='Brand results']")!
+    expect(results.contains(count)).toBe(false)
+    expect(count.compareDocumentPosition(results) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 })

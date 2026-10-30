@@ -22,6 +22,7 @@ export interface HomeFeatured {
   storeName: string
   storeSlug: string
   coverImageUrl: string
+  coverIsCutout: boolean
   minPriceSen: number | null
 }
 
