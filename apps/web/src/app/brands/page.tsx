@@ -2,7 +2,8 @@ import Link from "next/link"
 import { Search, X } from "lucide-react"
 
 import { BrandCard } from "@/components/brand-card"
-import { FilterPill, FilterPills } from "@/components/filter-pill"
+import { CategoryRail } from "@/components/category-rail"
+import { FilterPill, RAIL_PILL } from "@/components/filter-pill"
 import { PageHeading } from "@/components/page-heading"
 import { Button } from "@bomy/ui/button"
 import { Pagination } from "@bomy/ui/pagination"
@@ -31,6 +32,8 @@ export default async function BrandsPage({ searchParams }: Props) {
     }),
     getStoreCategories(),
   ])
+
+  const hasRail = storeCategories.length > 0
 
   const pageHref = (p: number) => {
     const params = new URLSearchParams()
@@ -69,62 +72,70 @@ export default async function BrandsPage({ searchParams }: Props) {
         )}
       </form>
 
-      {storeCategories.length > 0 && (
-        <FilterPills label="Filter by category" className="mb-6">
-          <FilterPill asChild active={!category}>
-            <Link href={q ? `/brands?q=${encodeURIComponent(q)}` : "/brands"}>All</Link>
-          </FilterPill>
-          {storeCategories.map((cat) => {
-            const href = q
-              ? `/brands?q=${encodeURIComponent(q)}&category=${cat.id}`
-              : `/brands?category=${cat.id}`
-            return (
-              <FilterPill key={cat.id} asChild active={category === cat.id}>
-                <Link href={href}>{cat.name}</Link>
-              </FilterPill>
-            )
-          })}
-        </FilterPills>
-      )}
+      <p className="mb-4 text-sm text-muted-foreground">
+        {total} brand{total !== 1 ? "s" : ""}
+        {q ? ` for "${q}"` : ""}
+      </p>
 
-      <section aria-label="Brand results" className="min-w-0">
-        <p className="mb-4 text-sm text-muted-foreground">
-          {total} brand{total !== 1 ? "s" : ""}
-          {q ? ` for "${q}"` : ""}
-        </p>
-
-        {brands.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border py-20 text-center text-sm text-muted-foreground">
-            No brands found.
-          </div>
-        ) : (
-          <ul className="grid grid-cols-2 gap-x-3 gap-y-7 sm:grid-cols-3 sm:gap-x-4 sm:gap-y-10 lg:grid-cols-4">
-            {brands.map((b) => (
-              <li key={b.id} className="min-w-0">
-                <BrandCard
-                  href={`/brands/${b.slug}`}
-                  name={b.name}
-                  excerpt={b.excerpt}
-                  categories={b.categories}
-                  productCount={b.productCount}
-                />
-              </li>
-            ))}
-          </ul>
+      <div className={hasRail ? "lg:grid lg:grid-cols-rail lg:items-start lg:gap-8" : undefined}>
+        {hasRail && (
+          <CategoryRail label="Filter by category">
+            <FilterPill asChild active={!category} className={RAIL_PILL}>
+              <Link href={q ? `/brands?q=${encodeURIComponent(q)}` : "/brands"}>All</Link>
+            </FilterPill>
+            {storeCategories.map((cat) => {
+              const href = q
+                ? `/brands?q=${encodeURIComponent(q)}&category=${cat.id}`
+                : `/brands?category=${cat.id}`
+              return (
+                <FilterPill key={cat.id} asChild active={category === cat.id} className={RAIL_PILL}>
+                  <Link href={href}>{cat.name}</Link>
+                </FilterPill>
+              )
+            })}
+          </CategoryRail>
         )}
 
-        {/* Pagination */}
-        <Pagination
-          page={page}
-          totalPages={totalPages}
-          buildHref={pageHref}
-          label="Brands pagination"
-          linkAs={Link}
-          size="lg"
-          collapse
-          className="mt-8 flex justify-center gap-1"
-        />
-      </section>
+        <section aria-label="Brand results" className="min-w-0">
+          {brands.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border py-20 text-center text-sm text-muted-foreground">
+              No brands found.
+            </div>
+          ) : (
+            <ul
+              className={
+                hasRail
+                  ? "grid grid-cols-2 gap-x-3 gap-y-7 sm:grid-cols-3 sm:gap-x-4 sm:gap-y-10 lg:grid-cols-2 xl:grid-cols-3"
+                  : "grid grid-cols-2 gap-x-3 gap-y-7 sm:grid-cols-3 sm:gap-x-4 sm:gap-y-10 lg:grid-cols-4"
+              }
+            >
+              {brands.map((b) => (
+                <li key={b.id} className="min-w-0">
+                  <BrandCard
+                    href={`/brands/${b.slug}`}
+                    name={b.name}
+                    excerpt={b.excerpt}
+                    categories={b.categories}
+                    productCount={b.productCount}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {/* Pagination */}
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            buildHref={pageHref}
+            label="Brands pagination"
+            linkAs={Link}
+            size="lg"
+            collapse
+            className="mt-8 flex justify-center gap-1"
+          />
+        </section>
+      </div>
     </PageMain>
   )
 }
