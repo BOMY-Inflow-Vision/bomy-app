@@ -113,3 +113,37 @@ describe("Hero details", () => {
     expect(marker(root, "hero-delivery")).not.toBeNull()
   })
 })
+
+describe("Hero featured picture follows the product card", () => {
+  const full = VISIBILITY_CASES[1]!.data
+  const tile = (root: Element) => marker(root, "hero-featured")!.querySelector("[data-tile]")!
+  const toneClasses = [
+    "bg-tile-sage",
+    "bg-tile-butter",
+    "bg-tile-sky",
+    "bg-tile-sand",
+    "bg-tile-stone",
+    "bg-tile-blush",
+  ]
+
+  it("sits on a pastel tile, and a normal photo covers the whole tile", () => {
+    const t = tile(mount(full))
+    expect(toneClasses.some((c) => t.classList.contains(c))).toBe(true)
+    expect(t.classList.contains("rounded-bento")).toBe(true)
+    expect(t.querySelector("img")?.className).toContain("object-cover")
+    expect(t.querySelector('span[aria-hidden="true"]')).toBeNull()
+  })
+
+  it("a cut-out floats inset on the tile with its shadow", () => {
+    const data = { ...full, featured: { ...full.featured!, coverIsCutout: true } }
+    const t = tile(mount(data))
+    expect(t.querySelector("img")?.className).toContain("object-contain")
+    expect(t.querySelector('span[aria-hidden="true"]')).not.toBeNull()
+  })
+
+  it("lifts and turns on hover like the product card", () => {
+    const layer = tile(mount(full)).querySelector("img")!.parentElement!
+    expect(layer.className).toContain("group-hover:-translate-y-3.5")
+    expect(layer.className).toContain("group-hover:-rotate-2")
+  })
+})

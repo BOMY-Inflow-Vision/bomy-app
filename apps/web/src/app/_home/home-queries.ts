@@ -33,6 +33,7 @@ export async function getFeatured(): Promise<HomeFeatured | null> {
         storeName: schema.stores.name,
         storeSlug: schema.stores.slug,
         coverImageUrl: schema.products.coverImageUrl,
+        coverIsCutout: schema.products.coverIsCutout,
         minPriceSen: sql<string | null>`min(${schema.productVariants.priceMyrSen})`,
       })
       .from(schema.products)
@@ -59,6 +60,7 @@ export async function getFeatured(): Promise<HomeFeatured | null> {
         schema.products.name,
         schema.products.slug,
         schema.products.coverImageUrl,
+        schema.products.coverIsCutout,
         schema.products.createdAt,
         schema.stores.name,
         schema.stores.slug,
@@ -74,6 +76,7 @@ export async function getFeatured(): Promise<HomeFeatured | null> {
       storeName: r.storeName,
       storeSlug: r.storeSlug,
       coverImageUrl: r.coverImageUrl,
+      coverIsCutout: r.coverIsCutout,
       minPriceSen: r.minPriceSen != null ? Number(r.minPriceSen) : null,
     }
   })

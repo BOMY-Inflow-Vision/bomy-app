@@ -129,13 +129,14 @@ describe("/products grid", () => {
     expect(a.textContent).toContain("from RM12.50")
   })
 
-  it("the grid is 2 columns on a phone and 3 from a small screen up, never 4", async () => {
+  it("the grid is 1 column on a phone, 2 from a small screen and 3 from a medium screen up, never 4", async () => {
     const d = await render()
     const grid = d.querySelector('section[aria-label="Product results"] ul')!
     for (const c of [
       "grid",
-      "grid-cols-2",
-      "sm:grid-cols-3",
+      "grid-cols-1",
+      "sm:grid-cols-2",
+      "md:grid-cols-3",
       "gap-x-3",
       "gap-y-7",
       "sm:gap-x-4",
@@ -163,7 +164,7 @@ describe("/products grid", () => {
 
   it("the product grid is 2 columns from lg (the rail takes room) and 3 from xl", async () => {
     const grid = (await render()).querySelector('section[aria-label="Product results"] ul')!
-    for (const c of ["grid-cols-2", "sm:grid-cols-3", "lg:grid-cols-2", "xl:grid-cols-3"]) {
+    for (const c of ["grid-cols-1", "md:grid-cols-3", "lg:grid-cols-2", "xl:grid-cols-3"]) {
       expect(grid.classList.contains(c), `${c} on ${grid.className}`).toBe(true)
     }
   })

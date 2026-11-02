@@ -35,6 +35,7 @@ describe("getHomeData (stubbed reads)", () => {
       storeName: "S",
       storeSlug: "s",
       coverImageUrl: "https://img.test/f.jpg",
+      coverIsCutout: false,
       minPriceSen: null,
     }
     const data = await getHomeData({ ...none, featured: () => Promise.resolve(featured) })

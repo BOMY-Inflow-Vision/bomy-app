@@ -1,7 +1,7 @@
 import { ArrowRight, Truck } from "lucide-react"
 import Link from "next/link"
 
-import { CoverImage } from "@/components/cover-image"
+import { ProductTile } from "@/components/product-card"
 import { formatMyrSen } from "@/lib/format"
 
 import type { HOME_COPY } from "./home-copy"
@@ -80,9 +80,13 @@ export function Hero({ data, copy }: { data: HomeData; copy: HeroCopy }) {
           <p className="mb-3 px-1 font-mono text-xs uppercase tracking-eyebrow text-muted-foreground [overflow-wrap:anywhere]">
             {copy.featured.label}
           </p>
-          <div className="relative aspect-tile w-full overflow-hidden rounded-3xl bg-card">
-            <CoverImage src={featured.coverImageUrl} alt={featured.name} />
-          </div>
+          <ProductTile
+            tone={`/products/${featured.storeSlug}/${featured.slug}`}
+            name={featured.name}
+            coverImageUrl={featured.coverImageUrl}
+            cutout={featured.coverIsCutout}
+            className="w-full"
+          />
           <div className="mt-4 min-w-0 px-1">
             <p className="line-clamp-2 text-lg font-medium text-foreground [overflow-wrap:anywhere] group-hover:text-primary">
               {featured.name}
