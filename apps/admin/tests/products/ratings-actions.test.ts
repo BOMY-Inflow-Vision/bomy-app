@@ -386,7 +386,7 @@ describe.skipIf(!shouldRun)("admin rating override actions", () => {
 
   // ── Concurrency ───────────────────────────────────────────────────────────
 
-  it("two concurrent admin edits on different ratings of one product are both counted", async () => {
+  it("two concurrent admin edits on different ratings of one product both land", async () => {
     for (let i = 0; i < 5; i++) {
       const productId = await seedProduct()
       const r1 = await seedRating(productId, 1)
@@ -401,7 +401,7 @@ describe.skipIf(!shouldRun)("admin rating override actions", () => {
     }
   })
 
-  it("admin removal racing a buyer-style rating write on the same product: both counted, no deadlock", async () => {
+  it("admin removal alongside a different buyer's write on the same product: both reflected", async () => {
     for (let i = 0; i < 5; i++) {
       const productId = await seedProduct()
       const removeId = await seedRating(productId, 1)
@@ -427,4 +427,103 @@ describe.skipIf(!shouldRun)("admin rating override actions", () => {
       expect(await readAggregate(productId)).toEqual({ avg: "4.00", count: 1 })
     }
   })
+
+  // The deadlock the lock-order ruling prevents needs the SAME rating row in both transactions:
+  // the buyer holds the product lock and then upserts their own row R; an admin that locked R
+  // first would then wait on the product lock inside recomputeProductRating. The buyer sleeps
+  // between its product lock and its upsert, and the admin call starts only once the buyer holds
+  // the product lock, so without the admin's early product lock the two always deadlock.
+  async function raceOwnBuyer(
+    productId: string,
+    buyer: string,
+    adminCall: () => Promise<unknown>,
+  ): Promise<PromiseSettledResult<unknown>[]> {
+    let signalLocked!: () => void
+    const productLocked = new Promise<void>((resolve) => (signalLocked = resolve))
+    const buyerWrite = withAdmin(
+      testDb.db,
+      { userId: buyer, reason: "buyer rateProduct" },
+      async (tx) => {
+        await tx.execute(sql`SELECT 1 FROM products WHERE id = ${productId} FOR UPDATE`)
+        signalLocked()
+        await tx.execute(sql`SELECT pg_sleep(0.2)`)
+        await tx.execute(sql`
+          INSERT INTO product_ratings (product_id, user_id, stars)
+          VALUES (${productId}, ${buyer}, 5)
+          ON CONFLICT (product_id, user_id) DO UPDATE
+             SET stars = excluded.stars, updated_at = now()
+           WHERE product_ratings.removed_at IS NULL
+        `)
+        return recomputeProductRating(tx, productId)
+      },
+    )
+    await productLocked
+    const adminWrite = adminCall()
+    return Promise.allSettled([buyerWrite, adminWrite])
+  }
+
+  function settledErrors(results: PromiseSettledResult<unknown>[]): string[] {
+    return results.flatMap((r) => {
+      if (r.status === "fulfilled") return []
+      const e = r.reason as { code?: string; cause?: { code?: string }; message?: string }
+      return [`${e.cause?.code ?? e.code ?? "?"} ${e.message ?? String(r.reason)}`]
+    })
+  }
+
+  /** The aggregate as a fresh recompute from the rows would store it. */
+  async function freshAggregate(productId: string) {
+    return adminTx("fresh aggregate", async (tx) => {
+      const rows = (await tx.execute(sql`
+        SELECT COALESCE(ROUND(AVG(stars)::numeric, 1), 0)::numeric(3,2)::text AS avg,
+               COUNT(*)::int AS count
+          FROM product_ratings
+         WHERE product_id = ${productId} AND removed_at IS NULL
+      `)) as unknown as Array<{ avg: string; count: number }>
+      return { avg: rows[0]!.avg, count: Number(rows[0]!.count) }
+    })
+  }
+
+  it("admin removal of R racing R's own buyer re-rating: no deadlock, consistent aggregate", async () => {
+    for (let i = 0; i < 10; i++) {
+      const productId = await seedProduct()
+      const buyer = await newBuyer()
+      const ratingId = await seedRating(productId, 1, buyer)
+      await seedRating(productId, 3)
+      signIn(adminId, "bomy_admin")
+
+      const results = await raceOwnBuyer(productId, buyer, () =>
+        adminRemoveRating(ratingId, `race ${i}`),
+      )
+      expect(settledErrors(results), `iteration ${i}`).toEqual([])
+      const [, admin] = results as Array<PromiseFulfilledResult<unknown>>
+      expect(admin?.value).toEqual({ ok: true, avg: "3.00", count: 1 })
+
+      const row = await readRating(ratingId)
+      expect(row?.removedAt).not.toBeNull()
+      expect(await readAggregate(productId)).toEqual({ avg: "3.00", count: 1 })
+      expect(await readAggregate(productId)).toEqual(await freshAggregate(productId))
+    }
+  }, 60_000)
+
+  it("admin stars edit of R racing R's own buyer re-rating: no deadlock, consistent aggregate", async () => {
+    for (let i = 0; i < 10; i++) {
+      const productId = await seedProduct()
+      const buyer = await newBuyer()
+      const ratingId = await seedRating(productId, 1, buyer)
+      await seedRating(productId, 3)
+      signIn(adminId, "bomy_admin")
+
+      const results = await raceOwnBuyer(productId, buyer, () =>
+        adminSetRating(ratingId, 2, `race ${i}`),
+      )
+      expect(settledErrors(results), `iteration ${i}`).toEqual([])
+      const [, admin] = results as Array<PromiseFulfilledResult<unknown>>
+      // The buyer held the product lock first, so the admin's edit lands last.
+      expect(admin?.value).toEqual({ ok: true, avg: "2.50", count: 2 })
+
+      expect((await readRating(ratingId))?.stars).toBe(2)
+      expect(await readAggregate(productId)).toEqual({ avg: "2.50", count: 2 })
+      expect(await readAggregate(productId)).toEqual(await freshAggregate(productId))
+    }
+  }, 60_000)
 })
