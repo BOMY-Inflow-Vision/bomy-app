@@ -5,9 +5,11 @@ import { auth } from "@/auth"
 import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
 import { senToMyr } from "@/lib/money"
+import { windowHoursLeft } from "@/lib/ratings"
 
 import { fetchBuyerOrderDetail } from "../queries"
 import { ConfirmDeliveryButton } from "./_confirm-delivery-button"
+import { RatingControl } from "./_rating-control"
 import { PageMain } from "@/components/page-main"
 
 interface Props {
@@ -22,6 +24,7 @@ export default async function BuyerOrderDetailPage({ params }: Props) {
   const order = await fetchBuyerOrderDetail(session.user.id, orderId)
   if (!order) notFound()
 
+  const now = new Date()
   const totalPaidSen =
     order.discountedSubtotalSen + order.shippingFeeSen - order.voucherContributionSen
 
@@ -50,11 +53,21 @@ export default async function BuyerOrderDetailPage({ params }: Props) {
             const product = item.productSnapshot as { name?: string }
             const variant = item.variantSnapshot as { name?: string }
             return (
-              <li key={item.id} className="flex justify-between text-sm text-foreground">
-                <span>
-                  {product.name ?? "Product"} — {variant.name ?? "Default"} × {item.quantity}
-                </span>
-                <span>RM {senToMyr(item.lineTotalSen)}</span>
+              <li key={item.id} className="text-sm text-foreground">
+                <div className="flex justify-between">
+                  <span>
+                    {product.name ?? "Product"} — {variant.name ?? "Default"} × {item.quantity}
+                  </span>
+                  <span>RM {senToMyr(item.lineTotalSen)}</span>
+                </div>
+                <RatingControl
+                  orderItemId={item.id}
+                  productName={product.name ?? "Product"}
+                  stars={item.stars}
+                  hoursLeft={item.ratingCreatedAt ? windowHoursLeft(item.ratingCreatedAt, now) : 0}
+                  removed={item.ratingRemovedAt !== null}
+                  canRate={item.canRate}
+                />
               </li>
             )
           })}
