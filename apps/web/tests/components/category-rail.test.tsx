@@ -40,7 +40,16 @@ describe("CategoryRail markup", () => {
 
   it("the wrapper sticks right under the floating nav, on phone and on desktop", () => {
     const wrap = doc().querySelector("nav")!.parentElement
-    has(wrap, ["sticky", "top-nav-clear", "z-30", "lg:self-start"])
+    // Phone sticks a little lower than the nav clearance (0.75rem more); desktop uses top-nav-clear.
+    has(wrap, [
+      "sticky",
+      "top-[calc(var(--nav-height)+var(--nav-offset)+0.75rem)]",
+      "lg:top-nav-clear",
+      "z-30",
+      "lg:self-start",
+    ])
+    // The wrapper has no background of its own (the phone pill bar keeps its own).
+    expect(Array.from(wrap!.classList).some((c) => /(^|:)bg-|backdrop/.test(c))).toBe(false)
   })
 
   it("below lg the nav is one sideways row; from lg it is a column that scrolls by itself", () => {

@@ -34,6 +34,8 @@ export async function getFeatured(): Promise<HomeFeatured | null> {
         storeSlug: schema.stores.slug,
         coverImageUrl: schema.products.coverImageUrl,
         coverIsCutout: schema.products.coverIsCutout,
+        ratingAvg: schema.products.ratingAvg,
+        ratingCount: schema.products.ratingCount,
         minPriceSen: sql<string | null>`min(${schema.productVariants.priceMyrSen})`,
       })
       .from(schema.products)
@@ -61,6 +63,8 @@ export async function getFeatured(): Promise<HomeFeatured | null> {
         schema.products.slug,
         schema.products.coverImageUrl,
         schema.products.coverIsCutout,
+        schema.products.ratingAvg,
+        schema.products.ratingCount,
         schema.products.createdAt,
         schema.stores.name,
         schema.stores.slug,
@@ -77,6 +81,8 @@ export async function getFeatured(): Promise<HomeFeatured | null> {
       storeSlug: r.storeSlug,
       coverImageUrl: r.coverImageUrl,
       coverIsCutout: r.coverIsCutout,
+      ratingAvg: r.ratingAvg,
+      ratingCount: r.ratingCount,
       minPriceSen: r.minPriceSen != null ? Number(r.minPriceSen) : null,
     }
   })
@@ -93,6 +99,8 @@ export async function getFavourites(): Promise<HomeProduct[]> {
     storeSlug: p.storeSlug,
     coverImageUrl: p.coverImageUrl,
     coverIsCutout: p.coverIsCutout,
+    ratingAvg: p.ratingAvg,
+    ratingCount: p.ratingCount,
     categoryName: p.categoryName,
     minPriceSen: p.minPriceSen,
     createdAt: p.createdAt,

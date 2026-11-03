@@ -70,6 +70,8 @@ export async function getProducts({
         storeId: schema.products.storeId,
         coverImageUrl: schema.products.coverImageUrl,
         coverIsCutout: schema.products.coverIsCutout,
+        ratingAvg: schema.products.ratingAvg,
+        ratingCount: schema.products.ratingCount,
         categoryName: schema.categories.name,
         minPriceSen: sql<string>`min(${schema.productVariants.priceMyrSen})`,
         createdAt: schema.products.createdAt,
@@ -139,6 +141,8 @@ export const getProductBySlug = cache(async (storeSlug: string, productSlug: str
         storeExcerpt: schema.stores.excerpt,
         storeDescription: schema.stores.description,
         categoryId: schema.products.categoryId,
+        ratingAvg: schema.products.ratingAvg,
+        ratingCount: schema.products.ratingCount,
       })
       .from(schema.products)
       .innerJoin(

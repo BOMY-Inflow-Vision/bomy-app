@@ -35,8 +35,15 @@ function has(el: Element | null, tokens: string[]) {
   for (const t of tokens) expect(el!.classList.contains(t), `${t} on ${el!.className}`).toBe(true)
 }
 
-const WITH_IMAGE = { id: "1", slug: "tea", name: "Tea", coverImageUrl: "https://x.test/t.jpg" }
-const NO_IMAGE = { id: "2", slug: "mug", name: "Mug", coverImageUrl: null }
+const RATING = { ratingAvg: "0", ratingCount: 0 }
+const WITH_IMAGE = {
+  id: "1",
+  slug: "tea",
+  name: "Tea",
+  coverImageUrl: "https://x.test/t.jpg",
+  ...RATING,
+}
+const NO_IMAGE = { id: "2", slug: "mug", name: "Mug", coverImageUrl: null, ...RATING }
 
 beforeEach(() => getStoreProducts.mockReset())
 
@@ -48,7 +55,7 @@ describe("store products page", () => {
       "/products/acme/tea",
       "/products/acme/mug",
     ])
-    expect(links.map((a) => a.textContent.trim())).toContain("Tea")
+    expect(links.map((a) => a.textContent.trim())).toContain("Tea\u2605 0 (0)")
     expect(doc.querySelector("img")!.getAttribute("alt")).toBe("Tea")
     expect(doc.querySelectorAll("img")).toHaveLength(1)
   })

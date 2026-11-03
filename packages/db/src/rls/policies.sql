@@ -526,6 +526,9 @@ BEGIN
     -- origin: 0032
     EXECUTE 'GRANT SELECT, INSERT ON "service_provider_applications" TO bomy_app';
 
+    -- origin: 0035
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON "product_ratings" TO bomy_app'; -- no DELETE: removal is a soft delete
+
     -- app.* function execute (named individually, not ON ALL FUNCTIONS)
     EXECUTE 'GRANT EXECUTE ON FUNCTION app.assert_tenant_context() TO bomy_app';
     EXECUTE 'GRANT EXECUTE ON FUNCTION app.current_user_id() TO bomy_app';
@@ -1302,3 +1305,67 @@ CREATE POLICY service_provider_applications_read ON service_provider_application
     OR app.current_user_role() IN ('bomy_ops', 'bomy_admin')
     OR app.is_admin_bypass()
   );
+
+-- ── product_ratings (product star ratings; migration 0035) ────────────────────
+-- One row per buyer + product. Writes (INSERT/UPDATE) are admin-bypass only:
+-- the single writer is the withAdmin rating action (still bomy_app, so the
+-- grants stay). Buyers SELECT their own rows; storefront reads use the cached
+-- products.rating_avg / rating_count instead. No DELETE grant or policy —
+-- removal is a soft delete (removed_at / removed_by / removal_reason). The
+-- 24-hour change window is enforced in the server action (time-based, not
+-- expressible per role); the aggregate is recomputed in the same transaction.
+
+ALTER TABLE product_ratings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE product_ratings FORCE  ROW LEVEL SECURITY;
+
+CREATE POLICY product_ratings_default_deny ON product_ratings
+  AS RESTRICTIVE
+  USING (app.current_user_id() IS NOT NULL OR app.is_admin_bypass());
+
+CREATE POLICY product_ratings_self_select ON product_ratings
+  FOR SELECT
+  USING (user_id = app.current_user_id() OR app.is_admin_bypass());
+
+CREATE POLICY product_ratings_admin_insert ON product_ratings
+  FOR INSERT
+  WITH CHECK (app.is_admin_bypass());
+
+CREATE POLICY product_ratings_admin_update ON product_ratings
+  FOR UPDATE
+  USING (app.is_admin_bypass())
+  WITH CHECK (app.is_admin_bypass());
+
+-- Only the bypass path may write the cached rating columns on products
+-- (sellers can otherwise INSERT / UPDATE their own product row under
+-- products_seller_insert / products_seller_update).
+-- Final definition from migration 0036, which superseded 0035's BEFORE UPDATE
+-- trigger: a non-bypass INSERT must leave both columns at 0 (the defaults); a
+-- non-bypass UPDATE may not change either column.
+CREATE OR REPLACE FUNCTION app.products_guard_rating_columns()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    IF NOT app.is_admin_bypass()
+       AND (NEW.rating_avg <> 0 OR NEW.rating_count <> 0) THEN
+      RAISE EXCEPTION 'products.rating_avg / rating_count may only be set by the rating action (admin bypass); insert them as 0'
+        USING ERRCODE = '42501';
+    END IF;
+  ELSIF TG_OP = 'UPDATE' THEN
+    IF (NEW.rating_avg IS DISTINCT FROM OLD.rating_avg
+        OR NEW.rating_count IS DISTINCT FROM OLD.rating_count)
+       AND NOT app.is_admin_bypass() THEN
+      RAISE EXCEPTION 'products.rating_avg / rating_count may only be written by the rating action (admin bypass)'
+        USING ERRCODE = '42501';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS products_guard_rating_columns ON products;
+CREATE TRIGGER products_guard_rating_columns
+  BEFORE INSERT OR UPDATE ON products
+  FOR EACH ROW
+  EXECUTE FUNCTION app.products_guard_rating_columns();

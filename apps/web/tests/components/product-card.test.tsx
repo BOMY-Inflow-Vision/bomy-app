@@ -17,6 +17,8 @@ function render(props: Partial<ProductCardProps> = {}) {
       href="/products/acme/tea"
       name="Tea"
       coverImageUrl="https://x.test/t.jpg"
+      ratingAvg="0"
+      ratingCount={0}
       {...props}
     />,
   )
@@ -201,94 +203,89 @@ describe("ProductCard cut-out picture (seller ticked 'no background')", () => {
   })
 })
 
-describe("ProductCard text (price on the right)", () => {
+describe("ProductCard text (store and category, name, rating and price)", () => {
   const full = { categoryName: "Tea", storeName: "Acme Store", minPriceSen: 1250 }
-  const kids = (d: Document) => Array.from(text(d).children)
+  // Three rows, the same on phone and desktop: [store | category], name, [rating | price].
+  const top = (d: Document) => text(d).children[0]!
+  const name = (d: Document) => text(d).children[1]!
+  const bottom = (d: Document) => text(d).children[2]!
+  const price = (d: Document) => bottom(d).querySelector("p")!
 
-  it("text sits under the tile on the Kvist grid, with the Kvist padding", () => {
-    has(text(render(full)), [
-      "grid",
-      "grid-cols-[1fr_auto]",
-      "items-baseline",
-      "gap-x-3",
-      "px-1",
-      "pt-3",
-      "sm:px-1.5",
-      "sm:pt-4",
+  it("text sits under the tile with the Kvist padding", () => {
+    has(text(render(full)), ["px-1", "pt-3", "sm:px-1.5", "sm:pt-4"])
+  })
+
+  it("row order is store and category, name, rating and price", () => {
+    const d = render(full)
+    expect(text(d).children).toHaveLength(3)
+    expect(Array.from(top(d).children).map((k) => k.textContent)).toEqual(["Acme Store", "Tea"])
+    expect(name(d).textContent).toBe("Tea")
+    expect(bottom(d).textContent).toBe("\u2605 0 (0)from RM12.50")
+  })
+
+  it("row 1: store on the left, category on the far right, capped so the store keeps room", () => {
+    const [store, cat] = Array.from(top(render(full)).children)
+    has(top(render(full)), ["flex", "justify-between", "text-xs", "text-muted-foreground"])
+    has(store!, ["min-w-0", "truncate"])
+    has(cat!, ["ml-auto", "max-w-[50%]", "shrink-0", "truncate"])
+  })
+
+  it("row 2: the name keeps its phone and desktop sizes and clamps", () => {
+    has(name(render(full)), [
+      "text-card-name-sm",
+      "line-clamp-2",
+      "lg:line-clamp-1",
+      "lg:text-card-name",
     ])
   })
 
-  it("DOM order is category, name, store, price (the phone order)", () => {
-    expect(kids(render(full)).map((k) => k.textContent)).toEqual([
-      "Tea",
-      "Tea",
-      "Acme Store",
-      "from RM12.50",
-    ])
+  it("row 3: rating left, price right, on one line", () => {
+    const b = bottom(render(full))
+    has(b, ["flex", "justify-between", "items-baseline"])
+    expect(b.firstElementChild!.textContent).toBe("\u2605 0 (0)")
+    expect(b.lastElementChild!.textContent).toBe("from RM12.50")
   })
 
-  it("phone: every line takes the full row; the price is on its own line, right-aligned", () => {
-    const [cat, name, store, price] = kids(render(full))
-    for (const el of [cat!, name!, store!, price!]) has(el, ["col-span-2"])
-    has(price!, ["mt-1", "text-right"])
-    has(name!, ["text-card-name-sm", "line-clamp-2"])
-    has(cat!, ["text-xs", "text-muted-foreground"])
-    has(store!, ["mt-1", "text-xs", "text-muted-foreground"])
-  })
-
-  it("from lg: category above, name under it, store third, price on the right across rows 1 and 2", () => {
-    const [cat, name, store, price] = kids(render(full))
-    has(cat!, ["lg:col-span-1", "lg:row-start-1", "lg:text-card-meta"])
-    has(name!, ["lg:col-span-1", "lg:row-start-2", "lg:line-clamp-1", "lg:text-card-name"])
-    has(store!, ["lg:col-span-1", "lg:row-start-3", "lg:text-card-meta"])
-    has(price!, [
-      "lg:col-span-1",
-      "lg:col-start-2",
-      "lg:row-span-2",
-      "lg:row-start-1",
-      "lg:self-end",
-      "lg:text-xl",
-      "lg:mt-0",
-    ])
-  })
-
-  it("price: display font, semibold, tabular, ink colour; no wrapping from lg, may wrap below", () => {
-    const price = kids(render(full))[3]!
-    has(price, [
+  it("price: display font, semibold, tabular, ink colour, right-aligned, wraps anywhere", () => {
+    has(price(render(full)), [
+      "text-right",
       "font-display",
       "font-semibold",
       "tabular-nums",
       "text-foreground",
       "text-card-name",
-      "lg:whitespace-nowrap",
       "[overflow-wrap:anywhere]",
     ])
-    expect(price.classList.contains("whitespace-nowrap")).toBe(false)
-    expect(price.classList.contains("text-primary-text")).toBe(false)
+    expect(price(render(full)).classList.contains("text-primary-text")).toBe(false)
   })
 
-  it("a very long price can wrap anywhere below lg, so it stays inside a narrow card", () => {
+  it("a very long price stays inside a narrow card", () => {
     const d = render({ ...full, minPriceSen: 1299999999 })
-    const price = kids(d)[3]!
-    expect(price.textContent).toContain("12999999.99")
-    has(price, ["[overflow-wrap:anywhere]"])
-    expect(price.classList.contains("whitespace-nowrap")).toBe(false)
+    expect(price(d).textContent).toContain("12999999.99")
+    has(price(d), ["[overflow-wrap:anywhere]"])
+    expect(price(d).classList.contains("whitespace-nowrap")).toBe(false)
   })
 
-  it("no price: the name takes the whole row at every size", () => {
+  it("no price: row 3 holds only the rating", () => {
     const d = render({ ...full, minPriceSen: null })
-    const [, name] = kids(d)
-    expect(kids(d)).toHaveLength(3)
-    has(name!, ["col-span-2", "lg:col-span-2"])
-    expect(name!.classList.contains("lg:col-span-1")).toBe(false)
+    expect(bottom(d).textContent).toBe("\u2605 0 (0)")
+    expect(d.body.textContent).not.toContain("from RM")
   })
 
-  it("no category: the name is first in the text block; no store and no price render nothing", () => {
-    expect(kids(render({ ...full, categoryName: null }))[0]!.textContent).toBe("Tea")
-    const d = render({ categoryName: "Tea", storeName: null, minPriceSen: null })
-    expect(d.body.textContent).not.toContain("from RM")
+  it("no category: row 1 holds only the store; no store and no category: no row 1 at all", () => {
+    const d = render({ ...full, categoryName: null })
+    expect(top(d).textContent).toBe("Acme Store")
+    const d2 = render({ storeName: null, categoryName: null, minPriceSen: null })
+    expect(text(d2).children).toHaveLength(2)
+    expect(d2.body.textContent).toBe("Tea\u2605 0 (0)")
     const empty = Array.from(d.querySelectorAll("li p")).filter((p) => p.textContent.trim() === "")
     expect(empty).toHaveLength(0)
+  })
+
+  it("category without a store still sits on the right", () => {
+    const d = render({ categoryName: "Tea", storeName: null })
+    expect(top(d).children).toHaveLength(1)
+    has(top(d).firstElementChild, ["ml-auto"])
   })
 
   it("a price of 0 is still a price", () => {
@@ -304,8 +301,8 @@ describe("ProductCard compact variant", () => {
       storeName: "Acme",
       minPriceSen: 100,
     })
-    expect(d.body.textContent).toBe("Tea")
-    expect(text(d).children).toHaveLength(1)
+    expect(d.body.textContent).toBe("Tea\u2605 0 (0)")
+    expect(text(d).children).toHaveLength(2) // the name and the rating row
   })
 })
 
@@ -332,7 +329,32 @@ describe("ProductCard badge", () => {
   it("renders none when null or absent", () => {
     for (const badge of [null, undefined]) {
       const d = render(badge === undefined ? {} : { badge })
-      expect(d.body.textContent).toBe("Tea")
+      expect(d.body.textContent).toBe("Tea\u2605 0 (0)")
     }
+  })
+})
+
+describe("ProductCard rating", () => {
+  it("an unrated product shows a muted \u2605 0 (0)", () => {
+    const d = render({ ratingAvg: "0", ratingCount: 0, storeName: "Acme" })
+    expect(text(d).textContent).toContain("\u2605 0 (0)")
+  })
+
+  it("a rated product shows the average and the count", () => {
+    const d = render({ ratingAvg: "4.60", ratingCount: 23, storeName: "Acme" })
+    expect(text(d).textContent).toContain("\u2605 4.6 (23)")
+  })
+
+  it("full: the rating is on the bottom row, before the price", () => {
+    const d = render({ storeName: "Acme", minPriceSen: 100, ratingAvg: "4.60", ratingCount: 23 })
+    const texts = Array.from(text(d).children).map((k) => k.textContent)
+    expect(texts).toEqual(["Acme", "Tea", "\u2605 4.6 (23)from RM1.00"])
+  })
+
+  it("the compact variant shows the rating row too, after the name", () => {
+    const d = render({ variant: "compact", ratingAvg: "4.60", ratingCount: 23 })
+    const t = text(d).textContent
+    expect(t).toContain("\u2605 4.6 (23)")
+    expect(t.indexOf("Tea")).toBeLessThan(t.indexOf("\u2605"))
   })
 })

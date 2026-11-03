@@ -55,6 +55,8 @@ export function Favourites({
               name={p.name}
               coverImageUrl={p.coverImageUrl}
               cutout={p.coverIsCutout}
+              ratingAvg={p.ratingAvg}
+              ratingCount={p.ratingCount}
               categoryName={p.categoryName}
               storeName={p.storeName}
               minPriceSen={p.minPriceSen}

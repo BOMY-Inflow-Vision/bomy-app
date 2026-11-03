@@ -127,6 +127,8 @@ export default async function StorePage({ params }: Props) {
                       name={product.name}
                       coverImageUrl={product.coverImageUrl}
                       cutout={product.coverIsCutout}
+                      ratingAvg={product.ratingAvg}
+                      ratingCount={product.ratingCount}
                     />
                   </li>
                 ))}
@@ -155,6 +157,8 @@ export default async function StorePage({ params }: Props) {
                       name={product.name}
                       coverImageUrl={product.coverImageUrl}
                       cutout={product.coverIsCutout}
+                      ratingAvg={product.ratingAvg}
+                      ratingCount={product.ratingCount}
                     />
                   </li>
                 ))}

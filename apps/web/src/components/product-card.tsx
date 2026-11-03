@@ -1,6 +1,7 @@
 import Link from "next/link"
 
 import { CoverImage } from "@/components/cover-image"
+import { RatingRow } from "@/components/rating-row"
 import { formatMyrSen } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
@@ -10,11 +11,14 @@ export interface ProductCardProps {
   coverImageUrl: string | null
   /** The seller ticked "cut-out" for this picture: it floats inset on the tile with a shadow. Default: a normal photo that covers the tile. */
   cutout?: boolean
-  /** `compact` shows the image and the name only (brand pages). Default `full`. */
+  /** `compact` shows the image, the name and the rating only (brand pages). Default `full`. */
   variant?: "full" | "compact"
   categoryName?: string | null
   storeName?: string | null
   minPriceSen?: number | null
+  /** The cached rating (products.rating_avg / rating_count). Required: a call site that forgets it fails typecheck. */
+  ratingAvg: string | number
+  ratingCount: number
   /** A badge proved by real data (see productBadge). Absent or null shows none. */
   badge?: "New" | "Sold out" | null
 }
@@ -105,6 +109,8 @@ export function ProductCard({
   categoryName,
   storeName,
   minPriceSen,
+  ratingAvg,
+  ratingCount,
   badge,
 }: ProductCardProps) {
   const full = variant === "full"
@@ -121,30 +127,26 @@ export function ProductCard({
         cutout={cutout}
         badge={badge}
       />
-      <div className="grid grid-cols-[1fr_auto] items-baseline gap-x-3 px-1 pt-3 sm:px-1.5 sm:pt-4">
-        {full && categoryName && (
-          <p className="col-span-2 truncate text-xs text-muted-foreground lg:col-span-1 lg:row-start-1 lg:text-card-meta">
-            {categoryName}
-          </p>
+      <div className="px-1 pt-3 sm:px-1.5 sm:pt-4">
+        {full && (storeName || categoryName) && (
+          <div className="flex min-w-0 items-baseline justify-between gap-3 text-xs text-muted-foreground lg:text-card-meta">
+            {storeName && <p className="min-w-0 truncate">{storeName}</p>}
+            {categoryName && (
+              <p className="ml-auto max-w-[50%] shrink-0 truncate">{categoryName}</p>
+            )}
+          </div>
         )}
-        <p
-          className={cn(
-            "col-span-2 line-clamp-2 min-w-0 break-words text-card-name-sm font-medium leading-snug text-foreground lg:row-start-2 lg:line-clamp-1 lg:text-card-name",
-            showPrice ? "lg:col-span-1" : "lg:col-span-2",
-          )}
-        >
+        <p className="mt-1 line-clamp-2 min-w-0 break-words text-card-name-sm font-medium leading-snug text-foreground lg:line-clamp-1 lg:text-card-name">
           {name}
         </p>
-        {full && storeName && (
-          <p className="col-span-2 mt-1 truncate text-xs text-muted-foreground lg:col-span-1 lg:row-start-3 lg:text-card-meta">
-            {storeName}
-          </p>
-        )}
-        {showPrice && (
-          <p className="col-span-2 mt-1 text-right font-display text-card-name font-semibold tabular-nums text-foreground [overflow-wrap:anywhere] lg:col-span-1 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mt-0 lg:self-end lg:whitespace-nowrap lg:text-xl">
-            from {formatMyrSen(minPriceSen)}
-          </p>
-        )}
+        <div className="mt-1 flex items-baseline justify-between gap-3">
+          <RatingRow avg={ratingAvg} count={ratingCount} />
+          {showPrice && (
+            <p className="text-right font-display text-card-name font-semibold tabular-nums text-foreground [overflow-wrap:anywhere]">
+              from {formatMyrSen(minPriceSen)}
+            </p>
+          )}
+        </div>
       </div>
     </Link>
   )

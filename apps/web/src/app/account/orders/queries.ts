@@ -1,6 +1,8 @@
-import { desc, eq } from "drizzle-orm"
+import { and, desc, eq } from "drizzle-orm"
 
 import { makeDb, schema, withTenant } from "@bomy/db"
+
+import { resolveRatableProduct } from "./rating-eligibility"
 
 let _client: ReturnType<typeof makeDb> | null = null
 function getDb() {
@@ -62,6 +64,12 @@ export type BuyerOrderDetail = {
     quantity: number
     unitPriceSen: bigint
     lineTotalSen: bigint
+    /** The buyer's own rating of the product; null when they have not rated it. */
+    stars: number | null
+    ratingCreatedAt: Date | null
+    ratingRemovedAt: Date | null
+    /** True when `resolveRatableProduct` finds a product (delivered / completed order). */
+    canRate: boolean
   }>
 }
 
@@ -98,8 +106,11 @@ export async function fetchBuyerOrderDetail(
   const order = rows[0]
   if (!order || order.buyerId !== userId) return null
 
-  const items = await withTenant(getDb(), { userId, userRole: "buyer" }, async (tx) =>
-    tx
+  // Buyer RLS lets the buyer read their own order items, visible products and their own rating
+  // rows, so no admin read is needed. Archived / draft products are invisible here, so the control
+  // is hidden for them even where the server action would still accept (UI stricter than server).
+  const items = await withTenant(getDb(), { userId, userRole: "buyer" }, async (tx) => {
+    const rows = await tx
       .select({
         id: schema.orderItems.id,
         productSnapshot: schema.orderItems.productSnapshot,
@@ -109,8 +120,37 @@ export async function fetchBuyerOrderDetail(
         lineTotalSen: schema.orderItems.lineTotalSen,
       })
       .from(schema.orderItems)
-      .where(eq(schema.orderItems.orderId, orderId)),
-  )
+      .where(eq(schema.orderItems.orderId, orderId))
+
+    return Promise.all(
+      rows.map(async (row) => {
+        const target = await resolveRatableProduct(tx, row.id, userId)
+        let rating: { stars: number; createdAt: Date; removedAt: Date | null } | undefined
+        if (target) {
+          ;[rating] = await tx
+            .select({
+              stars: schema.productRatings.stars,
+              createdAt: schema.productRatings.createdAt,
+              removedAt: schema.productRatings.removedAt,
+            })
+            .from(schema.productRatings)
+            .where(
+              and(
+                eq(schema.productRatings.productId, target.productId),
+                eq(schema.productRatings.userId, userId),
+              ),
+            )
+        }
+        return {
+          ...row,
+          stars: rating?.stars ?? null,
+          ratingCreatedAt: rating?.createdAt ?? null,
+          ratingRemovedAt: rating?.removedAt ?? null,
+          canRate: target !== null,
+        }
+      }),
+    )
+  })
 
   return { ...order, items }
 }

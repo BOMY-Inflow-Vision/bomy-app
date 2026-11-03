@@ -103,6 +103,27 @@ describe.skipIf(!shouldRun)("getHomeData (real rows, public read)", () => {
     expect(featured?.minPriceSen).toBe(2500) // the retired variant (100) does not count
   })
 
+  it("featured carries the cut-out flag and the cached rating from the row", async () => {
+    // The rating columns are guarded by a trigger: only the admin-bypass path may write them.
+    const setProduct = (cutout: boolean, avg: number, count: number) =>
+      owner.sql.begin(async (tx) => {
+        await tx`select set_config('app.bypass_rls', 'true', true)`
+        await tx`update products set cover_is_cutout = ${cutout}, rating_avg = ${avg}, rating_count = ${count} where id = ${ids["cover"]!}`
+      })
+    await setProduct(true, 4.5, 3)
+    try {
+      const featured = await getFeatured()
+      expect(featured?.id).toBe(ids["cover"])
+      expect(featured?.coverIsCutout).toBe(true)
+      expect(Number(featured?.ratingAvg)).toBe(4.5)
+      expect(featured?.ratingCount).toBe(3)
+      const fav = (await getProducts({ page: 1 })).products.find((p) => p.id === ids["cover"])
+      if (fav) expect(fav.ratingCount).toBe(3)
+    } finally {
+      await setProduct(false, 0, 0)
+    }
+  })
+
   it("a featured product with no active variant price keeps null, not zero", async () => {
     await owner.sql`update product_variants set is_active = false where product_id = ${ids["cover"]!}`
     const featured = await getFeatured()

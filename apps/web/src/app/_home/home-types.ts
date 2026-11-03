@@ -7,6 +7,8 @@ export interface HomeProduct {
   storeSlug: string
   coverImageUrl: string | null
   coverIsCutout: boolean
+  ratingAvg: string
+  ratingCount: number
   categoryName: string | null
   minPriceSen: number | null
   createdAt: Date
@@ -23,6 +25,8 @@ export interface HomeFeatured {
   storeSlug: string
   coverImageUrl: string
   coverIsCutout: boolean
+  ratingAvg: string
+  ratingCount: number
   minPriceSen: number | null
 }
 

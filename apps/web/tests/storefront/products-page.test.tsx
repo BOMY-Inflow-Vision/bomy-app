@@ -30,6 +30,8 @@ const PRODUCT = {
   storeId: "s1",
   coverImageUrl: null,
   coverIsCutout: false,
+  ratingAvg: "4.50",
+  ratingCount: 3,
   categoryName: "Tea",
   minPriceSen: 1250,
   createdAt: new Date("2020-01-01T00:00:00Z"),

@@ -4,6 +4,7 @@ import type { Metadata } from "next"
 
 import { getProductBySlug } from "../../queries"
 import { BodyRenderer } from "@/components/body-renderer"
+import { RatingRow } from "@/components/rating-row"
 import { PageHeading } from "@/components/page-heading"
 import { ProductImageGallery } from "./product-image-gallery"
 import { VariantPicker } from "./variant-picker"
@@ -84,6 +85,11 @@ export default async function ProductDetailPage({ params }: Props) {
               {product.storeName}
             </Link>
             <PageHeading title={product.name} description={product.description} />
+            <RatingRow
+              avg={product.ratingAvg}
+              count={product.ratingCount}
+              className="mt-2 text-sm"
+            />
           </div>
 
           <VariantPicker
