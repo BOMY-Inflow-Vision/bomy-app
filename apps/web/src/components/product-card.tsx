@@ -130,8 +130,10 @@ export function ProductCard({
       <div className="px-1 pt-3 sm:px-1.5 sm:pt-4">
         {full && (storeName || categoryName) && (
           <div className="flex min-w-0 items-baseline justify-between gap-3 text-xs text-muted-foreground lg:text-card-meta">
-            <p className="min-w-0 truncate">{storeName}</p>
-            {categoryName && <p className="max-w-[50%] shrink-0 truncate">{categoryName}</p>}
+            {storeName && <p className="min-w-0 truncate">{storeName}</p>}
+            {categoryName && (
+              <p className="ml-auto max-w-[50%] shrink-0 truncate">{categoryName}</p>
+            )}
           </div>
         )}
         <p className="mt-1 line-clamp-2 min-w-0 break-words text-card-name-sm font-medium leading-snug text-foreground lg:line-clamp-1 lg:text-card-name">
