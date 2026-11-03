@@ -5,7 +5,7 @@ import { auth } from "@/auth"
 import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
 import { senToMyr } from "@/lib/money"
-import { windowHoursLeft } from "@/lib/ratings"
+import { RATING_WINDOW_HOURS, windowHoursLeft } from "@/lib/ratings"
 
 import { fetchBuyerOrderDetail } from "../queries"
 import { ConfirmDeliveryButton } from "./_confirm-delivery-button"
@@ -67,6 +67,7 @@ export default async function BuyerOrderDetailPage({ params }: Props) {
                   hoursLeft={item.ratingCreatedAt ? windowHoursLeft(item.ratingCreatedAt, now) : 0}
                   removed={item.ratingRemovedAt !== null}
                   canRate={item.canRate}
+                  windowHours={RATING_WINDOW_HOURS}
                 />
               </li>
             )

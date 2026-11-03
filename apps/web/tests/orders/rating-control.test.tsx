@@ -28,6 +28,7 @@ const BASE: Props = {
   hoursLeft: 0,
   removed: false,
   canRate: true,
+  windowHours: 24,
 }
 
 let container: HTMLDivElement
@@ -108,11 +109,12 @@ describe("RatingControl", () => {
 
   it("selecting a star calls rateProduct(orderItemId, n) and keeps the new value", async () => {
     rateProduct.mockResolvedValue({ ok: true, avg: "5.00", count: 1 })
-    mount({ stars: null })
+    mount({ stars: null, windowHours: 6 })
     await pick(5)
     expect(rateProduct).toHaveBeenCalledWith("item-1", 5)
     expect(radios()[4]!.checked).toBe(true)
-    expect(text()).toContain("You can change this for 24 more hours")
+    expect(text()).toContain("You can change this for 6 more hours")
+    expect(text()).not.toContain("24")
   })
 
   it("a change keeps the remaining hours", async () => {
@@ -157,5 +159,26 @@ describe("RatingControl", () => {
     await pick(3)
     expect(toastError).toHaveBeenCalledTimes(1)
     expect(radios()[2]!.checked).toBe(false)
+  })
+
+  it("ignores a second selection while a request is pending, and keeps radios enabled", async () => {
+    let resolve!: (v: { ok: true; avg: string; count: number }) => void
+    rateProduct.mockReturnValue(new Promise((r) => (resolve = r)))
+    mount({ stars: 4, hoursLeft: 5 })
+    const second = radios()[1]!
+    act(() => second.focus())
+    await pick(2)
+    expect(rateProduct).toHaveBeenCalledTimes(1)
+    expect(radios().every((r) => !r.disabled)).toBe(true)
+    expect(document.activeElement).toBe(second)
+    expect(container.querySelector('[role="radiogroup"]')!.getAttribute("aria-busy")).toBe("true")
+    await pick(3)
+    expect(rateProduct).toHaveBeenCalledTimes(1)
+    expect(radios()[3]!.checked).toBe(true)
+    await act(async () => {
+      resolve({ ok: true, avg: "2.00", count: 1 })
+      await Promise.resolve()
+    })
+    expect(radios()[1]!.checked).toBe(true)
   })
 })

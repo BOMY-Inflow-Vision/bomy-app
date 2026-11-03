@@ -8,9 +8,7 @@ import { cn } from "@/lib/utils"
 import { rateProduct } from "./rating-actions"
 
 // Client component: must not import `@/lib/ratings` or `@bomy/db` (server barrel). The server page
-// computes `hoursLeft` and passes plain props. Mirrors RATING_WINDOW_HOURS, used only to show the
-// note right after a first rating (the server clock is still the authority).
-const FIRST_RATING_HOURS = 24
+// computes `hoursLeft` and passes the window length (`windowHours`) as plain props.
 
 interface Props {
   orderItemId: string
@@ -22,6 +20,8 @@ interface Props {
   /** An admin removed the rating: read-only for good. */
   removed: boolean
   canRate: boolean
+  /** Length of the change window in hours (RATING_WINDOW_HOURS, passed by the server page). */
+  windowHours: number
 }
 
 const VALUES = [1, 2, 3, 4, 5] as const
@@ -45,6 +45,7 @@ export function RatingControl({
   hoursLeft,
   removed,
   canRate,
+  windowHours,
 }: Props) {
   const toast = useToast()
   const name = useId()
@@ -63,10 +64,10 @@ export function RatingControl({
       const result = await rateProduct(orderItemId, n)
       if (result.ok) {
         setValue(n)
-        if (value === null) setHours(FIRST_RATING_HOURS)
+        if (value === null) setHours(windowHours)
       } else if (result.error === "WINDOW_CLOSED") {
         setLocked(true)
-        toast.info("The 24-hour window to change this rating has closed.")
+        toast.info("The window to change this rating has closed.")
       } else if (result.error === "RATING_REMOVED") {
         setIsRemoved(true)
       } else {
@@ -110,7 +111,12 @@ export function RatingControl({
 
   return (
     <div>
-      <div role="radiogroup" aria-label={`Rate ${productName}`} className={starsRow}>
+      <div
+        role="radiogroup"
+        aria-label={`Rate ${productName}`}
+        aria-busy={pending}
+        className={starsRow}
+      >
         {VALUES.map((n) => (
           <label key={n} className="relative cursor-pointer px-0.5">
             <input
@@ -119,7 +125,6 @@ export function RatingControl({
               value={n}
               aria-label={n === 1 ? "1 star" : `${n} stars`}
               checked={value === n}
-              disabled={pending}
               onChange={() => void choose(n)}
               className="peer sr-only"
             />
