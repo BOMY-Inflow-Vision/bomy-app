@@ -1,6 +1,7 @@
 "use client"
 
 import { useId, useState } from "react"
+import { Star } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
 import { cn } from "@/lib/utils"
@@ -26,12 +27,27 @@ interface Props {
 
 const VALUES = [1, 2, 3, 4, 5] as const
 
+// One star: solid when it counts toward the rating, an outline (hollow, with a border) when it does
+// not, so an empty star never looks like a filled one. The colour alone is not the signal.
+function StarIcon({ filled }: { filled: boolean }) {
+  return (
+    <Star
+      aria-hidden="true"
+      strokeWidth={1.75}
+      className={cn(
+        "size-6",
+        filled ? "fill-primary text-primary" : "fill-transparent text-primary",
+      )}
+    />
+  )
+}
+
 function Stars({ value }: { value: number }) {
   return (
     <>
       {VALUES.map((n) => (
-        <span key={n} className={n <= value ? "text-primary" : "text-muted-foreground"}>
-          ★
+        <span key={n} className="px-0.5">
+          <StarIcon filled={n <= value} />
         </span>
       ))}
     </>
@@ -128,14 +144,8 @@ export function RatingControl({
               onChange={() => void choose(n)}
               className="peer sr-only"
             />
-            <span
-              aria-hidden="true"
-              className={cn(
-                "block rounded-control peer-focus-visible:ring-2 peer-focus-visible:ring-ring",
-                value !== null && n <= value ? "text-primary" : "text-muted-foreground",
-              )}
-            >
-              ★
+            <span className="block rounded-control peer-focus-visible:ring-2 peer-focus-visible:ring-ring">
+              <StarIcon filled={value !== null && n <= value} />
             </span>
           </label>
         ))}
