@@ -17,11 +17,11 @@ export function CategoryRail({ label, children }: { label: string; children: Rea
   }, [])
 
   return (
-    <div className="sticky top-nav-clear z-30 -mx-3 bg-background/95 px-3 py-2 backdrop-blur sm:-mx-5 sm:px-5 lg:mx-0 lg:-mt-3 lg:self-start lg:bg-transparent lg:px-0 lg:py-3 lg:backdrop-blur-none">
+    <div className="sticky top-[calc(var(--nav-height)+var(--nav-offset)+0.75rem)] z-30 -mx-3 px-3 py-2 sm:-mx-5 sm:px-5 lg:top-nav-clear lg:mx-0 lg:-mt-3 lg:self-start lg:px-0 lg:py-3">
       <nav
         ref={ref}
         aria-label={label}
-        className="relative flex min-w-0 flex-nowrap gap-1 overflow-x-auto rounded-full bg-muted p-1 lg:max-h-rail lg:flex-col lg:overflow-x-visible lg:overflow-y-auto lg:rounded-3xl"
+        className="relative flex min-w-0 flex-nowrap gap-1 overflow-x-auto rounded-full bg-muted p-2 lg:bg-transparent lg:p-1 lg:max-h-rail lg:flex-col lg:overflow-x-visible lg:overflow-y-auto lg:rounded-3xl"
       >
         {children}
       </nav>
