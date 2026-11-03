@@ -217,6 +217,100 @@ describe.skipIf(!shouldRun)("product_ratings RLS (migration 0035)", () => {
     expect(adminSet).toEqual({ avg: "4.50", count: 2 })
   })
 
+  // ── INSERT guard (migration 0036) ─────────────────────────────────────────
+
+  function newProductRow(storeId: string, extra: Partial<typeof products.$inferInsert> = {}) {
+    const id = randomUUID()
+    return {
+      id,
+      storeId,
+      name: "Insert Guard Tee",
+      slug: `insert-guard-${id}`,
+      status: "active" as const,
+      ...extra,
+    }
+  }
+
+  async function cleanupProduct(id: string) {
+    await withAdmin(handle.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, (tx) =>
+      tx.delete(products).where(eq(products.id, id)),
+    )
+  }
+
+  it("(g) a seller under withTenant cannot INSERT a product with rating_count = 5 (trigger)", async () => {
+    const f = await seed()
+    const sellerCtx = { userId: f.sellerId, userRole: "seller_owner" as const, sellerId: f.storeId }
+    const row = newProductRow(f.storeId, { ratingCount: 5 })
+
+    const err = await caught(
+      withTenant(handle.db, sellerCtx, (tx) => tx.insert(products).values(row)),
+    )
+    // Clean up first in case the guard is missing and the row went in.
+    await cleanupProduct(row.id)
+    expect(pgErrorCode(err)).toBe("42501")
+    expect(String((err as Error).message)).toMatch(/rating_avg \/ rating_count/)
+
+    const avgRow = newProductRow(f.storeId, { ratingAvg: "4.5" })
+    const avgErr = await caught(
+      withTenant(handle.db, sellerCtx, (tx) => tx.insert(products).values(avgRow)),
+    )
+    await cleanupProduct(avgRow.id)
+    expect(pgErrorCode(avgErr)).toBe("42501")
+    expect(String((avgErr as Error).message)).toMatch(/rating_avg \/ rating_count/)
+  })
+
+  it("(g) a buyer under withTenant INSERTing a product with rating_count = 5 hits the trigger", async () => {
+    const f = await seed()
+    const row = newProductRow(f.storeId, { ratingCount: 5 })
+    const err = await caught(
+      withTenant(handle.db, { userId: f.buyerA, userRole: "buyer" }, (tx) =>
+        tx.insert(products).values(row),
+      ),
+    )
+    await cleanupProduct(row.id)
+    // The BEFORE trigger fires before the RLS WITH CHECK, so the trigger's message wins.
+    expect(pgErrorCode(err)).toBe("42501")
+    expect(String((err as Error).message)).toMatch(/rating_avg \/ rating_count/)
+  })
+
+  it("(g) a seller can still INSERT a product with the default rating columns", async () => {
+    const f = await seed()
+    const sellerCtx = { userId: f.sellerId, userRole: "seller_owner" as const, sellerId: f.storeId }
+    const row = newProductRow(f.storeId)
+    const inserted = await withTenant(handle.db, sellerCtx, (tx) =>
+      tx
+        .insert(products)
+        .values(row)
+        .returning({ avg: products.ratingAvg, count: products.ratingCount }),
+    )
+    await cleanupProduct(row.id)
+    expect(inserted).toEqual([{ avg: "0.00", count: 0 }])
+
+    // Explicit zeros are the same as the defaults and are allowed too.
+    const zeroRow = newProductRow(f.storeId, { ratingAvg: "0", ratingCount: 0 })
+    const zeroInserted = await withTenant(handle.db, sellerCtx, (tx) =>
+      tx.insert(products).values(zeroRow).returning({ id: products.id }),
+    )
+    await cleanupProduct(zeroRow.id)
+    expect(zeroInserted).toEqual([{ id: zeroRow.id }])
+  })
+
+  it("(g) withAdmin can INSERT a product with nonzero rating columns", async () => {
+    const f = await seed()
+    const row = newProductRow(f.storeId, { ratingAvg: "4.25", ratingCount: 4 })
+    const inserted = await withAdmin(
+      handle.db,
+      { userId: SYSTEM_ACTOR, reason: "test insert cached rating" },
+      (tx) =>
+        tx
+          .insert(products)
+          .values(row)
+          .returning({ avg: products.ratingAvg, count: products.ratingCount }),
+    )
+    await cleanupProduct(row.id)
+    expect(inserted).toEqual([{ avg: "4.25", count: 4 }])
+  })
+
   it("bomy_app has no DELETE on product_ratings", async () => {
     const result = await handle.db.execute(
       sql`select has_table_privilege('bomy_app', 'product_ratings', 'DELETE') as ok`,

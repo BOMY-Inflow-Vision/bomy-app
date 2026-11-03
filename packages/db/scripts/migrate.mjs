@@ -180,6 +180,10 @@ const MIGRATIONS = [
     name: "0035_product_ratings",
     file: join(__dirname, "../drizzle/0035_product_ratings.sql"),
   },
+  {
+    name: "0036_products_rating_insert_guard",
+    file: join(__dirname, "../drizzle/0036_products_rating_insert_guard.sql"),
+  },
 ]
 
 try {

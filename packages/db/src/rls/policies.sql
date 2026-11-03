@@ -1336,18 +1336,29 @@ CREATE POLICY product_ratings_admin_update ON product_ratings
   WITH CHECK (app.is_admin_bypass());
 
 -- Only the bypass path may write the cached rating columns on products
--- (sellers can otherwise UPDATE their own product row under
--- products_seller_update).
+-- (sellers can otherwise INSERT / UPDATE their own product row under
+-- products_seller_insert / products_seller_update).
+-- Final definition from migration 0036, which superseded 0035's BEFORE UPDATE
+-- trigger: a non-bypass INSERT must leave both columns at 0 (the defaults); a
+-- non-bypass UPDATE may not change either column.
 CREATE OR REPLACE FUNCTION app.products_guard_rating_columns()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 BEGIN
-  IF (NEW.rating_avg IS DISTINCT FROM OLD.rating_avg
-      OR NEW.rating_count IS DISTINCT FROM OLD.rating_count)
-     AND NOT app.is_admin_bypass() THEN
-    RAISE EXCEPTION 'products.rating_avg / rating_count may only be written by the rating action (admin bypass)'
-      USING ERRCODE = '42501';
+  IF TG_OP = 'INSERT' THEN
+    IF NOT app.is_admin_bypass()
+       AND (NEW.rating_avg <> 0 OR NEW.rating_count <> 0) THEN
+      RAISE EXCEPTION 'products.rating_avg / rating_count may only be set by the rating action (admin bypass); insert them as 0'
+        USING ERRCODE = '42501';
+    END IF;
+  ELSIF TG_OP = 'UPDATE' THEN
+    IF (NEW.rating_avg IS DISTINCT FROM OLD.rating_avg
+        OR NEW.rating_count IS DISTINCT FROM OLD.rating_count)
+       AND NOT app.is_admin_bypass() THEN
+      RAISE EXCEPTION 'products.rating_avg / rating_count may only be written by the rating action (admin bypass)'
+        USING ERRCODE = '42501';
+    END IF;
   END IF;
   RETURN NEW;
 END;
@@ -1355,6 +1366,6 @@ $$;
 
 DROP TRIGGER IF EXISTS products_guard_rating_columns ON products;
 CREATE TRIGGER products_guard_rating_columns
-  BEFORE UPDATE ON products
+  BEFORE INSERT OR UPDATE ON products
   FOR EACH ROW
   EXECUTE FUNCTION app.products_guard_rating_columns();
