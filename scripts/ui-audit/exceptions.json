@@ -586,5 +586,23 @@
     "file": "apps/web/src/app/page.tsx",
     "text": "<main className=\"mx-auto min-w-0 max-w-[1400px] space-y-12 py-8\">",
     "reason": "home content column is as wide as the nav pill and the footer card (1400px); no max-w scale step"
+  },
+  {
+    "rule": "R1-label",
+    "file": "apps/web/src/app/account/orders/[orderId]/_rating-control.tsx",
+    "text": "<label key={n} className=\"relative cursor-pointer px-0.5\">",
+    "reason": "label wraps a native sr-only radio so the star picker keeps native radio-group keyboard and screen-reader behaviour; no shared radio primitive"
+  },
+  {
+    "rule": "R1-input",
+    "file": "apps/web/src/app/account/orders/[orderId]/_rating-control.tsx",
+    "text": "<input",
+    "reason": "native visually-hidden (sr-only) radio inside a radiogroup: arrow-key navigation, accessible names (\"1 star\"..\"5 stars\") and peer-focus-visible ring; no shared radio primitive"
+  },
+  {
+    "rule": "R6-table",
+    "file": "apps/admin/src/app/products/[id]/page.tsx",
+    "text": "<table className=\"w-full text-sm\">",
+    "reason": "no @bomy/ui Table primitive exists"
   }
 ]
