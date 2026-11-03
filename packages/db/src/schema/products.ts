@@ -5,6 +5,7 @@ import {
   customType,
   index,
   integer,
+  numeric,
   pgTable,
   text,
   timestamp,
@@ -43,6 +44,10 @@ export const products = pgTable(
     coverImageUrl: text("cover_image_url"),
     // Seller-ticked (migration 0033): the cover picture is a cut-out, shown inset with a shadow on the card.
     coverIsCutout: boolean("cover_is_cutout").notNull().default(false),
+    // Cached rating aggregate (migration 0035). Written only by recomputeProductRating under
+    // withAdmin; a BEFORE UPDATE trigger rejects any other writer. Numeric reads as a string.
+    ratingAvg: numeric("rating_avg", { precision: 3, scale: 2 }).notNull().default("0"),
+    ratingCount: integer("rating_count").notNull().default(0),
     bodyHtml: text("body_html"),
     bodyRevision: integer("body_revision").notNull().default(0),
     // SEO metadata (migration 0030) — all optional, seller/admin editable.

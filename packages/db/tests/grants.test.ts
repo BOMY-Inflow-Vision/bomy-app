@@ -110,6 +110,9 @@ const GRANT_MATRIX: Record<string, TableGrant> = {
 
   // origin: 0032
   service_provider_applications: { select: true, insert: true, update: false, delete: false },
+
+  // origin: 0035
+  product_ratings: { select: true, insert: true, update: true, delete: false }, // soft delete only
 }
 
 const GRANT_MATRIX_ROWS: Array<[table: string, verb: keyof TableGrant, expected: boolean]> =
