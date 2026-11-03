@@ -339,6 +339,63 @@ describe.skipIf(!shouldRun)("rateProduct", () => {
     expect(await rateProduct("not-a-uuid", 5)).toEqual({ ok: false, error: "NOT_ELIGIBLE" })
   })
 
+  async function countBuyerAudit(userId: string) {
+    const [row] = await adminTx("count audit", async (tx) =>
+      tx
+        .select({ c: sql<number>`count(*)::int` })
+        .from(schema.adminBypassAudit)
+        .where(
+          and(
+            eq(schema.adminBypassAudit.actorUserId, userId),
+            eq(schema.adminBypassAudit.reason, "buyer rateProduct"),
+          ),
+        ),
+    )
+    return row?.c ?? 0
+  }
+
+  const NON_STRING_IDS: Array<[string, () => unknown]> = [
+    ["an array holding a valid uuid", () => [randomUUID()]],
+    ["a number", () => 42],
+    ["an object", () => ({ id: randomUUID() })],
+    ["null", () => null],
+    ["undefined", () => undefined],
+  ]
+
+  it.each(NON_STRING_IDS)(
+    "orderItemId as %s → NOT_ELIGIBLE, no throw, no audit row",
+    async (_label, make) => {
+      const { productId, variantId } = await seedProduct()
+      const itemId = await seedItem({ buyerId: buyerAId, productId, variantId })
+      signIn(buyerAId)
+      const id = make()
+      // For the array case use the real (eligible) item id, so only the type check can stop it.
+      const orderItemId = (Array.isArray(id) ? [itemId] : id) as string
+
+      const before = await countBuyerAudit(buyerAId)
+      await expect(rateProduct(orderItemId, 5)).resolves.toEqual({
+        ok: false,
+        error: "NOT_ELIGIBLE",
+      })
+      expect(await countBuyerAudit(buyerAId)).toBe(before)
+      expect(await readRatings(productId)).toHaveLength(0)
+    },
+  )
+
+  it.each(NON_STRING_IDS)(
+    "resolveRatableProduct with %s → null, no throw",
+    async (_label, make) => {
+      const { productId, variantId } = await seedProduct()
+      const itemId = await seedItem({ buyerId: buyerAId, productId, variantId })
+      const id = make()
+      const orderItemId = (Array.isArray(id) ? [itemId] : id) as string
+      const resolved = await withTenant(testDb.db, { userId: buyerAId, userRole: "buyer" }, (tx) =>
+        resolveRatableProduct(tx, orderItemId, buyerAId),
+      )
+      expect(resolved).toBeNull()
+    },
+  )
+
   it("no session → UNAUTHENTICATED", async () => {
     const { productId, variantId } = await seedProduct()
     const itemId = await seedItem({ buyerId: buyerAId, productId, variantId })

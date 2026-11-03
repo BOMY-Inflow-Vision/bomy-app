@@ -27,6 +27,9 @@ export async function resolveRatableProduct(
   orderItemId: string,
   userId: string,
 ): Promise<RatableProduct | null> {
+  // Runtime type check first: a non-string (e.g. an array holding a uuid) would pass the regex by
+  // coercion and then reach postgres.js as a non-string parameter.
+  if (typeof orderItemId !== "string" || typeof userId !== "string") return null
   if (!UUID_RE.test(orderItemId) || !UUID_RE.test(userId)) return null
 
   const rows = (await tx.execute(sql`

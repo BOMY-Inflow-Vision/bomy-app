@@ -15,6 +15,8 @@ import { auth } from "@/auth"
 
 import { resolveRatableProduct } from "../rating-eligibility"
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 let _client: ReturnType<typeof makeDb> | null = null
 function getDb() {
   if (!_client) _client = makeDb()
@@ -55,6 +57,11 @@ export async function rateProduct(orderItemId: string, stars: unknown): Promise<
   const parsed = parseStars(stars)
   if (!parsed.ok) return { ok: false, error: "INVALID_STARS" }
   const value = parsed.value
+  // Reject a non-string or malformed id before withAdmin, so it never opens a bypass transaction
+  // (and never writes an audit row). Matches the admin rating actions.
+  if (typeof orderItemId !== "string" || !UUID_RE.test(orderItemId)) {
+    return { ok: false, error: "NOT_ELIGIBLE" }
+  }
 
   const result = await withAdmin(
     getDb(),
