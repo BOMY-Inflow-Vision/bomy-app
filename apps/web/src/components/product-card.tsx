@@ -1,6 +1,7 @@
 import Link from "next/link"
 
 import { CoverImage } from "@/components/cover-image"
+import { RatingRow } from "@/components/rating-row"
 import { formatMyrSen } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
@@ -10,11 +11,14 @@ export interface ProductCardProps {
   coverImageUrl: string | null
   /** The seller ticked "cut-out" for this picture: it floats inset on the tile with a shadow. Default: a normal photo that covers the tile. */
   cutout?: boolean
-  /** `compact` shows the image and the name only (brand pages). Default `full`. */
+  /** `compact` shows the image, the name and the rating only (brand pages). Default `full`. */
   variant?: "full" | "compact"
   categoryName?: string | null
   storeName?: string | null
   minPriceSen?: number | null
+  /** The cached rating (products.rating_avg / rating_count). Required: a call site that forgets it fails typecheck. */
+  ratingAvg: string | number
+  ratingCount: number
   /** A badge proved by real data (see productBadge). Absent or null shows none. */
   badge?: "New" | "Sold out" | null
 }
@@ -105,6 +109,8 @@ export function ProductCard({
   categoryName,
   storeName,
   minPriceSen,
+  ratingAvg,
+  ratingCount,
   badge,
 }: ProductCardProps) {
   const full = variant === "full"
@@ -140,6 +146,9 @@ export function ProductCard({
             {storeName}
           </p>
         )}
+        <p className={cn("col-span-2 mt-1", full ? "lg:row-start-4" : "lg:col-span-2")}>
+          <RatingRow avg={ratingAvg} count={ratingCount} />
+        </p>
         {showPrice && (
           <p className="col-span-2 mt-1 text-right font-display text-card-name font-semibold tabular-nums text-foreground [overflow-wrap:anywhere] lg:col-span-1 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mt-0 lg:self-end lg:whitespace-nowrap lg:text-xl">
             from {formatMyrSen(minPriceSen)}

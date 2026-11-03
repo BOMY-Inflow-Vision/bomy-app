@@ -2,6 +2,7 @@ import { ArrowRight, Truck } from "lucide-react"
 import Link from "next/link"
 
 import { ProductTile } from "@/components/product-card"
+import { RatingRow } from "@/components/rating-row"
 import { formatMyrSen } from "@/lib/format"
 
 import type { HOME_COPY } from "./home-copy"
@@ -92,6 +93,11 @@ export function Hero({ data, copy }: { data: HomeData; copy: HeroCopy }) {
               {featured.name}
             </p>
             <p className="truncate text-sm text-muted-foreground">{featured.storeName}</p>
+            <RatingRow
+              avg={featured.ratingAvg}
+              count={featured.ratingCount}
+              className="mt-1 block"
+            />
             {featured.minPriceSen !== null && (
               <p
                 data-home="hero-featured-price"

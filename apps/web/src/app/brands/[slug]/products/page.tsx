@@ -49,6 +49,8 @@ export default async function StoreProductsPage({ params, searchParams }: Props)
                 name={p.name}
                 coverImageUrl={p.coverImageUrl}
                 cutout={p.coverIsCutout}
+                ratingAvg={p.ratingAvg}
+                ratingCount={p.ratingCount}
               />
             </li>
           ))}

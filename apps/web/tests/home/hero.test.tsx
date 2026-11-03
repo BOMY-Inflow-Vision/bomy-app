@@ -52,6 +52,11 @@ describe.each(VISIBILITY_CASES)("Hero: $name", ({ data, present }) => {
 describe("Hero details", () => {
   const full = VISIBILITY_CASES[1]!.data
 
+  it("featured card shows the rating row under the store name", () => {
+    const card = marker(mount(full), "hero-featured")!
+    expect(card.textContent).toContain("\u2605 4.5 (3)")
+  })
+
   it("featured card links to the product page with real name and store", () => {
     const root = mount(full)
     const card = marker(root, "hero-featured")!

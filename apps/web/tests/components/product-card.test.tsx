@@ -17,6 +17,8 @@ function render(props: Partial<ProductCardProps> = {}) {
       href="/products/acme/tea"
       name="Tea"
       coverImageUrl="https://x.test/t.jpg"
+      ratingAvg="0"
+      ratingCount={0}
       {...props}
     />,
   )
@@ -203,7 +205,9 @@ describe("ProductCard cut-out picture (seller ticked 'no background')", () => {
 
 describe("ProductCard text (price on the right)", () => {
   const full = { categoryName: "Tea", storeName: "Acme Store", minPriceSen: 1250 }
-  const kids = (d: Document) => Array.from(text(d).children)
+  // The rating line is checked in "ProductCard rating"; here only category, name, store and price.
+  const kids = (d: Document) =>
+    Array.from(text(d).children).filter((k) => !k.textContent.includes("\u2605"))
 
   it("text sits under the tile on the Kvist grid, with the Kvist padding", () => {
     has(text(render(full)), [
@@ -304,8 +308,8 @@ describe("ProductCard compact variant", () => {
       storeName: "Acme",
       minPriceSen: 100,
     })
-    expect(d.body.textContent).toBe("Tea")
-    expect(text(d).children).toHaveLength(1)
+    expect(d.body.textContent).toBe("Tea\u2605 0 (0)")
+    expect(text(d).children).toHaveLength(2) // the name and the rating row
   })
 })
 
@@ -332,7 +336,32 @@ describe("ProductCard badge", () => {
   it("renders none when null or absent", () => {
     for (const badge of [null, undefined]) {
       const d = render(badge === undefined ? {} : { badge })
-      expect(d.body.textContent).toBe("Tea")
+      expect(d.body.textContent).toBe("Tea\u2605 0 (0)")
     }
+  })
+})
+
+describe("ProductCard rating", () => {
+  it("an unrated product shows a muted \u2605 0 (0)", () => {
+    const d = render({ ratingAvg: "0", ratingCount: 0, storeName: "Acme" })
+    expect(text(d).textContent).toContain("\u2605 0 (0)")
+  })
+
+  it("a rated product shows the average and the count", () => {
+    const d = render({ ratingAvg: "4.60", ratingCount: 23, storeName: "Acme" })
+    expect(text(d).textContent).toContain("\u2605 4.6 (23)")
+  })
+
+  it("full: the rating row follows the store line and comes before the price", () => {
+    const d = render({ storeName: "Acme", minPriceSen: 100, ratingAvg: "4.60", ratingCount: 23 })
+    const texts = Array.from(text(d).children).map((k) => k.textContent)
+    expect(texts).toEqual(["Tea", "Acme", "\u2605 4.6 (23)", "from RM1.00"])
+  })
+
+  it("the compact variant shows the rating row too, after the name", () => {
+    const d = render({ variant: "compact", ratingAvg: "4.60", ratingCount: 23 })
+    const t = text(d).textContent
+    expect(t).toContain("\u2605 4.6 (23)")
+    expect(t.indexOf("Tea")).toBeLessThan(t.indexOf("\u2605"))
   })
 })

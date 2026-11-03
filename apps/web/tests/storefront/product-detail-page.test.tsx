@@ -38,6 +38,8 @@ const PRODUCT = {
   storeExcerpt: null,
   storeDescription: null,
   categoryId: null,
+  ratingAvg: "4.60",
+  ratingCount: 23,
   variants: [],
   images: [],
 }
@@ -73,6 +75,13 @@ describe("ProductDetailPage structure", () => {
     expect(d.body.textContent).toContain("A fine tea.")
     d = await render({ description: null })
     expect(d.body.textContent).not.toContain("A fine tea.")
+  })
+
+  it("shows the rating row near the title; unrated shows 0 (0)", async () => {
+    let d = await render()
+    expect(d.querySelector("h1")!.closest("article")!.textContent).toContain("\u2605 4.6 (23)")
+    d = await render({ ratingAvg: "0", ratingCount: 0 })
+    expect(d.querySelector("h1")!.closest("article")!.textContent).toContain("\u2605 0 (0)")
   })
 
   it("the gallery and the picker are on the page", async () => {

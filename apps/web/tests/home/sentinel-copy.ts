@@ -31,6 +31,7 @@ export function visibleTextOutside(root: Element, allowed: string[]): string[] {
     if (el?.closest("[aria-hidden='true']") || el?.closest("script,style")) continue
     if (/^«[^»]+»$/.test(text)) continue
     if (/^[\d.,]+$/.test(text)) continue
+    if (/^[\d.]+ \(\d+\)$/.test(text)) continue // RatingRow (reused component)
     if (/^(from )?RM[\d.,]+$/.test(text)) continue
     if (allowed.some((a) => text === a || text.includes(a))) continue
     out.push(text)
