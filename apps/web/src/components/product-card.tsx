@@ -48,7 +48,7 @@ export function toneFor(href: string) {
   return TILE_TONES[h % TILE_TONES.length]!
 }
 
-// The pastel 4:5 tile with the picture layer: a normal photo covers it, a cut-out floats inset with
+// The pastel square tile with the picture layer: a normal photo covers it, a cut-out floats inset with
 // an oval shadow, both move on hover and focus of the surrounding `group`. Shared by the product
 // card and the home hero, so the two cannot drift. `tone` picks the pastel (any stable string).
 export function ProductTile({
@@ -93,7 +93,7 @@ export function ProductTile({
   )
 }
 
-// Shared storefront tile, the Kvist shop card layout (measured 2026-10-25): a pastel 4:5 tile whose
+// Shared storefront tile, the Kvist shop card layout (measured 2026-10-25): a pastel square tile whose
 // photo covers the whole tile (sellers upload normal photos, not cut-outs), then the text under the
 // tile: category, name, store, and the price on the right (from lg; on a phone the price is its own
 // right-aligned line). Renders the whole tile as one link; the page keeps its own <li>. The focus

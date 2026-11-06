@@ -11,7 +11,7 @@ export interface BrandCardProps {
   productCount: number
 }
 
-// The /brands tile, built like the product card: a pastel 4:5 tile (the tone is stable per brand),
+// The /brands tile, built like the product card: a pastel square tile (the tone is stable per brand),
 // then the text under it. A brand has no picture, so the tile carries the brand's first letter; it
 // lifts and turns on hover and keyboard focus exactly like a product photo. Under the tile: the
 // categories on one line, the name, a short excerpt, and the product count on the right where the

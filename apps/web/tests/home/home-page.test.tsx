@@ -46,9 +46,9 @@ describe.each(VISIBILITY_CASES)("Home page: $name", ({ data, present: expected }
 })
 
 describe("Home page: empty data", () => {
-  it("is exactly headline, delivery, marquee, promise and CTA, with no zero and no empty frame", async () => {
+  it("is exactly headline, marquee, promise and CTA, with no zero and no empty frame", async () => {
     const root = await mount(EMPTY)
-    expect(present(root)).toEqual(["hero-headline", "hero-delivery", "marquee", "promise", "cta"])
+    expect(present(root)).toEqual(["hero-headline", "marquee", "promise", "cta"])
     for (const el of root.querySelectorAll("*")) {
       if (el.children.length === 0) expect(el.textContent?.trim()).not.toBe("0")
     }

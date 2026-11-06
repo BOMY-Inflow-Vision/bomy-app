@@ -6,8 +6,6 @@ export const MARKERS = [
   "hero-headline",
   "hero-featured",
   "hero-featured-price",
-  "hero-themed",
-  "hero-delivery",
   "marquee",
   "browse",
   "pills",
@@ -22,7 +20,7 @@ export const MARKERS = [
 ] as const
 export type Marker = (typeof MARKERS)[number]
 
-export const ALWAYS: Marker[] = ["hero-headline", "hero-delivery", "marquee", "promise", "cta"]
+export const ALWAYS: Marker[] = ["hero-headline", "marquee", "promise", "cta"]
 
 export function product(i: number, over: Partial<HomeProduct> = {}): HomeProduct {
   return {
@@ -94,7 +92,6 @@ export const VISIBILITY_CASES: VisibilityCase[] = [
       ...ALWAYS,
       "hero-featured",
       "hero-featured-price",
-      "hero-themed",
       "browse",
       "pills",
       "favourites-grid",
@@ -111,7 +108,6 @@ export const VISIBILITY_CASES: VisibilityCase[] = [
     present: [
       ...ALWAYS,
       "hero-featured",
-      "hero-themed",
       "browse",
       "pills",
       "favourites-grid",
@@ -134,7 +130,6 @@ export const VISIBILITY_CASES: VisibilityCase[] = [
       ...ALWAYS,
       "hero-featured",
       "hero-featured-price",
-      "hero-themed",
       "favourites-grid",
       "stats",
       "stat-products",
@@ -153,7 +148,6 @@ export const VISIBILITY_CASES: VisibilityCase[] = [
       ...ALWAYS,
       "hero-featured",
       "hero-featured-price",
-      "hero-themed",
       "browse",
       "pills",
       "favourites-grid",

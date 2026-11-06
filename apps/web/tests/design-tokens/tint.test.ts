@@ -62,7 +62,7 @@ describe("Tailwind exposes the R4 steps", () => {
   const cfg = readFileSync(resolve(__dirname, "../../tailwind.config.ts"), "utf8")
   it("tint colour, tile aspect ratio and eyebrow tracking", () => {
     expect(cfg).toContain('tint: "hsl(var(--tint))"')
-    expect(cfg).toContain('tile: "4 / 5"')
+    expect(cfg).toContain('tile: "1 / 1"')
     expect(cfg).toContain('eyebrow: "0.16em"')
   })
 })

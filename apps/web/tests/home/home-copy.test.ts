@@ -29,10 +29,6 @@ describe("home copy: shape", () => {
       "hero.secondary",
       "hero.featured.label",
       "hero.featured.cta",
-      "hero.themed.title",
-      "hero.themed.sub",
-      "hero.delivery.title",
-      "hero.delivery.sub",
       "marquee.0",
       "browse.title",
       "browse.all",
@@ -94,9 +90,8 @@ describe("home copy: honesty and originality", () => {
     for (const [k, v] of ALL) for (const re of denied) expect(v, `${k} vs ${re}`).not.toMatch(re)
   })
 
-  it("states the Pos Laju fact once, only under hero.delivery", () => {
-    const hits = ALL.filter(([, v]) => /pos laju/i.test(v))
-    expect(hits.map(([k]) => k)).toEqual(["hero.delivery.title"])
+  it("makes no courier claim (the shipping page owns that fact)", () => {
+    expect(ALL.filter(([, v]) => /pos laju/i.test(v))).toEqual([])
   })
 })
 

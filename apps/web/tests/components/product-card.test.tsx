@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 //
 // Product card = the Kvist shop card layout (measured 2026-10-25 on demo.codeandchill.store/kvist/shop
-// at 1440 px): pastel tile (radius 1.75rem, 4:5), badge pill with blur, text under the tile with the
+// at 1440 px): pastel tile (radius 1.75rem, square), badge pill with blur, text under the tile with the
 // price on the right. Charlie's call (2026-10-26): sellers upload normal photos, so the photo covers the
 // whole tile (no inset, no oval shadow). On hover (hover devices) the photo lifts, turns and grows
 // a little, so the turn never shows an empty corner.
@@ -54,7 +54,7 @@ describe("ProductCard structure", () => {
     has(tile(d), ["overflow-hidden", "rounded-bento", "isolate"])
   })
 
-  it("tile: 4:5, relative, no border and no shadow, and no white card around the text", () => {
+  it("tile: square, relative, no border and no shadow, and no white card around the text", () => {
     const d = render({ categoryName: "Tea", storeName: "Acme", minPriceSen: 100 })
     has(tile(d), ["relative", "aspect-tile"])
     for (const el of [link(d), tile(d), text(d)]) {
