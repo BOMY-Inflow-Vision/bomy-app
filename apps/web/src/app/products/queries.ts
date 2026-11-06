@@ -70,6 +70,8 @@ export async function getProducts({
         storeId: schema.products.storeId,
         coverImageUrl: schema.products.coverImageUrl,
         coverIsCutout: schema.products.coverIsCutout,
+        coverFocalX: schema.products.coverFocalX,
+        coverFocalY: schema.products.coverFocalY,
         ratingAvg: schema.products.ratingAvg,
         ratingCount: schema.products.ratingCount,
         categoryName: schema.categories.name,

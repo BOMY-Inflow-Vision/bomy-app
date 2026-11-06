@@ -12,6 +12,7 @@ const m = vi.hoisted(() => ({
   removeProductImage: vi.fn(),
   reorderImages: vi.fn(),
   setImageCutout: vi.fn(),
+  setImageFocus: vi.fn(),
   toast: { success: vi.fn(), error: vi.fn() },
 }))
 vi.mock("@/app/seller/dashboard/products/actions", () => m)
@@ -245,12 +246,28 @@ describe("choosing a file", () => {
   })
 })
 
+const FOCAL_A = {
+  id: "i1",
+  url: "https://cdn.test/a.jpg",
+  altText: null,
+  sortOrder: 0,
+  isCutout: false,
+  focalX: 50,
+  focalY: 50,
+}
+const FOCAL_B = {
+  id: "i2",
+  url: "https://cdn.test/b.png",
+  altText: "Chair",
+  sortOrder: 1,
+  isCutout: true,
+  focalX: 50,
+  focalY: 50,
+}
+
 describe("cut-out tick on each image", () => {
   const LABEL = "Transparent background"
-  const imgs = [
-    { id: "i1", url: "https://cdn.test/a.jpg", altText: null, sortOrder: 0, isCutout: false },
-    { id: "i2", url: "https://cdn.test/b.png", altText: "Chair", sortOrder: 1, isCutout: true },
-  ]
+  const imgs = [FOCAL_A, FOCAL_B]
   const mountWith = () =>
     act(() => {
       root.render(<ImageManager productId="prod-1" images={imgs} />)
@@ -310,5 +327,104 @@ describe("cut-out tick on each image", () => {
     await flush()
     expect(boxes()[0]!.checked).toBe(false)
     expect(m.toast.error).toHaveBeenCalledWith("Image not found or not authorized")
+  })
+})
+
+describe("adjust crop (focal point) on each normal photo", () => {
+  const imgs = [FOCAL_A, FOCAL_B]
+  const mountWith = (images = imgs) =>
+    act(() => {
+      root.render(<ImageManager productId="prod-1" images={images} />)
+    })
+  const adjustButtons = () =>
+    Array.from(container.querySelectorAll<HTMLButtonElement>("button")).filter((b) =>
+      b.getAttribute("aria-label")?.startsWith("Adjust crop"),
+    )
+  const editor = () => container.querySelector("[data-focus-editor]")
+  const thumb = (i: number) => container.querySelectorAll<HTMLImageElement>("img")[i]!
+  const slider = () => container.querySelector<HTMLInputElement>('input[type="range"]')!
+  function setSlider(el: HTMLInputElement, value: number) {
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(
+        el,
+        String(value),
+      )
+      el.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+  }
+  const saveBtn = () =>
+    Array.from(container.querySelectorAll("button")).find((b) =>
+      b.textContent?.includes("Save focus"),
+    )!
+
+  it("a normal photo has the button; a cut-out (transparent) picture does not", () => {
+    mountWith()
+    expect(adjustButtons()).toHaveLength(1)
+    expect(editor()).toBeNull()
+  })
+
+  it("opens the picker for that picture and closes it on a second press", () => {
+    mountWith()
+    act(() => adjustButtons()[0]!.click())
+    expect(editor()).not.toBeNull()
+    expect(editor()!.querySelector("img")!.getAttribute("src")).toBe("https://cdn.test/a.jpg")
+    expect(adjustButtons()[0]!.getAttribute("aria-pressed")).toBe("true")
+    act(() => adjustButtons()[0]!.click())
+    expect(editor()).toBeNull()
+  })
+
+  it("the thumbnail follows the saved point; a cut-out thumbnail never gets one", () => {
+    mountWith([
+      { ...FOCAL_A, focalX: 10, focalY: 90 },
+      { ...FOCAL_B, focalX: 10, focalY: 90 },
+    ])
+    expect(thumb(0).style.objectPosition).toBe("10% 90%")
+    expect(thumb(1).getAttribute("style")).toBeNull()
+  })
+
+  it("saving calls setImageFocus with the id and point, closes the picker and moves the thumbnail", async () => {
+    m.setImageFocus.mockResolvedValue({ ok: true })
+    mountWith()
+    act(() => adjustButtons()[0]!.click())
+    setSlider(slider(), 30)
+    act(() => saveBtn().click())
+    await flush()
+    expect(m.setImageFocus).toHaveBeenCalledWith("i1", 30, 50)
+    expect(editor()).toBeNull()
+    expect(thumb(0).style.objectPosition).toBe("30% 50%")
+    expect(m.toast.success).toHaveBeenCalledWith("Focus saved")
+  })
+
+  it("if saving fails, the picker stays open, the thumbnail is unchanged and the error shows", async () => {
+    m.setImageFocus.mockResolvedValue({ ok: false, error: "Image not found or not authorized" })
+    mountWith()
+    act(() => adjustButtons()[0]!.click())
+    setSlider(slider(), 30)
+    act(() => saveBtn().click())
+    await flush()
+    expect(editor()).not.toBeNull()
+    expect(thumb(0).getAttribute("style")).toBeNull()
+    expect(m.toast.error).toHaveBeenCalledWith("Image not found or not authorized")
+  })
+
+  it("marking the open picture as transparent closes the picker", async () => {
+    m.setImageCutout.mockResolvedValue({ ok: true })
+    mountWith()
+    act(() => adjustButtons()[0]!.click())
+    expect(editor()).not.toBeNull()
+    act(() => container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')[0]!.click())
+    await flush()
+    expect(editor()).toBeNull()
+    expect(adjustButtons()).toHaveLength(0)
+  })
+
+  it("removing the open picture closes the picker", async () => {
+    m.removeProductImage.mockResolvedValue({ ok: true })
+    mountWith()
+    act(() => adjustButtons()[0]!.click())
+    const remove = container.querySelector<HTMLButtonElement>('button[aria-label="Remove image"]')!
+    act(() => remove.click())
+    await flush()
+    expect(editor()).toBeNull()
   })
 })

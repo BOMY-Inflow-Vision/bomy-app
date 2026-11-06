@@ -11,6 +11,9 @@ export interface ProductCardProps {
   coverImageUrl: string | null
   /** The seller ticked "cut-out" for this picture: it floats inset on the tile with a shadow. Default: a normal photo that covers the tile. */
   cutout?: boolean
+  /** The seller's focal point for a normal photo (percent across / down; default centre): the part that stays in view when the square tile crops it. */
+  focalX?: number | null | undefined
+  focalY?: number | null | undefined
   /** `compact` shows the image, the name and the rating only (brand pages). Default `full`. */
   variant?: "full" | "compact"
   categoryName?: string | null
@@ -56,6 +59,8 @@ export function ProductTile({
   name,
   coverImageUrl,
   cutout = false,
+  focalX,
+  focalY,
   badge,
   className,
 }: {
@@ -63,6 +68,8 @@ export function ProductTile({
   name: string
   coverImageUrl: string | null
   cutout?: boolean
+  focalX?: number | null | undefined
+  focalY?: number | null | undefined
   badge?: "New" | "Sold out" | null | undefined
   className?: string
 }) {
@@ -82,7 +89,13 @@ export function ProductTile({
         />
       )}
       <div className={cn(PICTURE_BASE, cutout ? CUTOUT_PICTURE : PHOTO_PICTURE)}>
-        <CoverImage src={coverImageUrl} alt={name} fit={cutout ? "contain" : "cover"} />
+        <CoverImage
+          src={coverImageUrl}
+          alt={name}
+          fit={cutout ? "contain" : "cover"}
+          focalX={focalX}
+          focalY={focalY}
+        />
       </div>
       {badge && (
         <span className="absolute left-4 top-4 z-10 rounded-full bg-card/90 px-3 py-1 text-xs font-medium text-foreground backdrop-blur">
@@ -105,6 +118,8 @@ export function ProductCard({
   name,
   coverImageUrl,
   cutout = false,
+  focalX,
+  focalY,
   variant = "full",
   categoryName,
   storeName,
@@ -125,6 +140,8 @@ export function ProductCard({
         name={name}
         coverImageUrl={coverImageUrl}
         cutout={cutout}
+        focalX={focalX}
+        focalY={focalY}
         badge={badge}
       />
       <div className="px-1 pt-3 sm:px-1.5 sm:pt-4">

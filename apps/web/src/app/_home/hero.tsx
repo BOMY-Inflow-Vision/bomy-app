@@ -77,6 +77,8 @@ export function Hero({ data, copy }: { data: HomeData; copy: HeroCopy }) {
             name={featured.name}
             coverImageUrl={featured.coverImageUrl}
             cutout={featured.coverIsCutout}
+            focalX={featured.coverFocalX}
+            focalY={featured.coverFocalY}
             className="w-full"
           />
           <div className="mt-4 min-w-0 px-1">

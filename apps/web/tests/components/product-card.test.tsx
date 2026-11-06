@@ -88,6 +88,25 @@ describe("ProductCard structure", () => {
     has(tile(d), ["aspect-tile", "rounded-bento"])
   })
 
+  it("the seller's focal point decides which part of a photo stays in the square tile", () => {
+    const d = render({ focalX: 15, focalY: 70 })
+    expect(tile(d).querySelector("img")!.getAttribute("style")).toContain("object-position:15% 70%")
+  })
+
+  it("a centred or unset focal point adds no style, and a cut-out ignores it", () => {
+    expect(tile(render()).querySelector("img")!.getAttribute("style")).toBeNull()
+    expect(
+      tile(render({ focalX: 50, focalY: 50 }))
+        .querySelector("img")!
+        .getAttribute("style"),
+    ).toBeNull()
+    expect(
+      tile(render({ cutout: true, focalX: 15, focalY: 70 }))
+        .querySelector("img")!
+        .getAttribute("style"),
+    ).toBeNull()
+  })
+
   it("name wraps, never forces a width, and keeps its colour on hover", () => {
     const d = render({ name: "x".repeat(80) })
     const name = Array.from(d.querySelectorAll("li p")).find(

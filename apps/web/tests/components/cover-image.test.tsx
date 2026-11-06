@@ -45,6 +45,27 @@ describe("CoverImage", () => {
     expect(fallback()).toBeNull()
   })
 
+  it("a focal point becomes the picture's object-position; the centre adds nothing", () => {
+    act(() =>
+      root.render(<CoverImage src="https://x.test/t.jpg" alt="Tea" focalX={20} focalY={80} />),
+    )
+    expect(img()!.style.objectPosition).toBe("20% 80%")
+    act(() =>
+      root.render(<CoverImage src="https://x.test/t.jpg" alt="Tea" focalX={50} focalY={50} />),
+    )
+    expect(img()!.style.objectPosition).toBe("")
+  })
+
+  it("a cut-out (contain) ignores the focal point", () => {
+    act(() =>
+      root.render(
+        <CoverImage src="https://x.test/t.png" alt="Tea" fit="contain" focalX={20} focalY={80} />,
+      ),
+    )
+    expect(img()!.getAttribute("style")).toBeNull()
+    expect(img()!.classList.contains("object-contain")).toBe(true)
+  })
+
   it("an error event swaps to the Package icon", () => {
     mount("https://x.test/t.jpg")
     act(() => {

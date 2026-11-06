@@ -184,6 +184,10 @@ const MIGRATIONS = [
     name: "0036_products_rating_insert_guard",
     file: join(__dirname, "../drizzle/0036_products_rating_insert_guard.sql"),
   },
+  {
+    name: "0037_product_image_focal_point",
+    file: join(__dirname, "../drizzle/0037_product_image_focal_point.sql"),
+  },
 ]
 
 try {

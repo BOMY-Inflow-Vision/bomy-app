@@ -3,6 +3,8 @@
 import * as React from "react"
 import { Package } from "lucide-react"
 
+import { focalStyle } from "@/lib/focal"
+
 // Product cover for the storefront tiles. A missing URL, or a URL that fails to load, shows the
 // Package icon instead of a broken-image glyph. Failure is remembered per URL, so a card that
 // receives a new URL tries it again. Two failure paths: the img `error` event, and a mount check
@@ -11,11 +13,16 @@ export function CoverImage({
   src,
   alt,
   fit = "cover",
+  focalX,
+  focalY,
 }: {
   src: string | null
   alt: string
   /** `contain` keeps a cut-out picture whole (product tiles); `cover` crops to fill (default). */
   fit?: "cover" | "contain"
+  /** Where a cropped (`cover`) picture stays in view, in percent across / down. Default centre. Ignored for `contain`. */
+  focalX?: number | null | undefined
+  focalY?: number | null | undefined
 }) {
   const [failedSrc, setFailedSrc] = React.useState<string | null>(null)
   const ref = React.useRef<HTMLImageElement>(null)
@@ -40,6 +47,7 @@ export function CoverImage({
       width={400}
       height={400}
       className={fit === "contain" ? "size-full object-contain" : "h-full w-full object-cover"}
+      style={fit === "contain" ? undefined : focalStyle(focalX, focalY)}
       onError={() => setFailedSrc(src)}
     />
   )

@@ -11,6 +11,7 @@ import type { Database } from "@bomy/db"
 
 import { auth } from "@/auth"
 import { flashToast } from "@/lib/flash-toast-server"
+import { clampFocal, isFocalInput } from "@/lib/focal"
 import { validateSeoFields } from "@bomy/shared/seo"
 
 // Validation/authorization failures are returned, not thrown: production redacts thrown
@@ -763,6 +764,8 @@ export type AddProductImageResult =
         altText: string | null
         sortOrder: number
         isCutout: boolean
+        focalX: number
+        focalY: number
       }
     }
   | { ok: false; error: string }
@@ -825,11 +828,14 @@ export async function addProductImage(
           altText: schema.productImages.altText,
           sortOrder: schema.productImages.sortOrder,
           isCutout: schema.productImages.isCutout,
+          focalX: schema.productImages.focalX,
+          focalY: schema.productImages.focalY,
         })
 
+      // A new picture starts centred (its columns default to 50 / 50), so a first cover is centred too.
       await tx
         .update(schema.products)
-        .set({ coverImageUrl: url, coverIsCutout: false })
+        .set({ coverImageUrl: url, coverIsCutout: false, coverFocalX: 50, coverFocalY: 50 })
         .where(and(eq(schema.products.id, productId), isNull(schema.products.coverImageUrl)))
 
       return { ok: true as const, image: inserted! }
@@ -897,7 +903,12 @@ export async function removeProductImage(imageId: string): Promise<ProductAction
 
     if (prod?.coverImageUrl === removedUrl) {
       const [next] = await tx
-        .select({ url: schema.productImages.url, isCutout: schema.productImages.isCutout })
+        .select({
+          url: schema.productImages.url,
+          isCutout: schema.productImages.isCutout,
+          focalX: schema.productImages.focalX,
+          focalY: schema.productImages.focalY,
+        })
         .from(schema.productImages)
         .where(eq(schema.productImages.productId, removedProductId))
         .orderBy(
@@ -908,7 +919,12 @@ export async function removeProductImage(imageId: string): Promise<ProductAction
         .limit(1)
       await tx
         .update(schema.products)
-        .set({ coverImageUrl: next?.url ?? null, coverIsCutout: next?.isCutout ?? false })
+        .set({
+          coverImageUrl: next?.url ?? null,
+          coverIsCutout: next?.isCutout ?? false,
+          coverFocalX: next?.focalX ?? 50,
+          coverFocalY: next?.focalY ?? 50,
+        })
         .where(eq(schema.products.id, removedProductId))
     }
   })
@@ -976,6 +992,71 @@ export async function setImageCutout(
   return { ok: true }
 }
 
+// The seller moves the focal point of one picture: which part stays in view when the square tile
+// crops it. Same shape as setImageCutout: the picture's row and, when it is the cover, the cached
+// copy on the product row change in one transaction, with the product row locked.
+export async function setImageFocus(
+  imageId: string,
+  focalX: number,
+  focalY: number,
+): Promise<ProductActionResult> {
+  const session = await requireSeller()
+  if (!isFocalInput(focalX) || !isFocalInput(focalY)) {
+    return { ok: false, error: "Invalid focus point" }
+  }
+  const x = clampFocal(focalX)
+  const y = clampFocal(focalY)
+
+  const result = await withTenant(
+    getDb(),
+    { userId: session.user.id, userRole: session.user.role },
+    async (tx) => {
+      const rows = await tx
+        .select({
+          id: schema.productImages.id,
+          productId: schema.productImages.productId,
+          url: schema.productImages.url,
+          coverImageUrl: schema.products.coverImageUrl,
+        })
+        .from(schema.productImages)
+        .innerJoin(schema.products, eq(schema.products.id, schema.productImages.productId))
+        .innerJoin(schema.stores, eq(schema.stores.id, schema.products.storeId))
+        .where(
+          and(
+            eq(schema.productImages.id, imageId),
+            eq(schema.stores.ownerId, session.user.id),
+            eq(schema.stores.status, "active"),
+          ),
+        )
+        .limit(1)
+        .for("update", { of: schema.products })
+      const image = rows[0]
+      if (!image) return { ok: false as const, error: "Image not found or not authorized" }
+
+      await tx
+        .update(schema.productImages)
+        .set({ focalX: x, focalY: y })
+        .where(eq(schema.productImages.id, imageId))
+      if (image.coverImageUrl === image.url) {
+        await tx
+          .update(schema.products)
+          .set({ coverFocalX: x, coverFocalY: y })
+          .where(eq(schema.products.id, image.productId))
+      }
+      return { ok: true as const, productId: image.productId }
+    },
+  ).catch((err) => {
+    if (isRlsViolation(err))
+      return { ok: false as const, error: "Image not found or not authorized" }
+    throw err
+  })
+
+  if (!result.ok) return result
+
+  revalidatePath(`/seller/dashboard/products/${result.productId}/edit`)
+  return { ok: true }
+}
+
 export async function reorderImages(
   productId: string,
   orderedImageIds: string[],
@@ -1015,6 +1096,8 @@ export async function reorderImages(
           id: schema.productImages.id,
           url: schema.productImages.url,
           isCutout: schema.productImages.isCutout,
+          focalX: schema.productImages.focalX,
+          focalY: schema.productImages.focalY,
         })
         .from(schema.productImages)
         .where(eq(schema.productImages.productId, productId))
@@ -1038,12 +1121,17 @@ export async function reorderImages(
           .where(eq(schema.productImages.id, orderedImageIds[i]!))
       }
 
-      // The first picture is the cover. The cut-out flag of the cover is cached on the product.
+      // The first picture is the cover. Its cut-out flag and focal point are cached on the product.
       const first = existing.find((img) => img.id === orderedImageIds[0])
       if (first) {
         await tx
           .update(schema.products)
-          .set({ coverImageUrl: first.url, coverIsCutout: first.isCutout })
+          .set({
+            coverImageUrl: first.url,
+            coverIsCutout: first.isCutout,
+            coverFocalX: first.focalX,
+            coverFocalY: first.focalY,
+          })
           .where(eq(schema.products.id, productId))
       }
       return { ok: true as const }
