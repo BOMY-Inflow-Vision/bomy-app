@@ -83,6 +83,18 @@ describe("RatingControl", () => {
     expect(radios()[0]!.name).not.toBe("")
   })
 
+  it("draws counted stars solid and the rest hollow (changeable and locked)", () => {
+    const fills = () =>
+      Array.from(container.querySelectorAll("svg")).map((s) =>
+        s.getAttribute("class")?.includes("fill-primary") ? "solid" : "hollow",
+      )
+    const expected = ["solid", "solid", "solid", "hollow", "hollow"]
+    mount({ stars: 3, hoursLeft: 10 })
+    expect(fills()).toEqual(expected)
+    mount({ stars: 3, hoursLeft: 0 })
+    expect(fills()).toEqual(expected)
+  })
+
   it("shows the change note with hours (plural and singular)", () => {
     mount({ stars: 4, hoursLeft: 22 })
     expect(text()).toContain("You can change this for 22 more hours")
