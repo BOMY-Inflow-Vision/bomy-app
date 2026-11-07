@@ -106,7 +106,16 @@ describe("Sellers", () => {
     )
   })
   it("a brand with no product is not shown; with none left the section is absent", () => {
-    const b = { id: "b", name: "Empty", slug: "empty", excerpt: null, productCount: 0 }
+    const b = {
+      id: "b",
+      name: "Empty",
+      slug: "empty",
+      excerpt: null,
+      imageUrl: null,
+      imageFocalX: 50,
+      imageFocalY: 50,
+      productCount: 0,
+    }
     expect(mountEl(<Sellers brands={[b]} copy={copy.sellers} />).innerHTML).toBe("")
   })
 })

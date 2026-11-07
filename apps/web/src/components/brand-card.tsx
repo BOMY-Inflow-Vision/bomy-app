@@ -1,6 +1,7 @@
 import Link from "next/link"
 
-import { PICTURE_BASE, toneFor } from "@/components/product-card"
+import { CoverImage } from "@/components/cover-image"
+import { PHOTO_PICTURE, PICTURE_BASE, toneFor } from "@/components/product-card"
 import { cn } from "@/lib/utils"
 
 export interface BrandCardProps {
@@ -9,16 +10,29 @@ export interface BrandCardProps {
   excerpt?: string | null | undefined
   categories?: string[] | undefined
   productCount: number
+  imageUrl?: string | null | undefined
+  focalX?: number | undefined
+  focalY?: number | undefined
 }
 
 // The /brands tile, built like the product card: a pastel square tile (the tone is stable per brand),
-// then the text under it. A brand has no picture, so the tile carries the brand's first letter; it
-// lifts and turns on hover and keyboard focus exactly like a product photo. Under the tile: the
+// then the text under it. The tile shows the brand's picture (cropped to the square around the
+// seller's focal point) or, without one, the brand's first letter; either lifts and scales on hover
+// and keyboard focus exactly like a product photo. Under the tile: the
 // categories on one line, the name, a short excerpt, and the product count on the right where the
 // product card shows its price. Every text here is seller-supplied and may be one long unbroken
 // word, so all of it may break anywhere. The focus ring sits on the link; the rounded clipping is
 // on the tile.
-export function BrandCard({ href, name, excerpt, categories, productCount }: BrandCardProps) {
+export function BrandCard({
+  href,
+  name,
+  excerpt,
+  categories,
+  productCount,
+  imageUrl,
+  focalX,
+  focalY,
+}: BrandCardProps) {
   const initial = Array.from(name.trim())[0]?.toUpperCase() ?? ""
   const categoryLine = categories && categories.length > 0 ? categories.join(" · ") : null
   return (
@@ -30,15 +44,21 @@ export function BrandCard({ href, name, excerpt, categories, productCount }: Bra
         data-tile
         className={cn("relative isolate aspect-tile overflow-hidden rounded-bento", toneFor(href))}
       >
-        <div
-          aria-hidden="true"
-          className={cn(
-            PICTURE_BASE,
-            "inset-0 flex items-center justify-center font-display text-8xl font-bold text-foreground/70 motion-safe:[@media(hover:hover)]:group-hover:scale-110 motion-safe:group-focus-visible:scale-110",
-          )}
-        >
-          {initial}
-        </div>
+        {imageUrl ? (
+          <div className={cn(PICTURE_BASE, PHOTO_PICTURE)}>
+            <CoverImage src={imageUrl} alt="" fit="cover" focalX={focalX} focalY={focalY} />
+          </div>
+        ) : (
+          <div
+            aria-hidden="true"
+            className={cn(
+              PICTURE_BASE,
+              "inset-0 flex items-center justify-center font-display text-8xl font-bold text-foreground/70 motion-safe:[@media(hover:hover)]:group-hover:scale-110 motion-safe:group-focus-visible:scale-110",
+            )}
+          >
+            {initial}
+          </div>
+        )}
       </div>
       <div className="grid grid-cols-[1fr_auto] items-baseline gap-x-3 px-1 pt-3 sm:px-1.5 sm:pt-4">
         {categoryLine && (

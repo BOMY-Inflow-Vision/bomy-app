@@ -19,6 +19,10 @@ export default async function SellerSettingsPage() {
       const [store] = await tx
         .select({
           id: schema.stores.id,
+          name: schema.stores.name,
+          imageUrl: schema.stores.imageUrl,
+          imageFocalX: schema.stores.imageFocalX,
+          imageFocalY: schema.stores.imageFocalY,
           excerpt: schema.stores.excerpt,
           bodyHtml: schema.stores.bodyHtml,
           bodyRevision: schema.stores.bodyRevision,
@@ -60,6 +64,10 @@ export default async function SellerSettingsPage() {
     <div className="p-8">
       <h1 className="mb-6 text-xl font-semibold text-foreground">Store Settings</h1>
       <SettingsForm
+        brandName={storeRow.name}
+        currentImageUrl={storeRow.imageUrl}
+        currentImageFocalX={storeRow.imageFocalX}
+        currentImageFocalY={storeRow.imageFocalY}
         currentExcerpt={storeRow.excerpt ?? ""}
         currentBodyHtml={storeRow.bodyHtml}
         currentBodyRevision={storeRow.bodyRevision}

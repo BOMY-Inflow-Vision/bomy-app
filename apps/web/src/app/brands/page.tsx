@@ -115,6 +115,9 @@ export default async function BrandsPage({ searchParams }: Props) {
                     href={`/brands/${b.slug}`}
                     name={b.name}
                     excerpt={b.excerpt}
+                    imageUrl={b.imageUrl}
+                    focalX={b.imageFocalX}
+                    focalY={b.imageFocalY}
                     categories={b.categories}
                     productCount={b.productCount}
                   />

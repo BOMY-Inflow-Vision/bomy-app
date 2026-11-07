@@ -65,6 +65,9 @@ export async function getBrands({
           name: schema.stores.name,
           slug: schema.stores.slug,
           excerpt: schema.stores.excerpt,
+          imageUrl: schema.stores.imageUrl,
+          imageFocalX: schema.stores.imageFocalX,
+          imageFocalY: schema.stores.imageFocalY,
           productCount: count(schema.products.id),
         })
         .from(schema.stores)

@@ -31,7 +31,7 @@ export interface ProductCardProps {
 export const PICTURE_BASE =
   "absolute transition-transform duration-700 ease-out-expo motion-reduce:transition-none motion-safe:[@media(hover:hover)]:group-hover:-translate-y-3.5 motion-safe:[@media(hover:hover)]:group-hover:-rotate-2 motion-safe:group-focus-visible:-translate-y-3.5 motion-safe:group-focus-visible:-rotate-2"
 const CUTOUT_PICTURE = "inset-[11%] bottom-[15%]"
-const PHOTO_PICTURE =
+export const PHOTO_PICTURE =
   "inset-0 motion-safe:[@media(hover:hover)]:group-hover:scale-110 motion-safe:group-focus-visible:scale-110"
 
 // The six Kvist tile pastels. Full class names, so Tailwind sees them.
