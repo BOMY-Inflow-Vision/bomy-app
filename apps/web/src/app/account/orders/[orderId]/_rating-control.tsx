@@ -97,7 +97,7 @@ export function RatingControl({
   }
 
   // Fixed-height rows so no state shifts the layout.
-  const starsRow = "flex h-8 items-center text-xl leading-none"
+  const starsRow = "flex h-8 items-center"
   const noteRow = "min-h-5 text-xs text-muted-foreground"
 
   if (isRemoved) {
