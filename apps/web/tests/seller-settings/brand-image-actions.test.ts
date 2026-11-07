@@ -74,18 +74,12 @@ describe.skipIf(!shouldRun)("brand image actions", () => {
     process.env["S3_PUBLIC_URL"] = CDN
     process.env["AUTH_SECRET"] = SECRET
     testDb = makeDb({ url: DATABASE_URL as string })
-    sellerId = randomUUID()
+    // bomy_app has no DELETE on users, so a fixture user could never be cleaned up. Reuse the seeded
+    // SYSTEM_ACTOR as the store owner (its session is mocked as seller_owner), and use a random,
+    // never-inserted id for the seller who has no store. Only the store row is created, and removed.
+    sellerId = SYSTEM_ACTOR
     otherId = randomUUID()
     await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "brand image seed" }, async (tx) => {
-      await tx.insert(schema.users).values([
-        {
-          id: sellerId,
-          email: `${sellerId}@test.bomy`,
-          role: "seller_owner",
-          name: "Brand Seller",
-        },
-        { id: otherId, email: `${otherId}@test.bomy`, role: "seller_owner", name: "Other Seller" },
-      ])
       const [s] = await tx
         .insert(schema.stores)
         .values({
