@@ -65,6 +65,7 @@ import {
   reorderVariants,
   saveProductBody,
   setImageCutout,
+  setImageFocus,
   updateProduct,
   updateVariant,
 } from "../../src/app/seller/dashboard/products/actions"
@@ -1673,6 +1674,154 @@ describe.skipIf(!shouldRun)("seller product actions", () => {
       const p = await readProduct()
       expect(p.coverImageUrl).toBeNull()
       expect(p.coverIsCutout).toBe(false)
+    })
+  })
+
+  // ─── per-image focal point ───────────────────────────────────────────────
+
+  describe("setImageFocus", () => {
+    let prodId: string
+    let coverImg: string
+    let otherImg: string
+    const coverUrl = "https://cdn.example.com/products/focus-cover.jpg"
+    const otherUrl = "https://cdn.example.com/products/focus-other.jpg"
+
+    const readProduct = async () => {
+      const [row] = await withAdmin(
+        testDb.db,
+        { userId: SYSTEM_ACTOR, reason: "test assert" },
+        async (tx) => tx.select().from(schema.products).where(eq(schema.products.id, prodId)),
+      )
+      return row!
+    }
+    const readImage = async (id: string) => {
+      const [row] = await withAdmin(
+        testDb.db,
+        { userId: SYSTEM_ACTOR, reason: "test assert" },
+        async (tx) => tx.select().from(schema.productImages).where(eq(schema.productImages.id, id)),
+      )
+      return row!
+    }
+    const asSeller = (id: string, email: string) =>
+      mockAuth.mockResolvedValue({ user: { id, role: "seller_owner", email } })
+
+    beforeAll(async () => {
+      prodId = randomUUID()
+      coverImg = randomUUID()
+      otherImg = randomUUID()
+      await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test setup" }, async (tx) => {
+        await tx.insert(schema.products).values({
+          id: prodId,
+          storeId,
+          name: "Focus Product",
+          slug: `focus-${prodId.slice(0, 8)}`,
+          status: "active",
+          coverImageUrl: coverUrl,
+        })
+        await tx.insert(schema.productImages).values([
+          { id: coverImg, productId: prodId, url: coverUrl, sortOrder: 0 },
+          { id: otherImg, productId: prodId, url: otherUrl, sortOrder: 1 },
+        ])
+      })
+    })
+
+    afterAll(async () => {
+      await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
+        await tx.delete(schema.productImages).where(eq(schema.productImages.productId, prodId))
+        await tx.delete(schema.products).where(eq(schema.products.id, prodId))
+      })
+    })
+
+    it("a new image and its product start centred (50 / 50)", async () => {
+      const img = await readImage(coverImg)
+      expect([img.focalX, img.focalY]).toEqual([50, 50])
+      const p = await readProduct()
+      expect([p.coverFocalX, p.coverFocalY]).toEqual([50, 50])
+    })
+
+    it("moving a picture that is not the cover changes that image only; the card stays centred", async () => {
+      asSeller(sellerId, "seller@test.bomy")
+      expect(await setImageFocus(otherImg, 20, 80)).toEqual({ ok: true })
+      const img = await readImage(otherImg)
+      expect([img.focalX, img.focalY]).toEqual([20, 80])
+      const p = await readProduct()
+      expect([p.coverFocalX, p.coverFocalY]).toEqual([50, 50])
+    })
+
+    it("moving the cover picture also updates the cached point on the product", async () => {
+      asSeller(sellerId, "seller@test.bomy")
+      expect(await setImageFocus(coverImg, 10, 90)).toEqual({ ok: true })
+      const img = await readImage(coverImg)
+      expect([img.focalX, img.focalY]).toEqual([10, 90])
+      const p = await readProduct()
+      expect([p.coverFocalX, p.coverFocalY]).toEqual([10, 90])
+    })
+
+    it("rounds to a whole percentage and clamps to 0..100", async () => {
+      asSeller(sellerId, "seller@test.bomy")
+      expect(await setImageFocus(coverImg, 33.4, 66.6)).toEqual({ ok: true })
+      let img = await readImage(coverImg)
+      expect([img.focalX, img.focalY]).toEqual([33, 67])
+      expect(await setImageFocus(coverImg, 130, -5)).toEqual({ ok: true })
+      img = await readImage(coverImg)
+      expect([img.focalX, img.focalY]).toEqual([100, 0])
+    })
+
+    it("refuses a point that is not a finite number, and changes nothing", async () => {
+      asSeller(sellerId, "seller@test.bomy")
+      await setImageFocus(coverImg, 40, 60)
+      for (const [x, y] of [
+        [Number.NaN, 50],
+        [50, Number.POSITIVE_INFINITY],
+        ["10" as unknown as number, 50],
+      ] as const) {
+        expect(await setImageFocus(coverImg, x, y)).toEqual({
+          ok: false,
+          error: "Invalid focus point",
+        })
+      }
+      const img = await readImage(coverImg)
+      expect([img.focalX, img.focalY]).toEqual([40, 60])
+    })
+
+    it("another seller cannot move the point", async () => {
+      asSeller(sellerId, "seller@test.bomy")
+      await setImageFocus(coverImg, 40, 60)
+      asSeller(otherSellerId, "other@test.bomy")
+      expect(await setImageFocus(coverImg, 1, 1)).toEqual({
+        ok: false,
+        error: "Image not found or not authorized",
+      })
+      const img = await readImage(coverImg)
+      expect([img.focalX, img.focalY]).toEqual([40, 60])
+    })
+
+    it("reordering hands the cover (and its point) to the new first picture", async () => {
+      asSeller(sellerId, "seller@test.bomy")
+      await setImageFocus(coverImg, 40, 60)
+      await setImageFocus(otherImg, 20, 80)
+      expect(await reorderImages(prodId, [otherImg, coverImg])).toEqual({ ok: true })
+      let p = await readProduct()
+      expect(p.coverImageUrl).toBe(otherUrl)
+      expect([p.coverFocalX, p.coverFocalY]).toEqual([20, 80])
+      expect(await reorderImages(prodId, [coverImg, otherImg])).toEqual({ ok: true })
+      p = await readProduct()
+      expect(p.coverImageUrl).toBe(coverUrl)
+      expect([p.coverFocalX, p.coverFocalY]).toEqual([40, 60])
+    })
+
+    it("removing the cover passes the cover to the next image with that image's own point", async () => {
+      asSeller(sellerId, "seller@test.bomy")
+      process.env["S3_PUBLIC_URL"] = "https://cdn.example.com"
+      await setImageFocus(otherImg, 20, 80)
+      expect(await removeProductImage(coverImg)).toEqual({ ok: true })
+      let p = await readProduct()
+      expect(p.coverImageUrl).toBe(otherUrl)
+      expect([p.coverFocalX, p.coverFocalY]).toEqual([20, 80])
+      expect(await removeProductImage(otherImg)).toEqual({ ok: true })
+      p = await readProduct()
+      expect(p.coverImageUrl).toBeNull()
+      expect([p.coverFocalX, p.coverFocalY]).toEqual([50, 50])
     })
   })
 

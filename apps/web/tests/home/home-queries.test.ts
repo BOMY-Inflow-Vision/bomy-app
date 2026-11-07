@@ -36,6 +36,8 @@ describe("getHomeData (stubbed reads)", () => {
       storeSlug: "s",
       coverImageUrl: "https://img.test/f.jpg",
       coverIsCutout: false,
+      coverFocalX: 50,
+      coverFocalY: 50,
       ratingAvg: "0",
       ratingCount: 0,
       minPriceSen: null,

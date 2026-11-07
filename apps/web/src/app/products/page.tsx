@@ -110,6 +110,8 @@ export default async function ProductsPage({ searchParams }: Props) {
                     name={p.name}
                     coverImageUrl={p.coverImageUrl}
                     cutout={p.coverIsCutout}
+                    focalX={p.coverFocalX}
+                    focalY={p.coverFocalY}
                     ratingAvg={p.ratingAvg}
                     ratingCount={p.ratingCount}
                     categoryName={p.categoryName}

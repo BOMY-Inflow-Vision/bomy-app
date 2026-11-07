@@ -604,5 +604,17 @@
     "file": "apps/admin/src/app/products/[id]/page.tsx",
     "text": "<table className=\"w-full text-sm\">",
     "reason": "no @bomy/ui Table primitive exists"
+  },
+  {
+    "rule": "R1-input",
+    "file": "apps/web/src/components/focus-editor.tsx",
+    "text": "<input",
+    "reason": "type=range (position slider, the keyboard and touch alternative to dragging); no shared primitive"
+  },
+  {
+    "rule": "R1-input",
+    "file": "apps/web/src/components/focus-editor.tsx",
+    "text": "<input",
+    "reason": "type=range (position slider, the keyboard and touch alternative to dragging); no shared primitive"
   }
 ]

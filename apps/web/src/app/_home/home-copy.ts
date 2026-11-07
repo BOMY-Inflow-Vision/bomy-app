@@ -20,8 +20,6 @@ export const HOME_COPY = {
     primary: "Browse products",
     secondary: "Meet the brands",
     featured: { label: "Just in", cta: "View product" },
-    themed: { title: "New from our sellers", sub: "See what just arrived." },
-    delivery: { title: "Shipping by Pos Laju", sub: "Each seller sets their own shipping fee." },
   },
   marquee: ["Curated", "Independent", "Brand by brand"],
   browse: {

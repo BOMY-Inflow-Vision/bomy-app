@@ -7,6 +7,7 @@ import {
   integer,
   numeric,
   pgTable,
+  smallint,
   text,
   timestamp,
   uniqueIndex,
@@ -44,6 +45,10 @@ export const products = pgTable(
     coverImageUrl: text("cover_image_url"),
     // Seller-ticked (migration 0033): the cover picture is a cut-out, shown inset with a shadow on the card.
     coverIsCutout: boolean("cover_is_cutout").notNull().default(false),
+    // Cached focal point of the cover picture, in percent (migration 0037; 50 = centre). Copied from
+    // product_images.focal_x / focal_y by the seller actions, so the storefront needs no join.
+    coverFocalX: smallint("cover_focal_x").notNull().default(50),
+    coverFocalY: smallint("cover_focal_y").notNull().default(50),
     // Cached rating aggregate (migration 0035). Written only by recomputeProductRating under
     // withAdmin; a BEFORE UPDATE trigger rejects any other writer. Numeric reads as a string.
     ratingAvg: numeric("rating_avg", { precision: 3, scale: 2 }).notNull().default("0"),

@@ -18,9 +18,11 @@ import {
   useSortable,
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { GripVertical, Upload } from "lucide-react"
+import { Crop, GripVertical, Upload } from "lucide-react"
 
+import { FocusEditor } from "@/components/focus-editor"
 import { useToast } from "@/components/toaster"
+import { focalStyle } from "@/lib/focal"
 import { Button } from "@bomy/ui/button"
 import { Card, CardContent } from "@bomy/ui/card"
 import { FileDropzone } from "@bomy/ui/file-dropzone"
@@ -34,6 +36,7 @@ import {
   removeProductImage,
   reorderImages,
   setImageCutout,
+  setImageFocus,
 } from "../../actions"
 
 type ProductImage = {
@@ -42,6 +45,8 @@ type ProductImage = {
   altText: string | null
   sortOrder: number
   isCutout: boolean
+  focalX: number
+  focalY: number
 }
 
 // Wraps one image thumbnail as a dnd-kit sortable grid item, with its own
@@ -51,12 +56,16 @@ function SortableImageThumb({
   image,
   onRemove,
   onCutoutChange,
+  onAdjust,
+  adjusting,
   cutoutPending,
   helpId,
 }: {
   image: ProductImage
   onRemove: (id: string) => void
   onCutoutChange: (id: string, isCutout: boolean) => void
+  onAdjust: (id: string) => void
+  adjusting: boolean
   cutoutPending: boolean
   helpId: string
 }) {
@@ -76,6 +85,7 @@ function SortableImageThumb({
         width={96}
         height={96}
         className="h-24 w-24 rounded-lg object-cover ring-1 ring-border"
+        style={image.isCutout ? undefined : focalStyle(image.focalX, image.focalY)}
       />
       <button
         type="button"
@@ -117,6 +127,20 @@ function SortableImageThumb({
         />
         Transparent background
       </Label>
+      {!image.isCutout && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          aria-pressed={adjusting}
+          aria-label={`Adjust crop${image.altText ? `: ${image.altText}` : ""}`}
+          onClick={() => onAdjust(image.id)}
+          className="mt-1 h-7 w-24 gap-1 px-1 text-xs"
+        >
+          <Crop aria-hidden="true" className="size-3" />
+          Adjust crop
+        </Button>
+      )}
     </div>
   )
 }
@@ -137,6 +161,9 @@ export function ImageManager({
   const cutoutHelpId = useId()
   // Images whose cut-out save is running: their box is disabled so two fast clicks cannot race.
   const [cutoutPending, setCutoutPending] = useState<ReadonlySet<string>>(new Set())
+  // The picture whose focus panel is open, and whether its save is running.
+  const [focusId, setFocusId] = useState<string | null>(null)
+  const [focusSaving, setFocusSaving] = useState(false)
 
   useEffect(() => {
     setImages(initialImages)
@@ -243,11 +270,13 @@ export function ImageManager({
       return
     }
     setImages((prev) => prev.filter((img) => img.id !== imageId))
+    setFocusId((current) => (current === imageId ? null : current))
     toast.success("Image removed")
   }
 
   async function handleCutoutChange(imageId: string, isCutout: boolean) {
     setCutoutPending((prev) => new Set(prev).add(imageId))
+    if (isCutout) setFocusId((current) => (current === imageId ? null : current))
     setImages((prev) => prev.map((img) => (img.id === imageId ? { ...img, isCutout } : img)))
     const result = await setImageCutout(imageId, isCutout)
     setCutoutPending((prev) => {
@@ -263,6 +292,32 @@ export function ImageManager({
       toast.error(result.error)
     }
   }
+
+  async function handleFocusSave(imageId: string, focalX: number, focalY: number) {
+    setFocusSaving(true)
+    try {
+      const result = await setImageFocus(imageId, focalX, focalY)
+      if (!result.ok) {
+        setError(result.error)
+        toast.error(result.error)
+        return
+      }
+      setError(null)
+      setImages((prev) =>
+        prev.map((img) => (img.id === imageId ? { ...img, focalX, focalY } : img)),
+      )
+      setFocusId(null)
+      toast.success("Focus saved")
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to save focus"
+      setError(message)
+      toast.error(message)
+    } finally {
+      setFocusSaving(false)
+    }
+  }
+
+  const focusImage = images.find((img) => img.id === focusId && !img.isCutout) ?? null
 
   return (
     <Card>
@@ -293,6 +348,8 @@ export function ImageManager({
                   onCutoutChange={(id, next) => {
                     void handleCutoutChange(id, next)
                   }}
+                  onAdjust={(id) => setFocusId((current) => (current === id ? null : id))}
+                  adjusting={focusId === img.id}
                   cutoutPending={cutoutPending.has(img.id)}
                   helpId={cutoutHelpId}
                 />
@@ -335,6 +392,23 @@ export function ImageManager({
             }
           </FileDropzone>
         </div>
+
+        {focusImage && (
+          <div className="mb-4">
+            <FocusEditor
+              key={focusImage.id}
+              src={focusImage.url}
+              alt={focusImage.altText ?? ""}
+              initialX={focusImage.focalX}
+              initialY={focusImage.focalY}
+              saving={focusSaving}
+              onSave={(fx, fy) => {
+                void handleFocusSave(focusImage.id, fx, fy)
+              }}
+              onCancel={() => setFocusId(null)}
+            />
+          </div>
+        )}
 
         {images.length > 0 && (
           <p id={cutoutHelpId} className="mb-2 text-xs text-muted-foreground">

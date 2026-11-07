@@ -30,6 +30,8 @@ const PRODUCT = {
   storeId: "s1",
   coverImageUrl: null,
   coverIsCutout: false,
+  coverFocalX: 50,
+  coverFocalY: 50,
   ratingAvg: "4.50",
   ratingCount: 3,
   categoryName: "Tea",

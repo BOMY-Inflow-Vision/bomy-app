@@ -6,8 +6,6 @@ export const MARKERS = [
   "hero-headline",
   "hero-featured",
   "hero-featured-price",
-  "hero-themed",
-  "hero-delivery",
   "marquee",
   "browse",
   "pills",
@@ -22,7 +20,7 @@ export const MARKERS = [
 ] as const
 export type Marker = (typeof MARKERS)[number]
 
-export const ALWAYS: Marker[] = ["hero-headline", "hero-delivery", "marquee", "promise", "cta"]
+export const ALWAYS: Marker[] = ["hero-headline", "marquee", "promise", "cta"]
 
 export function product(i: number, over: Partial<HomeProduct> = {}): HomeProduct {
   return {
@@ -33,6 +31,8 @@ export function product(i: number, over: Partial<HomeProduct> = {}): HomeProduct
     storeSlug: `store-${i % 3}`,
     coverImageUrl: `https://img.test/p${i}.jpg`,
     coverIsCutout: false,
+    coverFocalX: 50,
+    coverFocalY: 50,
     ratingAvg: "4.50",
     ratingCount: 3,
     categoryName: `Category ${i % 3}`,
@@ -61,6 +61,8 @@ const FULL: HomeData = {
     storeSlug: "feature-store",
     coverImageUrl: "https://img.test/f1.jpg",
     coverIsCutout: false,
+    coverFocalX: 50,
+    coverFocalY: 50,
     ratingAvg: "4.50",
     ratingCount: 3,
     minPriceSen: 4590,
@@ -94,7 +96,6 @@ export const VISIBILITY_CASES: VisibilityCase[] = [
       ...ALWAYS,
       "hero-featured",
       "hero-featured-price",
-      "hero-themed",
       "browse",
       "pills",
       "favourites-grid",
@@ -111,7 +112,6 @@ export const VISIBILITY_CASES: VisibilityCase[] = [
     present: [
       ...ALWAYS,
       "hero-featured",
-      "hero-themed",
       "browse",
       "pills",
       "favourites-grid",
@@ -134,7 +134,6 @@ export const VISIBILITY_CASES: VisibilityCase[] = [
       ...ALWAYS,
       "hero-featured",
       "hero-featured-price",
-      "hero-themed",
       "favourites-grid",
       "stats",
       "stat-products",
@@ -153,7 +152,6 @@ export const VISIBILITY_CASES: VisibilityCase[] = [
       ...ALWAYS,
       "hero-featured",
       "hero-featured-price",
-      "hero-themed",
       "browse",
       "pills",
       "favourites-grid",

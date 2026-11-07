@@ -124,7 +124,7 @@ const config = {
         ],
       },
       aspectRatio: {
-        tile: "4 / 5",
+        tile: "1 / 1",
       },
       letterSpacing: {
         eyebrow: "0.16em",

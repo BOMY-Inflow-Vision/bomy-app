@@ -46,6 +46,8 @@ export async function getStoreProducts(storeSlug: string, categorySlug: string |
         slug: schema.products.slug,
         coverImageUrl: schema.products.coverImageUrl,
         coverIsCutout: schema.products.coverIsCutout,
+        coverFocalX: schema.products.coverFocalX,
+        coverFocalY: schema.products.coverFocalY,
         ratingAvg: schema.products.ratingAvg,
         ratingCount: schema.products.ratingCount,
       })

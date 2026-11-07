@@ -1,4 +1,4 @@
-import { ArrowRight, Truck } from "lucide-react"
+import { ArrowRight } from "lucide-react"
 import Link from "next/link"
 
 import { ProductTile } from "@/components/product-card"
@@ -13,20 +13,11 @@ type HeroCopy = (typeof HOME_COPY)["hero"]
 const LINK_BASE =
   "inline-flex min-w-0 items-center justify-center gap-2 rounded-full px-5 py-2.5 text-center text-sm font-medium [overflow-wrap:anywhere] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
 
-// Static classes, so Tailwind sees every one of them.
-const DELIVERY_SPAN = {
-  1: "lg:col-span-1",
-  2: "lg:col-span-2",
-  3: "lg:col-span-3",
-} as const
-
-// The first screen: one headline card, an optional card for the newest product that has a cover,
-// an optional link tile, and a delivery tile. Every word comes from `copy`; names, store and price
-// are real data. The shapes are drawn here and hidden from screen readers.
+// The first screen: one headline card and an optional card for the newest product that has a cover.
+// Every word comes from `copy`; names, store and price are real data. The shapes are drawn here and
+// hidden from screen readers.
 export function Hero({ data, copy }: { data: HomeData; copy: HeroCopy }) {
   const { featured } = data
-  const hasProducts = data.counts.products > 0
-  const deliverySpan = featured ? (hasProducts ? 1 : 2) : hasProducts ? 2 : 3
 
   return (
     <section className="grid min-w-0 gap-4 lg:grid-cols-3">
@@ -76,7 +67,7 @@ export function Hero({ data, copy }: { data: HomeData; copy: HeroCopy }) {
         <Link
           href={`/products/${featured.storeSlug}/${featured.slug}`}
           data-home="hero-featured"
-          className="group flex min-w-0 flex-col overflow-hidden rounded-bento bg-tint p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background lg:col-start-3 lg:row-span-2 lg:row-start-1"
+          className="group flex min-w-0 flex-col overflow-hidden rounded-bento bg-tint p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background lg:col-start-3 lg:row-start-1"
         >
           <p className="mb-3 px-1 font-mono text-xs uppercase tracking-eyebrow text-muted-foreground [overflow-wrap:anywhere]">
             {copy.featured.label}
@@ -86,6 +77,8 @@ export function Hero({ data, copy }: { data: HomeData; copy: HeroCopy }) {
             name={featured.name}
             coverImageUrl={featured.coverImageUrl}
             cutout={featured.coverIsCutout}
+            focalX={featured.coverFocalX}
+            focalY={featured.coverFocalY}
             className="w-full"
           />
           <div className="mt-4 min-w-0 px-1">
@@ -116,54 +109,6 @@ export function Hero({ data, copy }: { data: HomeData; copy: HeroCopy }) {
           </div>
         </Link>
       ) : null}
-
-      {hasProducts ? (
-        <Link
-          href="/products"
-          data-home="hero-themed"
-          className="group relative min-w-0 overflow-hidden rounded-bento bg-secondary p-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:p-8"
-        >
-          <p className="min-w-0 font-display text-display-sm text-foreground [overflow-wrap:anywhere]">
-            {copy.themed.title}
-          </p>
-          <p className="mt-3 flex min-w-0 items-start gap-2 text-sm text-muted-foreground [overflow-wrap:anywhere]">
-            <span className="min-w-0">{copy.themed.sub}</span>
-            <ArrowRight
-              aria-hidden="true"
-              className="mt-0.5 size-4 shrink-0 transition-transform duration-300 ease-out-expo group-hover:translate-x-1 motion-reduce:transition-none"
-            />
-          </p>
-        </Link>
-      ) : null}
-
-      <div
-        data-home="hero-delivery"
-        className={`relative min-w-0 overflow-hidden rounded-bento bg-ink p-6 text-ink-foreground sm:p-8 ${DELIVERY_SPAN[deliverySpan]}`}
-      >
-        <div data-decor aria-hidden="true" className="mb-6 flex items-center gap-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-            <Truck className="size-5" />
-          </span>
-          <svg viewBox="0 0 200 8" className="h-2 min-w-0 flex-1 text-ink-muted">
-            <line
-              x1="2"
-              y1="4"
-              x2="198"
-              y2="4"
-              stroke="currentColor"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeDasharray="1 10"
-            />
-          </svg>
-        </div>
-        <p className="min-w-0 text-lg font-medium [overflow-wrap:anywhere]">
-          {copy.delivery.title}
-        </p>
-        <p className="mt-1 min-w-0 text-sm text-ink-muted [overflow-wrap:anywhere]">
-          {copy.delivery.sub}
-        </p>
-      </div>
     </section>
   )
 }

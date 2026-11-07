@@ -11,6 +11,9 @@ export interface ProductCardProps {
   coverImageUrl: string | null
   /** The seller ticked "cut-out" for this picture: it floats inset on the tile with a shadow. Default: a normal photo that covers the tile. */
   cutout?: boolean
+  /** The seller's focal point for a normal photo (percent across / down; default centre): the part that stays in view when the square tile crops it. */
+  focalX?: number | null | undefined
+  focalY?: number | null | undefined
   /** `compact` shows the image, the name and the rating only (brand pages). Default `full`. */
   variant?: "full" | "compact"
   categoryName?: string | null
@@ -48,7 +51,7 @@ export function toneFor(href: string) {
   return TILE_TONES[h % TILE_TONES.length]!
 }
 
-// The pastel 4:5 tile with the picture layer: a normal photo covers it, a cut-out floats inset with
+// The pastel square tile with the picture layer: a normal photo covers it, a cut-out floats inset with
 // an oval shadow, both move on hover and focus of the surrounding `group`. Shared by the product
 // card and the home hero, so the two cannot drift. `tone` picks the pastel (any stable string).
 export function ProductTile({
@@ -56,6 +59,8 @@ export function ProductTile({
   name,
   coverImageUrl,
   cutout = false,
+  focalX,
+  focalY,
   badge,
   className,
 }: {
@@ -63,6 +68,8 @@ export function ProductTile({
   name: string
   coverImageUrl: string | null
   cutout?: boolean
+  focalX?: number | null | undefined
+  focalY?: number | null | undefined
   badge?: "New" | "Sold out" | null | undefined
   className?: string
 }) {
@@ -82,7 +89,13 @@ export function ProductTile({
         />
       )}
       <div className={cn(PICTURE_BASE, cutout ? CUTOUT_PICTURE : PHOTO_PICTURE)}>
-        <CoverImage src={coverImageUrl} alt={name} fit={cutout ? "contain" : "cover"} />
+        <CoverImage
+          src={coverImageUrl}
+          alt={name}
+          fit={cutout ? "contain" : "cover"}
+          focalX={focalX}
+          focalY={focalY}
+        />
       </div>
       {badge && (
         <span className="absolute left-4 top-4 z-10 rounded-full bg-card/90 px-3 py-1 text-xs font-medium text-foreground backdrop-blur">
@@ -93,7 +106,7 @@ export function ProductTile({
   )
 }
 
-// Shared storefront tile, the Kvist shop card layout (measured 2026-10-25): a pastel 4:5 tile whose
+// Shared storefront tile, the Kvist shop card layout (measured 2026-10-25): a pastel square tile whose
 // photo covers the whole tile (sellers upload normal photos, not cut-outs), then the text under the
 // tile: category, name, store, and the price on the right (from lg; on a phone the price is its own
 // right-aligned line). Renders the whole tile as one link; the page keeps its own <li>. The focus
@@ -105,6 +118,8 @@ export function ProductCard({
   name,
   coverImageUrl,
   cutout = false,
+  focalX,
+  focalY,
   variant = "full",
   categoryName,
   storeName,
@@ -125,6 +140,8 @@ export function ProductCard({
         name={name}
         coverImageUrl={coverImageUrl}
         cutout={cutout}
+        focalX={focalX}
+        focalY={focalY}
         badge={badge}
       />
       <div className="px-1 pt-3 sm:px-1.5 sm:pt-4">

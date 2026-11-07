@@ -12,13 +12,7 @@ import type { HomeData } from "@/app/_home/home-types"
 import { sentinelCopy, visibleTextOutside } from "./sentinel-copy"
 import { EMPTY, VISIBILITY_CASES } from "./visibility"
 
-const HERO_MARKERS = [
-  "hero-headline",
-  "hero-featured",
-  "hero-featured-price",
-  "hero-themed",
-  "hero-delivery",
-] as const
+const HERO_MARKERS = ["hero-headline", "hero-featured", "hero-featured-price"] as const
 
 function mountEl(el: React.ReactElement): HTMLElement {
   const div = document.createElement("div")
@@ -68,11 +62,10 @@ describe("Hero details", () => {
     expect(marker(root, "hero-featured-price")?.textContent).toContain("RM45.90")
   })
 
-  it("the tall featured card sits in the third column, so the visual order matches the Tab order", () => {
+  it("the featured card sits in the third column, so the visual order matches the Tab order", () => {
     const root = mount(full)
     const card = marker(root, "hero-featured")!
     expect(card.className).toMatch(/lg:col-start-3/)
-    expect(card.className).toMatch(/lg:row-span-2/)
     const html = root.innerHTML
     expect(html.indexOf('data-home="hero-headline"')).toBeLessThan(
       html.indexOf('data-home="hero-featured"'),
@@ -98,13 +91,13 @@ describe("Hero details", () => {
     }
   })
 
-  it("long copy: text tiles wrap and shrink, and none has a fixed height", () => {
+  it("long copy: the headline tile wraps and shrinks, and has no fixed height", () => {
     const long = sentinelCopy().hero
     const stretched = JSON.parse(
       JSON.stringify(long).replace(/«([^»]+)»/g, "«$1$1$1»"),
     ) as typeof long
     const container = mountEl(<Hero data={full} copy={stretched} />)
-    for (const m of ["hero-headline", "hero-themed", "hero-delivery"]) {
+    for (const m of ["hero-headline"]) {
       const el = marker(container, m)!
       expect(el.className, m).toMatch(/min-w-0/)
       expect(el.className, m).not.toMatch(/(^|\s)h-\d|(^|\s)h-\[/)
@@ -112,10 +105,11 @@ describe("Hero details", () => {
     expect(container.querySelector("h1")!.className).toMatch(/\[overflow-wrap:anywhere\]/)
   })
 
-  it("the empty page still has the heading, buttons and delivery tile", () => {
+  it("the empty page still has the heading and the two buttons, and nothing else", () => {
     const root = mount(EMPTY)
     expect(root.querySelector("h1")).not.toBeNull()
-    expect(marker(root, "hero-delivery")).not.toBeNull()
+    expect(marker(root, "hero-headline")!.querySelectorAll("a")).toHaveLength(2)
+    expect(root.querySelectorAll("[data-home]")).toHaveLength(1)
   })
 })
 

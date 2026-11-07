@@ -127,6 +127,8 @@ export default async function StorePage({ params }: Props) {
                       name={product.name}
                       coverImageUrl={product.coverImageUrl}
                       cutout={product.coverIsCutout}
+                      focalX={product.coverFocalX}
+                      focalY={product.coverFocalY}
                       ratingAvg={product.ratingAvg}
                       ratingCount={product.ratingCount}
                     />
@@ -157,6 +159,8 @@ export default async function StorePage({ params }: Props) {
                       name={product.name}
                       coverImageUrl={product.coverImageUrl}
                       cutout={product.coverIsCutout}
+                      focalX={product.coverFocalX}
+                      focalY={product.coverFocalY}
                       ratingAvg={product.ratingAvg}
                       ratingCount={product.ratingCount}
                     />

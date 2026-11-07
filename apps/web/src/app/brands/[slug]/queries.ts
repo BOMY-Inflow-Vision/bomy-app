@@ -19,6 +19,8 @@ interface ProductCard {
   slug: string
   coverImageUrl: string | null
   coverIsCutout: boolean
+  coverFocalX: number
+  coverFocalY: number
   ratingAvg: string
   ratingCount: number
 }
@@ -76,6 +78,8 @@ export const getStorePage = cache(async (slug: string) => {
           slug: schema.products.slug,
           coverImageUrl: schema.products.coverImageUrl,
           coverIsCutout: schema.products.coverIsCutout,
+          coverFocalX: schema.products.coverFocalX,
+          coverFocalY: schema.products.coverFocalY,
           ratingAvg: schema.products.ratingAvg,
           ratingCount: schema.products.ratingCount,
           categoryId: schema.products.categoryId,
@@ -100,6 +104,8 @@ export const getStorePage = cache(async (slug: string) => {
         slug: ranked.slug,
         coverImageUrl: ranked.coverImageUrl,
         coverIsCutout: ranked.coverIsCutout,
+        coverFocalX: ranked.coverFocalX,
+        coverFocalY: ranked.coverFocalY,
         ratingAvg: ranked.ratingAvg,
         ratingCount: ranked.ratingCount,
         categoryId: ranked.categoryId,
@@ -118,6 +124,8 @@ export const getStorePage = cache(async (slug: string) => {
         slug: p.slug,
         coverImageUrl: p.coverImageUrl,
         coverIsCutout: p.coverIsCutout,
+        coverFocalX: p.coverFocalX,
+        coverFocalY: p.coverFocalY,
         ratingAvg: p.ratingAvg,
         ratingCount: p.ratingCount,
       }
