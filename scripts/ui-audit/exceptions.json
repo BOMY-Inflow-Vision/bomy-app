@@ -616,5 +616,11 @@
     "file": "apps/web/src/components/focus-editor.tsx",
     "text": "<input",
     "reason": "type=range (position slider, the keyboard and touch alternative to dragging); no shared primitive"
+  },
+  {
+    "rule": "R5-inline-style",
+    "file": "apps/web/src/app/seller/dashboard/settings/brand-image-field.tsx",
+    "text": "style={{ width: `${progress}%` }}",
+    "reason": "dynamic: width from upload progress %"
   }
 ]

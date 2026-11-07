@@ -5,6 +5,7 @@ import {
   index,
   integer,
   pgTable,
+  smallint,
   text,
   timestamp,
   uniqueIndex,
@@ -41,6 +42,11 @@ export const stores = pgTable(
     metaTitle: text("meta_title"),
     metaDescription: text("meta_description"),
     ogImageUrl: text("og_image_url"),
+    // The brand tile picture (migration 0038) and its focal point: percentages across / down the
+    // picture used as the CSS object-position (50 / 50 = centre). NULL image = first-letter tile.
+    imageUrl: text("image_url"),
+    imageFocalX: smallint("image_focal_x").notNull().default(50),
+    imageFocalY: smallint("image_focal_y").notNull().default(50),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -66,6 +72,14 @@ export const stores = pgTable(
     ogImageUrlChk: check(
       "stores_og_image_url_chk",
       sql`${t.ogImageUrl} IS NULL OR (length(${t.ogImageUrl}) <= 2048 AND ${t.ogImageUrl} ~ '^https?://')`,
+    ),
+    imageUrlChk: check(
+      "stores_image_url_chk",
+      sql`${t.imageUrl} IS NULL OR (length(${t.imageUrl}) <= 2048 AND ${t.imageUrl} ~ '^https?://')`,
+    ),
+    imageFocalChk: check(
+      "stores_image_focal_chk",
+      sql`${t.imageFocalX} BETWEEN 0 AND 100 AND ${t.imageFocalY} BETWEEN 0 AND 100`,
     ),
   }),
 )

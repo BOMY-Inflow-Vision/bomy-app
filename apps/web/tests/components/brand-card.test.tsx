@@ -99,6 +99,32 @@ describe("BrandCard structure", () => {
   })
 })
 
+describe("BrandCard picture", () => {
+  const tileImg = (d: Document) => link(d).querySelector("[data-tile] img")
+
+  it("without a picture it keeps the first letter and renders no image", () => {
+    const d = render({ name: "acme", imageUrl: null })
+    expect(tileImg(d)).toBeNull()
+    expect(link(d).querySelector('[aria-hidden="true"]')!.textContent).toBe("A")
+  })
+
+  it("with a picture it fills the square tile, decorative, and drops the letter", () => {
+    const d = render({ name: "acme", imageUrl: "https://cdn.example/brands/a.jpg" })
+    const img = tileImg(d)!
+    expect(img.getAttribute("src")).toBe("https://cdn.example/brands/a.jpg")
+    expect(img.getAttribute("alt")).toBe("")
+    has(img, ["object-cover"])
+    expect(link(d).querySelector("[data-tile]")!.textContent).toBe("")
+  })
+
+  it("applies the focal point as object-position, and nothing at the centre", () => {
+    const off = tileImg(render({ imageUrl: "https://cdn.example/b.jpg", focalX: 75, focalY: 20 }))!
+    expect((off as HTMLElement).style.objectPosition).toBe("75% 20%")
+    const centre = tileImg(render({ imageUrl: "https://cdn.example/b.jpg" }))!
+    expect((centre as HTMLElement).style.objectPosition).toBe("")
+  })
+})
+
 describe("BrandCard excerpt", () => {
   it("clamps to two lines and breaks anywhere", () => {
     const d = render({ excerpt: "y".repeat(160) })

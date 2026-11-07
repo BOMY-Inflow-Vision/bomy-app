@@ -45,6 +45,9 @@ export interface HomeBrand {
   name: string
   slug: string
   excerpt: string | null
+  imageUrl: string | null
+  imageFocalX: number
+  imageFocalY: number
   productCount: number
 }
 

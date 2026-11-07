@@ -18,6 +18,7 @@ import {
   updateStoreVideo,
 } from "./actions"
 import { getStoreBodyImageUploadUrl, saveStoreBody } from "./body-actions"
+import { BrandImageField } from "./brand-image-field"
 
 type State = { ok: true } | { ok: false; error: string } | null
 
@@ -28,6 +29,10 @@ function formAction(_prev: State, formData: FormData): Promise<State> {
 }
 
 export function SettingsForm({
+  brandName,
+  currentImageUrl,
+  currentImageFocalX,
+  currentImageFocalY,
   currentExcerpt,
   currentBodyHtml,
   currentBodyRevision,
@@ -38,6 +43,10 @@ export function SettingsForm({
   allCategories,
   assignedCategoryIds,
 }: {
+  brandName: string
+  currentImageUrl: string | null
+  currentImageFocalX: number
+  currentImageFocalY: number
   currentExcerpt: string
   currentBodyHtml: string | null
   currentBodyRevision: number
@@ -125,6 +134,19 @@ export function SettingsForm({
 
   return (
     <div className="max-w-xl space-y-6">
+      {/* Brand picture */}
+      <Card>
+        <CardContent className="p-6">
+          <h2 className="mb-4 text-sm font-semibold text-foreground">Brand Picture</h2>
+          <BrandImageField
+            initialImageUrl={currentImageUrl}
+            initialFocalX={currentImageFocalX}
+            initialFocalY={currentImageFocalY}
+            brandName={brandName}
+          />
+        </CardContent>
+      </Card>
+
       {/* Excerpt */}
       <Card>
         <CardContent className="p-6">

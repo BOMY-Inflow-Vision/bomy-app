@@ -40,6 +40,9 @@ export function Sellers({
               href={`/brands/${b.slug}`}
               name={b.name}
               excerpt={b.excerpt}
+              imageUrl={b.imageUrl}
+              focalX={b.imageFocalX}
+              focalY={b.imageFocalY}
               productCount={b.productCount}
             />
           </li>

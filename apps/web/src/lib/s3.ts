@@ -26,6 +26,7 @@ function getS3(): S3Client {
 export async function createPresignedPutUrl(
   contentType: string,
   contentLength: number,
+  prefix: "products" | "brands" = "products",
 ): Promise<{ url: string; key: string }> {
   const bucket = process.env["S3_BUCKET"]
   if (!bucket) throw new Error("S3_BUCKET is required")
@@ -39,7 +40,7 @@ export async function createPresignedPutUrl(
   }
   const ext = MIME_TO_EXT[contentType]
   if (!ext) throw new Error("Unsupported content type")
-  const key = `products/${randomUUID()}.${ext}`
+  const key = `${prefix}/${randomUUID()}.${ext}`
 
   const command = new PutObjectCommand({
     Bucket: bucket,
