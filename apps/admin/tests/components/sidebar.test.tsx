@@ -23,12 +23,17 @@ import { Sidebar } from "@/components/sidebar"
 let container: HTMLDivElement
 let root: Root
 
+function renderAt(pathname: string) {
+  nav.pathname = pathname
+  act(() => root.render(<Sidebar email="admin@example.com" />))
+}
+
 beforeEach(() => {
   ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
   container = document.createElement("div")
   document.body.appendChild(container)
   root = createRoot(container)
-  act(() => root.render(<Sidebar email="admin@example.com" />))
+  renderAt("/stores")
 })
 afterEach(() => {
   act(() => root.unmount())
@@ -37,129 +42,16 @@ afterEach(() => {
 
 const toggle = () => container.querySelector<HTMLButtonElement>("header button[aria-controls]")!
 const panel = () => container.querySelector<HTMLElement>("#admin-mobile-menu")!
-
-describe("admin sidebar", () => {
-  it("keeps the desktop sidebar for md and up and hides it below", () => {
-    const aside = container.querySelector("aside")!
-    expect(aside.className).toContain("hidden")
-    expect(aside.className).toContain("md:flex")
-    expect(aside.className).toContain("w-44")
-    expect(aside.querySelectorAll("nav a")).toHaveLength(15)
-  })
-
-  it("shows a top bar below md whose menu starts closed", () => {
-    const header = container.querySelector("header")!
-    expect(header.className).toContain("md:hidden")
-    expect(toggle().getAttribute("aria-expanded")).toBe("false")
-    expect(panel().hidden).toBe(true)
-  })
-
-  it("opens and closes the menu from the button", () => {
-    act(() => toggle().click())
-    expect(toggle().getAttribute("aria-expanded")).toBe("true")
-    expect(panel().hidden).toBe(false)
-    expect(panel().querySelectorAll("a")).toHaveLength(15)
-    act(() => toggle().click())
-    expect(panel().hidden).toBe(true)
-  })
-
-  it("closes the menu on Escape", () => {
-    act(() => toggle().click())
-    act(() => {
-      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))
-    })
-    expect(panel().hidden).toBe(true)
-  })
-
-  it("returns focus to the menu button when Escape closes the menu from inside it", () => {
-    act(() => toggle().click())
-    const first = panel().querySelector<HTMLAnchorElement>("a")!
-    act(() => first.focus())
-    expect(document.activeElement).toBe(first)
-    act(() => {
-      first.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))
-    })
-    expect(panel().hidden).toBe(true)
-    expect(document.activeElement).toBe(toggle())
-  })
-
-  it("leaves focus on the theme toggle when Escape closes the menu", () => {
-    const theme = container.querySelector<HTMLButtonElement>('header [data-testid="theme"]')!
-    act(() => toggle().click())
-    act(() => theme.focus())
-    expect(document.activeElement).toBe(theme)
-    act(() => {
-      theme.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))
-    })
-    expect(panel().hidden).toBe(true)
-    expect(document.activeElement).toBe(theme)
-  })
-
-  it("does not take focus when Escape closes the menu while focus is elsewhere", () => {
-    const outside = document.createElement("input")
-    document.body.appendChild(outside)
-    act(() => toggle().click())
-    act(() => outside.focus())
-    act(() => {
-      outside.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))
-    })
-    expect(panel().hidden).toBe(true)
-    expect(document.activeElement).toBe(outside)
-    outside.remove()
-  })
-
-  it("closes the menu after a link is chosen", () => {
-    act(() => toggle().click())
-    const first = panel().querySelector<HTMLAnchorElement>("a")!
-    first.addEventListener("click", (e) => e.preventDefault())
-    act(() => first.click())
-    expect(panel().hidden).toBe(true)
-  })
-
-  it("uses the sidebar tokens and no slate palette classes", () => {
-    expect(container.innerHTML).not.toMatch(/(?<![a-z])slate-/)
-    expect(container.querySelector("aside")!.className).toContain("bg-sidebar")
-    expect(container.querySelector("header")!.className).toContain("bg-sidebar")
-    for (const el of container.querySelectorAll(
-      "nav a, header button:not([data-testid]), aside button:not([data-testid])",
-    ))
-      expect(el.className).toContain("focus-visible:ring-sidebar-ring")
-  })
-
-  it("marks the current page in both menus", () => {
-    const active = [...container.querySelectorAll("a")].filter((a) =>
-      a.className.includes("border-sidebar-indicator"),
-    )
-    expect(active).toHaveLength(2)
-  })
-})
-
-// Link classes and aria-current (PR 5d-8). Written first against the hand-made links (baseline);
-// after the SidebarLink swap the class strings must stay the same and aria-current is added.
-const ADMIN_COMMON = [
-  "px-4",
-  "py-2",
-  "focus-visible:outline-none",
-  "focus-visible:ring-2",
-  "focus-visible:ring-sidebar-ring",
-  "focus-visible:ring-inset",
-]
-const ADMIN_ACTIVE = [
-  "border-l-2",
-  "border-sidebar-indicator",
-  "bg-sidebar-accent",
-  "text-sidebar-strong",
-]
-const ADMIN_INACTIVE = ["hover:bg-sidebar-accent", "hover:text-sidebar-strong"]
-const hasAll = (el: Element, tokens: string[]) => tokens.every((t) => el.classList.contains(t))
-function renderAt(pathname: string) {
-  nav.pathname = pathname
-  act(() => root.render(<Sidebar email="admin@example.com" />))
-}
+const isOpen = () => panel().getAttribute("data-open") === "true"
 const lists = () => [
   [...container.querySelectorAll<HTMLAnchorElement>("aside nav a")],
   [...container.querySelectorAll<HTMLAnchorElement>("#admin-mobile-menu nav a")],
 ]
+const pills = () => [
+  container.querySelector<HTMLElement>("aside [data-pill]")!,
+  container.querySelector<HTMLElement>("#admin-mobile-menu [data-pill]")!,
+]
+
 const NAV_ITEMS = [
   ["Stores", "/stores"],
   ["Products", "/products"],
@@ -178,11 +70,126 @@ const NAV_ITEMS = [
   ["Config", "/config"],
 ]
 
+describe("admin sidebar shell", () => {
+  it("is a floating tile from lg up and hidden below", () => {
+    const aside = container.querySelector("aside")!
+    for (const c of ["hidden", "lg:flex", "fixed", "rounded-3xl", "bg-card", "shadow-tile"])
+      expect(aside.classList.contains(c), c).toBe(true)
+    expect(aside.querySelectorAll("nav a")).toHaveLength(15)
+  })
+
+  it("shows a top bar below lg whose menu starts closed", () => {
+    const header = container.querySelector("header")!
+    expect(header.classList.contains("lg:hidden")).toBe(true)
+    expect(toggle().getAttribute("aria-expanded")).toBe("false")
+    expect(isOpen()).toBe(false)
+  })
+
+  it("keeps the closed drawer out of the tab order and away from screen readers", () => {
+    expect(panel().getAttribute("aria-hidden")).toBe("true")
+    expect(panel().hasAttribute("inert")).toBe(true)
+    expect(panel().classList.contains("invisible")).toBe(true)
+    act(() => toggle().click())
+    expect(panel().getAttribute("aria-hidden")).toBe("false")
+    expect(panel().hasAttribute("inert")).toBe(false)
+    expect(panel().classList.contains("invisible")).toBe(false)
+  })
+
+  it("makes the open drawer a modal dialog, and not the closed one", () => {
+    const dialog = panel().querySelector("[role='dialog']")!
+    expect(dialog.getAttribute("aria-modal")).toBe("false")
+    act(() => toggle().click())
+    expect(dialog.getAttribute("aria-modal")).toBe("true")
+    expect(dialog.getAttribute("aria-label")).toBe("Menu")
+  })
+})
+
+describe("admin sidebar menu", () => {
+  it("opens from the button and closes from the in-menu Close button", () => {
+    act(() => toggle().click())
+    expect(toggle().getAttribute("aria-expanded")).toBe("true")
+    expect(isOpen()).toBe(true)
+    expect(panel().querySelectorAll("nav a")).toHaveLength(15)
+    act(() => panel().querySelector<HTMLButtonElement>("button[aria-label='Close menu']")!.click())
+    expect(isOpen()).toBe(false)
+  })
+
+  it("moves focus into the drawer when it opens", () => {
+    act(() => toggle().click())
+    expect(document.activeElement).toBe(panel().querySelector("button[aria-label='Close menu']"))
+  })
+
+  it("closes the menu on Escape", () => {
+    act(() => toggle().click())
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))
+    })
+    expect(isOpen()).toBe(false)
+  })
+
+  it("returns focus to the menu button when Escape closes the menu from inside it", () => {
+    act(() => toggle().click())
+    const first = panel().querySelector<HTMLAnchorElement>("nav a")!
+    act(() => first.focus())
+    expect(document.activeElement).toBe(first)
+    act(() => {
+      first.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))
+    })
+    expect(isOpen()).toBe(false)
+    expect(document.activeElement).toBe(toggle())
+  })
+
+  it("leaves focus on the theme toggle when Escape closes the menu", () => {
+    const theme = container.querySelector<HTMLButtonElement>('header [data-testid="theme"]')!
+    act(() => toggle().click())
+    act(() => theme.focus())
+    expect(document.activeElement).toBe(theme)
+    act(() => {
+      theme.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))
+    })
+    expect(isOpen()).toBe(false)
+    expect(document.activeElement).toBe(theme)
+  })
+
+  it("does not take focus when Escape closes the menu while focus is elsewhere", () => {
+    const outside = document.createElement("input")
+    document.body.appendChild(outside)
+    act(() => toggle().click())
+    act(() => outside.focus())
+    act(() => {
+      outside.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))
+    })
+    expect(isOpen()).toBe(false)
+    expect(document.activeElement).toBe(outside)
+    outside.remove()
+  })
+
+  it("closes the menu after a link is chosen", () => {
+    act(() => toggle().click())
+    const first = panel().querySelector<HTMLAnchorElement>("nav a")!
+    first.addEventListener("click", (e) => e.preventDefault())
+    act(() => first.click())
+    expect(isOpen()).toBe(false)
+  })
+
+  it("closes the menu when the dim area behind it is tapped", () => {
+    act(() => toggle().click())
+    act(() => panel().querySelector<HTMLElement>(":scope > span[aria-hidden]")!.click())
+    expect(isOpen()).toBe(false)
+  })
+})
+
 describe("admin sidebar links", () => {
   it("keeps the fifteen items, their labels, destinations and order in both lists", () => {
-    renderAt("/stores")
     for (const list of lists())
       expect(list.map((a) => [a.textContent, a.getAttribute("href")])).toEqual(NAV_ITEMS)
+  })
+
+  it("every link is 44px tall and shows a keyboard focus ring", () => {
+    for (const a of lists().flat()) {
+      expect(a.classList.contains("h-11")).toBe(true)
+      expect(a.classList.contains("focus-visible:ring-2")).toBe(true)
+    }
   })
 
   it.each([
@@ -190,33 +197,12 @@ describe("admin sidebar links", () => {
     ["/stores/abc", "Stores"],
     ["/store-categories", "Store Cats"],
     ["/seller-inquiries/xyz", "Seller Inquiries"],
-  ])("%s: one active link (%s) per list, the others hover-styled", (path, label) => {
+  ])("%s: one current link (%s) per list", (path, label) => {
     renderAt(path)
-    for (const list of lists()) {
-      expect(list).toHaveLength(15)
-      const active = list.filter((a) => hasAll(a, ADMIN_ACTIVE))
-      expect(active.map((a) => a.textContent)).toEqual([label])
-      for (const a of list) {
-        expect(hasAll(a, ADMIN_COMMON)).toBe(true)
-        if (a !== active[0]) expect(hasAll(a, ADMIN_INACTIVE)).toBe(true)
-      }
-    }
-  })
-
-  it("an unmatched route has no active link in either list", () => {
-    renderAt("/not-a-page")
-    for (const list of lists()) expect(list.filter((a) => hasAll(a, ADMIN_ACTIVE))).toHaveLength(0)
-  })
-
-  it("marks the current page with aria-current in both lists, and only there", () => {
-    renderAt("/stores")
-    for (const list of lists()) {
+    for (const list of lists())
       expect(
         list.filter((a) => a.getAttribute("aria-current") === "page").map((a) => a.textContent),
-      ).toEqual(["Stores"])
-      for (const a of list.filter((l) => l.textContent !== "Stores"))
-        expect(a.hasAttribute("aria-current")).toBe(false)
-    }
+      ).toEqual([label])
     expect(container.querySelectorAll("[aria-current]")).toHaveLength(2)
   })
 
@@ -225,11 +211,56 @@ describe("admin sidebar links", () => {
     expect(container.querySelectorAll("[aria-current]")).toHaveLength(0)
   })
 
-  it("the prefix rule marks the matching item on a detail route", () => {
-    renderAt("/seller-inquiries/xyz")
-    for (const list of lists())
-      expect(list.filter((a) => a.hasAttribute("aria-current")).map((a) => a.textContent)).toEqual([
-        "Seller Inquiries",
-      ])
+  it("does not treat a longer route name as the same page", () => {
+    // /store-categories must not light up Stores, and /stores-x must light up nothing.
+    renderAt("/stores-archive")
+    expect(container.querySelectorAll("[aria-current]")).toHaveLength(0)
+  })
+})
+
+describe("admin sidebar pill", () => {
+  it("sits on the active link: link N is N rows (one pill height each) down the list", () => {
+    renderAt("/stores")
+    for (const p of pills()) expect(p.classList.contains("translate-y-0")).toBe(true)
+    renderAt("/products")
+    for (const p of pills()) expect(p.classList.contains("translate-y-full")).toBe(true)
+    renderAt("/orders") // 13th item, index 12
+    for (const p of pills()) {
+      expect(p.classList.contains("translate-y-[1200%]")).toBe(true)
+      expect(p.classList.contains("translate-y-0")).toBe(false)
+    }
+    renderAt("/config") // last item, index 14
+    for (const p of pills()) expect(p.classList.contains("translate-y-[1400%]")).toBe(true)
+  })
+
+  it("is one row tall, and each link row is the same height", () => {
+    // The offsets assume a row of 48px: the pill box is h-12 and each link is h-11 in a py-0.5 row.
+    for (const p of pills()) expect(p.classList.contains("h-12")).toBe(true)
+    for (const a of lists().flat()) {
+      expect(a.classList.contains("h-11")).toBe(true)
+      expect(a.parentElement!.classList.contains("py-0.5")).toBe(true)
+    }
+  })
+
+  it("slides (a transform transition) and stops under reduced motion", () => {
+    for (const p of pills()) {
+      expect(p.classList.contains("transition-[transform,opacity]")).toBe(true)
+      expect(p.classList.contains("motion-reduce:transition-none")).toBe(true)
+    }
+  })
+
+  it("hides when no page matches", () => {
+    renderAt("/not-a-page")
+    for (const p of pills()) expect(p.classList.contains("opacity-0")).toBe(true)
+  })
+
+  it("has one offset per nav item, in the same order", () => {
+    // The offsets are written out whole for Tailwind; keep them in step with the list.
+    NAV_ITEMS.forEach(([, href], i) => {
+      renderAt(href!)
+      const want =
+        i === 0 ? "translate-y-0" : i === 1 ? "translate-y-full" : `translate-y-[${i * 100}%]`
+      for (const p of pills()) expect(p.classList.contains(want), `${href} -> ${want}`).toBe(true)
+    })
   })
 })

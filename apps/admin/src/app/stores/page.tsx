@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { and, asc, desc, eq, ilike, or, sql, type SQL } from "drizzle-orm"
-import { Ban, CircleCheck, Plus, RotateCcw, Search } from "lucide-react"
+import { Ban, CircleCheck, Plus, RotateCcw } from "lucide-react"
 
 import { schema, withAdmin } from "@bomy/db"
 
@@ -10,10 +10,10 @@ import { pageCount, pageOffset, parsePage, PAGE_SIZE } from "@/lib/pagination"
 import { storeStatusVariant } from "@/lib/status-badge"
 import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
-import { Card } from "@bomy/ui/card"
 import { FilterTab, FilterTabs } from "@bomy/ui/filter-tabs"
-import { Input } from "@bomy/ui/input"
-import { Label } from "@bomy/ui/label"
+import { PageHeader } from "@/components/admin-ui/page-header"
+import { SearchField } from "@/components/admin-ui/search-field"
+import { Tile } from "@/components/admin-ui/tile"
 import { Pagination } from "@/components/ui/pagination"
 import { approveStore, reactivateStore, suspendStore } from "./actions"
 import { CopyId } from "./copy-id"
@@ -112,46 +112,36 @@ export default async function StoresPage({
     sortKey === col ? (`${col}_desc` as SortKey) : (col as SortKey)
 
   return (
-    <div className="p-6">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-y-2">
-        <h1 className="text-lg font-semibold text-foreground">Stores</h1>
-        <div className="flex flex-wrap items-center gap-3">
-          <FilterTabs label="Filter by status" className="gap-1 text-sm">
-            {["", ...STORE_STATUSES].map((s) => (
-              <FilterTab
-                key={s || "all"}
-                asChild
-                variant="flat"
-                active={(isStoreStatus(status) ? status : "") === s}
-              >
-                <Link href={buildHref({ status: s })}>{s || "All"}</Link>
-              </FilterTab>
-            ))}
-          </FilterTabs>
-          <form method="get" className="flex items-center gap-1">
-            {isStoreStatus(status) && <input type="hidden" name="status" value={status} />}
-            {sortKey !== "created_desc" && <input type="hidden" name="sort" value={sortKey} />}
-            <Label htmlFor="stores-search" className="sr-only">
-              Search stores
-            </Label>
-            <Input
-              id="stores-search"
-              type="text"
-              name="q"
-              defaultValue={q ?? ""}
-              placeholder="Search…"
-              className="h-8 w-40 text-sm"
-            />
-            <Button type="submit" variant="outline" size="sm" icon={<Search />}>
-              Search
-            </Button>
-          </form>
-          <Button asChild icon={<Plus />}>
-            <Link href="/stores/new">Create Store</Link>
-          </Button>
-        </div>
-      </div>
-      <Card className="overflow-x-auto">
+    <div className="px-4 py-6 md:px-6 lg:px-8 lg:py-9">
+      <PageHeader title="Stores">
+        <FilterTabs label="Filter by status" className="gap-1 text-sm">
+          {["", ...STORE_STATUSES].map((s) => (
+            <FilterTab
+              key={s || "all"}
+              asChild
+              variant="flat"
+              active={(isStoreStatus(status) ? status : "") === s}
+            >
+              <Link href={buildHref({ status: s })}>{s || "All"}</Link>
+            </FilterTab>
+          ))}
+        </FilterTabs>
+        <form method="get" role="search" className="flex items-center gap-2">
+          {isStoreStatus(status) && <input type="hidden" name="status" value={status} />}
+          {sortKey !== "created_desc" && <input type="hidden" name="sort" value={sortKey} />}
+          <SearchField
+            id="stores-search"
+            label="Search stores"
+            placeholder="Search stores…"
+            defaultValue={q ?? ""}
+            className="w-56"
+          />
+        </form>
+        <Button asChild icon={<Plus />}>
+          <Link href="/stores/new">Create Store</Link>
+        </Button>
+      </PageHeader>
+      <Tile className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted text-left text-xs font-semibold text-muted-foreground">
@@ -240,7 +230,7 @@ export default async function StoresPage({
           totalPages={pageCount(total)}
           buildHref={(p) => buildHref({ page: p })}
         />
-      </Card>
+      </Tile>
     </div>
   )
 }

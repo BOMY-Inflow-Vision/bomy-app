@@ -14,7 +14,8 @@ import { pageCount, parsePage } from "@/lib/pagination"
 import { cn } from "@/lib/utils"
 import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
-import { Card } from "@bomy/ui/card"
+import { PageHeader } from "@/components/admin-ui/page-header"
+import { Tile } from "@/components/admin-ui/tile"
 import { Pagination } from "@/components/ui/pagination"
 
 import { fetchOrdersFiltered } from "./_queries"
@@ -71,10 +72,10 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8">
-      <h1 className="mb-6 text-2xl font-bold text-foreground">Orders</h1>
+    <div className="mx-auto max-w-7xl px-4 py-6 md:px-6 lg:px-8 lg:py-9">
+      <PageHeader title="Orders" />
 
-      <Card className="overflow-x-auto">
+      <Tile className="overflow-x-auto">
         <table className="w-full text-sm text-foreground">
           <thead className="bg-muted text-xs uppercase text-muted-foreground">
             <tr>
@@ -139,7 +140,7 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
           </tbody>
         </table>
         <Pagination page={page} totalPages={pageCount(total)} buildHref={buildHref} />
-      </Card>
+      </Tile>
     </div>
   )
 }
