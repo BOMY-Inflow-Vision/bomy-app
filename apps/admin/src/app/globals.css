@@ -58,6 +58,9 @@
     --sidebar-border: 231 47% 28%; /* navy-700 */
     --sidebar-indicator: 4 70% 62%; /* red-400: active-link bar */
     --sidebar-ring: 5 74% 75%; /* red-300: keyboard focus */
+
+    /* The admin's floating tile: a soft shadow instead of a border. */
+    --shadow-tile: 0 1px 0 hsl(231 49% 15% / 0.04), 0 14px 34px -20px hsl(231 49% 15% / 0.22);
   }
 
   /* Ported from docs/design-system/tokens/colors.css's .dark block — same semantic
@@ -105,6 +108,7 @@
     --sidebar-border: 231 47% 28%;
     --sidebar-indicator: 4 70% 62%;
     --sidebar-ring: 5 74% 75%;
+    --shadow-tile: 0 0 0 1px hsl(0 0% 100% / 0.05), 0 14px 34px -20px hsl(0 0% 0% / 0.7);
   }
 }
 

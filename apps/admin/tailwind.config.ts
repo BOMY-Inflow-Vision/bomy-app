@@ -85,6 +85,10 @@ const config: Config = {
         },
         subtle: "hsl(var(--border-subtle))",
       },
+      boxShadow: {
+        // The admin's floating tile (sidebar, panels, search box); see --shadow-tile in globals.css.
+        tile: "var(--shadow-tile)",
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
