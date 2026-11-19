@@ -1,4 +1,6 @@
 import { requireAdmin } from "@/lib/auth"
+import { PageFrame } from "@/components/admin-ui/page-frame"
+import { PageHeader } from "@/components/admin-ui/page-header"
 import { NewVoucherForm } from "./new-voucher-form"
 
 export default async function NewVoucherPage() {
@@ -13,9 +15,9 @@ export default async function NewVoucherPage() {
   const currentMonth = new Date().toISOString().slice(0, 7)
 
   return (
-    <div className="p-6">
-      <h1 className="mb-6 text-lg font-semibold text-foreground">Create Compensation Voucher</h1>
+    <PageFrame width="narrow">
+      <PageHeader title="Create Compensation Voucher" />
       <NewVoucherForm currentMonth={currentMonth} defaultExpiry={defaultExpiry} />
-    </div>
+    </PageFrame>
   )
 }

@@ -8,7 +8,9 @@ import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
-import { Card } from "@bomy/ui/card"
+import { PageFrame } from "@/components/admin-ui/page-frame"
+import { PageHeader } from "@/components/admin-ui/page-header"
+import { Tile } from "@/components/admin-ui/tile"
 
 import { ResolveForm } from "./_resolve-form"
 
@@ -57,13 +59,15 @@ export default async function CheckoutSessionReviewPage({ params }: Props) {
   const isPending = session.status === "payment_review_required"
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8">
+    <PageFrame width="narrow">
       <Button asChild variant="link" icon={<ArrowLeft />} arrowOnHover={false} className="mb-6">
         <a href="/orders">Back to orders</a>
       </Button>
 
-      <h1 className="mb-2 text-2xl font-bold text-foreground">Payment Review</h1>
-      <p className="mb-6 font-mono text-sm text-muted-foreground">{session.id}</p>
+      <PageHeader
+        title="Payment Review"
+        description={<span className="font-mono">{session.id}</span>}
+      />
 
       <div className="mb-6 space-y-2 text-sm text-foreground">
         <p>
@@ -90,16 +94,16 @@ export default async function CheckoutSessionReviewPage({ params }: Props) {
       </div>
 
       {session.resolvedBy && (
-        <Card className="mb-6 border-success/30 bg-success-subtle p-6 text-sm text-success">
+        <Tile className="mb-6 bg-success-subtle p-6 text-sm text-success">
           <p className="mb-1 font-semibold">Resolved</p>
           <p>{session.resolutionNote}</p>
           <p className="mt-2 text-xs text-success">
             {session.resolvedAt?.toLocaleString("en-MY")} by {session.resolvedBy.slice(0, 8)}…
           </p>
-        </Card>
+        </Tile>
       )}
 
       {isPending && <ResolveForm sessionId={session.id} />}
-    </div>
+    </PageFrame>
   )
 }

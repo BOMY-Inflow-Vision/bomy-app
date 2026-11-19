@@ -4,7 +4,9 @@ import { schema, withAdmin } from "@bomy/db"
 
 import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
-import { Card } from "@bomy/ui/card"
+import { PageFrame } from "@/components/admin-ui/page-frame"
+import { PageHeader } from "@/components/admin-ui/page-header"
+import { Tile } from "@/components/admin-ui/tile"
 import { StoreCategoryRow } from "./category-row"
 import { NewStoreCategoryForm } from "./new-category-form"
 
@@ -28,13 +30,12 @@ export default async function StoreCategoriesPage() {
   )
 
   return (
-    <div className="p-8">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-y-2">
-        <h1 className="text-xl font-semibold text-foreground">Store Categories</h1>
+    <PageFrame>
+      <PageHeader title="Store Categories">
         <NewStoreCategoryForm />
-      </div>
+      </PageHeader>
 
-      <Card className="overflow-x-auto">
+      <Tile className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="border-b border-border bg-muted text-left">
             <tr>
@@ -58,7 +59,7 @@ export default async function StoreCategoriesPage() {
             )}
           </tbody>
         </table>
-      </Card>
-    </div>
+      </Tile>
+    </PageFrame>
   )
 }

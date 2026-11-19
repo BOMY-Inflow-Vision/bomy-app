@@ -3,9 +3,9 @@
 import { useActionState, useEffect } from "react"
 import { Save } from "lucide-react"
 
+import { Tile } from "@/components/admin-ui/tile"
 import { useToast } from "@/components/toaster"
 import { Button } from "@bomy/ui/button"
-import { Card, CardContent } from "@bomy/ui/card"
 import { Input } from "@bomy/ui/input"
 import { Label } from "@bomy/ui/label"
 import { Textarea } from "@bomy/ui/textarea"
@@ -38,63 +38,61 @@ export function ProductSeoForm({
   }, [state, toast])
 
   return (
-    <Card>
-      <CardContent className="p-6">
-        <h2 className="mb-4 text-sm font-semibold text-foreground">SEO</h2>
-        <form action={formAction} className="max-w-xl space-y-4">
-          {state && !state.ok && (
-            <div
-              role="alert"
-              aria-live="assertive"
-              className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive"
-            >
-              {state.error}
-            </div>
-          )}
-          {state?.ok && (
-            <div
-              role="status"
-              aria-live="polite"
-              className="rounded-lg bg-success-subtle px-4 py-3 text-sm text-success"
-            >
-              Saved.
-            </div>
-          )}
-          <div>
-            <Label htmlFor="metaTitle" className="mb-1 block text-sm font-medium">
-              Meta title
-            </Label>
-            <Input id="metaTitle" name="metaTitle" maxLength={70} defaultValue={currentMetaTitle} />
+    <Tile className="p-6">
+      <h2 className="mb-4 text-sm font-semibold text-foreground">SEO</h2>
+      <form action={formAction} className="max-w-xl space-y-4">
+        {state && !state.ok && (
+          <div
+            role="alert"
+            aria-live="assertive"
+            className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive"
+          >
+            {state.error}
           </div>
-          <div>
-            <Label htmlFor="metaDescription" className="mb-1 block text-sm font-medium">
-              Meta description
-            </Label>
-            <Textarea
-              id="metaDescription"
-              name="metaDescription"
-              rows={3}
-              maxLength={160}
-              defaultValue={currentMetaDescription}
-            />
+        )}
+        {state?.ok && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="rounded-lg bg-success-subtle px-4 py-3 text-sm text-success"
+          >
+            Saved.
           </div>
-          <div>
-            <Label htmlFor="ogImageUrl" className="mb-1 block text-sm font-medium">
-              OG image URL
-            </Label>
-            <Input
-              id="ogImageUrl"
-              name="ogImageUrl"
-              type="url"
-              defaultValue={currentOgImageUrl}
-              placeholder="https://…"
-            />
-          </div>
-          <Button type="submit" disabled={pending} icon={<Save />}>
-            {pending ? "Saving…" : "Save"}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+        )}
+        <div>
+          <Label htmlFor="metaTitle" className="mb-1 block text-sm font-medium">
+            Meta title
+          </Label>
+          <Input id="metaTitle" name="metaTitle" maxLength={70} defaultValue={currentMetaTitle} />
+        </div>
+        <div>
+          <Label htmlFor="metaDescription" className="mb-1 block text-sm font-medium">
+            Meta description
+          </Label>
+          <Textarea
+            id="metaDescription"
+            name="metaDescription"
+            rows={3}
+            maxLength={160}
+            defaultValue={currentMetaDescription}
+          />
+        </div>
+        <div>
+          <Label htmlFor="ogImageUrl" className="mb-1 block text-sm font-medium">
+            OG image URL
+          </Label>
+          <Input
+            id="ogImageUrl"
+            name="ogImageUrl"
+            type="url"
+            defaultValue={currentOgImageUrl}
+            placeholder="https://…"
+          />
+        </div>
+        <Button type="submit" disabled={pending} icon={<Save />}>
+          {pending ? "Saving…" : "Save"}
+        </Button>
+      </form>
+    </Tile>
   )
 }

@@ -120,3 +120,18 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Tables inside a Tile: the page tables each carry their own header classes (grey band, upper case).
+   Restyle them in one place so every admin table reads the same: a quiet header row over a hairline. */
+@layer components {
+  .admin-tile thead,
+  .admin-tile thead tr {
+    @apply bg-transparent;
+  }
+  .admin-tile thead tr {
+    @apply border-b border-border;
+  }
+  .admin-tile thead th {
+    @apply text-xs font-semibold normal-case tracking-normal text-muted-foreground;
+  }
+}

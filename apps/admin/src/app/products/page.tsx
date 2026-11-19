@@ -1,6 +1,5 @@
 import Link from "next/link"
 import { and, asc, eq, ilike, or, sql, type SQL } from "drizzle-orm"
-import { Search } from "lucide-react"
 
 import { schema, withAdmin } from "@bomy/db"
 
@@ -8,10 +7,10 @@ import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { pageCount, pageOffset, parsePage, PAGE_SIZE } from "@/lib/pagination"
 import { Badge } from "@bomy/ui/badge"
-import { Button } from "@bomy/ui/button"
-import { Card } from "@bomy/ui/card"
-import { Input } from "@bomy/ui/input"
-import { Label } from "@bomy/ui/label"
+import { PageFrame } from "@/components/admin-ui/page-frame"
+import { PageHeader } from "@/components/admin-ui/page-header"
+import { SearchField } from "@/components/admin-ui/search-field"
+import { Tile } from "@/components/admin-ui/tile"
 import { Pagination } from "@/components/ui/pagination"
 
 export default async function ProductsPage({
@@ -74,27 +73,19 @@ export default async function ProductsPage({
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-y-2">
-        <h1 className="text-lg font-semibold text-foreground">Products</h1>
-        <form method="get" className="flex flex-wrap items-center gap-1">
-          <Label htmlFor="products-search" className="sr-only">
-            Search products
-          </Label>
-          <Input
+    <PageFrame>
+      <PageHeader title="Products">
+        <form method="get" role="search" className="flex items-center gap-2">
+          <SearchField
             id="products-search"
-            type="text"
-            name="q"
-            defaultValue={q ?? ""}
+            label="Search products"
             placeholder="Search by product or store…"
-            className="h-8 w-64 text-sm"
+            defaultValue={q ?? ""}
+            className="w-full sm:w-80"
           />
-          <Button type="submit" variant="outline" size="sm" icon={<Search />}>
-            Search
-          </Button>
         </form>
-      </div>
-      <Card className="overflow-x-auto">
+      </PageHeader>
+      <Tile className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted text-left text-xs font-semibold text-muted-foreground">
@@ -141,7 +132,7 @@ export default async function ProductsPage({
           totalPages={pageCount(total)}
           buildHref={(p) => buildHref({ page: p })}
         />
-      </Card>
-    </div>
+      </Tile>
+    </PageFrame>
   )
 }

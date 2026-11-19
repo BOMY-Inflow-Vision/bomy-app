@@ -10,8 +10,10 @@ import { senToMyr } from "@/lib/money"
 import { pageCount, pageOffset, parsePage, PAGE_SIZE } from "@/lib/pagination"
 import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
-import { Card } from "@bomy/ui/card"
 import { FilterTab, FilterTabs } from "@bomy/ui/filter-tabs"
+import { PageFrame } from "@/components/admin-ui/page-frame"
+import { PageHeader } from "@/components/admin-ui/page-header"
+import { Tile } from "@/components/admin-ui/tile"
 import { Pagination } from "@/components/ui/pagination"
 
 import { PayoutActions } from "./_payout-actions"
@@ -82,13 +84,12 @@ export default async function PayoutsPage({ searchParams }: Props) {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground">Payouts</h1>
+    <PageFrame>
+      <PageHeader title="Payouts">
         <Button asChild variant="link" icon={<ArrowRight />}>
           <a href="/payouts/reconciliation">Reconciliation</a>
         </Button>
-      </div>
+      </PageHeader>
 
       <FilterTabs label="Filter by status" className="mb-6 gap-2">
         <FilterTab asChild variant="inverse" active={!validStatus}>
@@ -107,7 +108,7 @@ export default async function PayoutsPage({ searchParams }: Props) {
         ))}
       </FilterTabs>
 
-      <Card className="overflow-x-auto">
+      <Tile className="overflow-x-auto">
         <table className="w-full text-sm text-foreground">
           <thead className="bg-muted text-xs uppercase text-muted-foreground">
             <tr>
@@ -161,7 +162,7 @@ export default async function PayoutsPage({ searchParams }: Props) {
           totalPages={pageCount(total)}
           buildHref={(p) => buildHref({ page: p })}
         />
-      </Card>
-    </div>
+      </Tile>
+    </PageFrame>
   )
 }

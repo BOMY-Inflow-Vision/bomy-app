@@ -68,10 +68,6 @@ const INVERSE = {
   active: ["rounded-full", "px-3", "py-1", "text-sm", "bg-foreground", "text-background"],
   inactive: ["rounded-full", "px-3", "py-1", "text-sm", "bg-muted", "text-muted-foreground"],
 }
-const FLAT = {
-  active: ["rounded", "px-3", "py-1", "bg-accent", "text-accent-foreground"],
-  inactive: ["rounded", "px-3", "py-1", "text-muted-foreground", "hover:bg-muted"],
-}
 
 function expectLook(got: Chip[], look: { active: string[]; inactive: string[] }) {
   for (const c of got) {
@@ -142,7 +138,7 @@ describe("admin payouts (inverse chips; invalid status selects All)", () => {
   })
 })
 
-describe("admin seller inquiries (flat chips; invalid status selects All)", () => {
+describe("admin seller inquiries (inverse chips; invalid status selects All)", () => {
   const S = ["pending", "approved", "rejected"]
   it.each([
     [{}, "All"],
@@ -152,7 +148,7 @@ describe("admin seller inquiries (flat chips; invalid status selects All)", () =
     const sp: SP = spIn
     const html = await render(SellerInquiriesPage({ searchParams: Promise.resolve(sp) }))
     const got = chips(html, "/seller-inquiries", ["All", ...S])
-    expectLook(got, FLAT)
+    expectLook(got, INVERSE)
     expectNav(html, "Filter by status")
     expect(got.map((c) => c.text)).toEqual(["All", ...S])
     expect(got.filter((c) => c.active).map((c) => c.text)).toEqual([active])
@@ -168,7 +164,7 @@ describe("admin seller inquiries (flat chips; invalid status selects All)", () =
   })
 })
 
-describe("admin stores (flat chips; invalid status selects All)", () => {
+describe("admin stores (inverse chips; invalid status selects All)", () => {
   const S = ["pending", "active", "suspended"]
   it.each([
     [{}, "All"],
@@ -178,7 +174,7 @@ describe("admin stores (flat chips; invalid status selects All)", () => {
     const sp: SP = spIn
     const html = await render(StoresPage({ searchParams: Promise.resolve(sp) }))
     const got = chips(html, "/stores", ["All", ...S])
-    expectLook(got, FLAT)
+    expectLook(got, INVERSE)
     expectNav(html, "Filter by status")
     expect(got.map((c) => c.text)).toEqual(["All", ...S])
     expect(got.filter((c) => c.active).map((c) => c.text)).toEqual([active])
@@ -213,16 +209,18 @@ describe("admin goodie box (status and quarter groups; invalid status leaves no 
     expectNav(html, "Filter by status", "Filter by quarter")
     expect(quarterChips.map((a) => a.textContent?.trim())).toEqual(["All", "2026-Q4", "2026-Q3"])
     const act = (list: HTMLAnchorElement[]) =>
-      list.filter((a) => /\bbg-accent\b/.test(a.className)).map((a) => a.textContent?.trim())
+      list.filter((a) => /\bbg-foreground\b/.test(a.className)).map((a) => a.textContent?.trim())
     for (const a of statusChips) {
-      const on = /\bbg-accent\b/.test(a.className)
-      expect([...a.classList]).toEqual(expect.arrayContaining(on ? FLAT.active : FLAT.inactive))
+      const on = /\bbg-foreground\b/.test(a.className)
+      expect([...a.classList]).toEqual(
+        expect.arrayContaining(on ? INVERSE.active : INVERSE.inactive),
+      )
     }
     for (const a of quarterChips) {
-      const on = /\bbg-accent\b/.test(a.className)
+      const on = /\bbg-foreground\b/.test(a.className)
       expect([...a.classList]).toEqual(
         expect.arrayContaining(
-          (on ? FLAT.active : FLAT.inactive).map((t) => (t === "px-3" ? "px-2" : t)),
+          (on ? INVERSE.active : INVERSE.inactive).map((t) => (t === "px-3" ? "px-2" : t)),
         ),
       )
     }
@@ -243,7 +241,7 @@ describe("admin goodie box (status and quarter groups; invalid status leaves no 
       }),
     )
     for (const a of [...statusChips, ...quarterChips]) {
-      const on = /\bbg-accent\b/.test(a.className)
+      const on = /\bbg-foreground\b/.test(a.className)
       expect(a.getAttribute("aria-current")).toBe(AFTER && on ? "page" : null)
     }
   })
@@ -252,7 +250,7 @@ describe("admin goodie box (status and quarter groups; invalid status leaves no 
 describe.each([
   ["memberships", MembershipsPage],
   ["brand-subscriptions", BrandSubscriptionsPage],
-] as const)("admin %s (flat chips; invalid status leaves no chip active)", (path, Page) => {
+] as const)("admin %s (inverse chips; invalid status leaves no chip active)", (path, Page) => {
   const S = ["pending", "active", "cancelled", "expired", "payment_failed"]
   it.each([
     [{}, "All"],
@@ -262,7 +260,7 @@ describe.each([
     const sp: SP = spIn
     const html = await render(Page({ searchParams: Promise.resolve(sp) }))
     const got = chips(html, `/${path}`, ["All", ...S])
-    expectLook(got, FLAT)
+    expectLook(got, INVERSE)
     expectNav(html, "Filter by status")
     expect(got.map((c) => c.text)).toEqual(["All", ...S])
     expect(got.filter((c) => c.active).map((c) => c.text)).toEqual(active ? [active] : [])

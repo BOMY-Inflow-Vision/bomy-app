@@ -4,6 +4,7 @@ import { createRoot, type Root } from "react-dom/client"
 import { renderToStaticMarkup } from "react-dom/server"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 
+import { PageFrame } from "@/components/admin-ui/page-frame"
 import { PageHeader } from "@/components/admin-ui/page-header"
 import { SearchField } from "@/components/admin-ui/search-field"
 import { Tile } from "@/components/admin-ui/tile"
@@ -15,7 +16,7 @@ describe("Tile", () => {
   it("is a borderless white tile with the floating shadow", () => {
     const d = doc(<Tile className="overflow-x-auto">x</Tile>)
     const el = d.body.firstElementChild!
-    for (const c of ["rounded-2xl", "bg-card", "shadow-tile", "overflow-x-auto"])
+    for (const c of ["rounded-2xl", "bg-card", "shadow-tile", "overflow-x-auto", "relative"])
       expect(el.classList.contains(c), c).toBe(true)
     expect(el.classList.contains("border")).toBe(false)
   })
@@ -136,5 +137,37 @@ describe("SearchField", () => {
     press({ key: "k", metaKey: true })
     expect(document.activeElement).toBe(input())
     closed.remove()
+  })
+})
+
+describe("PageFrame and PageHeader extras", () => {
+  it("PageFrame is wide by default and narrow on request, with the shared gutters", () => {
+    const wide = doc(<PageFrame>x</PageFrame>).body.firstElementChild!
+    const narrow = doc(<PageFrame width="narrow">x</PageFrame>).body.firstElementChild!
+    for (const c of ["mx-auto", "px-4", "md:px-6", "lg:px-8"])
+      expect(wide.classList.contains(c)).toBe(true)
+    expect(wide.classList.contains("max-w-7xl")).toBe(true)
+    expect(narrow.classList.contains("max-w-3xl")).toBe(true)
+    expect(narrow.classList.contains("max-w-7xl")).toBe(false)
+  })
+
+  it("PageHeader passes an id to the h1 and accepts a node as the title", () => {
+    const d = doc(
+      <PageHeader
+        title={
+          <>
+            Order <b>12</b>
+          </>
+        }
+        titleId="t"
+      />,
+    )
+    const h1 = d.querySelector("h1")!
+    expect(h1.id).toBe("t")
+    expect(h1.textContent).toBe("Order 12")
+  })
+
+  it("Tile marks itself so tables inside get the quiet header row", () => {
+    expect(doc(<Tile>x</Tile>).body.firstElementChild!.classList.contains("admin-tile")).toBe(true)
   })
 })

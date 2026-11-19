@@ -11,6 +11,7 @@ import { storeStatusVariant } from "@/lib/status-badge"
 import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
 import { FilterTab, FilterTabs } from "@bomy/ui/filter-tabs"
+import { PageFrame } from "@/components/admin-ui/page-frame"
 import { PageHeader } from "@/components/admin-ui/page-header"
 import { SearchField } from "@/components/admin-ui/search-field"
 import { Tile } from "@/components/admin-ui/tile"
@@ -112,14 +113,14 @@ export default async function StoresPage({
     sortKey === col ? (`${col}_desc` as SortKey) : (col as SortKey)
 
   return (
-    <div className="px-4 py-6 md:px-6 lg:px-8 lg:py-9">
+    <PageFrame>
       <PageHeader title="Stores">
         <FilterTabs label="Filter by status" className="gap-1 text-sm">
           {["", ...STORE_STATUSES].map((s) => (
             <FilterTab
               key={s || "all"}
               asChild
-              variant="flat"
+              variant="inverse"
               active={(isStoreStatus(status) ? status : "") === s}
             >
               <Link href={buildHref({ status: s })}>{s || "All"}</Link>
@@ -231,6 +232,6 @@ export default async function StoresPage({
           buildHref={(p) => buildHref({ page: p })}
         />
       </Tile>
-    </div>
+    </PageFrame>
   )
 }

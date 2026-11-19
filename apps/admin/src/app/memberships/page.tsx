@@ -10,10 +10,12 @@ import { pageCount, pageOffset, parsePage, PAGE_SIZE } from "@/lib/pagination"
 import { statusVariant } from "@/lib/status-badge"
 import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
-import { Card } from "@bomy/ui/card"
 import { FilterTab, FilterTabs } from "@bomy/ui/filter-tabs"
 import { Input } from "@bomy/ui/input"
 import { Label } from "@bomy/ui/label"
+import { PageFrame } from "@/components/admin-ui/page-frame"
+import { PageHeader } from "@/components/admin-ui/page-header"
+import { Tile } from "@/components/admin-ui/tile"
 import { Pagination } from "@/components/ui/pagination"
 import { cancelMembership, updateRenewalNotificationDays } from "./actions"
 
@@ -88,13 +90,13 @@ export default async function MembershipsPage({
   }
 
   return (
-    <div className="space-y-8 p-6">
+    <PageFrame className="space-y-8">
       {/* Renewal notification settings */}
       <section aria-labelledby="renewal-settings-heading">
         <h2 id="renewal-settings-heading" className="mb-4 text-lg font-semibold text-foreground">
           Renewal Notification Settings
         </h2>
-        <Card className="p-6">
+        <Tile className="p-6">
           <form action={updateRenewalNotificationDays} className="flex flex-wrap items-end gap-4">
             <div className="min-w-0 flex-1">
               <Label htmlFor="notificationDays" className="mb-1 block">
@@ -115,24 +117,21 @@ export default async function MembershipsPage({
               Save
             </Button>
           </form>
-        </Card>
+        </Tile>
       </section>
 
       {/* Memberships roster */}
       <section aria-labelledby="memberships-heading">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-y-2">
-          <h1 id="memberships-heading" className="text-lg font-semibold text-foreground">
-            Platform Memberships
-          </h1>
+        <PageHeader title="Platform Memberships" titleId="memberships-heading">
           <FilterTabs label="Filter by status" className="gap-1 text-sm">
             {["", "pending", "active", "cancelled", "expired", "payment_failed"].map((s) => (
-              <FilterTab key={s} asChild variant="flat" active={status === s || (!status && !s)}>
+              <FilterTab key={s} asChild variant="inverse" active={status === s || (!status && !s)}>
                 <Link href={buildHref({ status: s })}>{s || "All"}</Link>
               </FilterTab>
             ))}
           </FilterTabs>
-        </div>
-        <Card className="overflow-x-auto">
+        </PageHeader>
+        <Tile className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted text-left text-xs font-semibold text-muted-foreground">
@@ -197,8 +196,8 @@ export default async function MembershipsPage({
             totalPages={pageCount(total)}
             buildHref={(p) => buildHref({ page: p })}
           />
-        </Card>
+        </Tile>
       </section>
-    </div>
+    </PageFrame>
   )
 }
