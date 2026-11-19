@@ -16,6 +16,7 @@ function storeData(
     metaTitle: string | null
     metaDescription: string | null
     ogImageUrl: string | null
+    imageUrl: string | null
   }> = {},
 ) {
   return {
@@ -30,6 +31,9 @@ function storeData(
       metaTitle: null,
       metaDescription: null,
       ogImageUrl: null,
+      imageUrl: null,
+      imageFocalX: 50,
+      imageFocalY: 50,
       ...overrides,
     },
     categorySections: [],
@@ -58,6 +62,23 @@ describe("brands/[slug] generateMetadata", () => {
     expect(metadata.title).toBe("Acme")
     expect(metadata.description).toBe("Brief intro")
     expect(metadata.openGraph?.images).toBeUndefined()
+  })
+
+  it("uses the brand picture as the share image when there is no explicit SEO image", async () => {
+    mockGetStorePage.mockResolvedValueOnce(storeData({ imageUrl: "https://cdn.example.com/b.jpg" }))
+    const metadata = await generateMetadata({ params: Promise.resolve({ slug: "acme" }) })
+    expect(metadata.openGraph?.images).toEqual(["https://cdn.example.com/b.jpg"])
+  })
+
+  it("prefers the explicit SEO image over the brand picture", async () => {
+    mockGetStorePage.mockResolvedValueOnce(
+      storeData({
+        ogImageUrl: "https://cdn.example.com/og.png",
+        imageUrl: "https://cdn.example.com/b.jpg",
+      }),
+    )
+    const metadata = await generateMetadata({ params: Promise.resolve({ slug: "acme" }) })
+    expect(metadata.openGraph?.images).toEqual(["https://cdn.example.com/og.png"])
   })
 
   it("falls back to description when excerpt is empty", async () => {

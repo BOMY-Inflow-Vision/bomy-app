@@ -94,6 +94,30 @@ async function renderStore(storeOver: Record<string, unknown> = {}, sections = t
 }
 const subscribe = (d: Document) => d.querySelector('a[href="/brands/acme/subscribe"]')!
 
+describe("brand store page hero picture", () => {
+  it("shows no hero without a brand picture", async () => {
+    const d = await renderStore({ imageUrl: null })
+    expect(d.querySelector("[data-brand-hero]")).toBeNull()
+  })
+
+  it("shows a square, capped, centred hero cropped at the focal point, above the heading", async () => {
+    const d = await renderStore({
+      imageUrl: "https://cdn.example.com/b.jpg",
+      imageFocalX: 75,
+      imageFocalY: 20,
+    })
+    const hero = d.querySelector("[data-brand-hero]")!
+    has(hero, ["aspect-tile", "mx-auto", "w-full", "max-w-xs", "overflow-hidden", "rounded-bento"])
+    const img = hero.querySelector("img")!
+    expect(img.getAttribute("src")).toBe("https://cdn.example.com/b.jpg")
+    expect(img.getAttribute("alt")).toBe("")
+    expect(img.style.objectPosition).toBe("75% 20%")
+    // The hero comes before the page title in document order.
+    const h1 = d.querySelector("h1")!
+    expect(hero.compareDocumentPosition(h1) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+})
+
 describe("brand store page heading (R5a)", () => {
   it("uses the shared heading, centred, with a store name that may break anywhere", async () => {
     const d = await renderStore({ name: "N".repeat(80) })
