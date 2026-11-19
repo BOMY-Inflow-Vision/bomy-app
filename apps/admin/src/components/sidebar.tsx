@@ -228,8 +228,10 @@ export function Sidebar({ email }: { email: string }) {
         aria-hidden={!open}
         inert={!open}
         className={cn(
-          "fixed inset-0 z-[70] transition-[visibility] duration-300 lg:hidden",
-          open ? "visible" : "invisible",
+          "fixed inset-0 z-[70] lg:hidden",
+          // Visible at once on open (a hidden element cannot take focus), and hidden only after
+          // the slide-out has finished on close.
+          open ? "visible" : "invisible transition-[visibility] duration-300",
         )}
       >
         <span
