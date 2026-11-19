@@ -39,6 +39,9 @@ export const getStorePage = cache(async (slug: string) => {
         metaTitle: schema.stores.metaTitle,
         metaDescription: schema.stores.metaDescription,
         ogImageUrl: schema.stores.ogImageUrl,
+        imageUrl: schema.stores.imageUrl,
+        imageFocalX: schema.stores.imageFocalX,
+        imageFocalY: schema.stores.imageFocalY,
       })
       .from(schema.stores)
       .where(and(eq(schema.stores.slug, slug), eq(schema.stores.status, "active")))
@@ -170,6 +173,9 @@ export const getStorePage = cache(async (slug: string) => {
         metaTitle: store.metaTitle,
         metaDescription: store.metaDescription,
         ogImageUrl: store.ogImageUrl,
+        imageUrl: store.imageUrl,
+        imageFocalX: store.imageFocalX,
+        imageFocalY: store.imageFocalY,
       },
       categorySections,
       uncategorized: {

@@ -5,11 +5,13 @@ import { CreditCard, Eye } from "lucide-react"
 
 import { auth } from "@/auth"
 import { BodyRenderer } from "@/components/body-renderer"
+import { CoverImage } from "@/components/cover-image"
 import { PageHeading } from "@/components/page-heading"
-import { ProductCard } from "@/components/product-card"
+import { ProductCard, toneFor } from "@/components/product-card"
 import { AvatarGroup } from "@/components/ui/avatar-group"
 import { Button } from "@bomy/ui/button"
 import { VideoEmbed } from "@/components/video-embed"
+import { cn } from "@/lib/utils"
 
 import { getBrandSubscriberAvatars, getStorePage } from "./queries"
 import { PageMain } from "@/components/page-main"
@@ -26,6 +28,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { store } = data
   const title = store.metaTitle ?? store.name
   const description = store.metaDescription ?? store.excerpt ?? store.description ?? undefined
+  // An explicit SEO image wins; otherwise the seller's brand picture is the share image.
+  const ogImage = store.ogImageUrl ?? store.imageUrl ?? undefined
 
   return {
     title,
@@ -33,7 +37,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     openGraph: {
       title,
       ...(description ? { description } : {}),
-      ...(store.ogImageUrl ? { images: [store.ogImageUrl] } : {}),
+      ...(ogImage ? { images: [ogImage] } : {}),
     },
   }
 }
@@ -79,6 +83,27 @@ export default async function StorePage({ params }: Props) {
 
   return (
     <PageMain className="flex flex-col gap-10">
+      {store.imageUrl && (
+        // The brand picture, cropped to a square around the seller's focal point (the same crop
+        // as the /brands tile). Decorative: the heading below already names the brand.
+        <div
+          data-brand-hero
+          className={cn(
+            "relative isolate mx-auto aspect-tile w-full max-w-xs overflow-hidden rounded-bento",
+            toneFor(`/brands/${store.slug}`),
+          )}
+        >
+          <div className="absolute inset-0">
+            <CoverImage
+              src={store.imageUrl}
+              alt=""
+              fit="cover"
+              focalX={store.imageFocalX}
+              focalY={store.imageFocalY}
+            />
+          </div>
+        </div>
+      )}
       <PageHeading title={store.name} align="center" />
 
       {store.bodyHtml ? (
