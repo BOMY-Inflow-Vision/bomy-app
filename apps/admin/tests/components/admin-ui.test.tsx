@@ -171,3 +171,17 @@ describe("PageFrame and PageHeader extras", () => {
     expect(doc(<Tile>x</Tile>).body.firstElementChild!.classList.contains("admin-tile")).toBe(true)
   })
 })
+
+describe("labelTables", () => {
+  it("copies each column heading onto its cells and skips full-width rows", async () => {
+    const { labelTables } = await import("@/components/admin-ui/table-labels")
+    const host = document.createElement("div")
+    host.innerHTML = `<div class="admin-tile"><table><thead><tr><th>Order</th><th> Store </th></tr></thead>
+      <tbody><tr><td>a</td><td>b</td></tr><tr><td colspan="2">No orders</td></tr></tbody></table></div>`
+    labelTables(host)
+    const cells = [...host.querySelectorAll("td")].map(
+      (td) => td.getAttribute("data-label") ?? undefined,
+    )
+    expect(cells).toEqual(["Order", "Store", undefined])
+  })
+})

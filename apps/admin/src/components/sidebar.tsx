@@ -248,7 +248,7 @@ export function Sidebar({ email }: { email: string }) {
           aria-modal={open}
           aria-label="Menu"
           className={cn(
-            "absolute bottom-2 left-2 top-2 flex w-[min(288px,calc(100vw-16px))] flex-col rounded-3xl bg-card p-3 text-card-foreground shadow-tile transition-transform duration-300 ease-spring motion-reduce:transition-none",
+            "absolute bottom-2 left-2 top-2 flex w-[min(288px,calc(100vw-16px))] flex-col rounded-3xl bg-card p-3 text-card-foreground shadow-tile transition-transform duration-300 ease-out motion-reduce:transition-none",
             open ? "translate-x-0" : "-translate-x-[108%]",
           )}
         >

@@ -134,4 +134,47 @@
   .admin-tile thead th {
     @apply text-xs font-semibold normal-case tracking-normal text-muted-foreground;
   }
+
+  /* Phones and tablets (under 900px, as in TillyTop): no table, a card per row. The heading row is
+     kept for screen readers; each cell prints its column name (data-label, set by TableLabels). */
+  @media (max-width: 899px) {
+    .admin-tile table,
+    .admin-tile tbody,
+    .admin-tile tr,
+    .admin-tile td {
+      @apply block;
+    }
+    .admin-tile table {
+      @apply min-w-0 !important;
+    }
+    .admin-tile thead {
+      @apply sr-only;
+    }
+    .admin-tile tbody {
+      @apply flex flex-col gap-2 p-2;
+    }
+    .admin-tile tbody tr {
+      @apply rounded-xl bg-muted/60 p-3.5 ring-1 ring-foreground/[.06];
+    }
+    .admin-tile tbody td {
+      @apply flex items-baseline justify-between gap-4 border-0 !px-0 !py-1 text-right;
+    }
+    .admin-tile tbody td::before {
+      content: attr(data-label);
+      @apply flex-none text-left text-xs font-semibold text-muted-foreground;
+    }
+    /* The first cell is the card's heading (the order, the store, the product): full width, no label. */
+    .admin-tile tbody td:first-child:not([colspan]) {
+      @apply block pb-2 text-left;
+    }
+    .admin-tile tbody td:first-child::before {
+      @apply hidden;
+    }
+    .admin-tile tbody td:not([data-label]) {
+      @apply justify-end text-center;
+    }
+    .admin-tile tbody td:empty {
+      @apply hidden;
+    }
+  }
 }
