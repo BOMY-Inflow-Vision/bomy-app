@@ -8,7 +8,7 @@ import { getDb } from "@/lib/db"
 import { senToMyr } from "@/lib/money"
 import { Alert } from "@bomy/ui/alert"
 import { Badge } from "@bomy/ui/badge"
-import { Button } from "@bomy/ui/button"
+import { Button } from "@/components/admin-ui/button"
 
 import { PageFrame } from "@/components/admin-ui/page-frame"
 import { PageHeader } from "@/components/admin-ui/page-header"

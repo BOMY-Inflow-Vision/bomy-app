@@ -4,7 +4,7 @@ import { type FormEvent, useState, useTransition } from "react"
 import { Save, Trash2, X } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
-import { Button } from "@bomy/ui/button"
+import { Button } from "@/components/admin-ui/button"
 import { Input } from "@bomy/ui/input"
 import { Label } from "@bomy/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@bomy/ui/select"

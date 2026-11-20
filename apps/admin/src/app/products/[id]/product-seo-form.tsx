@@ -5,7 +5,7 @@ import { Save } from "lucide-react"
 
 import { Tile } from "@/components/admin-ui/tile"
 import { useToast } from "@/components/toaster"
-import { Button } from "@bomy/ui/button"
+import { Button } from "@/components/admin-ui/button"
 import { Input } from "@bomy/ui/input"
 import { Label } from "@bomy/ui/label"
 import { Textarea } from "@bomy/ui/textarea"

@@ -4,7 +4,7 @@ import { useState, useTransition } from "react"
 import { CircleX } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
-import { Button } from "@bomy/ui/button"
+import { Button } from "@/components/admin-ui/button"
 import { cn } from "@/lib/utils"
 import { rejectInquiry } from "./actions"
 import { REJECT_TONE } from "./reject-style"

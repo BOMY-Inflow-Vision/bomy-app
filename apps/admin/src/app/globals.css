@@ -173,6 +173,13 @@
     .admin-tile tbody td:not([data-label]) {
       @apply justify-end text-center;
     }
+    /* A one-cell "nothing here" row is a message, not a card. */
+    .admin-tile tbody tr:has(> td[colspan]:only-child) {
+      @apply bg-transparent p-0 ring-0;
+    }
+    .admin-tile tbody td[colspan] {
+      @apply block !py-8 text-center text-sm;
+    }
     .admin-tile tbody td:empty {
       @apply hidden;
     }
