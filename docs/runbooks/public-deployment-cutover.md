@@ -265,6 +265,7 @@ Re-run all preview-smoke checks at `https://brandsofmalaysia.com`. Additionally:
 - [ ] `/seller/apply` end-to-end: real Turnstile challenge completes; DB row appears in `seller_inquiries`; action returns success. Applicant ack + ops alert email DO NOT send (expected; mailer skipped per spec §3 mail-deferred).
 - [ ] **Real Turnstile, not always-pass test keys** — `/seller/apply` must complete a genuine challenge before validating server-side. If the widget renders empty or fails to validate, that's a hard gate failure; check the Cloudflare site config.
 - [ ] `platform_config.checkout_enabled` = `false` confirmed via Neon SQL console.
+- [ ] **Before any production `checkout_enabled=true`:** if `INVENTORY_EXPIRY_CRON` is set on the Railway API service (set to let the idle Neon database sleep, PR #204), delete it (or set `*/10 * * * *`), redeploy the API, and confirm the log line `jobs: inventory-reservation-expiry schedule "*/10 * * * *"`. With a slow schedule, an abandoned checkout holds its stock and voucher until the next run (up to about 6 hours for `0 */6 * * *`).
 
 ### Step 18 — Post-merge bookkeeping
 

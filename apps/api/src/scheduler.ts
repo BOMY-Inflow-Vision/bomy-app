@@ -39,6 +39,44 @@ const TZ = "Asia/Kuala_Lumpur"
 
 export const VOUCHER_QUEUE_NAME = "voucher-issuance"
 
+const INV_EXPIRY_SCHEDULER_ID = "every-10min-inv-expiry"
+
+/**
+ * Register the reservation-expiry schedule and return the pattern that is ACTUALLY running (the
+ * configured one, or the default if the configured one is not a valid cron pattern). The scheduler
+ * id keeps its old name on purpose: upserting the same id replaces the pattern in place, while a new
+ * id would leave the old every-10-minutes schedule running in Redis as well.
+ */
+export async function registerInvExpirySchedule(
+  queue: Pick<Queue, "upsertJobScheduler">,
+  logger: { info: (msg: string) => void; error: (obj: object, msg: string) => void },
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<string> {
+  const configured = resolveInvExpiryCron(env)
+  let applied = configured
+  try {
+    await queue.upsertJobScheduler(
+      INV_EXPIRY_SCHEDULER_ID,
+      { pattern: configured, tz: TZ },
+      { name: "expire-reservations" },
+    )
+  } catch (err) {
+    // A typo in the env var must not stop the API (it also receives the payment webhooks).
+    logger.error(
+      { err, configured },
+      `jobs: INVENTORY_EXPIRY_CRON "${configured}" is not a valid cron pattern; using the default`,
+    )
+    applied = INV_EXPIRY_DEFAULT_CRON
+    await queue.upsertJobScheduler(
+      INV_EXPIRY_SCHEDULER_ID,
+      { pattern: applied, tz: TZ },
+      { name: "expire-reservations" },
+    )
+  }
+  logger.info(`jobs: inventory-reservation-expiry schedule "${applied}" (${TZ})`)
+  return applied
+}
+
 export interface Scheduler {
   /** Trigger VoucherIssuanceJob immediately (used by the "Issue Now" admin trigger). */
   triggerVoucherIssuance(): Promise<void>
@@ -92,28 +130,7 @@ export async function createScheduler(
     { pattern: MEMBER_EXPIRY_CRON, tz: TZ },
     { name: "expire-member-subscriptions" },
   )
-  // The scheduler id keeps its old name on purpose: upserting the same id replaces the pattern in
-  // place, while a new id would leave the old every-10-minutes schedule running in Redis as well.
-  const invExpiryCron = resolveInvExpiryCron()
-  try {
-    await invExpiryQueue.upsertJobScheduler(
-      "every-10min-inv-expiry",
-      { pattern: invExpiryCron, tz: TZ },
-      { name: "expire-reservations" },
-    )
-  } catch (err) {
-    // A typo in the env var must not stop the API (it also receives the payment webhooks).
-    deps.logger.error(
-      { err, invExpiryCron },
-      "jobs: INVENTORY_EXPIRY_CRON is not a valid cron pattern; using the default",
-    )
-    await invExpiryQueue.upsertJobScheduler(
-      "every-10min-inv-expiry",
-      { pattern: INV_EXPIRY_DEFAULT_CRON, tz: TZ },
-      { name: "expire-reservations" },
-    )
-  }
-  deps.logger.info(`jobs: inventory-reservation-expiry schedule "${invExpiryCron}" (${TZ})`)
+  await registerInvExpirySchedule(invExpiryQueue, deps.logger)
   await orderAutoCompleteQueue.upsertJobScheduler(
     "daily-order-auto-complete",
     { pattern: ORDER_AUTO_COMPLETE_CRON, tz: TZ },
