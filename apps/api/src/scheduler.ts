@@ -20,7 +20,19 @@ const VOUCHER_ISSUANCE_CRON = "0 8 1 * *" // 08:00 MYT on 1st of month
 const RENEWAL_NOTIFICATION_CRON = "0 9 * * *" // 09:00 MYT daily
 const BRAND_EXPIRY_CRON = "5 0 * * *" // 00:05 MYT daily
 const MEMBER_EXPIRY_CRON = "10 0 * * *" // 00:10 MYT daily
-const INV_EXPIRY_CRON = "*/10 * * * *" // every 10 minutes MYT
+export const INV_EXPIRY_DEFAULT_CRON = "*/10 * * * *" // every 10 minutes MYT
+
+/**
+ * The reservation-expiry schedule. Every run opens a database transaction, which wakes a scale-to-zero
+ * Neon compute (it then stays up for its idle timeout), so a 10-minute cadence keeps the database
+ * awake around the clock. While checkout is off nothing reserves stock, so production can set
+ * INVENTORY_EXPIRY_CRON to something slower. The default stays every 10 minutes: unset = unchanged
+ * behaviour. Set it back (or unset it) BEFORE flipping `checkout_enabled` (see the runbook).
+ */
+export function resolveInvExpiryCron(env: NodeJS.ProcessEnv = process.env): string {
+  const raw = env["INVENTORY_EXPIRY_CRON"]?.trim()
+  return raw ? raw : INV_EXPIRY_DEFAULT_CRON
+}
 const BODY_IMAGE_CLEANUP_CRON = "0 2 * * *" // 02:00 MYT daily
 
 const TZ = "Asia/Kuala_Lumpur"
@@ -80,11 +92,28 @@ export async function createScheduler(
     { pattern: MEMBER_EXPIRY_CRON, tz: TZ },
     { name: "expire-member-subscriptions" },
   )
-  await invExpiryQueue.upsertJobScheduler(
-    "every-10min-inv-expiry",
-    { pattern: INV_EXPIRY_CRON, tz: TZ },
-    { name: "expire-reservations" },
-  )
+  // The scheduler id keeps its old name on purpose: upserting the same id replaces the pattern in
+  // place, while a new id would leave the old every-10-minutes schedule running in Redis as well.
+  const invExpiryCron = resolveInvExpiryCron()
+  try {
+    await invExpiryQueue.upsertJobScheduler(
+      "every-10min-inv-expiry",
+      { pattern: invExpiryCron, tz: TZ },
+      { name: "expire-reservations" },
+    )
+  } catch (err) {
+    // A typo in the env var must not stop the API (it also receives the payment webhooks).
+    deps.logger.error(
+      { err, invExpiryCron },
+      "jobs: INVENTORY_EXPIRY_CRON is not a valid cron pattern; using the default",
+    )
+    await invExpiryQueue.upsertJobScheduler(
+      "every-10min-inv-expiry",
+      { pattern: INV_EXPIRY_DEFAULT_CRON, tz: TZ },
+      { name: "expire-reservations" },
+    )
+  }
+  deps.logger.info(`jobs: inventory-reservation-expiry schedule "${invExpiryCron}" (${TZ})`)
   await orderAutoCompleteQueue.upsertJobScheduler(
     "daily-order-auto-complete",
     { pattern: ORDER_AUTO_COMPLETE_CRON, tz: TZ },
