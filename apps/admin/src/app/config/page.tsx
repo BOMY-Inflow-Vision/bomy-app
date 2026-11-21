@@ -5,6 +5,9 @@ import { Badge } from "@bomy/ui/badge"
 
 import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
+import { PageFrame } from "@/components/admin-ui/page-frame"
+import { PageHeader } from "@/components/admin-ui/page-header"
+import { Tile } from "@/components/admin-ui/tile"
 
 export default async function ConfigPage() {
   const { id: adminId } = await requireAdmin()
@@ -25,12 +28,11 @@ export default async function ConfigPage() {
   )
 
   return (
-    <div className="p-6">
-      <div className="mb-4 flex items-center gap-2">
-        <h1 className="text-lg font-semibold text-foreground">Platform Config</h1>
+    <PageFrame>
+      <PageHeader title="Platform Config">
         <Badge variant="warning">Read-only</Badge>
-      </div>
-      <div className="overflow-x-auto rounded-lg border border-border bg-background">
+      </PageHeader>
+      <Tile className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted text-left text-xs font-semibold text-muted-foreground">
@@ -62,7 +64,7 @@ export default async function ConfigPage() {
             )}
           </tbody>
         </table>
-      </div>
-    </div>
+      </Tile>
+    </PageFrame>
   )
 }

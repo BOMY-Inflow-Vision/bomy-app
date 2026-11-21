@@ -6,8 +6,10 @@ import { getDb } from "@/lib/db"
 import { senToMyr } from "@/lib/money"
 import { cn } from "@/lib/utils"
 import { Badge } from "@bomy/ui/badge"
-import { Button } from "@bomy/ui/button"
-import { Card } from "@bomy/ui/card"
+import { Button } from "@/components/admin-ui/button"
+import { PageFrame } from "@/components/admin-ui/page-frame"
+import { PageHeader } from "@/components/admin-ui/page-header"
+import { Tile } from "@/components/admin-ui/tile"
 
 import { fetchOrderWithDetail } from "../_queries"
 import { CreatePayoutButton } from "./_create-payout-button"
@@ -23,13 +25,12 @@ export default async function AdminOrderDetailPage({ params }: Props) {
   if (!order) notFound()
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8">
+    <PageFrame width="narrow">
       <Button asChild variant="link" icon={<ArrowLeft />} arrowOnHover={false} className="mb-6">
         <a href="/orders">Back to orders</a>
       </Button>
 
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground">Order {order.id.slice(0, 8)}&hellip;</h1>
+      <PageHeader title={<>Order {order.id.slice(0, 8)}&hellip;</>}>
         <div className="flex gap-2">
           <Badge variant="secondary" className="capitalize">
             {order.paymentStatus}
@@ -38,7 +39,7 @@ export default async function AdminOrderDetailPage({ params }: Props) {
             {order.fulfilmentStatus}
           </Badge>
         </div>
-      </div>
+      </PageHeader>
 
       <div className="mb-6 grid grid-cols-2 gap-4 text-sm text-foreground">
         <div>
@@ -62,7 +63,7 @@ export default async function AdminOrderDetailPage({ params }: Props) {
         </div>
       </div>
 
-      <Card className="mb-6 p-6">
+      <Tile className="mb-6 p-6">
         <h2 className="mb-4 text-sm font-semibold text-muted-foreground">Financials</h2>
         <div className="space-y-2 text-sm">
           {(
@@ -85,9 +86,9 @@ export default async function AdminOrderDetailPage({ params }: Props) {
             </div>
           ))}
         </div>
-      </Card>
+      </Tile>
 
-      <Card className="mb-6 p-6">
+      <Tile className="mb-6 p-6">
         <h2 className="mb-4 text-sm font-semibold text-muted-foreground">Items</h2>
         <ul className="space-y-2 text-sm text-foreground">
           {order.items.map((item) => {
@@ -104,9 +105,9 @@ export default async function AdminOrderDetailPage({ params }: Props) {
             )
           })}
         </ul>
-      </Card>
+      </Tile>
 
-      <Card className="mb-6 p-6 text-sm text-foreground">
+      <Tile className="mb-6 p-6 text-sm text-foreground">
         <h2 className="mb-4 font-semibold text-foreground">Fulfilment timeline</h2>
         {order.shippedAt && (
           <p>
@@ -116,9 +117,9 @@ export default async function AdminOrderDetailPage({ params }: Props) {
         )}
         {order.deliveredAt && <p>Delivered: {order.deliveredAt.toLocaleDateString("en-MY")}</p>}
         {order.completedAt && <p>Completed: {order.completedAt.toLocaleDateString("en-MY")}</p>}
-      </Card>
+      </Tile>
 
-      <Card className="mb-6 p-6">
+      <Tile className="mb-6 p-6">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-muted-foreground">Payout history</h2>
           {order.fulfilmentStatus === "completed" &&
@@ -154,7 +155,7 @@ export default async function AdminOrderDetailPage({ params }: Props) {
             </tbody>
           </table>
         )}
-      </Card>
-    </div>
+      </Tile>
+    </PageFrame>
   )
 }

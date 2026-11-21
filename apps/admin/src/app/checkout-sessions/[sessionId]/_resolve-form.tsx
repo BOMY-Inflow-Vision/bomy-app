@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { CircleCheck } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
-import { Button } from "@bomy/ui/button"
+import { Button } from "@/components/admin-ui/button"
 import { Label } from "@bomy/ui/label"
 import { Textarea } from "@bomy/ui/textarea"
 import { resolvePaymentReview } from "./actions"

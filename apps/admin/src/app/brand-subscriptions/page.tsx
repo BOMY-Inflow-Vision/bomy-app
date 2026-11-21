@@ -8,8 +8,10 @@ import { getDb } from "@/lib/db"
 import { pageCount, pageOffset, parsePage, PAGE_SIZE } from "@/lib/pagination"
 import { statusVariant } from "@/lib/status-badge"
 import { Badge } from "@bomy/ui/badge"
-import { Card } from "@bomy/ui/card"
 import { FilterTab, FilterTabs } from "@bomy/ui/filter-tabs"
+import { PageFrame } from "@/components/admin-ui/page-frame"
+import { PageHeader } from "@/components/admin-ui/page-header"
+import { Tile } from "@/components/admin-ui/tile"
 import { Pagination } from "@/components/ui/pagination"
 
 import { StoreFilter } from "./store-filter"
@@ -108,18 +110,17 @@ export default async function BrandSubscriptionsPage({
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
-        <h1 className="text-lg font-semibold text-foreground">Brand Subscriptions</h1>
+    <PageFrame>
+      <PageHeader title="Brand Subscriptions">
         <FilterTabs label="Filter by status" className="gap-1 text-sm">
           {["", "pending", "active", "cancelled", "expired", "payment_failed"].map((s) => (
-            <FilterTab key={s} asChild variant="flat" active={status === s || (!status && !s)}>
+            <FilterTab key={s} asChild variant="inverse" active={status === s || (!status && !s)}>
               <Link href={buildHref({ status: s })}>{s || "All"}</Link>
             </FilterTab>
           ))}
         </FilterTabs>
         {stores.length > 0 && (
-          <div className="sm:ml-auto">
+          <div>
             <StoreFilter
               value={activeStoreId}
               allHref={buildHref({ storeId: "" })}
@@ -131,8 +132,8 @@ export default async function BrandSubscriptionsPage({
             />
           </div>
         )}
-      </div>
-      <Card className="overflow-x-auto">
+      </PageHeader>
+      <Tile className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted text-left text-xs font-semibold text-muted-foreground">
@@ -177,7 +178,7 @@ export default async function BrandSubscriptionsPage({
           totalPages={pageCount(total)}
           buildHref={(p) => buildHref({ page: p })}
         />
-      </Card>
-    </div>
+      </Tile>
+    </PageFrame>
   )
 }

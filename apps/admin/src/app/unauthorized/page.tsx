@@ -2,7 +2,7 @@ import Link from "next/link"
 import { LogIn } from "lucide-react"
 
 import { ToastOnMount } from "@/components/toast-on-mount"
-import { Button } from "@bomy/ui/button"
+import { Button } from "@/components/admin-ui/button"
 
 export default function UnauthorizedPage() {
   return (

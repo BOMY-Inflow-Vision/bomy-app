@@ -8,11 +8,14 @@ import { cn } from "@/lib/utils"
 // anywhere and the title block may shrink.
 export function PageHeader({
   title,
+  titleId,
   description,
   children,
   className,
 }: {
-  title: string
+  title: React.ReactNode
+  /** The h1's id, for a section that points at it with aria-labelledby. */
+  titleId?: string
   description?: React.ReactNode
   /** The page's controls, laid out in a wrapping row. */
   children?: React.ReactNode
@@ -23,7 +26,10 @@ export function PageHeader({
       className={cn("mb-6 flex flex-wrap items-center justify-between gap-x-6 gap-y-3", className)}
     >
       <div className="min-w-0">
-        <h1 className="min-w-0 text-2xl font-bold tracking-tight text-foreground [overflow-wrap:anywhere]">
+        <h1
+          id={titleId}
+          className="min-w-0 text-2xl font-bold tracking-tight text-foreground [overflow-wrap:anywhere]"
+        >
           {title}
         </h1>
         {description ? (

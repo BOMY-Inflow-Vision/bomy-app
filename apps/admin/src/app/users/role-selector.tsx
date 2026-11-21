@@ -6,7 +6,7 @@ import { Save } from "lucide-react"
 import { USER_ROLES, type UserRole } from "@bomy/db/types"
 
 import { useToast } from "@/components/toaster"
-import { Button } from "@bomy/ui/button"
+import { Button } from "@/components/admin-ui/button"
 import { Label } from "@bomy/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@bomy/ui/select"
 import { updateUserRole } from "./actions"

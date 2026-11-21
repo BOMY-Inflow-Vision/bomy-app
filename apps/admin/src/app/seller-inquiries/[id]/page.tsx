@@ -10,7 +10,9 @@ import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { Alert } from "@bomy/ui/alert"
 import { Badge } from "@bomy/ui/badge"
-import { Button } from "@bomy/ui/button"
+import { Button } from "@/components/admin-ui/button"
+import { PageFrame } from "@/components/admin-ui/page-frame"
+import { PageHeader } from "@/components/admin-ui/page-header"
 import { ApproveForm } from "./approve-form"
 
 const STATUS_COLORS: Record<InquiryStatus, string> = {
@@ -61,17 +63,16 @@ export default async function SellerInquiryDetailPage({ params }: Props) {
   if (!row) notFound()
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8">
+    <PageFrame width="narrow">
       <Button asChild variant="link" icon={<ArrowLeft />} arrowOnHover={false} className="mb-6">
         <Link href="/seller-inquiries">Back to inquiries</Link>
       </Button>
 
-      <div className="mb-4 flex items-center gap-3">
-        <h1 className="text-2xl font-bold text-foreground">{row.name}</h1>
+      <PageHeader title={row.name}>
         <Badge variant="outline" className={STATUS_COLORS[row.status]}>
           {row.status}
         </Badge>
-      </div>
+      </PageHeader>
 
       <dl className="mb-6 grid grid-cols-3 gap-y-2 text-sm">
         <dt className="text-muted-foreground">Email</dt>
@@ -118,6 +119,6 @@ export default async function SellerInquiryDetailPage({ params }: Props) {
           {row.reviewerName ? ` by ${row.reviewerName}` : ""}.
         </Alert>
       )}
-    </div>
+    </PageFrame>
   )
 }

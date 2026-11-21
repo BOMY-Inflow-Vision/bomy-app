@@ -8,10 +8,12 @@ import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { pageCount, pageOffset, parsePage, PAGE_SIZE } from "@/lib/pagination"
 import { Badge } from "@bomy/ui/badge"
-import { Button } from "@bomy/ui/button"
-import { Card } from "@bomy/ui/card"
+import { Button } from "@/components/admin-ui/button"
 import { Input } from "@bomy/ui/input"
 import { Label } from "@bomy/ui/label"
+import { PageFrame } from "@/components/admin-ui/page-frame"
+import { PageHeader } from "@/components/admin-ui/page-header"
+import { Tile } from "@/components/admin-ui/tile"
 import { Pagination } from "@/components/ui/pagination"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@bomy/ui/select"
 import { triggerVoucherIssuance, updateVoucherConfig } from "./actions"
@@ -76,11 +78,11 @@ export default async function VouchersPage({
   const currentType = (config["voucher_monthly_type"] as string) ?? "fixed_myr"
 
   return (
-    <div className="space-y-8 p-6">
+    <PageFrame className="space-y-8">
       {/* Monthly voucher config */}
       <div>
-        <h1 className="mb-4 text-lg font-semibold text-foreground">Monthly Voucher Config</h1>
-        <Card className="p-6">
+        <PageHeader title="Monthly Voucher Config" />
+        <Tile className="p-6">
           <form id="voucher-config-form" action={updateVoucherConfig} className="space-y-4">
             <div className="flex items-center gap-4">
               <Label htmlFor="voucher-type" className="w-32 text-sm font-medium text-foreground">
@@ -190,13 +192,13 @@ export default async function VouchersPage({
               </Button>
             </form>
           </div>
-        </Card>
+        </Tile>
       </div>
 
       {/* Redemption stats */}
       <div>
         <h2 className="mb-3 text-base font-semibold text-foreground">Redemption Rate by Month</h2>
-        <Card className="overflow-x-auto">
+        <Tile className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted text-left text-xs font-semibold text-muted-foreground">
@@ -229,7 +231,7 @@ export default async function VouchersPage({
               )}
             </tbody>
           </table>
-        </Card>
+        </Tile>
       </div>
 
       {/* Compensation vouchers */}
@@ -240,7 +242,7 @@ export default async function VouchersPage({
             <Link href="/vouchers/new">Create Voucher</Link>
           </Button>
         </div>
-        <Card className="overflow-x-auto">
+        <Tile className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted text-left text-xs font-semibold text-muted-foreground">
@@ -300,8 +302,8 @@ export default async function VouchersPage({
             totalPages={pageCount(total)}
             buildHref={(p) => (p > 1 ? `/vouchers?page=${p}` : "/vouchers")}
           />
-        </Card>
+        </Tile>
       </div>
-    </div>
+    </PageFrame>
   )
 }

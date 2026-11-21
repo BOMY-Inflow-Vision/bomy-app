@@ -2,13 +2,11 @@ import Link from "next/link"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { Button } from "@bomy/ui/button"
 
 const ELLIPSIS = "ellipsis" as const
 type PageItem = number | typeof ELLIPSIS
 
 const SIBLINGS = 1
-const STAGGER_MS = 20
 
 // Always shows page 1 and the last page; fills in up to `siblings` pages on either
 // side of the current page, collapsing any gap into a single ellipsis.
@@ -39,6 +37,14 @@ function buildPageRange(page: number, totalPages: number, siblings = SIBLINGS): 
   return items
 }
 
+// After TillyTop's pager: "Page x of y" on the left, Previous / numbers / Next in the middle. On a
+// phone the numbers drop to their own row and Previous/Next keep only their arrows.
+const STEP =
+  "inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-semibold transition-colors hover:bg-foreground/[.06] max-sm:px-2.5"
+const STEP_OFF = "pointer-events-none opacity-35"
+const NUMBER =
+  "grid size-9 place-items-center rounded-full text-sm font-semibold tabular-nums transition-colors"
+
 export function Pagination({
   page,
   totalPages,
@@ -52,39 +58,33 @@ export function Pagination({
 }) {
   if (totalPages <= 1) return null
   const items = buildPageRange(page, totalPages)
+  const prev = page > 1
+  const next = page < totalPages
 
   return (
     <nav
       aria-label="Pagination"
-      className={cn("flex justify-center border-t border-border px-4 py-3", className)}
+      className={cn(
+        "flex flex-wrap items-center justify-between gap-x-4 gap-y-3 px-4 pb-3 pt-4",
+        className,
+      )}
     >
-      <ul className="flex items-center gap-1">
+      <p className="text-sm text-muted-foreground" aria-live="polite">
+        Page <span className="font-semibold tabular-nums text-foreground">{page}</span> of{" "}
+        <span className="font-semibold tabular-nums text-foreground">{totalPages}</span>
+      </p>
+
+      <ul className="order-last flex w-full items-center justify-center gap-1 md:order-none md:w-auto">
         <li>
-          {page > 1 ? (
-            <Button
-              asChild
-              variant="ghost"
-              size="sm"
-              icon={<ChevronLeft />}
-              arrowOnHover={false}
-              className="gap-1 px-2.5"
-            >
-              <Link href={buildHref(page - 1)}>
-                <span className="hidden sm:inline">Previous</span>
-              </Link>
-            </Button>
-          ) : (
-            <Button
-              variant="ghost"
-              size="sm"
-              icon={<ChevronLeft />}
-              arrowOnHover={false}
-              disabled
-              className="gap-1 px-2.5"
-            >
-              <span className="hidden sm:inline">Previous</span>
-            </Button>
-          )}
+          <Link
+            href={buildHref(prev ? page - 1 : 1)}
+            aria-disabled={!prev}
+            tabIndex={prev ? undefined : -1}
+            className={cn(STEP, !prev && STEP_OFF)}
+          >
+            <ChevronLeft aria-hidden="true" className="size-4" />
+            <span className="max-sm:sr-only">Previous</span>
+          </Link>
         </li>
 
         {items.map((item, index) =>
@@ -92,29 +92,21 @@ export function Pagination({
             <li
               key={`ellipsis-${index}`}
               aria-hidden="true"
-              className="flex size-9 animate-fade-rise-in items-center justify-center text-sm text-muted-foreground motion-reduce:animate-none"
-              style={{ animationDelay: `${index * STAGGER_MS}ms` }}
+              className={cn(NUMBER, "text-muted-foreground")}
             >
               …
             </li>
           ) : (
-            <li
-              key={item}
-              className="animate-fade-rise-in motion-reduce:animate-none"
-              style={{ animationDelay: `${index * STAGGER_MS}ms` }}
-            >
+            <li key={item}>
               {item === page ? (
-                <span
-                  aria-current="page"
-                  className="flex size-9 items-center justify-center rounded-control border border-border bg-background text-sm font-medium text-foreground shadow-sm"
-                >
+                <span aria-current="page" className={cn(NUMBER, "bg-foreground text-background")}>
                   {item}
                 </span>
               ) : (
                 <Link
                   href={buildHref(item)}
                   aria-label={`Go to page ${item}`}
-                  className="flex size-9 items-center justify-center rounded-control text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  className={cn(NUMBER, "hover:bg-foreground/[.06]")}
                 >
                   {item}
                 </Link>
@@ -124,31 +116,15 @@ export function Pagination({
         )}
 
         <li>
-          {page < totalPages ? (
-            <Button
-              asChild
-              variant="ghost"
-              size="sm"
-              icon={<ChevronRight />}
-              arrowOnHover={false}
-              className="gap-1 px-2.5"
-            >
-              <Link href={buildHref(page + 1)}>
-                <span className="hidden sm:inline">Next</span>
-              </Link>
-            </Button>
-          ) : (
-            <Button
-              variant="ghost"
-              size="sm"
-              icon={<ChevronRight />}
-              arrowOnHover={false}
-              disabled
-              className="gap-1 px-2.5"
-            >
-              <span className="hidden sm:inline">Next</span>
-            </Button>
-          )}
+          <Link
+            href={buildHref(next ? page + 1 : totalPages)}
+            aria-disabled={!next}
+            tabIndex={next ? undefined : -1}
+            className={cn(STEP, !next && STEP_OFF)}
+          >
+            <span className="max-sm:sr-only">Next</span>
+            <ChevronRight aria-hidden="true" className="size-4" />
+          </Link>
         </li>
       </ul>
     </nav>
