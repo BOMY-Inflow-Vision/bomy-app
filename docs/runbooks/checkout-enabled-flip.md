@@ -11,6 +11,7 @@
 ## §0. Pre-flight (do once per actor, per environment)
 
 - Confirm target env (local or staging-template). If `DATABASE_URL` host smells like prod (`*.brandsofmalaysia.com`, `*.production.*`), **stop** — this runbook is not for prod.
+- **If you are working on production, read this first:** this runbook is not the production flip, but a production-only setting can trip it. To let the idle Neon database sleep, prod may run the API with `INVENTORY_EXPIRY_CRON` set to a slow schedule (each run of `inventory-reservation-expiry` wakes the database). **Before `checkout_enabled` goes `true` in production, remove that variable on Railway (or set it to `*/10 * * * *`), redeploy the API, and check the log line `jobs: inventory-reservation-expiry schedule "…"` shows `*/10 * * * *`.** Reserving stock takes it off the product immediately, and only this job gives the stock and the reserved voucher back, so with a slow schedule an abandoned checkout keeps that stock and voucher unavailable for up to the schedule gap (about 6 hours for `0 */6 * * *`): no money is lost, but sales are. The same step is in `public-deployment-cutover.md` Step 17 and in `.andy/handoff.md` under the HitPay blocker.
 - Look up your admin user UUID. This one-off lookup uses the **owner-role** connection (`DATABASE_URL`), NOT `DATABASE_APP_URL`. Under the limited `bomy_app` role no RLS context is set in an ad-hoc `psql` session, so the query would return empty.
   ```sql
   -- Connect with DATABASE_URL (owner role).
