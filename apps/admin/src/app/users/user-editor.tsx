@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from "react"
 import { Pencil, Save, X } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
-import { Button } from "@bomy/ui/button"
+import { Button } from "@/components/admin-ui/button"
 import { Input } from "@bomy/ui/input"
 import { Label } from "@bomy/ui/label"
 import { updateUserProfile } from "./actions"

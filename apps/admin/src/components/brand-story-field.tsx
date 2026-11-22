@@ -27,7 +27,7 @@ import {
 
 import { extractYoutubeVideoId } from "@bomy/shared/youtube"
 
-import { Button, type ButtonProps } from "@bomy/ui/button"
+import { Button, type ButtonProps } from "@/components/admin-ui/button"
 import { Input } from "@bomy/ui/input"
 import { Label } from "@bomy/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@bomy/ui/popover"

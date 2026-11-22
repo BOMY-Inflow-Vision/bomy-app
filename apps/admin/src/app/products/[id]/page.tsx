@@ -4,8 +4,10 @@ import { alias } from "drizzle-orm/pg-core"
 
 import { schema, withAdmin } from "@bomy/db"
 import { Badge } from "@bomy/ui/badge"
-import { Card } from "@bomy/ui/card"
 
+import { PageFrame } from "@/components/admin-ui/page-frame"
+import { PageHeader } from "@/components/admin-ui/page-header"
+import { Tile } from "@/components/admin-ui/tile"
 import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { RatingRowActions } from "./_ratings-panel"
@@ -68,12 +70,16 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   const { product, ratings } = data
 
   return (
-    <div className="p-6">
-      <h1 className="mb-1 text-lg font-semibold text-foreground">{product.name}</h1>
-      <p className="mb-6 text-sm text-muted-foreground">
-        {product.storeName} ({product.storeSlug}) · {product.ownerName ?? product.ownerEmail} ·{" "}
-        {product.status}
-      </p>
+    <PageFrame width="narrow">
+      <PageHeader
+        title={product.name}
+        description={
+          <>
+            {product.storeName} ({product.storeSlug}) · {product.ownerName ?? product.ownerEmail} ·{" "}
+            {product.status}
+          </>
+        }
+      />
       <ProductSeoForm
         productId={product.id}
         currentMetaTitle={product.metaTitle ?? ""}
@@ -88,7 +94,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         {ratings.length === 0 ? (
           <p className="text-sm text-muted-foreground">No ratings yet.</p>
         ) : (
-          <Card className="relative overflow-x-auto">
+          <Tile className="relative overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted text-left text-xs font-semibold text-muted-foreground">
@@ -144,9 +150,9 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                 ))}
               </tbody>
             </table>
-          </Card>
+          </Tile>
         )}
       </section>
-    </div>
+    </PageFrame>
   )
 }

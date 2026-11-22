@@ -5,7 +5,7 @@ import Link from "next/link"
 import { Wallet } from "lucide-react"
 
 import { useToast } from "@/components/toaster"
-import { Button } from "@bomy/ui/button"
+import { Button } from "@/components/admin-ui/button"
 import { humanizePayoutError } from "@/lib/payout-error-copy"
 import { createPayoutRecord } from "../../payouts/actions"
 

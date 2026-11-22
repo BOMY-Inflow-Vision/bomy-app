@@ -9,10 +9,13 @@ import { getDb } from "@/lib/db"
 import { pageCount, pageOffset, parsePage, PAGE_SIZE } from "@/lib/pagination"
 import { statusVariant } from "@/lib/status-badge"
 import { Badge } from "@bomy/ui/badge"
-import { Button } from "@bomy/ui/button"
+import { Button } from "@/components/admin-ui/button"
 import { FilterTab, FilterTabs } from "@bomy/ui/filter-tabs"
 import { Input } from "@bomy/ui/input"
 import { Label } from "@bomy/ui/label"
+import { PageFrame } from "@/components/admin-ui/page-frame"
+import { PageHeader } from "@/components/admin-ui/page-header"
+import { Tile } from "@/components/admin-ui/tile"
 import { Pagination } from "@/components/ui/pagination"
 import { markDispatched } from "./actions"
 
@@ -91,27 +94,26 @@ export default async function GoodieBoxPage({
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
-        <h1 className="text-lg font-semibold text-foreground">Goodie Box Dispatches</h1>
+    <PageFrame>
+      <PageHeader title="Goodie Box Dispatches">
         <FilterTabs label="Filter by status" className="gap-1 text-sm">
           {["", "pending", "dispatched", "delivered"].map((s) => (
-            <FilterTab key={s} asChild variant="flat" active={status === s || (!status && !s)}>
+            <FilterTab key={s} asChild variant="inverse" active={status === s || (!status && !s)}>
               <Link href={buildHref({ status: s })}>{s || "All"}</Link>
             </FilterTab>
           ))}
         </FilterTabs>
         {quarters.length > 0 && (
-          <FilterTabs label="Filter by quarter" className="ml-auto items-center gap-2 text-sm">
+          <FilterTabs label="Filter by quarter" className="items-center gap-2 text-sm">
             <span className="text-muted-foreground">Quarter:</span>
-            <FilterTab asChild variant="flat" active={!quarter} className="px-2">
+            <FilterTab asChild variant="inverse" active={!quarter} className="px-2">
               <Link href={buildHref({ quarter: "" })}>All</Link>
             </FilterTab>
             {quarters.map((q) => (
               <FilterTab
                 key={q.quarter}
                 asChild
-                variant="flat"
+                variant="inverse"
                 active={quarter === q.quarter}
                 className="px-2"
               >
@@ -120,8 +122,8 @@ export default async function GoodieBoxPage({
             ))}
           </FilterTabs>
         )}
-      </div>
-      <div className="relative overflow-x-auto rounded-lg border border-border bg-background">
+      </PageHeader>
+      <Tile className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted text-left text-xs font-semibold text-muted-foreground">
@@ -193,7 +195,7 @@ export default async function GoodieBoxPage({
           totalPages={pageCount(total)}
           buildHref={(p) => buildHref({ page: p })}
         />
-      </div>
-    </div>
+      </Tile>
+    </PageFrame>
   )
 }

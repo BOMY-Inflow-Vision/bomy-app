@@ -7,8 +7,10 @@ import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { pageCount, pageOffset, parsePage, PAGE_SIZE } from "@/lib/pagination"
 import { cn } from "@/lib/utils"
-import { Button } from "@bomy/ui/button"
-import { Card } from "@bomy/ui/card"
+import { Button } from "@/components/admin-ui/button"
+import { PageFrame } from "@/components/admin-ui/page-frame"
+import { PageHeader } from "@/components/admin-ui/page-header"
+import { Tile } from "@/components/admin-ui/tile"
 import { Pagination } from "@/components/ui/pagination"
 import { togglePlanActive } from "./actions"
 
@@ -49,9 +51,9 @@ export default async function BrandPlansPage({
   )
 
   return (
-    <div className="p-6">
-      <h1 className="mb-4 text-lg font-semibold text-foreground">Brand Subscription Plans</h1>
-      <Card className="overflow-x-auto">
+    <PageFrame>
+      <PageHeader title="Brand Subscription Plans" />
+      <Tile className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted text-left text-xs font-semibold text-muted-foreground">
@@ -123,7 +125,7 @@ export default async function BrandPlansPage({
           totalPages={pageCount(total)}
           buildHref={(p) => (p > 1 ? `/brand-plans?page=${p}` : "/brand-plans")}
         />
-      </Card>
-    </div>
+      </Tile>
+    </PageFrame>
   )
 }

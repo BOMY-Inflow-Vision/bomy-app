@@ -5,7 +5,7 @@ import { useEffect, useState } from "react"
 import { useTheme } from "next-themes"
 import { Moon, Sun } from "lucide-react"
 
-import { Button } from "@bomy/ui/button"
+import { Button } from "@/components/admin-ui/button"
 import { cn } from "@/lib/utils"
 
 export function ThemeToggle({ className }: { className?: string }) {

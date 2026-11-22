@@ -3,6 +3,8 @@ import { eq } from "drizzle-orm"
 
 import { schema, withAdmin } from "@bomy/db"
 
+import { PageFrame } from "@/components/admin-ui/page-frame"
+import { PageHeader } from "@/components/admin-ui/page-header"
 import { requireAdminId } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { StoreSeoForm } from "./store-seo-form"
@@ -37,17 +39,21 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ id
   if (!store) notFound()
 
   return (
-    <div className="p-6">
-      <h1 className="mb-1 text-lg font-semibold text-foreground">{store.name}</h1>
-      <p className="mb-6 text-sm text-muted-foreground">
-        {store.slug} · {store.ownerEmail} · {store.status}
-      </p>
+    <PageFrame width="narrow">
+      <PageHeader
+        title={store.name}
+        description={
+          <>
+            {store.slug} · {store.ownerEmail} · {store.status}
+          </>
+        }
+      />
       <StoreSeoForm
         storeId={store.id}
         currentMetaTitle={store.metaTitle ?? ""}
         currentMetaDescription={store.metaDescription ?? ""}
         currentOgImageUrl={store.ogImageUrl ?? ""}
       />
-    </div>
+    </PageFrame>
   )
 }

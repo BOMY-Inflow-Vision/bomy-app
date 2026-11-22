@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { and, asc, desc, eq, ilike, or, sql, type SQL } from "drizzle-orm"
-import { Eye, Search, Trash2 } from "lucide-react"
+import { Eye, Trash2 } from "lucide-react"
 
 import { INQUIRY_STATUSES, schema, withAdmin, type InquiryStatus } from "@bomy/db"
 
@@ -9,10 +9,12 @@ import { getDb } from "@/lib/db"
 import { pageCount, pageOffset, parsePage, PAGE_SIZE } from "@/lib/pagination"
 import { cn } from "@/lib/utils"
 import { Badge } from "@bomy/ui/badge"
-import { Button } from "@bomy/ui/button"
+import { Button } from "@/components/admin-ui/button"
 import { FilterTab, FilterTabs } from "@bomy/ui/filter-tabs"
-import { Input } from "@bomy/ui/input"
-import { Label } from "@bomy/ui/label"
+import { PageFrame } from "@/components/admin-ui/page-frame"
+import { PageHeader } from "@/components/admin-ui/page-header"
+import { SearchField } from "@/components/admin-ui/search-field"
+import { Tile } from "@/components/admin-ui/tile"
 import { Pagination } from "@/components/ui/pagination"
 import { deleteInquiry } from "./actions"
 import { RejectButton } from "./reject-button"
@@ -98,47 +100,41 @@ export default async function SellerInquiriesPage({
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-y-2">
-        <h1 className="text-lg font-semibold text-foreground">
-          Seller Inquiries
-          <Badge variant="secondary" className="ml-2 text-sm font-normal">
-            {total}
-          </Badge>
-        </h1>
-        <div className="flex flex-wrap items-center gap-3">
-          <FilterTabs label="Filter by status" className="gap-1 text-sm">
-            {["", ...INQUIRY_STATUSES].map((s) => (
-              <FilterTab
-                key={s || "all"}
-                asChild
-                variant="flat"
-                active={(isStatus(status) ? status : "") === s}
-              >
-                <Link href={buildHref({ status: s })}>{s || "All"}</Link>
-              </FilterTab>
-            ))}
-          </FilterTabs>
-          <form method="get" className="flex flex-wrap items-center gap-1">
-            {isStatus(status) && <input type="hidden" name="status" value={status} />}
-            {sortKey !== "created_desc" && <input type="hidden" name="sort" value={sortKey} />}
-            <Label htmlFor="inquiries-search" className="sr-only">
-              Search inquiries
-            </Label>
-            <Input
-              id="inquiries-search"
-              type="text"
-              name="q"
-              defaultValue={q ?? ""}
-              placeholder="Search…"
-              className="h-8 w-40 text-sm"
-            />
-            <Button type="submit" variant="outline" size="sm" icon={<Search />}>
-              Search
-            </Button>
-          </form>
-        </div>
-      </div>
+    <PageFrame>
+      <PageHeader
+        title={
+          <>
+            Seller Inquiries
+            <Badge variant="secondary" className="ml-2 text-sm font-normal">
+              {total}
+            </Badge>
+          </>
+        }
+      >
+        <FilterTabs label="Filter by status" className="gap-1 text-sm">
+          {["", ...INQUIRY_STATUSES].map((s) => (
+            <FilterTab
+              key={s || "all"}
+              asChild
+              variant="inverse"
+              active={(isStatus(status) ? status : "") === s}
+            >
+              <Link href={buildHref({ status: s })}>{s || "All"}</Link>
+            </FilterTab>
+          ))}
+        </FilterTabs>
+        <form method="get" role="search" className="flex items-center gap-2">
+          {isStatus(status) && <input type="hidden" name="status" value={status} />}
+          {sortKey !== "created_desc" && <input type="hidden" name="sort" value={sortKey} />}
+          <SearchField
+            id="inquiries-search"
+            label="Search inquiries"
+            placeholder="Search…"
+            defaultValue={q ?? ""}
+            className="w-48"
+          />
+        </form>
+      </PageHeader>
 
       <div className="mb-2 flex gap-3 text-xs text-muted-foreground">
         <Link href={buildHref({ sort: "created_desc" })} className="hover:text-foreground">
@@ -156,13 +152,7 @@ export default async function SellerInquiriesPage({
         {rows.map((row) => {
           const dimmed = row.status !== "pending"
           return (
-            <div
-              key={row.id}
-              className={cn(
-                "rounded-lg border border-border bg-background p-4",
-                dimmed && "opacity-50",
-              )}
-            >
+            <Tile key={row.id} className={cn("p-4", dimmed && "opacity-50")}>
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0 space-y-1">
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -220,7 +210,7 @@ export default async function SellerInquiriesPage({
                   </form>
                 </div>
               </div>
-            </div>
+            </Tile>
           )
         })}
         {rows.length === 0 && (
@@ -232,6 +222,6 @@ export default async function SellerInquiriesPage({
         totalPages={pageCount(total)}
         buildHref={(p) => buildHref({ page: p })}
       />
-    </div>
+    </PageFrame>
   )
 }

@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation"
 import { LogOut, Menu, X } from "lucide-react"
 
 import { signOutAction } from "@/app/auth/actions"
-import { Button } from "@bomy/ui/button"
+import { Button } from "@/components/admin-ui/button"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { cn } from "@/lib/utils"
 
@@ -228,8 +228,10 @@ export function Sidebar({ email }: { email: string }) {
         aria-hidden={!open}
         inert={!open}
         className={cn(
-          "fixed inset-0 z-[70] transition-[visibility] duration-300 lg:hidden",
-          open ? "visible" : "invisible",
+          "fixed inset-0 z-[70] lg:hidden",
+          // Visible at once on open (a hidden element cannot take focus), and hidden only after
+          // the slide-out has finished on close.
+          open ? "visible" : "invisible transition-[visibility] duration-300",
         )}
       >
         <span
@@ -246,7 +248,7 @@ export function Sidebar({ email }: { email: string }) {
           aria-modal={open}
           aria-label="Menu"
           className={cn(
-            "absolute bottom-2 left-2 top-2 flex w-[min(288px,calc(100vw-16px))] flex-col rounded-3xl bg-card p-3 text-card-foreground shadow-tile transition-transform duration-300 ease-spring motion-reduce:transition-none",
+            "absolute bottom-2 left-2 top-2 flex w-[min(288px,calc(100vw-16px))] flex-col rounded-3xl bg-card p-3 text-card-foreground shadow-tile transition-transform duration-300 ease-out motion-reduce:transition-none",
             open ? "translate-x-0" : "-translate-x-[108%]",
           )}
         >

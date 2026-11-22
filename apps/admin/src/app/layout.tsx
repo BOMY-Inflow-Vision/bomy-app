@@ -6,6 +6,7 @@ import "./globals.css"
 import { auth } from "@/auth"
 import { Sidebar } from "@/components/sidebar"
 import { ThemeProvider } from "@/components/theme-provider"
+import { TableLabels } from "@/components/admin-ui/table-labels"
 import { ToastProvider } from "@/components/toaster"
 import { FLASH_TOAST_COOKIE } from "@/lib/flash-toast"
 
@@ -38,6 +39,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className={`min-h-screen bg-muted ${plusJakartaSans.className}`}>
         <ThemeProvider>
           <ToastProvider flash={flash}>
+            <TableLabels />
             {session?.user && <Sidebar email={session.user.email ?? ""} />}
             <main className={session?.user ? "min-w-0 lg:ml-72" : "min-w-0"}>{children}</main>
           </ToastProvider>

@@ -13,7 +13,8 @@ import { senToMyr } from "@/lib/money"
 import { pageCount, parsePage } from "@/lib/pagination"
 import { cn } from "@/lib/utils"
 import { Badge } from "@bomy/ui/badge"
-import { Button } from "@bomy/ui/button"
+import { Button } from "@/components/admin-ui/button"
+import { PageFrame } from "@/components/admin-ui/page-frame"
 import { PageHeader } from "@/components/admin-ui/page-header"
 import { Tile } from "@/components/admin-ui/tile"
 import { Pagination } from "@/components/ui/pagination"
@@ -72,7 +73,7 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 md:px-6 lg:px-8 lg:py-9">
+    <PageFrame>
       <PageHeader title="Orders" />
 
       <Tile className="overflow-x-auto">
@@ -141,6 +142,6 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
         </table>
         <Pagination page={page} totalPages={pageCount(total)} buildHref={buildHref} />
       </Tile>
-    </div>
+    </PageFrame>
   )
 }
