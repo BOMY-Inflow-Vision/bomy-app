@@ -254,7 +254,7 @@ This "extract when the second caller arrives" approach keeps PR 2 behaviour-neut
 - **There is no cross-request cache.** Vercel instances are short-lived, and a switch should take
   effect on the next request. An unknown or missing value fails closed: `paymentsEnabled()` returns
   false.
-  - Option (PR 3, Opus): add an RLS policy `platform_config_public_flags_read FOR SELECT USING (key IN ('checkout_enabled','active_psp'))`
+  - Option (PR 3, Opus): add an RLS policy `platform_config_public_flags_read FOR SELECT USING (key IN ('checkout_enabled','active_psp','subscriptions_enabled'))`
     so these reads can use `withPublicRead` and stop writing an `admin_bypass_audit` row on every
     page view. This is not required; it only reduces audit-table noise.
 - `paymentsEnabled()` becomes `async paymentsEnabled(): Promise<boolean>`, defined as
@@ -274,7 +274,7 @@ This "extract when the second caller arrives" approach keeps PR 2 behaviour-neut
     a warning saying so.
 - **Admin switch (PR 3):**
   - The read-only `/config` page gets a "Payment provider" card with a server action
-    `setActivePsp(next)`, limited to `requireAdminId({ roles: ["bomy_admin"] })`.
+    `setActivePsp(next)`, limited to `requireAdminId({ roles: ["bomy_admin", "bomy_finance"] })` (owner decision, §13; no two-person approval).
   - Inside `withAdmin`, the action does `SELECT … FOR UPDATE` → `UPDATE` → `INSERT platform_config_audit`
     (old→new), copying `platform-config-flip-core.ts`.
   - It never touches `checkout_enabled`.
@@ -376,7 +376,17 @@ ALTER TABLE brand_subscriptions ADD CONSTRAINT brand_subscriptions_split_chk CHE
     COALESCE(psp_fee_sen, hitpay_fee_sen) IS NOT NULL
     AND bomy_commission_sen + brand_payout_sen + COALESCE(psp_fee_sen, hitpay_fee_sen) = price_myr_sen)) NOT VALID;
 ALTER TABLE brand_subscriptions VALIDATE CONSTRAINT brand_subscriptions_split_chk;
+
+-- Keep the two fee columns from drifting while HitPay code writes both.
+ALTER TABLE brand_subscriptions ADD CONSTRAINT brand_subscriptions_fee_sync_chk CHECK (
+  psp_fee_sen IS NULL OR hitpay_fee_sen IS NULL OR psp_fee_sen = hitpay_fee_sen) NOT VALID;
+ALTER TABLE brand_subscriptions VALIDATE CONSTRAINT brand_subscriptions_fee_sync_chk;
 ```
+
+**`psp_provider` default risk.** `NOT NULL DEFAULT 'hitpay'` means a Stripe insert that forgets to set
+the provider is silently recorded as HitPay, and later cancels and refunds would go to the wrong
+provider. Every Stripe insert in PRs 4–6 gets a test asserting `psp_provider = 'stripe'`, and the
+contract PR drops the default.
 
 The `COALESCE` matters during the deploy window. Old HitPay code, which writes only `hitpay_fee_sen`,
 passes the CHECK. New code writes `psp_fee_sen`, and HitPay code also writes `hitpay_fee_sen`.
@@ -502,7 +512,7 @@ refund id**, so partial refunds each ledger once.
 | Stripe event                                                           | Normalized                 | Action                                                                                                                                                          |
 | ---------------------------------------------------------------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `checkout.session.completed` (`payment_status = paid`, mode `payment`) | `checkout.paid`            | Order / brand-sub "paid" phase (§6). Mode `subscription` → only link `psp_checkout_id`; money comes via `invoice.paid`.                                         |
-| `checkout.session.completed` (`payment_status = unpaid`)               | ignored                    | Async method pending; wait.                                                                                                                                     |
+| `checkout.session.completed` (`payment_status = unpaid`)               | `checkout.async_pending`   | Async method pending (FPX business banking). Link `psp_payment_id` and set `psp_async_pending_since` but **not** `psp_paid_at`; see §6.1.                       |
 | `checkout.session.async_payment_succeeded`                             | `checkout.paid`            | Same as the paid phase.                                                                                                                                         |
 | `checkout.session.async_payment_failed`                                | `checkout.failed`          | Order → existing `runFailureRelease` (session `failed`, reservations released, voucher released). Brand sub → `payment_failed`.                                 |
 | `checkout.session.expired`                                             | `checkout.expired`         | Order: no-op if already handled by our expiry job; otherwise run the same expiry path. Brand/membership pending row → `expired` (CAS `psp_payment_id IS NULL`). |
@@ -513,6 +523,14 @@ refund id**, so partial refunds each ledger once.
 | `charge.refunded`, `refund.updated`, `refund.failed`                   | `refund.updated`           | Re-fetch the Refund; ledger only on `succeeded` (§9).                                                                                                           |
 | `charge.dispute.created`, `charge.dispute.closed`                      | `dispute.*`                | Anomaly alert (§9).                                                                                                                                             |
 | anything else                                                          | `ignored`                  | 200, info log.                                                                                                                                                  |
+
+### 5.2a Events that can never succeed
+
+Returning 500 on a transient error (DB down) is right: Stripe retries. A **deterministic** failure
+(unparseable payload, unknown object, amount mismatch, missing `bomy_ref_id`) would make Stripe
+retry for 3 days and could get the endpoint disabled. These are **parked** instead, like the
+HitPay "park-on-unparseable" handling: claim the event, log it, park the related row for review
+where there is one, and return 200. Only transient errors return 500. This belongs in PR 4.
 
 ### 5.3 Idempotency, replay and ordering
 
@@ -554,6 +572,9 @@ Changes this needs, all in PR 4 and all Opus:
   - For `stripe` sessions, the job, `cancelPendingCheckout` and `compensate` call
     `provider.expireCheckout(cs_id)` **before** expiring the DB row, outside any transaction.
   - If Stripe answers `already_paid`, the DB session is left alone for the webhook.
+  - If Stripe answers with **any other error** (network, 5xx, permission, rate limit), the job skips
+    that row, logs it, and retries on the next run. It **never** expires the DB row after a failed
+    Stripe call, because that would reopen the late-payment window this design closes.
   - This closes the late-payment window, which HitPay cannot close.
   - Stripe's minimum `expires_at` is 30 min after creation (verify in test mode). So for Stripe
     sessions the DB TTL becomes 35 min and Stripe `expires_at` = DB `expires_at` − 3 min.
@@ -561,6 +582,27 @@ Changes this needs, all in PR 4 and all Opus:
 ---
 
 ## 6. Fees — the core Stripe difference
+
+### 6.1 Completed but still unpaid (async payment pending)
+
+FPX business banking can complete the Checkout Session while the payment is still pending (§8).
+Rule:
+
+- On `checkout.session.completed` with `payment_status=unpaid`, record `psp_payment_id` (the
+  PaymentIntent) and set `psp_async_pending_since = now()`. Do **not** set `psp_paid_at`, and do not
+  start the paid phase.
+- The expiry job and the cleanup job skip any `stripe` session where `psp_payment_id IS NOT NULL`
+  (paid or async-pending). So stock is not released while the payment can still succeed, and a
+  Stripe refusal to expire a completed session is treated like `already_paid`.
+- `checkout.session.async_payment_succeeded` → paid phase as normal. `async_payment_failed` → the
+  existing failure release.
+- **Time limit:** after `STRIPE_ASYNC_PAYMENT_MAX_HOURS` (default 48, confirm in the sandbox) a
+  sweep parks the session as `payment_review_required` with reason `psp_async_timeout`, so an
+  operator resolves it by hand. It never silently expires.
+- `psp_async_pending_since timestamptz NULL` is one extra nullable column on `checkout_sessions`,
+  added in PR 1's migration.
+- If Stripe lets us restrict FPX to consumer accounts (B2C confirms immediately), that is an extra
+  lever but is **not relied on** here: it is unconfirmed.
 
 **Verified behaviour.** With the current API, capture is **asynchronous by default**
 (`capture_method = automatic_async`):
@@ -808,11 +850,11 @@ manually, which fits that description.
 **Environment variables.** All must be added to `turbo.json` `env`, otherwise Turborepo strips
 them (see CLAUDE.md gotcha).
 
-| Variable                | api (Railway)                                                                                                                                  | web (Vercel)                                        | admin (Vercel)                            | Notes                                                                                                           |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `STRIPE_SECRET_KEY`     | yes (restricted `rk_`: read PaymentIntents, Charges, Balance txns, Invoices, Subscriptions, Refunds; write Subscriptions for duplicate cancel) | yes (`rk_`: write Checkout Sessions, Subscriptions) | yes (`rk_`: write Refunds, Subscriptions) | **One restricted key per service**, least privilege. Exact permission names to be confirmed when creating them. |
-| `STRIPE_WEBHOOK_SECRET` | yes (`whsec_…`, comma-list allowed during rotation)                                                                                            | —                                                   | —                                         |                                                                                                                 |
-| `HITPAY_*`              | unchanged                                                                                                                                      | unchanged                                           | unchanged                                 | Keep while any HitPay row can move money.                                                                       |
+| Variable                | api (Railway)                                                                                                                                                                                                            | web (Vercel)                                        | admin (Vercel)                            | Notes                                                                                                           |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `STRIPE_SECRET_KEY`     | yes (restricted `rk_`: read PaymentIntents, Charges, Balance txns, Invoices, Subscriptions, Refunds; write Subscriptions for duplicate cancel; **write Checkout Sessions, needed by the expiry job's `expireCheckout`**) | yes (`rk_`: write Checkout Sessions, Subscriptions) | yes (`rk_`: write Refunds, Subscriptions) | **One restricted key per service**, least privilege. Exact permission names to be confirmed when creating them. |
+| `STRIPE_WEBHOOK_SECRET` | yes (`whsec_…`, comma-list allowed during rotation)                                                                                                                                                                      | —                                                   | —                                         |                                                                                                                 |
+| `HITPAY_*`              | unchanged                                                                                                                                                                                                                | unchanged                                           | unchanged                                 | Keep while any HitPay row can move money.                                                                       |
 
 There is no publishable key: hosted Checkout is a redirect, with no Stripe.js or Elements.
 
@@ -820,6 +862,14 @@ There is no publishable key: hosted Checkout is a redirect, with no Stripe.js or
   - `StripeProvider.isConfigured()` returns **false** when `VERCEL_ENV === "production"` (web and
     admin), or when the api runs in production, with a `*_test_` key, unless
     `STRIPE_ALLOW_TEST_KEYS=true` is set deliberately.
+  - **Stripe keys must never be set in the Vercel Preview environment.** Previews share the
+    production api and database (§13), so a preview with test keys would write pending test
+    checkouts into the production DB, and the production api would then reject their test webhooks
+    (livemode guard), leaving the rows stuck.
+  - Do not rely on `VERCEL_ENV` alone. A `*_test_` key is accepted **only when the database is
+    local** (host `localhost`, `127.0.0.1` or `::1`), or when `STRIPE_ALLOW_TEST_KEYS=true` is set
+    deliberately. A live key is refused when the database is local. This ties the guard to which
+    database the app is pointed at.
   - Without this, setting `active_psp=stripe` with test keys on prod would expose membership and
     brand-sub test-mode checkout to real users. Those flows are **not** gated by `checkout_enabled`.
   - The webhook `livemode` guard (§5.1) is the inbound twin of this check.
@@ -915,12 +965,12 @@ run with `active_psp=stripe` in the local DB):
 
 | PR    | Scope                                                                                                                                                                                                                                                                            | Main files                                                                                                                                                                                                                                                                                                                                            | Migration                                            | Risk                                           | Model                                               | Owner must, before                                                                                                                            |
 | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | ---------------------------------------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| **1** | Additive provider columns, backfill, CHECK rewrites, review reason, `active_psp` seed; Drizzle schema mirrors                                                                                                                                                                    | `packages/db/drizzle/0039_psp_provider_columns.sql`, `schema/{member_subscriptions,brand_subscriptions,duplicate_charges,checkout_sessions}.ts`, `packages/db/tests/*`                                                                                                                                                                                | **0039**                                             | Med (prod schema)                              | **Opus**                                            | Approve; apply 0039 to Neon after merge (as for 0037/0038)                                                                                    |
+| **1** | Additive provider columns (incl. `checkout_sessions.psp_async_pending_since`), backfill, CHECK rewrites, review reasons (`psp_fee_unavailable`, `psp_async_timeout`), `active_psp` + `subscriptions_enabled` seed; Drizzle schema mirrors                                        | `packages/db/drizzle/0039_psp_provider_columns.sql`, `schema/{member_subscriptions,brand_subscriptions,duplicate_charges,checkout_sessions}.ts`, `packages/db/tests/*`                                                                                                                                                                                | **0039**                                             | Med (prod schema)                              | **Opus**                                            | Approve; apply 0039 to Neon after merge (as for 0037/0038)                                                                                    |
 | **2** | `packages/psp` + `PaymentProvider` + HitPay adapter; web/admin outbound calls via registry; HitPay dual-write; shared readers → `psp_*`; `ledgerKey` helper; re-backfill                                                                                                         | `packages/psp/**`, `apps/web/src/app/{checkout,(marketing)/membership,brands/[slug]/subscribe}/actions.ts`, `apps/admin/src/app/{memberships,payouts/reconciliation}/actions.ts`, admin/web pages listed in §2, `apps/api/src/routes/webhooks/hitpay.ts` (writes only), `jobs/expire-abandoned-pending-memberships.ts`, `next.config.ts` ×2           | **0040** (re-backfill only)                          | Med — "no behaviour change" on live money code | **Opus**                                            | —                                                                                                                                             |
 | **3** | `active_psp` read (`getActivePsp`), new `subscriptions_enabled` flag (default false, §13), async `paymentsEnabled()` replacing env sniff, provider pinned on row creation, admin `/config` switch with audit, `/ready` PSP status; Stripe provider stub (`isConfigured()=false`) | `apps/web/src/lib/{active-psp,payments-enabled}.ts`, membership + brand-subscribe pages/actions, `checkout/actions.ts`, `apps/admin/src/app/config/{page.tsx,actions.ts}`, `apps/api/src/routes/ready.ts`                                                                                                                                             | no (optional RLS public-flag policy → would be 0041) | Low–Med                                        | **Opus** gate logic; **Sonnet** config UI           | None: switch roles decided (`bomy_admin` + `bomy_finance`, §13)                                                                               |
 | **4** | Stripe order checkout: `StripeProvider` (one-off, expire, fee), `/webhooks/stripe` (verify, livemode, claim, routing), two-phase fee + `psp-fee-settlement` job, expiry-job / compensate changes, RM2 minimum, env + turbo, extract order core to accept bigint inputs           | `packages/psp/src/stripe/**`, `apps/api/src/routes/webhooks/stripe.ts`, `apps/api/src/webhooks/{core,hitpay}/order-fanout.ts`, `idempotency.ts`, `jobs/{psp-fee-settlement,inventory-reservation-expiry}.ts`, `scheduler.ts`, `server.ts`, `plugins/rate-limit.ts`, `apps/web/src/app/checkout/{actions,compensate}.ts`, `turbo.json`, `.env.example` | no                                                   | **High** (order fan-out + expiry job)          | **Opus**                                            | Create a Stripe **sandbox** (`stripe sandbox create`, no account needed); install Stripe CLI; paste sandbox keys into local `.env.local` only |
 | **5** | Brand subscriptions on Stripe (one-off) incl. duplicate path                                                                                                                                                                                                                     | `brands/[slug]/subscribe/actions.ts`, `webhooks/core/brand-subscription.ts`, Stripe route branch                                                                                                                                                                                                                                                      | no                                                   | Med–High                                       | **Opus**                                            | —                                                                                                                                             |
-| **6** | Membership on Stripe Billing: join, `invoice.*`, `customer.subscription.deleted`, cancel (web+admin), duplicate auto-cancel, period from Stripe                                                                                                                                  | `(marketing)/membership/actions.ts`, `apps/admin/src/app/memberships/actions.ts`, `webhooks/core/membership.ts`, Stripe route                                                                                                                                                                                                                         | no                                                   | High (recurring money)                         | **Opus**                                            | Sandbox Billing settings: Smart Retries end = cancel; Stripe customer emails off/on decision                                                  |
+| **6** | Membership on Stripe Billing: join, `invoice.*`, `customer.subscription.deleted`, cancel (web+admin), duplicate auto-cancel, period from Stripe                                                                                                                                  | `(marketing)/membership/actions.ts`, `apps/admin/src/app/memberships/actions.ts`, `webhooks/core/membership.ts`, Stripe route                                                                                                                                                                                                                         | no                                                   | High (recurring money)                         | **Opus**                                            | Sandbox Billing settings: Smart Retries end = cancel; Turn off every Stripe customer email (decided, §13)                                     |
 | **7** | Provider-aware duplicate refund + Stripe refund/dispute webhooks + fee-not-returned leg; Provider columns on admin tables; runbook updates (checkout flip "active PSP", Stripe go-live + rotation)                                                                               | `payouts/reconciliation/{actions,page}.tsx`, `payout-error-copy.ts`, `webhooks/core/refund.ts`, `notifications/webhook-anomaly.ts`, admin memberships/brand-subs pages, `docs/runbooks/*`                                                                                                                                                             | no                                                   | Med                                            | **Opus** refund code; **Sonnet** admin UI + runbook | Live account approved; live restricted keys + live webhook destination pasted into Railway/Vercel; PDPA notice updated; then live smoke       |
 
 PR 4 may split into **4a** (Stripe package, webhook skeleton with verify, livemode check and claim,
@@ -934,14 +984,14 @@ convention.
 
 ### Decided by the owner (2026-11-24)
 
-| #   | Topic                               | Decision                                                                                                     | Effect on this design                                                                                                                                                                         |
-| --- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 3   | Gate for memberships and brand subs | **Add a separate `subscriptions_enabled` flag, default `false`**, flipped by runbook like `checkout_enabled` | PR 3 adds the flag; PR 5 and PR 6 check it. It is never flipped in code.                                                                                                                      |
-| 4   | HitPay in production                | **No real HitPay recurring members exist.**                                                                  | Coexistence code stays (cheap, and the seam is needed anyway) but the HitPay renewal path carries less live risk.                                                                             |
-| 5   | Membership fee booking              | **Follow HitPay: book the gross amount, record no PSP fee.**                                                 | §6 stays as written. Stripe memberships credit gross to `revenue:platform_subscription`. The reconciliation page will differ from Stripe payout reports by the fee for memberships; accepted. |
-| 6   | Who can switch `active_psp`         | **`bomy_admin` and `bomy_finance`.** No two-person approval was requested, so none is built.                 | The switch action allows both roles and writes a config audit row either way.                                                                                                                 |
-| 7   | Payment methods                     | **Cards, FPX, GrabPay, Apple Pay and Google Pay** for one-off payments.                                      | DuitNow / Touch 'n Go stay "unconfirmed" (§8) and are not built.                                                                                                                              |
-| 9   | Emails                              | **Stripe sends no customer emails. The platform sends them all.**                                            | In the Stripe Dashboard, turn off every customer email (receipts, upcoming renewal, failed payment). Our own jobs and handlers send everything. See the follow-up below.                      |
+| #   | Topic                               | Decision                                                                                                     | Effect on this design                                                                                                                                                                                                                                    |
+| --- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 3   | Gate for memberships and brand subs | **Add a separate `subscriptions_enabled` flag, default `false`**, flipped by runbook like `checkout_enabled` | PR 3 adds the flag; PR 5 and PR 6 check it. It is never flipped in code. **Side effect:** the flag also switches off HitPay memberships and brand subscriptions. No real HitPay payments exist, so nothing changes in practice, and the runbook says so. |
+| 4   | HitPay in production                | **No real HitPay recurring members exist.**                                                                  | Coexistence code stays (cheap, and the seam is needed anyway) but the HitPay renewal path carries less live risk.                                                                                                                                        |
+| 5   | Membership fee booking              | **Follow HitPay: book the gross amount, record no PSP fee.**                                                 | §6 stays as written. Stripe memberships credit gross to `revenue:platform_subscription`. The reconciliation page will differ from Stripe payout reports by the fee for memberships; accepted.                                                            |
+| 6   | Who can switch `active_psp`         | **`bomy_admin` and `bomy_finance`.** No two-person approval was requested, so none is built.                 | The switch action allows both roles and writes a config audit row either way.                                                                                                                                                                            |
+| 7   | Payment methods                     | **Cards, FPX, GrabPay, Apple Pay and Google Pay** for one-off payments.                                      | DuitNow / Touch 'n Go stay "unconfirmed" (§8) and are not built.                                                                                                                                                                                         |
+| 9   | Emails                              | **Stripe sends no customer emails. The platform sends them all.**                                            | In the Stripe Dashboard, turn off every customer email (receipts, upcoming renewal, failed payment). Our own jobs and handlers send everything. See the follow-up below.                                                                                 |
 
 **Follow-up from decision 9:** because Stripe will not email receipts, the platform must send its own
 payment confirmation for orders, brand subscriptions and membership (first payment and each renewal), and
@@ -956,8 +1006,9 @@ them; any missing one is added in the PR that introduces that payment path. Mail
    with manual seller payouts. If Stripe requires Connect (destination charges), PR 4+ changes shape:
    payouts become Stripe transfers and sellers need onboarding. Would you accept that?
 2. **Legal entity.** Sdn Bhd or sole proprietorship? FPX requires a Business Registration Number.
-3. **Staging.** Is a local-only sandbox smoke enough before live? Or do you want a deployed staging
-   stack? Today Vercel previews would share the prod api and DB.
+3. **Staging.** Until a separate staging stack exists, testing is **local sandbox only**: Stripe keys
+   never go into Vercel Preview or production until the live go-live (§10). Do you want a deployed
+   staging stack later?
 
 ---
 
