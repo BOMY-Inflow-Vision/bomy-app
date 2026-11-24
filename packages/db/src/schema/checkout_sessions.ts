@@ -23,7 +23,8 @@ import { vouchers } from "./vouchers.js"
 // See migration 0011 + packages/db/src/rls/policies.sql for policies.
 //
 // CHECK constraints are owned by the migration (Drizzle's `check()` helper
-// is mirrored here for type-level documentation only; truth is in 0011).
+// is mirrored here for type-level documentation only; truth is in 0011,
+// with the payment-review reason list widened in 0039).
 export const checkoutSessions = pgTable(
   "checkout_sessions",
   {
@@ -38,6 +39,12 @@ export const checkoutSessions = pgTable(
     pspPaymentId: text("psp_payment_id"),
     pspPaymentUrl: text("psp_payment_url"),
     pspFeeSen: bigint("psp_fee_sen", { mode: "bigint" }).notNull().default(0n),
+    // Migration 0039 (Stripe design §6 / §6.1). psp_paid_at: Stripe has taken the money but the fee
+    // is not known yet (session stays pending_payment; the expiry job must skip it).
+    // psp_async_pending_since: Checkout completed with an async method (e.g. FPX business) that has
+    // not paid yet. Both stay NULL for HitPay.
+    pspPaidAt: timestamp("psp_paid_at", { withTimezone: true }),
+    pspAsyncPendingSince: timestamp("psp_async_pending_since", { withTimezone: true }),
     shippingAddress: jsonb("shipping_address").notNull(),
     totalCatalogSen: bigint("total_catalog_sen", { mode: "bigint" }).notNull(),
     totalShippingSen: bigint("total_shipping_sen", { mode: "bigint" }).notNull(),
@@ -70,7 +77,8 @@ export const checkoutSessions = pgTable(
     paymentReviewReasonChk: check(
       "checkout_sessions_payment_review_reason_chk",
       sql`payment_review_reason IS NULL OR payment_review_reason IN
-          ('amount_mismatch', 'invalid_commission_config', 'voucher_claim_failed')`,
+          ('amount_mismatch', 'invalid_commission_config', 'voucher_claim_failed',
+           'psp_fee_unavailable', 'psp_async_timeout')`,
     ),
     reviewStateChk: check(
       "checkout_sessions_review_state_chk",

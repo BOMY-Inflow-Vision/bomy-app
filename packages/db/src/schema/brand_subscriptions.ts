@@ -12,7 +12,7 @@ import {
 } from "drizzle-orm/pg-core"
 
 import { brandSubscriptionPlans } from "./brand_subscription_plans.js"
-import { subscriptionStatusEnum } from "./enums.js"
+import { pspProviderEnum, subscriptionStatusEnum } from "./enums.js"
 import { stores } from "./stores.js"
 import { users } from "./users.js"
 
@@ -23,8 +23,11 @@ import { users } from "./users.js"
 // Commission rule (locked 2026-05-01): fee is taken off the top, THEN
 // the 90/10 split applies. Net = price − hitpay_fee. brand_payout =
 // net × 90 %, bomy_commission = net × 10 %. The check constraint below
-// enforces brand_payout + bomy_commission + hitpay_fee = price for any
-// row in `active` status. Pending rows (created at checkout
+// enforces brand_payout + bomy_commission + fee = price for any row in
+// `active` status, where fee = COALESCE(psp_fee_sen, hitpay_fee_sen)
+// (migration 0039: old HitPay writers set only hitpay_fee_sen, Stripe
+// writers only psp_fee_sen, dual-writing HitPay code both — kept equal
+// by brand_subscriptions_fee_sync_chk). Pending rows (created at checkout
 // initiation, before the HitPay webhook delivers fee data) carry zero
 // values; the webhook handler is the only writer that flips a row to
 // active and at that point all three sen columns must be populated.
@@ -51,6 +54,13 @@ export const brandSubscriptions = pgTable(
     hitpayPaymentRequestId: text("hitpay_payment_request_id"),
     hitpayPaymentId: text("hitpay_payment_id"),
     hitpayFeeSen: bigint("hitpay_fee_sen", { mode: "bigint" }),
+    // Provider-neutral columns (migration 0039, Stripe design §4.2). psp_provider is pinned when the
+    // row is created. psp_paid_at = Stripe has taken the money but the fee is not known yet (§6).
+    pspProvider: pspProviderEnum("psp_provider").notNull().default("hitpay"),
+    pspPaymentRequestId: text("psp_payment_request_id"),
+    pspPaymentId: text("psp_payment_id"),
+    pspFeeSen: bigint("psp_fee_sen", { mode: "bigint" }),
+    pspPaidAt: timestamp("psp_paid_at", { withTimezone: true }),
     bomyCommissionSen: bigint("bomy_commission_sen", { mode: "bigint" }).notNull(),
     brandPayoutSen: bigint("brand_payout_sen", { mode: "bigint" }).notNull(),
     brandPayoutAt: timestamp("brand_payout_at", { withTimezone: true }),
@@ -67,9 +77,13 @@ export const brandSubscriptions = pgTable(
       "brand_subscriptions_split_chk",
       sql`${t.status} <> 'active'
           OR (
-            ${t.hitpayFeeSen} IS NOT NULL
-            AND ${t.bomyCommissionSen} + ${t.brandPayoutSen} + ${t.hitpayFeeSen} = ${t.priceMyrSen}
+            COALESCE(${t.pspFeeSen}, ${t.hitpayFeeSen}) IS NOT NULL
+            AND ${t.bomyCommissionSen} + ${t.brandPayoutSen} + COALESCE(${t.pspFeeSen}, ${t.hitpayFeeSen}) = ${t.priceMyrSen}
           )`,
+    ),
+    feeSyncChk: check(
+      "brand_subscriptions_fee_sync_chk",
+      sql`${t.pspFeeSen} IS NULL OR ${t.hitpayFeeSen} IS NULL OR ${t.pspFeeSen} = ${t.hitpayFeeSen}`,
     ),
     discountRange: check(
       "brand_subscriptions_discount_chk",
@@ -78,6 +92,9 @@ export const brandSubscriptions = pgTable(
     paymentRequestUnique: uniqueIndex("brand_subscriptions_payment_request_unique_idx")
       .on(t.hitpayPaymentRequestId)
       .where(sql`hitpay_payment_request_id IS NOT NULL`),
+    pspRequestUnique: uniqueIndex("brand_subscriptions_psp_request_unique_idx")
+      .on(t.pspProvider, t.pspPaymentRequestId)
+      .where(sql`psp_payment_request_id IS NOT NULL`),
     activeOrPendingUserStoreUnique: uniqueIndex("brand_subscriptions_active_pending_user_store_idx")
       .on(t.userId, t.storeId)
       .where(sql`status IN ('active', 'pending')`),

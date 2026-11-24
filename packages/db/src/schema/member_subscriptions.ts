@@ -11,7 +11,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core"
 
-import { subscriptionStatusEnum } from "./enums.js"
+import { pspProviderEnum, subscriptionStatusEnum } from "./enums.js"
 import { users } from "./users.js"
 
 // One row per #1 platform-membership instance for a user. Renewals are
@@ -31,6 +31,14 @@ export const memberSubscriptions = pgTable(
     periodEnd: timestamp("period_end", { withTimezone: true }).notNull(),
     hitpayRecurringId: text("hitpay_recurring_id"),
     hitpayPaymentId: text("hitpay_payment_id"),
+    // Provider-neutral columns (migration 0039, Stripe design §4.2). psp_provider is pinned when the
+    // row is created; cancels and refunds read it from the row, never from active_psp. HitPay code
+    // dual-writes hitpay_* and psp_*; Stripe code writes only psp_*.
+    pspProvider: pspProviderEnum("psp_provider").notNull().default("hitpay"),
+    pspRecurringId: text("psp_recurring_id"),
+    pspPaymentId: text("psp_payment_id"),
+    pspCheckoutId: text("psp_checkout_id"),
+    pspCustomerId: text("psp_customer_id"),
     welcomeGiftDispatched: boolean("welcome_gift_dispatched").notNull().default(false),
     notifiedDays: jsonb("notified_days")
       .notNull()
@@ -49,5 +57,12 @@ export const memberSubscriptions = pgTable(
     pendingUserUnique: uniqueIndex("member_subscriptions_pending_user_unique_idx")
       .on(t.userId)
       .where(sql`status = 'pending'`),
+    // Not unique: renewals are separate rows that share the recurring id.
+    pspRecurringIdx: index("member_subscriptions_psp_recurring_idx")
+      .on(t.pspProvider, t.pspRecurringId)
+      .where(sql`psp_recurring_id IS NOT NULL`),
+    pspCheckoutUnique: uniqueIndex("member_subscriptions_psp_checkout_unique_idx")
+      .on(t.pspProvider, t.pspCheckoutId)
+      .where(sql`psp_checkout_id IS NOT NULL`),
   }),
 )

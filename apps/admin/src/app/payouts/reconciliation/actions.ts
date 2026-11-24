@@ -82,9 +82,30 @@ export async function refundDuplicateCharge(id: string): Promise<Result> {
   }
 
   const row = claimed[0]!
+  const hitpayPaymentId = row.hitpayPaymentId
+  if (hitpayPaymentId === null) {
+    // Migration 0039 made hitpay_payment_id nullable for future non-HitPay (Stripe) rows, which
+    // this HitPay-only refund cannot handle. Unreachable until Stripe duplicates exist (every
+    // HitPay row carries the id); release the claim untouched so nothing is stuck in refund_pending.
+    await withAdmin(
+      getDb(),
+      { userId: adminId, reason: "revert duplicate charge refund (no HitPay payment id)" },
+      async (tx) =>
+        tx
+          .update(schema.duplicateCharges)
+          .set({ status: "detected", resolvedBy: null })
+          .where(
+            and(
+              eq(schema.duplicateCharges.id, row.id),
+              eq(schema.duplicateCharges.status, "refund_pending"),
+            ),
+          ),
+    )
+    return { ok: false, error: "REFUND_FAILED" }
+  }
   try {
     const refund = await client.createRefund({
-      payment_id: row.hitpayPaymentId,
+      payment_id: hitpayPaymentId,
       amount: senToMyr(row.amountSen),
       reason: "Duplicate subscription charge",
     })
