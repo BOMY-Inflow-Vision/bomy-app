@@ -417,10 +417,11 @@ ALTER TABLE duplicate_charges ADD CONSTRAINT duplicate_charges_payment_ref_chk
 
 ```sql
 ALTER TABLE checkout_sessions ADD COLUMN psp_paid_at timestamptz;   -- Stripe: paid, awaiting fee (§6)
+ALTER TABLE checkout_sessions ADD COLUMN psp_async_pending_since timestamptz;   -- Stripe: completed but unpaid, async method (§6.1)
 ALTER TABLE checkout_sessions DROP CONSTRAINT checkout_sessions_payment_review_reason_chk;
 ALTER TABLE checkout_sessions ADD CONSTRAINT checkout_sessions_payment_review_reason_chk CHECK (
   payment_review_reason IS NULL OR payment_review_reason IN
-  ('amount_mismatch','invalid_commission_config','voucher_claim_failed','psp_fee_unavailable')) NOT VALID;
+  ('amount_mismatch','invalid_commission_config','voucher_claim_failed','psp_fee_unavailable','psp_async_timeout')) NOT VALID;
 ALTER TABLE checkout_sessions VALIDATE CONSTRAINT checkout_sessions_payment_review_reason_chk;
 ```
 
@@ -433,6 +434,10 @@ cannot collide with HitPay's, so those indexes stay as they are.
 ```sql
 INSERT INTO platform_config (key, value, description) VALUES ('active_psp', '"hitpay"'::jsonb,
  'PSP used for NEW payments: "hitpay" | "stripe". Existing rows keep their own psp_provider. Change via admin /config.')
+ON CONFLICT (key) DO NOTHING;
+
+INSERT INTO platform_config (key, value, description) VALUES ('subscriptions_enabled', 'false'::jsonb,
+ 'Gate for memberships and brand subscriptions on any PSP. Flip via runbook / ops script, never in code.')
 ON CONFLICT (key) DO NOTHING;
 ```
 
@@ -601,6 +606,11 @@ Rule:
   operator resolves it by hand. It never silently expires.
 - `psp_async_pending_since timestamptz NULL` is one extra nullable column on `checkout_sessions`,
   added in PR 1's migration.
+- **Brand subscriptions (PR 5):** they are also one-off Stripe Checkout and allow FPX, so the same
+  state exists there. On `checkout.session.completed` with `payment_status=unpaid`, set the brand
+  sub's `psp_payment_id`; the cleanup job already filters on `psp_payment_id IS NULL`, so that alone
+  stops it expiring the row. Use the same time limit, then an anomaly alert. Memberships are not
+  affected: subscription mode does not allow FPX.
 - If Stripe lets us restrict FPX to consumer accounts (B2C confirms immediately), that is an extra
   lever but is **not relied on** here: it is unconfirmed.
 
