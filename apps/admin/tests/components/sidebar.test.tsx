@@ -64,7 +64,7 @@ const NAV_ITEMS = [
   ["Brand Plans", "/brand-plans"],
   ["Goodie Box", "/goodie-box"],
   ["Vouchers", "/vouchers"],
-  ["Sessions", "/checkout-sessions"],
+  ["Reconciliation", "/payouts/reconciliation"],
   ["Orders", "/orders"],
   ["Payouts", "/payouts"],
   ["Config", "/config"],
@@ -197,6 +197,10 @@ describe("admin sidebar links", () => {
     ["/stores/abc", "Stores"],
     ["/store-categories", "Store Cats"],
     ["/seller-inquiries/xyz", "Seller Inquiries"],
+    ["/payouts", "Payouts"],
+    ["/payouts/abc", "Payouts"],
+    ["/payouts/reconciliation", "Reconciliation"],
+    ["/checkout-sessions/abc", "Reconciliation"],
   ])("%s: one current link (%s) per list", (path, label) => {
     renderAt(path)
     for (const list of lists())

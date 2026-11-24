@@ -10,7 +10,11 @@ import { Button } from "@/components/admin-ui/button"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { cn } from "@/lib/utils"
 
-const NAV = [
+// `also`: other route prefixes that belong to the same item (the payment-review page lives under
+// /checkout-sessions and has no list of its own: Reconciliation is where its sessions are listed).
+// The first matching item wins, so Reconciliation sits before Payouts: /payouts/reconciliation
+// lights Reconciliation, while /payouts and /payouts/<id> light Payouts.
+const NAV: { href: string; label: string; also?: string[] }[] = [
   { href: "/stores", label: "Stores" },
   { href: "/products", label: "Products" },
   { href: "/users", label: "Users" },
@@ -22,7 +26,7 @@ const NAV = [
   { href: "/brand-plans", label: "Brand Plans" },
   { href: "/goodie-box", label: "Goodie Box" },
   { href: "/vouchers", label: "Vouchers" },
-  { href: "/checkout-sessions", label: "Sessions" },
+  { href: "/payouts/reconciliation", label: "Reconciliation", also: ["/checkout-sessions"] },
   { href: "/orders", label: "Orders" },
   { href: "/payouts", label: "Payouts" },
   { href: "/config", label: "Config" },
@@ -50,8 +54,10 @@ const PILL_OFFSET = [
   "translate-y-[1400%]",
 ] as const
 
-const isActive = (pathname: string, href: string) =>
+const matches = (pathname: string, href: string) =>
   pathname === href || pathname.startsWith(`${href}/`)
+const isActive = (pathname: string, item: (typeof NAV)[number]) =>
+  [item.href, ...(item.also ?? [])].some((href) => matches(pathname, href))
 
 function Logo({ className }: { className?: string }) {
   return (
@@ -67,7 +73,7 @@ function Logo({ className }: { className?: string }) {
 // One dark pill sits behind the links and slides to the active one (a transform, so it is cheap and
 // stops under prefers-reduced-motion). The links are text on top of it.
 function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
-  const activeIndex = NAV.findIndex((item) => isActive(pathname, item.href))
+  const activeIndex = NAV.findIndex((item) => isActive(pathname, item))
   const activeLink = useRef<HTMLAnchorElement>(null)
   // On a short screen the list scrolls inside the tile: keep the current page in view.
   useEffect(() => {
