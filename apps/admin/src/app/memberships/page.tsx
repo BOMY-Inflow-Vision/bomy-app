@@ -57,7 +57,7 @@ export default async function MembershipsPage({
           periodStart: schema.memberSubscriptions.periodStart,
           periodEnd: schema.memberSubscriptions.periodEnd,
           cancelledAt: schema.memberSubscriptions.cancelledAt,
-          hitpayRecurringId: schema.memberSubscriptions.hitpayRecurringId,
+          pspRecurringId: schema.memberSubscriptions.pspRecurringId,
         })
         .from(schema.memberSubscriptions)
         .innerJoin(schema.users, eq(schema.users.id, schema.memberSubscriptions.userId))
@@ -162,7 +162,7 @@ export default async function MembershipsPage({
                     {row.periodStart.toLocaleDateString()} – {row.periodEnd.toLocaleDateString()}
                   </td>
                   <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                    {row.hitpayRecurringId ?? "—"}
+                    {row.pspRecurringId ?? "—"}
                   </td>
                   <td className="px-4 py-3">
                     {row.status === "active" && !row.cancelledAt && (

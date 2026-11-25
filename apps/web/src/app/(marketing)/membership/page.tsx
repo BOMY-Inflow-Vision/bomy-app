@@ -48,6 +48,7 @@ export default async function MembershipPage() {
           .select({
             id: schema.memberSubscriptions.id,
             status: schema.memberSubscriptions.status,
+            pspPaymentId: schema.memberSubscriptions.pspPaymentId,
             hitpayPaymentId: schema.memberSubscriptions.hitpayPaymentId,
             createdAt: schema.memberSubscriptions.createdAt,
           })

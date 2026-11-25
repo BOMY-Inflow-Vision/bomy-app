@@ -9,7 +9,14 @@ interface WebpackConfigLike {
 
 const config: NextConfig = {
   output: "standalone",
-  transpilePackages: ["@bomy/db", "@bomy/mailer", "@bomy/hitpay", "@bomy/shared", "@bomy/ui"],
+  transpilePackages: [
+    "@bomy/db",
+    "@bomy/mailer",
+    "@bomy/hitpay",
+    "@bomy/psp",
+    "@bomy/shared",
+    "@bomy/ui",
+  ],
   webpack: (webpackConfig: unknown): unknown => {
     const cfg = webpackConfig as WebpackConfigLike
     const resolve: WebpackResolveLike = cfg.resolve ?? {}

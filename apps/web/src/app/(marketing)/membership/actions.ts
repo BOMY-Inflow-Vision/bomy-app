@@ -5,11 +5,10 @@ import { and, desc, eq, inArray, isNull } from "drizzle-orm"
 import { notFound, redirect } from "next/navigation"
 
 import { makeDb, schema, withAdmin, withTenant } from "@bomy/db"
-import { HitPayClient, type HitPayError, type RecurringBillingResponse } from "@bomy/hitpay"
+import { getProvider, pspRef } from "@bomy/psp"
 
 import { auth } from "@/auth"
 import { flashToast } from "@/lib/flash-toast-server"
-import { formatHitPayStartDate } from "@/lib/hitpay-date"
 import { isPendingAbandoned } from "@/lib/membership"
 import { paymentsEnabled } from "@/lib/payments-enabled"
 
@@ -20,18 +19,17 @@ function getDb() {
   return _client.db
 }
 
-function hitpayClient() {
-  const apiKey = process.env["HITPAY_API_KEY"]
-  const apiUrl = process.env["HITPAY_API_URL"]
-  if (!apiKey) throw new Error("HITPAY_API_KEY is required")
-  if (!apiUrl) throw new Error("HITPAY_API_URL is required")
-  return new HitPayClient({ apiKey, baseUrl: apiUrl })
-}
+// Provider for new memberships. Still HitPay-only: PR 3 replaces this with the
+// platform_config `active_psp` read, pinned on the row at creation.
+const PINNED_PSP = "hitpay" as const
 
-function senToMyr(sen: bigint): string {
-  const whole = sen / 100n
-  const frac = String(sen % 100n).padStart(2, "0")
-  return `${whole}.${frac}`
+/**
+ * HitPay dual-write (Stripe design §4.1): the recurring id goes into hitpay_recurring_id (the
+ * HitPay webhook still correlates on it, and a code rollback still finds it) AND the
+ * provider-neutral psp_recurring_id.
+ */
+function recurringIdColumns(recurringId: string) {
+  return { hitpayRecurringId: recurringId, pspRecurringId: recurringId, updatedAt: new Date() }
 }
 
 function addOneYear(d: Date): Date {
@@ -92,6 +90,7 @@ export async function joinMembership() {
         .select({
           id: schema.memberSubscriptions.id,
           status: schema.memberSubscriptions.status,
+          pspPaymentId: schema.memberSubscriptions.pspPaymentId,
           hitpayPaymentId: schema.memberSubscriptions.hitpayPaymentId,
           createdAt: schema.memberSubscriptions.createdAt,
         })
@@ -115,8 +114,9 @@ export async function joinMembership() {
       //
       // Compare-and-swap: a delayed webhook may have activated (and paid) this
       // exact row between the read above and now. Guard the UPDATE on
-      // status='pending' AND hitpay_payment_id IS NULL — matching the reaper — so
-      // we never clobber a paid membership back to expired.
+      // status='pending' AND no payment id — matching the reaper — so we never clobber a
+      // paid membership back to expired. Both payment-id columns are checked until the
+      // contract PR: a row paid by pre-dual-write webhook code carries only hitpay_payment_id.
       const expired = await withAdmin(
         getDb(),
         { userId: session.user.id, reason: "expire abandoned pending membership on re-join" },
@@ -129,6 +129,7 @@ export async function joinMembership() {
                 eq(schema.memberSubscriptions.id, current.id),
                 eq(schema.memberSubscriptions.userId, session.user.id),
                 eq(schema.memberSubscriptions.status, "pending"),
+                isNull(schema.memberSubscriptions.pspPaymentId),
                 isNull(schema.memberSubscriptions.hitpayPaymentId),
               ),
             )
@@ -178,6 +179,7 @@ export async function joinMembership() {
           id: subId,
           userId: session.user.id,
           status: "pending",
+          pspProvider: PINNED_PSP,
           priceMyrSen: priceSen,
           periodStart: now,
           periodEnd: addOneYear(now),
@@ -189,20 +191,28 @@ export async function joinMembership() {
     throw err
   }
 
-  // Call HitPay — track billing so we can cancel it if DB correlation fails
-  let billing: RecurringBillingResponse | null = null
+  // Create the recurring checkout — track it so we can cancel it if DB correlation fails.
+  // HitPay returns the recurring billing id straight away (pspRecurringId === pspRequestId).
+  const provider = getProvider(PINNED_PSP)
+  let billing: { recurringId: string; url: string } | null = null
   try {
-    billing = await hitpayClient().createRecurringBilling({
-      amount: senToMyr(priceSen),
+    const created = await provider.createRecurringCheckout({
+      kind: "member_subscription",
+      bomyRefId: subId,
+      amountSen: priceSen,
       currency: "MYR",
-      name: "BOMY Platform Membership",
-      cycle: "yearly",
-      customer_email: session.user.email ?? "",
-      start_date: formatHitPayStartDate(now),
-      reference: subId,
-      redirect_url: `${appUrl}/membership/success`,
-      ...(webhookUrl ? { webhook: webhookUrl } : {}),
+      interval: "year",
+      customerEmail: session.user.email ?? "",
+      description: "BOMY Platform Membership",
+      successUrl: `${appUrl}/membership/success`,
+      startDate: now,
+      webhookUrl,
+      idempotencyKey: `membership:${subId}`,
     })
+    billing = {
+      recurringId: created.pspRecurringId ?? created.pspRequestId,
+      url: created.redirectUrl,
+    }
 
     // Store recurring ID — if this fails, cancel the live HitPay billing
     await withAdmin(
@@ -211,7 +221,7 @@ export async function joinMembership() {
       async (tx) => {
         await tx
           .update(schema.memberSubscriptions)
-          .set({ hitpayRecurringId: billing!.id, updatedAt: new Date() })
+          .set(recurringIdColumns(billing!.recurringId))
           .where(
             and(
               eq(schema.memberSubscriptions.id, subId),
@@ -224,7 +234,7 @@ export async function joinMembership() {
     // instanceof HitPayError fails across Next.js chunk boundaries (transpilePackages
     // can duplicate class identity); check by property shape instead.
     if (err instanceof Error && "statusCode" in err && "body" in err) {
-      const e = err as unknown as HitPayError
+      const e = err as unknown as { statusCode: number; body: unknown }
       console.error("[joinMembership] HitPay error", e.statusCode, JSON.stringify(e.body))
     }
     if (billing) {
@@ -232,7 +242,7 @@ export async function joinMembership() {
       // Try to cancel the live billing to avoid an unlinked subscription.
       let cancelSucceeded = false
       try {
-        await hitpayClient().cancelRecurringBilling(billing.id)
+        await provider.cancelRecurring(billing.recurringId, { atPeriodEnd: false })
         cancelSucceeded = true
       } catch {
         // Cancel also failed — try to write hitpayRecurringId onto the pending
@@ -247,7 +257,7 @@ export async function joinMembership() {
             async (tx) => {
               await tx
                 .update(schema.memberSubscriptions)
-                .set({ hitpayRecurringId: billing!.id, updatedAt: new Date() })
+                .set(recurringIdColumns(billing!.recurringId))
                 .where(
                   and(
                     eq(schema.memberSubscriptions.id, subId),
@@ -368,9 +378,11 @@ export async function cancelMembership() {
 
   if (!sub) redirect("/membership")
 
-  if (sub.hitpayRecurringId) {
+  // Cancel on the provider pinned on the row, never the active one (design Invariant 2).
+  const recurringId = pspRef(sub.pspProvider, sub.pspRecurringId, sub.hitpayRecurringId)
+  if (recurringId) {
     try {
-      await hitpayClient().cancelRecurringBilling(sub.hitpayRecurringId)
+      await getProvider(sub.pspProvider).cancelRecurring(recurringId, { atPeriodEnd: true })
     } catch (err) {
       // Renewal is still live at HitPay, so don't record the cancellation; let the user retry.
       console.error("[cancelMembership] HitPay cancel failed", err)

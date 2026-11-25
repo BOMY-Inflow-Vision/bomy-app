@@ -74,7 +74,7 @@ export default async function BrandSubscriptionsPage({
           discountPct: schema.brandSubscriptions.discountPct,
           status: schema.brandSubscriptions.status,
           periodEnd: schema.brandSubscriptions.periodEnd,
-          hitpayPaymentRequestId: schema.brandSubscriptions.hitpayPaymentRequestId,
+          pspPaymentRequestId: schema.brandSubscriptions.pspPaymentRequestId,
         })
         .from(schema.brandSubscriptions)
         .innerJoin(schema.users, eq(schema.users.id, schema.brandSubscriptions.userId))

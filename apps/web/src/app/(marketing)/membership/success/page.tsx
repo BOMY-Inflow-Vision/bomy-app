@@ -19,6 +19,7 @@ export default async function MembershipSuccessPage() {
       const rows = await tx
         .select({
           status: schema.memberSubscriptions.status,
+          pspPaymentId: schema.memberSubscriptions.pspPaymentId,
           hitpayPaymentId: schema.memberSubscriptions.hitpayPaymentId,
           createdAt: schema.memberSubscriptions.createdAt,
         })

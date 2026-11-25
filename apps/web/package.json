@@ -18,6 +18,7 @@
     "@aws-sdk/s3-request-presigner": "^3.1046.0",
     "@bomy/db": "workspace:*",
     "@bomy/hitpay": "workspace:*",
+    "@bomy/psp": "workspace:*",
     "@bomy/mailer": "workspace:*",
     "@bomy/shared": "workspace:*",
     "@bomy/ui": "workspace:*",

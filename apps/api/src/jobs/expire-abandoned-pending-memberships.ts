@@ -18,7 +18,10 @@ export const PENDING_GRACE_MS = 30 * 60 * 1000
  * Sweep for abandoned pending memberships — rows the user started at checkout
  * but never paid for (back-button out of HitPay, closed tab, etc.). Updates
  * status = 'expired' for any row where:
- *   status = 'pending' AND hitpay_payment_id IS NULL AND created_at <= now - grace
+ *   status = 'pending' AND psp_payment_id IS NULL AND hitpay_payment_id IS NULL
+ *   AND created_at <= now - grace
+ * (hitpay_payment_id is still checked until the contract PR: a row paid by pre-dual-write
+ * webhook code carries only that column — Stripe design §4.1.)
  *
  * Leaving these as 'pending' traps the user: every membership page redirects a
  * pending user back into the success poller, and the partial unique index on
@@ -44,6 +47,7 @@ export async function expireAbandonedPendingMemberships(
         .where(
           and(
             eq(schema.memberSubscriptions.status, "pending"),
+            isNull(schema.memberSubscriptions.pspPaymentId),
             isNull(schema.memberSubscriptions.hitpayPaymentId),
             lte(schema.memberSubscriptions.createdAt, cutoff),
           ),

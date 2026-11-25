@@ -2,6 +2,8 @@
  * HitPay's start_date field is interpreted in SGT (Asia/Singapore, UTC+8).
  * Vercel runs in UTC, so a naive toISOString().slice(0,10) sends yesterday's
  * date during 00:00–07:59 SGT and triggers a 422 from the live API.
+ *
+ * (Moved unchanged from apps/web/src/lib/hitpay-date.ts.)
  */
 export function formatHitPayStartDate(date: Date): string {
   const parts = new Intl.DateTimeFormat("en", {

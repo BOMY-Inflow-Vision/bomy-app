@@ -181,7 +181,7 @@ export default async function ReconciliationPage() {
                         {d.subscriptionType === "member_subscription" ? "Membership" : "Brand"}
                       </td>
                       <td className="px-4 py-3 text-right">RM{senToMyr(d.amountSen)}</td>
-                      <td className="px-4 py-3 font-mono text-xs">{d.hitpayPaymentId}</td>
+                      <td className="px-4 py-3 font-mono text-xs">{d.pspPaymentId ?? "—"}</td>
                       <td className="px-4 py-3">{d.detectedAt.toISOString().slice(0, 10)}</td>
                       <td className="px-4 py-3">
                         <Badge variant="outline">{d.status}</Badge>

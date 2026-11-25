@@ -12,11 +12,10 @@ import {
   withTenant,
   type CheckoutSessionStatus,
 } from "@bomy/db"
-import { HitPayClient, HitPayError, type PaymentRequestResponse } from "@bomy/hitpay"
+import { getProvider, pspErrorCode } from "@bomy/psp"
 
 import { auth } from "@/auth"
 import { CheckoutError, type CheckoutErrorCode } from "@/lib/checkout-errors"
-import { senToMyr } from "@/lib/money"
 import { ACTION_RATE_LIMITS } from "@/lib/rate-limits"
 import { validateShippingAddress } from "@/lib/shipping-address-schema"
 
@@ -32,18 +31,14 @@ import {
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001" as const
 
+// Provider for new order checkouts. Still HitPay-only: PR 3 replaces this with the
+// platform_config `active_psp` read (getActivePsp), pinned on the row at creation.
+const PINNED_PSP = "hitpay" as const
+
 let _client: ReturnType<typeof makeDb> | null = null
 function getDb() {
   if (!_client) _client = makeDb()
   return _client.db
-}
-
-function hitpayClient(): HitPayClient {
-  const apiKey = process.env["HITPAY_API_KEY"]
-  const apiUrl = process.env["HITPAY_API_URL"]
-  if (!apiKey) throw new Error("HITPAY_API_KEY is required")
-  if (!apiUrl) throw new Error("HITPAY_API_URL is required")
-  return new HitPayClient({ apiKey, baseUrl: apiUrl })
 }
 
 // Validates that a string is a v4-shaped UUID (the same shape Postgres
@@ -54,24 +49,6 @@ function hitpayClient(): HitPayClient {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 function isUuid(s: string): boolean {
   return UUID_RE.test(s)
-}
-
-// Short, audit-friendly code derived from a HitPay error class name.
-//   HitPayAuthError       → "auth"
-//   HitPayValidationError → "validation"
-//   HitPayNotFoundError   → "notfound"
-//   HitPayRateLimitError  → "ratelimit"
-//   plain HitPayError     → "error"
-//   anything else         → "unknown"
-function hitpayErrCode(err: unknown): string {
-  if (err instanceof HitPayError) {
-    const stripped = err.name
-      .replace(/^HitPay/, "")
-      .replace(/Error$/, "")
-      .toLowerCase()
-    return stripped || "error"
-  }
-  return "unknown"
 }
 
 // ───────────────────────────────────────────────────────────────────────
@@ -350,7 +327,7 @@ export async function initiateCheckout(input: {
           id: sessionId,
           userId: buyerId,
           status: "pending_payment",
-          pspProvider: "hitpay",
+          pspProvider: PINNED_PSP,
           shippingAddress: addressValidation.value,
           voucherId: ctx.voucher ? input.voucherId : null,
           totalCatalogSen: totals.totalCatalogSen,
@@ -459,24 +436,30 @@ export async function initiateCheckout(input: {
   // PSP-ref UPDATE that follows is its own short Transaction 2.
   // (webBaseUrl / apiBaseUrl validated above pre-Phase-1.)
 
-  let paymentRequest: PaymentRequestResponse
+  // The provider pinned on the session row in Phase 1 (`pspProvider: "hitpay"`; PR 3 makes
+  // it the active provider). pspErrorCode keeps the legacy audit tokens ("auth",
+  // "validation", "notfound", "ratelimit", "error", else "unknown").
+  const provider = getProvider(PINNED_PSP)
+  let paymentRequest: { pspRequestId: string; redirectUrl: string }
   try {
-    paymentRequest = await hitpayClient().createPaymentRequest({
-      amount: senToMyr(totalBuyerPaysSen),
+    paymentRequest = await provider.createOneTimeCheckout({
+      kind: "order",
+      bomyRefId: sessionId,
+      amountSen: totalBuyerPaysSen,
       currency: "MYR",
-      email: session.user.email ?? "",
-      purpose: `BOMY order #${sessionId.slice(0, 8)}`,
-      reference_number: sessionId,
-      redirect_url: `${webBaseUrl}/checkout/success?session=${sessionId}`,
-      cancel_url: `${webBaseUrl}/checkout/cancelled?session=${sessionId}`,
-      webhook: `${apiBaseUrl}/webhooks/hitpay`,
+      customerEmail: session.user.email ?? "",
+      description: `BOMY order #${sessionId.slice(0, 8)}`,
+      successUrl: `${webBaseUrl}/checkout/success?session=${sessionId}`,
+      cancelUrl: `${webBaseUrl}/checkout/cancelled?session=${sessionId}`,
+      webhookUrl: `${apiBaseUrl}/webhooks/hitpay`,
+      idempotencyKey: `checkout:${sessionId}`,
     })
   } catch (err) {
-    // HitPay call failed before any PSP ref was stored. Roll back Phase 1.
+    // PSP call failed before any PSP ref was stored. Roll back Phase 1.
     await compensateInitiation(db, {
       sessionId,
       buyerId,
-      reason: `hitpay_create_failed:${hitpayErrCode(err)}`,
+      reason: `${provider.id}_create_failed:${pspErrorCode(err)}`,
     })
     return { ok: false, error: "PAYMENT_INIT_FAILED" }
   }
@@ -493,8 +476,8 @@ export async function initiateCheckout(input: {
         tx
           .update(schema.checkoutSessions)
           .set({
-            pspPaymentRequestId: paymentRequest.id,
-            pspPaymentUrl: paymentRequest.url,
+            pspPaymentRequestId: paymentRequest.pspRequestId,
+            pspPaymentUrl: paymentRequest.redirectUrl,
             updatedAt: new Date(),
           })
           .where(
@@ -522,7 +505,7 @@ export async function initiateCheckout(input: {
     return { ok: false, error: "PAYMENT_INIT_FAILED" }
   }
 
-  return { ok: true, redirectUrl: paymentRequest.url }
+  return { ok: true, redirectUrl: paymentRequest.redirectUrl }
 }
 
 // ───────────────────────────────────────────────────────────────────────

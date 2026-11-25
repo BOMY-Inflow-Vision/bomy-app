@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { formatHitPayStartDate } from "../../src/lib/hitpay-date"
+import { formatHitPayStartDate } from "../src/hitpay/start-date.js"
 
 describe("formatHitPayStartDate", () => {
   it("boundary: 16:30 UTC (00:30 SGT next day) → SGT date, not UTC date", () => {
