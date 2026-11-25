@@ -7,7 +7,13 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { PspRequestError, PspUnsupportedError, isPspRequestError } from "../src/errors.js"
+import {
+  PspRequestError,
+  PspUnsupportedError,
+  isPspRejection,
+  isPspRequestError,
+  pspErrorCode,
+} from "../src/errors.js"
 import { HitPayProvider } from "../src/hitpay/provider.js"
 
 const BASE_URL = "https://api.sandbox.hit-pay.com"
@@ -260,21 +266,32 @@ describe("HitPayProvider — errors", () => {
     })
 
   it.each([
-    [401, "auth"],
-    [404, "notfound"],
-    [422, "validation"],
-    [429, "ratelimit"],
-    [500, "error"],
-  ])("HTTP %i → PspRequestError code %s (definite rejection)", async (status, code) => {
+    [400, "error", "rejected"],
+    [401, "auth", "rejected"],
+    [404, "notfound", "rejected"],
+    [422, "validation", "rejected"],
+    [429, "ratelimit", "rejected"],
+    [408, "error", "unknown"],
+    [409, "error", "unknown"],
+    [425, "error", "unknown"],
+    [500, "error", "unknown"],
+    [502, "error", "unknown"],
+    [503, "error", "unknown"],
+    [504, "error", "unknown"],
+  ])("HTTP %i → PspRequestError code %s, outcome %s", async (status, code, outcome) => {
     mockFetch(status, { message: "nope" })
     const err: unknown = await call(provider()).catch((e: unknown) => e)
     expect(err).toBeInstanceOf(PspRequestError)
     expect(isPspRequestError(err)).toBe(true)
     const e = err as PspRequestError
     expect(e.provider).toBe("hitpay")
+    // The audit code is the legacy token whatever the outcome.
     expect(e.code).toBe(code)
+    expect(pspErrorCode(err)).toBe(code)
     expect(e.statusCode).toBe(status)
     expect(e.body).toEqual({ message: "nope" })
+    expect(e.outcome).toBe(outcome)
+    expect(isPspRejection(err)).toBe(outcome === "rejected")
   })
 
   it("a network failure propagates unchanged (outcome unknown, not a PspRequestError)", async () => {
@@ -283,6 +300,45 @@ describe("HitPayProvider — errors", () => {
     const err: unknown = await call(provider()).catch((e: unknown) => e)
     expect(err).toBe(netErr)
     expect(isPspRequestError(err)).toBe(false)
+    expect(isPspRejection(err)).toBe(false)
+  })
+
+  it("a timeout (AbortError) is never a rejection", async () => {
+    const abort = new DOMException("The operation was aborted", "TimeoutError")
+    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(abort)
+    const err: unknown = await call(provider()).catch((e: unknown) => e)
+    expect(err).toBe(abort)
+    expect(isPspRejection(err)).toBe(false)
+  })
+
+  it("an unparseable 2xx body is never a rejection", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response("<html>gateway</html>", {
+        status: 200,
+        headers: { "Content-Type": "text/html" },
+      }),
+    )
+    const err: unknown = await call(provider()).catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(Error)
+    expect(isPspRejection(err)).toBe(false)
+  })
+
+  it("a 2xx refund without an id → unknown-outcome invalid_response (money may have moved)", async () => {
+    mockFetch(200, { status: "pending" })
+    const err: unknown = await provider()
+      .refund({ pspPaymentId: "p", amountSen: 100n, reason: "r", idempotencyKey: "k" })
+      .catch((e: unknown) => e)
+    expect(isPspRequestError(err)).toBe(true)
+    expect((err as PspRequestError).code).toBe("invalid_response")
+    expect((err as PspRequestError).outcome).toBe("unknown")
+    expect(isPspRejection(err)).toBe(false)
+  })
+
+  it("a 2xx checkout without a url → unknown-outcome invalid_response", async () => {
+    mockFetch(200, { id: "pr_1" })
+    const err: unknown = await call(provider()).catch((e: unknown) => e)
+    expect((err as PspRequestError).code).toBe("invalid_response")
+    expect(isPspRejection(err)).toBe(false)
   })
 
   it("missing env throws the legacy plain Error before any HTTP call", async () => {

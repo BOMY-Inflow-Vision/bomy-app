@@ -28,8 +28,10 @@ export interface HitPayProviderOptions {
  *   `hitpayClient()` helper did. Missing env throws the same plain `Error` messages
  *   ("HITPAY_API_KEY is required" / "HITPAY_API_URL is required").
  * - A HitPay API error (any `HitPayError` subclass: the API answered with an error status) is
- *   re-thrown as `PspRequestError` (definite rejection). Anything else — network failure,
- *   timeout — propagates unchanged (unknown outcome).
+ *   re-thrown as `PspRequestError`, whose `outcome` comes from the status: 4xx (bar 408/409/425)
+ *   is a definite rejection, 5xx/408/409/425 is unknown. A 2xx whose body lacks the ids we
+ *   need is an `unknown`-outcome `PspRequestError` ("invalid_response"). Anything else —
+ *   network failure, timeout, unparseable JSON — propagates unchanged (unknown outcome).
  * - `expireCheckout` → "unsupported" (HitPay payment requests are not expired today).
  * - `getPaymentFee` throws: HitPay delivers the fee in the webhook, so it is never called.
  * - `idempotencyKey` and `expiresAt` are accepted and ignored (HitPay has neither today).
@@ -65,7 +67,10 @@ export class HitPayProvider implements PaymentProvider {
       ...(i.webhookUrl ? { webhook: i.webhookUrl } : {}),
     }
     const res = await this.#call((c) => c.createPaymentRequest(body))
-    return { pspRequestId: res.id, redirectUrl: res.url }
+    return {
+      pspRequestId: requireString(res, "id", "payment request"),
+      redirectUrl: requireString(res, "url", "payment request"),
+    }
   }
 
   expireCheckout(_pspRequestId: string): Promise<"expired" | "already_paid" | "unsupported"> {
@@ -89,7 +94,12 @@ export class HitPayProvider implements PaymentProvider {
       }),
     )
     // HitPay has no separate checkout object: the recurring billing id is both.
-    return { pspRequestId: billing.id, pspRecurringId: billing.id, redirectUrl: billing.url }
+    const id = requireString(billing, "id", "recurring billing")
+    return {
+      pspRequestId: id,
+      pspRecurringId: id,
+      redirectUrl: requireString(billing, "url", "recurring billing"),
+    }
   }
 
   async cancelRecurring(pspRecurringId: string, _o: { atPeriodEnd: boolean }): Promise<void> {
@@ -106,7 +116,9 @@ export class HitPayProvider implements PaymentProvider {
         reason: i.reason,
       }),
     )
-    return { pspRefundId: refund.id, status: refund.status }
+    // A refund HitPay accepted but whose id we cannot read is NOT a rejection: the money may
+    // have moved. requireString throws an unknown-outcome error, never a rejection.
+    return { pspRefundId: requireString(refund, "id", "refund"), status: refund.status }
   }
 
   getPaymentFee(_pspPaymentId: string): Promise<PaymentFee> {
@@ -131,6 +143,21 @@ export class HitPayProvider implements PaymentProvider {
       throw toPspError(err)
     }
   }
+}
+
+/** A 2xx body missing a field we need: the call may have taken effect, so outcome is unknown. */
+function requireString(res: unknown, key: string, what: string): string {
+  const v: unknown =
+    typeof res === "object" && res !== null ? (res as Record<string, unknown>)[key] : undefined
+  if (typeof v === "string" && v.length > 0) return v
+  throw new PspRequestError({
+    provider: "hitpay",
+    code: "invalid_response",
+    statusCode: 200,
+    body: res,
+    outcome: "unknown",
+    message: `HitPay ${what} response has no usable "${key}"`,
+  })
 }
 
 /**

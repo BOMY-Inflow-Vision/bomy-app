@@ -7,6 +7,7 @@ import { schema, withAdmin } from "@bomy/db"
 import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { pageCount, pageOffset, parsePage, PAGE_SIZE } from "@/lib/pagination"
+import { displayPspRef } from "@/lib/psp-display"
 import { statusVariant } from "@/lib/status-badge"
 import { Badge } from "@bomy/ui/badge"
 import { Button } from "@/components/admin-ui/button"
@@ -57,7 +58,9 @@ export default async function MembershipsPage({
           periodStart: schema.memberSubscriptions.periodStart,
           periodEnd: schema.memberSubscriptions.periodEnd,
           cancelledAt: schema.memberSubscriptions.cancelledAt,
+          pspProvider: schema.memberSubscriptions.pspProvider,
           pspRecurringId: schema.memberSubscriptions.pspRecurringId,
+          hitpayRecurringId: schema.memberSubscriptions.hitpayRecurringId,
         })
         .from(schema.memberSubscriptions)
         .innerJoin(schema.users, eq(schema.users.id, schema.memberSubscriptions.userId))
@@ -162,7 +165,7 @@ export default async function MembershipsPage({
                     {row.periodStart.toLocaleDateString()} – {row.periodEnd.toLocaleDateString()}
                   </td>
                   <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                    {row.pspRecurringId ?? "—"}
+                    {displayPspRef(row.pspProvider, row.pspRecurringId, row.hitpayRecurringId)}
                   </td>
                   <td className="px-4 py-3">
                     {row.status === "active" && !row.cancelledAt && (

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest"
 
-import { PspRequestError, isPspRequestError, pspErrorCode } from "../src/errors.js"
+import {
+  PspRequestError,
+  isPspRejection,
+  isPspRequestError,
+  outcomeForHttpStatus,
+  pspErrorCode,
+} from "../src/errors.js"
 import { assertSafeMinor, senToMajorString } from "../src/money.js"
 
 describe("senToMajorString", () => {
@@ -61,5 +67,49 @@ describe("PspRequestError helpers", () => {
     expect(pspErrorCode(e)).toBe("validation")
     expect(pspErrorCode(new TypeError("fetch failed"))).toBe("unknown")
     expect(pspErrorCode(undefined)).toBe("unknown")
+  })
+})
+
+describe("failure outcome (definite rejection vs unknown)", () => {
+  it.each([
+    [400, "rejected"],
+    [401, "rejected"],
+    [403, "rejected"],
+    [404, "rejected"],
+    [422, "rejected"],
+    [429, "rejected"],
+    [408, "unknown"],
+    [409, "unknown"],
+    [425, "unknown"],
+    [500, "unknown"],
+    [502, "unknown"],
+    [503, "unknown"],
+    [504, "unknown"],
+    [200, "unknown"],
+    [302, "unknown"],
+  ])("HTTP %i → %s", (status, outcome) => {
+    expect(outcomeForHttpStatus(status)).toBe(outcome)
+  })
+
+  it("the constructor classifies by status unless an outcome is given", () => {
+    const base = { provider: "hitpay" as const, code: "error", body: {}, message: "m" }
+    expect(new PspRequestError({ ...base, statusCode: 422 }).outcome).toBe("rejected")
+    expect(new PspRequestError({ ...base, statusCode: 500 }).outcome).toBe("unknown")
+    expect(new PspRequestError({ ...base, statusCode: 200, outcome: "unknown" }).outcome).toBe(
+      "unknown",
+    )
+  })
+
+  it("isPspRejection is true only for a proven rejection; look-alikes without outcome fail safe", () => {
+    const base = { provider: "hitpay" as const, code: "error", body: {}, message: "m" }
+    expect(isPspRejection(new PspRequestError({ ...base, statusCode: 422 }))).toBe(true)
+    expect(isPspRejection(new PspRequestError({ ...base, statusCode: 503 }))).toBe(false)
+    const noOutcome = Object.assign(new Error("x"), {
+      name: "PspRequestError",
+      code: "validation",
+      statusCode: 422,
+    })
+    expect(isPspRejection(noOutcome)).toBe(false)
+    expect(isPspRejection(new TypeError("fetch failed"))).toBe(false)
   })
 })

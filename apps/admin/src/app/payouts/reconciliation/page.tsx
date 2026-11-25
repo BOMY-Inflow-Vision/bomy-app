@@ -6,6 +6,7 @@ import { schema, withAdmin } from "@bomy/db"
 import { requireAdmin } from "@/lib/auth"
 import { getDb } from "@/lib/db"
 import { senToMyr } from "@/lib/money"
+import { displayPspRef } from "@/lib/psp-display"
 import { Alert } from "@bomy/ui/alert"
 import { Badge } from "@bomy/ui/badge"
 import { Button } from "@/components/admin-ui/button"
@@ -181,7 +182,9 @@ export default async function ReconciliationPage() {
                         {d.subscriptionType === "member_subscription" ? "Membership" : "Brand"}
                       </td>
                       <td className="px-4 py-3 text-right">RM{senToMyr(d.amountSen)}</td>
-                      <td className="px-4 py-3 font-mono text-xs">{d.pspPaymentId ?? "—"}</td>
+                      <td className="px-4 py-3 font-mono text-xs">
+                        {displayPspRef(d.pspProvider, d.pspPaymentId, d.hitpayPaymentId)}
+                      </td>
                       <td className="px-4 py-3">{d.detectedAt.toISOString().slice(0, 10)}</td>
                       <td className="px-4 py-3">
                         <Badge variant="outline">{d.status}</Badge>
