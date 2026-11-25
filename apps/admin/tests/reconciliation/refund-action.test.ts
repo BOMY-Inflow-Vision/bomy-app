@@ -128,6 +128,31 @@ describe.skipIf(!shouldRun)("refundDuplicateCharge", () => {
     expect((await read(id))?.status).toBe("detected")
   })
 
+  it("row without a HitPay payment id (non-HitPay, migration 0039) → REFUND_FAILED, never calls HitPay, stays detected", async () => {
+    vi.clearAllMocks()
+    mockAuth.mockResolvedValue({ user: { id: adminId, role: "bomy_admin" } })
+    const id = randomUUID()
+    await withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "seed" }, async (tx) => {
+      await tx.insert(schema.duplicateCharges).values({
+        id,
+        subscriptionType: "brand_subscription",
+        subscriptionId: randomUUID(),
+        userId: randomUUID(),
+        hitpayPaymentId: null,
+        pspProvider: "stripe",
+        pspPaymentId: `pi_${randomUUID()}`,
+        amountSen: 50000n,
+        currency: "MYR",
+      })
+    })
+    const res = await refundDuplicateCharge(id)
+    expect(res).toEqual({ ok: false, error: "REFUND_FAILED" })
+    expect(createRefund).not.toHaveBeenCalled()
+    const row = await read(id)
+    expect(row?.status).toBe("detected")
+    expect(row?.resolvedBy).toBeNull()
+  })
+
   it("NOT_FOUND when id does not exist", async () => {
     vi.clearAllMocks()
     mockAuth.mockResolvedValue({ user: { id: adminId, role: "bomy_finance" } })

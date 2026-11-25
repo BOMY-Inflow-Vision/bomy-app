@@ -192,6 +192,10 @@ const MIGRATIONS = [
     name: "0038_store_image_focal_point",
     file: join(__dirname, "../drizzle/0038_store_image_focal_point.sql"),
   },
+  {
+    name: "0039_psp_provider_columns",
+    file: join(__dirname, "../drizzle/0039_psp_provider_columns.sql"),
+  },
 ]
 
 try {
