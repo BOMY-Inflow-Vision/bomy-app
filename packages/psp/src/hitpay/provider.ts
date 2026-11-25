@@ -29,8 +29,9 @@ export interface HitPayProviderOptions {
  *   ("HITPAY_API_KEY is required" / "HITPAY_API_URL is required").
  * - A HitPay API error (any `HitPayError` subclass: the API answered with an error status) is
  *   re-thrown as `PspRequestError`, whose `outcome` comes from the status: 4xx (bar 408/409/425)
- *   is a definite rejection, 5xx/408/409/425 is unknown. A 2xx whose body lacks the ids we
- *   need is an `unknown`-outcome `PspRequestError` ("invalid_response"). Anything else —
+ *   is a definite rejection, 5xx/408/409/425 is unknown. A 2xx whose body lacks the id is an
+ *   `unknown`-outcome `PspRequestError` ("invalid_response"); a 2xx with an id but no URL
+ *   returns `redirectUrl: null` so the caller can still store the id. Anything else —
  *   network failure, timeout, unparseable JSON — propagates unchanged (unknown outcome).
  * - `expireCheckout` → "unsupported" (HitPay payment requests are not expired today).
  * - `getPaymentFee` throws: HitPay delivers the fee in the webhook, so it is never called.
@@ -52,7 +53,7 @@ export class HitPayProvider implements PaymentProvider {
 
   async createOneTimeCheckout(
     i: OneTimeCheckoutInput,
-  ): Promise<{ pspRequestId: string; redirectUrl: string }> {
+  ): Promise<{ pspRequestId: string; redirectUrl: string | null }> {
     const body: CreatePaymentRequestInput = {
       amount: senToMajorString(i.amountSen),
       currency: i.currency,
@@ -69,7 +70,7 @@ export class HitPayProvider implements PaymentProvider {
     const res = await this.#call((c) => c.createPaymentRequest(body))
     return {
       pspRequestId: requireString(res, "id", "payment request"),
-      redirectUrl: requireString(res, "url", "payment request"),
+      redirectUrl: field(res, "url"),
     }
   }
 
@@ -77,9 +78,11 @@ export class HitPayProvider implements PaymentProvider {
     return Promise.resolve("unsupported")
   }
 
-  async createRecurringCheckout(
-    i: RecurringCheckoutInput,
-  ): Promise<{ pspRequestId: string; pspRecurringId: string | null; redirectUrl: string }> {
+  async createRecurringCheckout(i: RecurringCheckoutInput): Promise<{
+    pspRequestId: string
+    pspRecurringId: string | null
+    redirectUrl: string | null
+  }> {
     const billing = await this.#call((c) =>
       c.createRecurringBilling({
         amount: senToMajorString(i.amountSen),
@@ -98,7 +101,7 @@ export class HitPayProvider implements PaymentProvider {
     return {
       pspRequestId: id,
       pspRecurringId: id,
-      redirectUrl: requireString(billing, "url", "recurring billing"),
+      redirectUrl: field(billing, "url"),
     }
   }
 
@@ -145,11 +148,24 @@ export class HitPayProvider implements PaymentProvider {
   }
 }
 
-/** A 2xx body missing a field we need: the call may have taken effect, so outcome is unknown. */
-function requireString(res: unknown, key: string, what: string): string {
+/**
+ * A non-empty string field of a 2xx body, else null (never `undefined` / "undefined"). Used
+ * as-is for a URL HitPay may leave out, so the caller keeps the id it did get.
+ */
+function field(res: unknown, key: string): string | null {
   const v: unknown =
     typeof res === "object" && res !== null ? (res as Record<string, unknown>)[key] : undefined
-  if (typeof v === "string" && v.length > 0) return v
+  return typeof v === "string" && v.length > 0 ? v : null
+}
+
+/**
+ * An id we cannot do without: a 2xx body missing it may still have taken effect, so this
+ * throws an unknown-outcome error (never a rejection). Only thrown when there is no id at all,
+ * so no usable id is ever discarded.
+ */
+function requireString(res: unknown, key: string, what: string): string {
+  const v = field(res, key)
+  if (v !== null) return v
   throw new PspRequestError({
     provider: "hitpay",
     code: "invalid_response",

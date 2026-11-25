@@ -250,7 +250,7 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
   }
 
   // Create the hosted checkout on the provider pinned on the row.
-  let paymentRequest: { pspRequestId: string; redirectUrl: string } | null = null
+  let paymentRequest: { pspRequestId: string; redirectUrl: string | null } | null = null
   try {
     paymentRequest = await getProvider(PINNED_PSP).createOneTimeCheckout({
       kind: "brand_subscription",
@@ -334,11 +334,12 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
           // Leave row in place for manual reconciliation.
         }
       }
-      if (fallbackSaved) {
+      if (fallbackSaved && paymentRequest.redirectUrl !== null) {
         // Row has the payment request ID — redirect to checkout.
         // The user can complete payment; the webhook will activate the subscription.
         redirect(paymentRequest.redirectUrl)
       }
+      // Saved but HitPay gave no URL: keep the row + reference (below), show the error.
     } else {
       // HitPay was never called — remove orphan row so user can retry.
       try {
@@ -372,6 +373,21 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
     redirect(`/brands/${store.slug}/subscribe`)
   }
 
+  if (paymentRequest.redirectUrl === null) {
+    // HitPay created the payment request (its id is stored above, so a webhook still
+    // correlates) but returned no URL to send the buyer to. Keep the pending row and its
+    // reference — never redirect to a missing URL. allow_repeated_payments=false and the
+    // missing URL mean nobody can pay it; the row is abandoned after the grace window.
+    console.error("[subscribeToBrand] HitPay payment request has no checkout URL", {
+      subId,
+      pspRequestId: paymentRequest.pspRequestId,
+    })
+    await flashToast(
+      "error",
+      "We couldn't start your brand subscription checkout. Please try again in a moment.",
+    )
+    redirect(`/brands/${store.slug}/subscribe`)
+  }
   redirect(paymentRequest.redirectUrl)
 }
 

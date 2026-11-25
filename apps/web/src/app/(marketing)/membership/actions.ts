@@ -194,7 +194,9 @@ export async function joinMembership() {
   // Create the recurring checkout — track it so we can cancel it if DB correlation fails.
   // HitPay returns the recurring billing id straight away (pspRecurringId === pspRequestId).
   const provider = getProvider(PINNED_PSP)
-  let billing: { recurringId: string; url: string } | null = null
+  let billing: { recurringId: string; url: string | null } | null = null
+  // Set only once the id is stored AND HitPay gave a usable URL; never "undefined".
+  let checkoutUrl: string | null = null
   try {
     const created = await provider.createRecurringCheckout({
       kind: "member_subscription",
@@ -230,6 +232,14 @@ export async function joinMembership() {
           )
       },
     )
+
+    // HitPay created the billing (id stored above) but gave no URL to send the buyer to.
+    // Throwing routes it through the same path as a failed correlation write: cancel the live
+    // billing, delete the row only if the cancel succeeded, else keep the id for the webhook.
+    if (billing.url === null) {
+      throw new Error("HitPay recurring billing response has no checkout URL")
+    }
+    checkoutUrl = billing.url
   } catch (err) {
     // instanceof HitPayError fails across Next.js chunk boundaries (transpilePackages
     // can duplicate class identity); check by property shape instead.
@@ -319,7 +329,9 @@ export async function joinMembership() {
     redirect("/membership")
   }
 
-  redirect(billing.url)
+  // The try either set checkoutUrl or threw into the catch, which always redirects.
+  if (checkoutUrl === null) redirect("/membership")
+  redirect(checkoutUrl)
 }
 
 /**

@@ -72,7 +72,12 @@ export interface PaymentProvider {
   /** One-off hosted checkout: orders + brand subscriptions. */
   createOneTimeCheckout(i: OneTimeCheckoutInput): Promise<{
     pspRequestId: string
-    redirectUrl: string
+    /**
+     * null = the PSP created the object (the ids above are real and MUST be stored so the
+     * webhook can correlate) but returned no usable URL. The caller shows an error and never
+     * redirects. A response with no usable id throws instead (nothing to keep).
+     */
+    redirectUrl: string | null
   }>
 
   /** Close an unpaid hosted checkout. Returns "already_paid" if it completed first. */
@@ -82,7 +87,12 @@ export interface PaymentProvider {
   createRecurringCheckout(i: RecurringCheckoutInput): Promise<{
     pspRequestId: string
     pspRecurringId: string | null
-    redirectUrl: string
+    /**
+     * null = the PSP created the object (the ids above are real and MUST be stored so the
+     * webhook can correlate) but returned no usable URL. The caller shows an error and never
+     * redirects. A response with no usable id throws instead (nothing to keep).
+     */
+    redirectUrl: string | null
   }>
 
   cancelRecurring(pspRecurringId: string, o: { atPeriodEnd: boolean }): Promise<void>

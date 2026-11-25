@@ -334,9 +334,55 @@ describe("HitPayProvider — errors", () => {
     expect(isPspRejection(err)).toBe(false)
   })
 
-  it("a 2xx checkout without a url → unknown-outcome invalid_response", async () => {
+  // Bob #208 review: an id HitPay did return must never be discarded — the caller stores it.
+  it("a 2xx checkout with an id but no url keeps the id and returns redirectUrl null", async () => {
     mockFetch(200, { id: "pr_1" })
+    await expect(call(provider())).resolves.toEqual({ pspRequestId: "pr_1", redirectUrl: null })
+  })
+
+  it.each([[""], [null], [42]])(
+    "a non-string/empty url (%j) is null, never 'undefined'",
+    async (url) => {
+      mockFetch(200, { id: "pr_2", url })
+      const res = await call(provider())
+      expect(res.redirectUrl).toBeNull()
+      expect(res.pspRequestId).toBe("pr_2")
+    },
+  )
+
+  it("a 2xx checkout with a url but no id → unknown-outcome invalid_response (nothing to keep)", async () => {
+    mockFetch(200, { url: "https://hitpay.test/x" })
     const err: unknown = await call(provider()).catch((e: unknown) => e)
+    expect((err as PspRequestError).code).toBe("invalid_response")
+    expect(isPspRejection(err)).toBe(false)
+  })
+
+  const recurring = (p: HitPayProvider) =>
+    p.createRecurringCheckout({
+      kind: "member_subscription",
+      bomyRefId: "m",
+      amountSen: 7500n,
+      currency: "MYR",
+      interval: "year",
+      customerEmail: "e@x.test",
+      description: "d",
+      successUrl: "https://web.test/s",
+      startDate: new Date("2026-11-25T00:00:00Z"),
+      idempotencyKey: "k",
+    })
+
+  it("a 2xx recurring billing with an id but no url keeps both ids, redirectUrl null", async () => {
+    mockFetch(200, { id: "rb_1" })
+    await expect(recurring(provider())).resolves.toEqual({
+      pspRequestId: "rb_1",
+      pspRecurringId: "rb_1",
+      redirectUrl: null,
+    })
+  })
+
+  it("a 2xx recurring billing with a url but no id → invalid_response", async () => {
+    mockFetch(200, { url: "https://hitpay.test/rb" })
+    const err: unknown = await recurring(provider()).catch((e: unknown) => e)
     expect((err as PspRequestError).code).toBe("invalid_response")
     expect(isPspRejection(err)).toBe(false)
   })

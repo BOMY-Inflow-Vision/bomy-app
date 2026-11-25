@@ -35,6 +35,7 @@ vi.mock("@bomy/hitpay", async (importActual) => {
 // Imports after vi.mock so mocks are in place when actions.ts is loaded
 import { redirect } from "next/navigation"
 import { auth } from "@/auth"
+import { flashToast } from "@/lib/flash-toast-server"
 import { HitPayClient } from "@bomy/hitpay"
 import type * as HitPayModule from "@bomy/hitpay"
 import {
@@ -325,6 +326,97 @@ describe.skipIf(!shouldRun)("membership actions", () => {
           .where(eq(schema.memberSubscriptions.userId, userId)),
       )
       expect(rows).toHaveLength(0)
+    })
+
+    // Bob #208 regression: HitPay created the billing (id returned) but gave no URL. The id
+    // must never be discarded; the existing cancel + correlation fallback runs, and the buyer
+    // sees an error without being redirected to a missing URL.
+    describe("HitPay returns an id but no checkout URL", () => {
+      const mockFlash = flashToast as unknown as Mock
+      const subRows = () =>
+        withAdmin(testDb.db, { userId, reason: "test assert" }, async (tx) =>
+          tx
+            .select({
+              status: schema.memberSubscriptions.status,
+              hitpayRecurringId: schema.memberSubscriptions.hitpayRecurringId,
+              pspRecurringId: schema.memberSubscriptions.pspRecurringId,
+            })
+            .from(schema.memberSubscriptions)
+            .where(eq(schema.memberSubscriptions.userId, userId)),
+        )
+      const cleanup = () =>
+        withAdmin(testDb.db, { userId, reason: "test cleanup" }, async (tx) => {
+          await tx
+            .delete(schema.memberSubscriptions)
+            .where(eq(schema.memberSubscriptions.userId, userId))
+        })
+
+      it("cancel succeeds → billing cancelled, orphan row deleted, error shown, no redirect to HitPay", async () => {
+        mockAuth.mockResolvedValue({ user: { id: userId, role: "buyer", email: "t@test.bomy" } })
+        mockFlash.mockClear()
+        const createRecurringBilling = vi.fn().mockResolvedValue({ id: "recurring-nourl-1" })
+        const cancelRecurringBilling = vi.fn().mockResolvedValue(undefined)
+        MockHitPayClient.mockImplementation(() => ({
+          createRecurringBilling,
+          cancelRecurringBilling,
+        }))
+        try {
+          const url = await expectRedirect(joinMembership)
+          expect(url).toBe("/membership")
+          expect(cancelRecurringBilling).toHaveBeenCalledOnce()
+          expect(cancelRecurringBilling).toHaveBeenCalledWith("recurring-nourl-1")
+          expect(mockFlash).toHaveBeenCalledWith("error", expect.any(String))
+          expect(await subRows()).toHaveLength(0)
+        } finally {
+          await cleanup()
+        }
+      })
+
+      it("cancel fails → row kept with the recurring id in both columns for the webhook", async () => {
+        mockAuth.mockResolvedValue({ user: { id: userId, role: "buyer", email: "t@test.bomy" } })
+        mockFlash.mockClear()
+        const createRecurringBilling = vi.fn().mockResolvedValue({ id: "recurring-nourl-2" })
+        const cancelRecurringBilling = vi.fn().mockRejectedValue(new Error("HitPay down"))
+        MockHitPayClient.mockImplementation(() => ({
+          createRecurringBilling,
+          cancelRecurringBilling,
+        }))
+        try {
+          const url = await expectRedirect(joinMembership)
+          expect(url).toBe("/membership")
+          expect(cancelRecurringBilling).toHaveBeenCalledOnce()
+          expect(mockFlash).toHaveBeenCalledWith("error", expect.any(String))
+          expect(await subRows()).toEqual([
+            {
+              status: "pending",
+              hitpayRecurringId: "recurring-nourl-2",
+              pspRecurringId: "recurring-nourl-2",
+            },
+          ])
+        } finally {
+          await cleanup()
+        }
+      })
+
+      it("url but no id → nothing to keep: row deleted, never redirects to the url", async () => {
+        mockAuth.mockResolvedValue({ user: { id: userId, role: "buyer", email: "t@test.bomy" } })
+        const createRecurringBilling = vi
+          .fn()
+          .mockResolvedValue({ url: "https://securecheckout.hit-pay.com/recurring/x" })
+        const cancelRecurringBilling = vi.fn()
+        MockHitPayClient.mockImplementation(() => ({
+          createRecurringBilling,
+          cancelRecurringBilling,
+        }))
+        try {
+          const url = await expectRedirect(joinMembership)
+          expect(url).toBe("/membership")
+          expect(cancelRecurringBilling).not.toHaveBeenCalled()
+          expect(await subRows()).toHaveLength(0)
+        } finally {
+          await cleanup()
+        }
+      })
     })
 
     // DB correlation failure compensation is covered in actions.unit.test.ts

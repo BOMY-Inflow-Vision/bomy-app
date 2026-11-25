@@ -440,7 +440,7 @@ export async function initiateCheckout(input: {
   // it the active provider). pspErrorCode keeps the legacy audit tokens ("auth",
   // "validation", "notfound", "ratelimit", "error", else "unknown").
   const provider = getProvider(PINNED_PSP)
-  let paymentRequest: { pspRequestId: string; redirectUrl: string }
+  let paymentRequest: { pspRequestId: string; redirectUrl: string | null }
   try {
     paymentRequest = await provider.createOneTimeCheckout({
       kind: "order",
@@ -496,6 +496,17 @@ export async function initiateCheckout(input: {
       })
       return { ok: false, error: "PAYMENT_INIT_FAILED" }
     }
+    if (paymentRequest.redirectUrl === null) {
+      // HitPay created the payment request but gave no URL. Its id is now stored (Transaction 2
+      // above), so a late webhook still correlates; compensation cancels the session but leaves
+      // the PSP ref in place. The buyer gets the normal error and is never redirected.
+      await compensateInitiation(db, {
+        sessionId,
+        buyerId,
+        reason: `${provider.id}_create_failed:no_checkout_url`,
+      })
+      return { ok: false, error: "PAYMENT_INIT_FAILED" }
+    }
   } catch {
     await compensateInitiation(db, {
       sessionId,
@@ -505,6 +516,7 @@ export async function initiateCheckout(input: {
     return { ok: false, error: "PAYMENT_INIT_FAILED" }
   }
 
+  if (paymentRequest.redirectUrl === null) return { ok: false, error: "PAYMENT_INIT_FAILED" }
   return { ok: true, redirectUrl: paymentRequest.redirectUrl }
 }
 
