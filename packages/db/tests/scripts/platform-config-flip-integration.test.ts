@@ -256,4 +256,98 @@ describe.skipIf(!shouldRun)("runPlatformConfigFlip — integration", () => {
       })
     })
   })
+
+  // ── Emergency stop (docs/runbooks/active-psp-switch.md §2) ──────────────
+  // The runbook stops all new payments with the CLI: checkout_enabled=false, then
+  // subscriptions_enabled=false. Prove both keys are settable by any staff role (bomy_ops here),
+  // audited. checkout_enabled is driven true -> false for real. subscriptions_enabled is written
+  // false -> false only, because psp_provider_columns.test.ts asserts its 0039 seed (false) in
+  // parallel. Both rows are restored exactly (value, updated_by, updated_at) afterwards.
+  describe("emergency stop flags", () => {
+    const SYSTEM = "00000000-0000-0000-0000-000000000001"
+    const KEYS = ["checkout_enabled", "subscriptions_enabled"] as const
+    const snaps = new Map<string, { value: unknown; updatedBy: string | null; at: string }>()
+
+    const sys = <T>(fn: Parameters<typeof withAdmin<T>>[2]) =>
+      withAdmin(ownerDb.db, { userId: SYSTEM, reason: "test emergency stop flags" }, fn)
+
+    beforeEach(async () => {
+      await sys((tx) =>
+        tx.update(schema.users).set({ role: "bomy_ops" }).where(eq(schema.users.id, testActorId)),
+      )
+      for (const key of KEYS) {
+        const [row] = await sys((tx) =>
+          tx
+            .select({
+              value: schema.platformConfig.value,
+              updatedBy: schema.platformConfig.updatedBy,
+              at: sql<string>`${schema.platformConfig.updatedAt}::text`,
+            })
+            .from(schema.platformConfig)
+            .where(eq(schema.platformConfig.key, key)),
+        )
+        if (!row) throw new Error(`${key} must be seeded`)
+        snaps.set(key, row)
+      }
+    })
+
+    afterEach(async () => {
+      for (const [key, snap] of snaps) {
+        await sys((tx) =>
+          tx
+            .update(schema.platformConfig)
+            .set({
+              value: snap.value,
+              updatedBy: snap.updatedBy,
+              updatedAt: sql`${snap.at}::timestamptz`,
+            })
+            .where(eq(schema.platformConfig.key, key)),
+        )
+      }
+    })
+
+    it("bomy_ops can set checkout_enabled true -> false, audited", async () => {
+      await sys((tx) =>
+        tx
+          .update(schema.platformConfig)
+          .set({ value: true })
+          .where(eq(schema.platformConfig.key, "checkout_enabled")),
+      )
+      const result = await runPlatformConfigFlip(appDb.db, {
+        key: "checkout_enabled",
+        value: "false",
+        actor: testActorId,
+        reason: testReason,
+      })
+      expect(result).toMatchObject({ oldValue: true, newValue: false })
+      expect(result.actor.role).toBe("bomy_ops")
+    })
+
+    it("bomy_ops can set subscriptions_enabled to false, audited", async () => {
+      const result = await runPlatformConfigFlip(appDb.db, {
+        key: "subscriptions_enabled",
+        value: "false",
+        actor: testActorId,
+        reason: `${testReason} subs`,
+      })
+      expect(result.newValue).toBe(false)
+      await withTenant(appDb.db, { userId: testActorId, userRole: "bomy_ops" }, async (tx) => {
+        const audit = await tx
+          .select({ key: schema.platformConfigAudit.key })
+          .from(schema.platformConfigAudit)
+          .where(eq(schema.platformConfigAudit.changedBy, testActorId))
+        expect(audit).toEqual([{ key: "subscriptions_enabled" }])
+        const bypass = await tx
+          .select({ id: schema.adminBypassAudit.id })
+          .from(schema.adminBypassAudit)
+          .where(
+            and(
+              eq(schema.adminBypassAudit.actorUserId, testActorId),
+              eq(schema.adminBypassAudit.reason, `${testReason} subs`),
+            ),
+          )
+        expect(bypass).toHaveLength(1)
+      })
+    })
+  })
 })

@@ -14,10 +14,10 @@ When a staff member executes a runbook, they capture evidence under [`evidence/`
 
 ## Current runbooks
 
-| Runbook                                                  | Environments                          | Trigger                                                                                           |
-| -------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| [`checkout-enabled-flip.md`](./checkout-enabled-flip.md) | local, staging (template), prod (TBD) | First-time enable of buyer checkout on a target env, or rollback to disable.                      |
-| [`active-psp-switch.md`](./active-psp-switch.md)         | all                                   | Change the provider for new payments, or emergency switch back to a dormant HitPay (kill switch). |
+| Runbook                                                  | Environments                          | Trigger                                                                                        |
+| -------------------------------------------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| [`checkout-enabled-flip.md`](./checkout-enabled-flip.md) | local, staging (template), prod (TBD) | First-time enable of buyer checkout on a target env, or rollback to disable.                   |
+| [`active-psp-switch.md`](./active-psp-switch.md)         | all                                   | Change the provider for new payments, or emergency stop of all new payments (flags off first). |
 
 ## Completed runbooks (reference / templates)
 

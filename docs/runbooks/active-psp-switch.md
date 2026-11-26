@@ -1,6 +1,6 @@
-# Runbook — Switch `active_psp` (incl. emergency switch back to HitPay)
+# Runbook — Switch `active_psp` and emergency stop of new payments
 
-**Audience:** `bomy_admin` / `bomy_finance` only. `bomy_ops` is refused by both paths below (Stripe design §13 decision 6).
+**Audience:** `active_psp` changes: `bomy_admin` / `bomy_finance` only; `bomy_ops` is refused (Stripe design §13 decision 6). The emergency-stop flag steps (§2) accept any staff role.
 **Spec:** [`docs/superpowers/specs/2026-11-24-psp-stripe-design.md`](../superpowers/specs/2026-11-24-psp-stripe-design.md) §3.4, §11 (Rollback).
 **Owner:** Charlie.
 **Last revised:** 2026-11-26
@@ -27,47 +27,94 @@ Audit: one `platform_config_audit` row (old → new, `changed_by` = you) and one
 
 ---
 
-## §2. Emergency switch back to HitPay while HitPay is dormant (kill switch)
+## §2. Emergency stop of ALL new payments
 
-Use this when new payments on the current provider (e.g. Stripe) must stop **now** and admin will
-not offer HitPay because HitPay is not configured there. This is design §11's kill switch: with
-`active_psp = "hitpay"` and HitPay not configured on web, `paymentsEnabled()` and the checkout
-provider check fail closed, so membership, brand-subscription and checkout CTAs hide and the
-actions refuse. **Payments stay off** until a provider is configured again. Existing rows keep
-working on their own provider (keep its keys).
+Use this when new payments must stop **now** (e.g. Stripe misbehaving).
 
-Pre-flight (once): look up your user UUID with the owner-role connection (see
-`checkout-enabled-flip.md` §0). Role must be `bomy_admin` or `bomy_finance`.
+**Switching provider alone is not a stop.** Admin and the storefront are separate deployments
+with separate keys: admin may lack HitPay keys while the storefront still has them, so setting
+`active_psp = "hitpay"` can route new payments to HitPay instead of stopping them. Always turn
+the two on/off flags off **first**. They fail closed on every deployment, whatever keys it has.
+Existing rows keep working on their own provider (keep its keys).
+
+Pre-flight (once): look up your user UUID with the owner-role connection and point the CLI at the
+target database, as in `checkout-enabled-flip.md` §0. The flag steps accept `bomy_ops`,
+`bomy_admin` or `bomy_finance`; the `active_psp` step accepts only `bomy_admin` / `bomy_finance`.
+Turning a flag **off** is the fail-closed direction and is allowed on any environment, production
+included.
+
+**Step 0 — record the current values** (you need them to restore):
+
+```sql
+SELECT key, value FROM platform_config
+WHERE key IN ('checkout_enabled', 'subscriptions_enabled', 'active_psp') ORDER BY key;
+```
+
+**Step 1 — stop order checkout:**
+
+```bash
+pnpm ops:platform-config:set \
+  --key checkout_enabled \
+  --value false \
+  --actor <your-admin-user-uuid> \
+  --reason "Emergency stop: all new payments — <incident ref>"
+```
+
+**Step 2 — stop new memberships and brand subscriptions:**
+
+```bash
+pnpm ops:platform-config:set \
+  --key subscriptions_enabled \
+  --value false \
+  --actor <your-admin-user-uuid> \
+  --reason "Emergency stop: all new payments — <incident ref>"
+```
+
+**Step 3 — verify the stop** before anything else:
+
+1. Each CLI run printed `after: false` and a `platform_config_audit` row id.
+2. ```sql
+   SELECT key, old_value, new_value, changed_by, changed_at FROM platform_config_audit
+   WHERE key IN ('checkout_enabled', 'subscriptions_enabled') ORDER BY changed_at DESC LIMIT 2;
+   ```
+   shows both keys → `false` with your UUID.
+3. On the storefront: `/membership` shows "Memberships will reopen soon", a brand's
+   `/brands/<slug>/subscribe` page shows "Subscriptions will reopen soon" with no Subscribe
+   button, and `/checkout` shows "Checkout is paused".
+
+**Step 4 (optional) — move new payments off the failing provider**, only after Step 3 is green.
+Use §1 if admin offers HitPay. If HitPay is dormant on admin, use the CLI (no credential check by
+design; it still refuses `bomy_ops` and any value other than `"hitpay"` / `"stripe"`):
 
 ```bash
 pnpm ops:platform-config:set \
   --key active_psp \
   --value '"hitpay"' \
   --actor <your-admin-user-uuid> \
-  --reason "Emergency: stop new <provider> payments — <incident ref>"
+  --reason "Emergency stop: move new payments off <provider> — <incident ref>"
 ```
 
-The CLI deliberately has **no credential check** (that is what makes this path work with HitPay
-dormant). It still refuses `bomy_ops`, refuses any value other than `"hitpay"` / `"stripe"`,
-re-checks your role inside the write transaction, and writes `platform_config_audit` (old → new)
-and `admin_bypass_audit` in the same transaction. Paste its stdout into an evidence file under
+Every CLI run writes `platform_config_audit` (old → new) and `admin_bypass_audit` in the same
+transaction and re-checks your role inside it. Paste each stdout into an evidence file under
 `evidence/`.
 
-Verify:
+**Restore** (only once the cause is fixed and the provider to use is configured on the storefront,
+api and admin):
 
-1. `/membership` shows "Memberships will reopen soon"; a brand page shows no Subscribe link;
-   `/checkout` shows "Checkout is paused" (if `checkout_enabled` was on).
-2. `SELECT old_value, new_value, changed_by FROM platform_config_audit WHERE key = 'active_psp' ORDER BY changed_at DESC LIMIT 1;`
-   shows the old provider → `"hitpay"` and your UUID.
+1. Select that provider in admin `/config` (§1). Check api `GET /ready` shows it configured.
+2. Reopen memberships and brand subscriptions, if Step 0 showed `true`:
+   `pnpm ops:platform-config:set --key subscriptions_enabled --value true --actor <uuid> --reason "Restore after <incident ref>"`.
+   Verify `/membership` shows the join button again.
+3. Re-enable order checkout **only** through `checkout-enabled-flip.md` (its pre-flip hard gate
+   applies), and only if Step 0 showed `true`.
 
-**Do not** use this CLI to switch _to_ a provider that is not configured: web would keep payments
-closed, and admin could not refund rows created on it. Enable providers through §1.
+**Do not** use the CLI to switch _to_ a provider that is not configured: admin could not refund
+rows created on it. Enable providers through §1.
 
 ---
 
-## §3. Related flags (not changed here)
+## §3. Related flags
 
-- `subscriptions_enabled` — new memberships and brand subscriptions. Flip by
-  `pnpm ops:platform-config:set --key subscriptions_enabled ...` (staff roles per the checkout
-  runbook). Existing members can still manage and cancel while it is `false`.
-- `checkout_enabled` — order checkout. See `checkout-enabled-flip.md`.
+- `subscriptions_enabled` — new memberships and brand subscriptions (default `false`). Existing
+  members can still manage and cancel while it is `false`; renewals and webhooks keep running.
+- `checkout_enabled` — order checkout. Turning it on: `checkout-enabled-flip.md` only.

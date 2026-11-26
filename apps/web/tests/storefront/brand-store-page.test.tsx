@@ -5,15 +5,18 @@
 import { renderToStaticMarkup } from "react-dom/server"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const { getStorePage, getBrandSubscriberAvatars, paymentsEnabled } = vi.hoisted(() => ({
+const { getStorePage, getBrandSubscriberAvatars, paymentsEnabled, withAdmin } = vi.hoisted(() => ({
   getStorePage: vi.fn(),
   getBrandSubscriberAvatars: vi.fn(),
   paymentsEnabled: vi.fn(),
+  withAdmin: vi.fn(),
 }))
 vi.mock("@/auth", () => ({ auth: () => Promise.resolve(null) }))
 vi.mock("next/navigation", () => ({ notFound: () => Promise.reject(new Error("NOT_FOUND")) }))
 vi.mock("@/app/brands/[slug]/queries", () => ({ getStorePage, getBrandSubscriberAvatars }))
+// Tripwires: the storefront must not read platform_config flags (no audit row per view).
 vi.mock("@/lib/payments-enabled", () => ({ paymentsEnabled }))
+vi.mock("@bomy/db", () => ({ withAdmin, withPublicRead: vi.fn(), schema: {} }))
 
 import StorePage from "@/app/brands/[slug]/page"
 
@@ -50,7 +53,7 @@ beforeEach(() => {
   getStorePage.mockReset()
   getBrandSubscriberAvatars.mockReset()
   paymentsEnabled.mockReset()
-  paymentsEnabled.mockResolvedValue(true)
+  withAdmin.mockReset()
 })
 
 describe("brand store page section header with a long category name", () => {
@@ -163,14 +166,14 @@ describe("brand store page top grid (R5a)", () => {
     has(column, ["min-w-0", "flex", "flex-col"])
   })
 
-  it("hides the Subscribe link while new brand subscriptions are closed", async () => {
-    paymentsEnabled.mockResolvedValue(false)
+  it("a plain Subscription plans link, with no flag read or admin bypass on the page", async () => {
     const d = await renderStore({ bodyHtml: null })
-    expect(d.querySelector('a[href="/brands/acme/subscribe"]')).toBeNull()
-    expect(paymentsEnabled).toHaveBeenCalledTimes(1)
+    expect(subscribe(d).textContent).toBe("Subscription plans")
+    expect(paymentsEnabled).not.toHaveBeenCalled()
+    expect(withAdmin).not.toHaveBeenCalled()
   })
 
-  it("the Subscribe link shows when open; the video column child only with a videoId", async () => {
+  it("the Subscription plans link always shows; the video column child only with a videoId", async () => {
     const without = await renderStore({ bodyHtml: null })
     expect(subscribe(without).parentElement!.children).toHaveLength(1)
     const withVideo = await renderStore({ bodyHtml: null, videoId: "dQw4w9WgXcQ" })

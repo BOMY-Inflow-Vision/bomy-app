@@ -309,7 +309,9 @@ describe.skipIf(!shouldRun)("setActivePsp", () => {
   // ── Concurrency: role re-check holds through the config write ───────────
 
   /** Resolve once a backend is waiting on a heavyweight lock running SQL that matches `re`. */
-  async function waitForLockWait(re: RegExp, timeoutMs = 5000): Promise<void> {
+  // Shorter than the test's own timeout, so a failed wait throws through the test's finally
+  // (releasing every held lock) instead of vitest abandoning the test mid-flight.
+  async function waitForLockWait(re: RegExp, timeoutMs = 2000): Promise<void> {
     const deadline = Date.now() + timeoutMs
     while (Date.now() < deadline) {
       const waiting = await sys((tx) =>
@@ -327,7 +329,9 @@ describe.skipIf(!shouldRun)("setActivePsp", () => {
     setProviderOverride("stripe", configuredStripe)
     as(ids.racer, "bomy_admin")
 
-    // 1. Another writer holds the active_psp row lock.
+    // 1. Another writer holds the active_psp row lock. Everything after this point runs in
+    //    try/finally so a failed wait or assertion always releases the lock and lets the
+    //    switch and demotion transactions finish (teardown restore must never block on them).
     let release!: () => void
     const gate = new Promise<void>((r) => (release = r))
     let lockedResolve!: () => void
@@ -343,25 +347,33 @@ describe.skipIf(!shouldRun)("setActivePsp", () => {
     })
     await locked
 
-    // 2. The switch passes its role check (users row FOR SHARE), then waits on the config lock.
-    const action = setActivePsp(form("stripe"))
-    await waitForLockWait(/platform_config[\s\S]*for update/i)
+    const inFlight: Promise<unknown>[] = [blocker]
+    try {
+      // 2. The switch passes its role check (users row FOR SHARE), then waits on the config lock.
+      const action = setActivePsp(form("stripe"))
+      inFlight.push(action)
+      await waitForLockWait(/platform_config[\s\S]*for update/i)
 
-    // 3. A demotion now has to wait for the switch's FOR SHARE lock on the users row.
-    let demoted = false
-    const demotion = sys((tx) =>
-      tx.update(schema.users).set({ role: "bomy_ops" }).where(eq(schema.users.id, ids.racer)),
-    ).then(() => {
-      demoted = true
-    })
-    await waitForLockWait(/update "users"/i)
-    expect(demoted).toBe(false)
+      // 3. A demotion now has to wait for the switch's FOR SHARE lock on the users row.
+      let demoted = false
+      const demotion = sys((tx) =>
+        tx.update(schema.users).set({ role: "bomy_ops" }).where(eq(schema.users.id, ids.racer)),
+      ).then(() => {
+        demoted = true
+      })
+      inFlight.push(demotion)
+      await waitForLockWait(/update "users"/i)
+      expect(demoted).toBe(false)
 
-    // 4. Release: the switch commits first (under the role it checked), then the demotion.
-    release()
-    await blocker
-    await action
-    await demotion
+      // 4. Release: the switch commits first (under the role it checked), then the demotion.
+      release()
+      await blocker
+      await action
+      await demotion
+    } finally {
+      release()
+      await Promise.allSettled(inFlight)
+    }
     expect(mockFlash).toHaveBeenLastCalledWith(
       "success",
       "New payments now use Stripe (was HitPay). Existing payments stay on their own provider.",
@@ -377,5 +389,5 @@ describe.skipIf(!shouldRun)("setActivePsp", () => {
     expect(mockFlash).toHaveBeenCalledWith("error", "You don't have permission to do that.")
     expect((await readRow("active_psp"))?.value).toBe("hitpay")
     expect(await auditRowsBy([ids.racer])).toHaveLength(1)
-  })
+  }, 15_000)
 })

@@ -74,12 +74,20 @@ export default async function ConfigPage() {
             </div>
           </dl>
 
-          <Alert variant="warning" className="text-sm">
-            Switching only changes the provider for new payments. Payments, renewals, cancels and
-            refunds already started stay on their own provider, so keep both providers&apos;
-            credentials set while any of their payments can still move money. The storefront hides
-            payment buttons if the selected provider is not set up there. The two on/off switches
-            above are changed by runbook, not here.
+          <Alert variant="warning" className="flex flex-col gap-2 text-sm">
+            <p>
+              Switching only changes the provider for new payments. Payments, renewals, cancels and
+              refunds already started stay on their own provider, so keep both providers&apos;
+              credentials set while any of their payments can still move money. The two on/off
+              switches above are changed by runbook, not here.
+            </p>
+            <p>
+              <strong>Switching provider does not stop payments.</strong> The storefront can have a
+              provider&apos;s keys even when this admin app doesn&apos;t, so new payments could move
+              there. To stop all new payments, turn order checkout and subscriptions off first, then
+              switch: see the emergency stop in{" "}
+              <code className="font-mono text-xs">docs/runbooks/active-psp-switch.md</code> §2.
+            </p>
           </Alert>
 
           {canSwitch ? (
@@ -115,9 +123,9 @@ export default async function ConfigPage() {
               })}
               {active !== "hitpay" && !getProvider("hitpay").isConfigured() ? (
                 <li className="text-sm text-muted-foreground">
-                  To stop new payments while HitPay isn&apos;t set up here, use the emergency switch
-                  in <code className="font-mono text-xs">docs/runbooks/active-psp-switch.md</code>.
-                  Payments then stay off until a provider is set up.
+                  HitPay isn&apos;t set up on this admin app, so it can&apos;t be selected here. In
+                  an emergency, follow §2 of the runbook above (switches off first, then the
+                  provider).
                 </li>
               ) : null}
             </ul>

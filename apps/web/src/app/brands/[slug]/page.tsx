@@ -11,7 +11,6 @@ import { ProductCard, toneFor } from "@/components/product-card"
 import { AvatarGroup } from "@/components/ui/avatar-group"
 import { Button } from "@bomy/ui/button"
 import { VideoEmbed } from "@/components/video-embed"
-import { paymentsEnabled } from "@/lib/payments-enabled"
 import { cn } from "@/lib/utils"
 
 import { getBrandSubscriberAvatars, getStorePage } from "./queries"
@@ -63,19 +62,16 @@ export default async function StorePage({ params }: Props) {
     ? await getBrandSubscriberAvatars(store.id)
     : { avatars: [], total: 0 }
 
-  // Same gate as /brands/[slug]/subscribe and subscribeToBrand: hide the entry point while new
-  // brand subscriptions are closed. Note: an audited platform_config read on every view,
-  // anonymous included (design §3.4 public-flag policy is the tracked follow-up).
-  const subscribeOpen = await paymentsEnabled()
-
   const actions = (
     <div className="flex min-w-0 flex-col gap-4">
       {store.videoId && <VideoEmbed videoId={store.videoId} title={`${store.name} video`} />}
-      {subscribeOpen ? (
-        <Button asChild icon={<CreditCard />} className="self-start">
-          <Link href={`/brands/${store.slug}/subscribe`}>Subscribe</Link>
-        </Button>
-      ) : null}
+      {/* Plain navigation, NO platform_config read: this is the highest-traffic public page and
+          a flag read here would write an admin_bypass_audit row per view. The plans page shows
+          the closed state and its purchase button + subscribeToBrand are gated. Gate this link
+          once migration 0041 adds a read-only public-flag lookup (design §3.4). */}
+      <Button asChild icon={<CreditCard />} className="self-start">
+        <Link href={`/brands/${store.slug}/subscribe`}>Subscription plans</Link>
+      </Button>
       {subscriberAvatars.length > 0 && (
         <div className="flex items-center gap-3">
           <AvatarGroup avatars={subscriberAvatars} total={subscriberCount} />
