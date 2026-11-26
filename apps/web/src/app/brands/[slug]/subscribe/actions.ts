@@ -5,12 +5,12 @@ import { and, desc, eq, gt, inArray, isNull } from "drizzle-orm"
 import { notFound, redirect } from "next/navigation"
 
 import { makeDb, schema, withAdmin, withPublicRead, withTenant, type UserRole } from "@bomy/db"
-import { getProvider } from "@bomy/psp"
+import { getProvider, type PspProvider } from "@bomy/psp"
 
 import { auth } from "@/auth"
 import { flashToast } from "@/lib/flash-toast-server"
 import { isPendingAbandoned } from "@/lib/membership"
-import { paymentsEnabled } from "@/lib/payments-enabled"
+import { subscriptionPsp } from "@/lib/payments-enabled"
 
 let _client: ReturnType<typeof makeDb> | null = null
 function getDb() {
@@ -18,18 +18,15 @@ function getDb() {
   return _client.db
 }
 
-// Provider for new brand subscriptions. Still HitPay-only: PR 3 replaces this with the
-// platform_config `active_psp` read, pinned on the row at creation.
-const PINNED_PSP = "hitpay" as const
-
 /**
- * HitPay dual-write (Stripe design §4.1): the request id goes into hitpay_payment_request_id
- * (the HitPay webhook still correlates on it, and a code rollback still finds it) AND the
- * provider-neutral psp_payment_request_id.
+ * Request id columns for the row's PINNED provider. HitPay dual-writes (Stripe design §4.1):
+ * hitpay_payment_request_id (the HitPay webhook still correlates on it, and a code rollback
+ * still finds it) AND the provider-neutral psp_payment_request_id. Any other provider writes
+ * psp_* only.
  */
-function requestIdColumns(pspRequestId: string) {
+function requestIdColumns(psp: PspProvider, pspRequestId: string) {
   return {
-    hitpayPaymentRequestId: pspRequestId,
+    ...(psp === "hitpay" ? { hitpayPaymentRequestId: pspRequestId } : {}),
     pspPaymentRequestId: pspRequestId,
     updatedAt: new Date(),
   }
@@ -79,9 +76,11 @@ export async function getStorePlans(slug: string) {
 // Bound via subscribeToBrand.bind(null, planId) on each plan card.
 export async function subscribeToBrand(planId: string, _formData?: FormData) {
   // PR #39 defence-in-depth guard: page-level CTA gating is primary; this
-  // short-circuits direct invocation BEFORE any HitPayClient construction
-  // or auth/DB work.
-  if (!paymentsEnabled()) notFound()
+  // short-circuits direct invocation BEFORE any PSP call or user DB work. The
+  // provider resolved here is PINNED on the new row and used for the outbound
+  // call (Stripe design §3.4).
+  const psp = await subscriptionPsp()
+  if (!psp) notFound()
 
   const session = await auth()
   if (!session) redirect("/auth/sign-in?callbackUrl=/account/subscriptions")
@@ -234,7 +233,7 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
           storeId: store.id,
           planId: plan.id,
           status: "pending",
-          pspProvider: PINNED_PSP,
+          pspProvider: psp,
           priceMyrSen: plan.priceMyrSen,
           discountPct: plan.discountPct,
           periodStart: now,
@@ -252,7 +251,7 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
   // Create the hosted checkout on the provider pinned on the row.
   let paymentRequest: { pspRequestId: string; redirectUrl: string | null } | null = null
   try {
-    paymentRequest = await getProvider(PINNED_PSP).createOneTimeCheckout({
+    paymentRequest = await getProvider(psp).createOneTimeCheckout({
       kind: "brand_subscription",
       bomyRefId: subId,
       amountSen: plan.priceMyrSen,
@@ -274,7 +273,7 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
       async (tx) => {
         await tx
           .update(schema.brandSubscriptions)
-          .set(requestIdColumns(paymentRequest!.pspRequestId))
+          .set(requestIdColumns(psp, paymentRequest!.pspRequestId))
           .where(
             and(
               eq(schema.brandSubscriptions.id, subId),
@@ -300,7 +299,7 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
           async (tx) => {
             await tx
               .update(schema.brandSubscriptions)
-              .set(requestIdColumns(paymentRequest!.pspRequestId))
+              .set(requestIdColumns(psp, paymentRequest!.pspRequestId))
               .where(
                 and(
                   eq(schema.brandSubscriptions.id, subId),

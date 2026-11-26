@@ -408,6 +408,12 @@
     "reason": "no @bomy/ui Table primitive exists"
   },
   {
+    "rule": "R1-input",
+    "file": "apps/admin/src/app/config/page.tsx",
+    "text": "<input type=\"hidden\" name=\"activePsp\" value={id} />",
+    "reason": "type=hidden; no shared primitive"
+  },
+  {
     "rule": "R6-table",
     "file": "apps/admin/src/app/config/page.tsx",
     "text": "<table className=\"w-full text-sm\">",

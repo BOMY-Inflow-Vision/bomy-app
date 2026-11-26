@@ -36,7 +36,7 @@ export default async function MembershipPage() {
   const session = await auth()
   const priceSen = await getPriceSen()
   const priceDisplay = `RM${Number(priceSen) / 100}/yr`
-  const enabled = paymentsEnabled()
+  const enabled = await paymentsEnabled()
 
   // Redirect away if already a member
   if (session) {

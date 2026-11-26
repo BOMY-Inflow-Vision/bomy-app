@@ -61,7 +61,7 @@ export default async function BrandSubscribePage({ params }: Props) {
       redirect(`/brands/${slug}/subscribe/success`)
   }
 
-  const enabled = paymentsEnabled()
+  const enabled = await paymentsEnabled()
   // One plan sits centred and narrow; two fill two columns; three fill three. Class names only.
   const gridClass =
     plans.length === 1

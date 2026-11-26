@@ -1,5 +1,5 @@
-import { PspUnsupportedError } from "./errors.js"
 import { HitPayProvider } from "./hitpay/provider.js"
+import { StripeProvider } from "./stripe/provider.js"
 import type { PaymentProvider, PspProvider } from "./types.js"
 
 // Lazy per-provider singletons. Construction reads no env and opens no connection (each
@@ -13,8 +13,8 @@ function create(id: PspProvider): PaymentProvider {
     case "hitpay":
       return new HitPayProvider()
     case "stripe":
-      // Lands in Stripe PR 4. Until then nothing may route a payment to Stripe.
-      throw new PspUnsupportedError("stripe", "Stripe provider is not available yet")
+      // Placeholder until Stripe PR 4: isConfigured() is false and every call rejects.
+      return new StripeProvider()
     default: {
       const unknown: never = id
       throw new Error(`Unknown PSP provider: ${String(unknown)}`)
