@@ -15,6 +15,7 @@ import {
 import { getProvider, pspErrorCode } from "@bomy/psp"
 
 import { auth } from "@/auth"
+import { orderCheckoutPsp } from "@/lib/payments-enabled"
 import { CheckoutError, type CheckoutErrorCode } from "@/lib/checkout-errors"
 import { ACTION_RATE_LIMITS } from "@/lib/rate-limits"
 import { validateShippingAddress } from "@/lib/shipping-address-schema"
@@ -30,10 +31,6 @@ import {
 } from "./queries"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001" as const
-
-// Provider for new order checkouts. Still HitPay-only: PR 3 replaces this with the
-// platform_config `active_psp` read (getActivePsp), pinned on the row at creation.
-const PINNED_PSP = "hitpay" as const
 
 let _client: ReturnType<typeof makeDb> | null = null
 function getDb() {
@@ -246,6 +243,14 @@ export async function initiateCheckout(input: {
     return { ok: false, error: "CHECKOUT_DISABLED" }
   }
 
+  // Provider for this order, resolved ONCE and pinned on the session row below (Stripe design
+  // §3.4) with the same check as the /checkout page. Checked before Phase 1 so an unresolvable
+  // or unconfigured active_psp mutates no
+  // stock, reservation or voucher state. checkout_enabled stays the order gate;
+  // subscriptions_enabled does not apply to orders.
+  const pinnedPsp = await orderCheckoutPsp()
+  if (pinnedPsp === null) return { ok: false, error: "CHECKOUT_DISABLED" }
+
   if (input.items.length === 0) return { ok: false, error: "EMPTY_CART" }
 
   const addressValidation = validateShippingAddress(input.shippingAddress)
@@ -327,7 +332,7 @@ export async function initiateCheckout(input: {
           id: sessionId,
           userId: buyerId,
           status: "pending_payment",
-          pspProvider: PINNED_PSP,
+          pspProvider: pinnedPsp,
           shippingAddress: addressValidation.value,
           voucherId: ctx.voucher ? input.voucherId : null,
           totalCatalogSen: totals.totalCatalogSen,
@@ -436,10 +441,9 @@ export async function initiateCheckout(input: {
   // PSP-ref UPDATE that follows is its own short Transaction 2.
   // (webBaseUrl / apiBaseUrl validated above pre-Phase-1.)
 
-  // The provider pinned on the session row in Phase 1 (`pspProvider: "hitpay"`; PR 3 makes
-  // it the active provider). pspErrorCode keeps the legacy audit tokens ("auth",
-  // "validation", "notfound", "ratelimit", "error", else "unknown").
-  const provider = getProvider(PINNED_PSP)
+  // The provider pinned on the session row in Phase 1. pspErrorCode keeps the legacy audit
+  // tokens ("auth", "validation", "notfound", "ratelimit", "error", else "unknown").
+  const provider = getProvider(pinnedPsp)
   let paymentRequest: { pspRequestId: string; redirectUrl: string | null }
   try {
     paymentRequest = await provider.createOneTimeCheckout({

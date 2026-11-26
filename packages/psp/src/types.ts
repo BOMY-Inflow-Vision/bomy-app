@@ -10,6 +10,11 @@
 export const PSP_PROVIDER_IDS = ["hitpay", "stripe"] as const
 export type PspProvider = (typeof PSP_PROVIDER_IDS)[number]
 
+/** Narrows an untrusted value (e.g. a platform_config JSON value) to a known provider id. */
+export function isPspProvider(value: unknown): value is PspProvider {
+  return typeof value === "string" && (PSP_PROVIDER_IDS as readonly string[]).includes(value)
+}
+
 export type PaymentKind = "order" | "brand_subscription" | "member_subscription"
 
 export interface OneTimeCheckoutInput {

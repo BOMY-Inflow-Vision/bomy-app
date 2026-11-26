@@ -10,6 +10,7 @@ import { Badge } from "@bomy/ui/badge"
 import { Button } from "@bomy/ui/button"
 import { Card, CardContent } from "@bomy/ui/card"
 import { getDb } from "@/lib/db"
+import { paymentsEnabled } from "@/lib/payments-enabled"
 import { AccountTabs } from "../account-tabs"
 import { PageMain } from "@/components/page-main"
 
@@ -59,6 +60,12 @@ export default async function AccountSubscriptionsPage() {
         .where(eq(schema.brandSubscriptions.userId, session.user.id))
         .orderBy(desc(schema.brandSubscriptions.createdAt)),
   )
+
+  // "Renew" starts a NEW brand subscription, so it follows the same gate as the subscribe page.
+  // Only read the flags when a Renew link could render (keeps admin_bypass_audit noise down).
+  const renewOpen =
+    subs.some((s) => s.status === "expired" || s.status === "cancelled") &&
+    (await paymentsEnabled())
 
   return (
     <PageMain>
@@ -124,7 +131,7 @@ export default async function AccountSubscriptionsPage() {
                           </p>
                         ) : null}
                       </div>
-                      {isExpiredOrCancelled ? (
+                      {isExpiredOrCancelled && renewOpen ? (
                         <Button
                           asChild
                           variant="outline"

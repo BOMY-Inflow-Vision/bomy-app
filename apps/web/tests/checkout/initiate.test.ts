@@ -27,10 +27,12 @@ vi.mock("@bomy/hitpay", async (importActual) => {
 import { auth } from "@/auth"
 import { HitPayClient, HitPayValidationError } from "@bomy/hitpay"
 import type * as HitPayModule from "@bomy/hitpay"
+import { resetProviders, setProviderOverride, type PaymentProvider } from "@bomy/psp"
 
 import { initiateCheckout } from "../../src/app/checkout/actions"
 import { compensateInitiation } from "../../src/app/checkout/compensate"
 import { ACTION_RATE_LIMITS } from "../../src/lib/rate-limits"
+import { setPaymentFlags } from "../helpers/payment-flags"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
 
@@ -66,6 +68,7 @@ describe.skipIf(!shouldRun)("initiateCheckout", () => {
   let storeId: string
   let productId: string
   let variantId: string
+  let restoreFlags: () => Promise<void>
 
   beforeAll(async () => {
     process.env["DATABASE_URL"] = DATABASE_URL as string
@@ -75,6 +78,12 @@ describe.skipIf(!shouldRun)("initiateCheckout", () => {
     process.env["WEB_BASE_URL"] = "http://localhost:3000"
     process.env["API_BASE_URL"] = "http://localhost:3001"
     testDb = makeDb({ url: DATABASE_URL as string })
+    // Orders pin active_psp. subscriptions_enabled stays false on purpose: it must NOT gate
+    // order checkout (checkout_enabled does).
+    restoreFlags = await setPaymentFlags(testDb.db, {
+      active_psp: "hitpay",
+      subscriptions_enabled: false,
+    })
 
     buyerAId = randomUUID()
     buyerBId = randomUUID()
@@ -140,6 +149,7 @@ describe.skipIf(!shouldRun)("initiateCheckout", () => {
           .where(eq(schema.platformConfig.key, "checkout_enabled"))
       },
     )
+    await restoreFlags()
     await testDb.close()
   })
 
@@ -255,6 +265,84 @@ describe.skipIf(!shouldRun)("initiateCheckout", () => {
     if (!r.ok) expect(r.error).toBe("CHECKOUT_DISABLED")
     const after = await countCheckoutTables()
     expect(after).toEqual(before)
+  })
+
+  // ─── PR 3: active_psp pinning + fail closed ───────────────────────────
+
+  it("active_psp=stripe (placeholder, not configured) → CHECKOUT_DISABLED with no side effects", async () => {
+    asBuyer(buyerAId)
+    const restore = await setPaymentFlags(testDb.db, { active_psp: "stripe" })
+    const before = await countCheckoutTables()
+    let r: Awaited<ReturnType<typeof initiateCheckout>>
+    try {
+      r = await initiateCheckout({
+        items: [{ variantId, quantity: 1 }],
+        voucherId: null,
+        shippingAddress: VALID_ADDRESS,
+      })
+    } finally {
+      await restore()
+    }
+    expect(r).toEqual({ ok: false, error: "CHECKOUT_DISABLED" })
+    expect(await countCheckoutTables()).toEqual(before)
+    expect(MockHitPayClient).not.toHaveBeenCalled()
+  })
+
+  it("active_psp unknown value → CHECKOUT_DISABLED with no side effects (fail closed)", async () => {
+    asBuyer(buyerAId)
+    const restore = await setPaymentFlags(testDb.db, { active_psp: "paypal" })
+    const before = await countCheckoutTables()
+    let r: Awaited<ReturnType<typeof initiateCheckout>>
+    try {
+      r = await initiateCheckout({
+        items: [{ variantId, quantity: 1 }],
+        voucherId: null,
+        shippingAddress: VALID_ADDRESS,
+      })
+    } finally {
+      await restore()
+    }
+    expect(r).toEqual({ ok: false, error: "CHECKOUT_DISABLED" })
+    expect(await countCheckoutTables()).toEqual(before)
+  })
+
+  it("pins the ACTIVE provider on the session row and calls that provider", async () => {
+    asBuyer(buyerAId)
+    const createOneTimeCheckout = vi.fn().mockResolvedValue({
+      pspRequestId: "cs_order_1",
+      redirectUrl: "https://checkout.stripe.test/cs_order_1",
+    })
+    setProviderOverride("stripe", {
+      id: "stripe",
+      isConfigured: () => true,
+      createOneTimeCheckout,
+    } as unknown as PaymentProvider)
+    const restore = await setPaymentFlags(testDb.db, { active_psp: "stripe" })
+    let r: Awaited<ReturnType<typeof initiateCheckout>>
+    try {
+      r = await initiateCheckout({
+        items: [{ variantId, quantity: 1 }],
+        voucherId: null,
+        shippingAddress: VALID_ADDRESS,
+      })
+    } finally {
+      await restore()
+      resetProviders()
+    }
+    expect(r).toEqual({ ok: true, redirectUrl: "https://checkout.stripe.test/cs_order_1" })
+    expect(createOneTimeCheckout).toHaveBeenCalledTimes(1)
+    expect(MockHitPayClient).not.toHaveBeenCalled()
+    const sessionId = await latestSessionIdFor(buyerAId)
+    const [row] = await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test read" }, (tx) =>
+      tx
+        .select({
+          pspProvider: schema.checkoutSessions.pspProvider,
+          pspPaymentRequestId: schema.checkoutSessions.pspPaymentRequestId,
+        })
+        .from(schema.checkoutSessions)
+        .where(eq(schema.checkoutSessions.id, sessionId)),
+    )
+    expect(row).toEqual({ pspProvider: "stripe", pspPaymentRequestId: "cs_order_1" })
   })
 
   // ─── 15: happy path ──────────────────────────────────────────────────

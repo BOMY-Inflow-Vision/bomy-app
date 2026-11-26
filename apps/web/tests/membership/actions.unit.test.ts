@@ -19,6 +19,12 @@ vi.mock("@/auth", () => ({ auth: vi.fn() }))
 
 vi.mock("@/lib/flash-toast-server", () => ({ flashToast: vi.fn() }))
 
+// Payment flags open (subscriptions_enabled=true, active_psp=hitpay) so these suites exercise
+// the action body; the HitPay env sniff inside HitPayProvider.isConfigured() still applies.
+vi.mock("@/lib/active-psp", () => ({
+  readPaymentFlags: vi.fn().mockResolvedValue({ activePsp: "hitpay", subscriptionsEnabled: true }),
+}))
+
 vi.mock("@bomy/hitpay", async (importActual) => {
   const actual = await importActual<typeof HitPayModule>()
   return { ...actual, HitPayClient: vi.fn() }

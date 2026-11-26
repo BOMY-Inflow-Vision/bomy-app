@@ -12,7 +12,17 @@ import { randomUUID } from "node:crypto"
 
 import { makeDb, schema, withAdmin } from "@bomy/db"
 import { eq, sql } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it, vi, type Mock } from "vitest"
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+  type Mock,
+} from "vitest"
 
 vi.mock("next/navigation", () => ({
   notFound: vi.fn(() => {
@@ -32,11 +42,13 @@ vi.mock("@bomy/hitpay", () => ({ HitPayClient: vi.fn() }))
 import { auth } from "@/auth"
 import { flashToast } from "@/lib/flash-toast-server"
 import { HitPayClient } from "@bomy/hitpay"
+import { resetProviders, setProviderOverride, type PaymentProvider } from "@bomy/psp"
 import {
   abandonPendingBrandSubscription,
   getStorePlans,
   subscribeToBrand,
 } from "../../src/app/brands/[slug]/subscribe/actions"
+import { setPaymentFlags } from "../helpers/payment-flags"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
 
@@ -65,6 +77,7 @@ describe.skipIf(!shouldRun)("subscribeToBrand", () => {
   let ownerId: string
   let storeId: string
   let planId: string
+  let restoreFlags: () => Promise<void>
 
   beforeAll(async () => {
     process.env["DATABASE_URL"] = DATABASE_URL as string
@@ -77,6 +90,11 @@ describe.skipIf(!shouldRun)("subscribeToBrand", () => {
     ownerId = randomUUID()
     storeId = randomUUID()
     planId = randomUUID()
+    // 0039 seeds subscriptions_enabled=false; open the gate for this suite, restore after.
+    restoreFlags = await setPaymentFlags(testDb.db, {
+      subscriptions_enabled: true,
+      active_psp: "hitpay",
+    })
 
     await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test seed" }, async (tx) => {
       await tx.insert(schema.users).values([
@@ -114,7 +132,86 @@ describe.skipIf(!shouldRun)("subscribeToBrand", () => {
         .where(eq(schema.brandSubscriptions.storeId, storeId))
       await tx.delete(schema.stores).where(eq(schema.stores.id, storeId))
     })
+    await restoreFlags()
     await testDb.close()
+  })
+
+  describe("payments gate + provider pinning (Stripe design PR 3)", () => {
+    async function subRows() {
+      return withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test assert" }, async (tx) =>
+        tx
+          .select({
+            status: schema.brandSubscriptions.status,
+            pspProvider: schema.brandSubscriptions.pspProvider,
+            pspPaymentRequestId: schema.brandSubscriptions.pspPaymentRequestId,
+          })
+          .from(schema.brandSubscriptions)
+          .where(eq(schema.brandSubscriptions.userId, userId)),
+      )
+    }
+
+    beforeEach(() => {
+      MockHitPayClient.mockReset()
+    })
+
+    afterEach(async () => {
+      resetProviders()
+      MockHitPayClient.mockReset()
+      await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test cleanup" }, async (tx) => {
+        await tx
+          .delete(schema.brandSubscriptions)
+          .where(eq(schema.brandSubscriptions.userId, userId))
+      })
+    })
+
+    it("subscriptions_enabled=false → notFound before any PSP call or row insert", async () => {
+      mockAuth.mockResolvedValue({ user: { id: userId, role: "buyer", email: "t@test.bomy" } })
+      const restore = await setPaymentFlags(testDb.db, { subscriptions_enabled: false })
+      try {
+        await expect(subscribeToBrand(planId)).rejects.toThrow("NOT_FOUND")
+      } finally {
+        await restore()
+      }
+      expect(MockHitPayClient).not.toHaveBeenCalled()
+      expect(await subRows()).toHaveLength(0)
+    })
+
+    it("active_psp=stripe (placeholder, not configured) → notFound", async () => {
+      mockAuth.mockResolvedValue({ user: { id: userId, role: "buyer", email: "t@test.bomy" } })
+      const restore = await setPaymentFlags(testDb.db, { active_psp: "stripe" })
+      try {
+        await expect(subscribeToBrand(planId)).rejects.toThrow("NOT_FOUND")
+      } finally {
+        await restore()
+      }
+      expect(await subRows()).toHaveLength(0)
+    })
+
+    it("pins the ACTIVE provider on the new row and calls that provider", async () => {
+      mockAuth.mockResolvedValue({ user: { id: userId, role: "buyer", email: "t@test.bomy" } })
+      const createOneTimeCheckout = vi.fn().mockResolvedValue({
+        pspRequestId: "cs_brand_1",
+        redirectUrl: "https://checkout.stripe.test/cs_brand_1",
+      })
+      setProviderOverride("stripe", {
+        id: "stripe",
+        isConfigured: () => true,
+        createOneTimeCheckout,
+      } as unknown as PaymentProvider)
+      const restore = await setPaymentFlags(testDb.db, { active_psp: "stripe" })
+      let url: string
+      try {
+        url = await expectRedirect(() => subscribeToBrand(planId))
+      } finally {
+        await restore()
+      }
+      expect(url).toBe("https://checkout.stripe.test/cs_brand_1")
+      expect(createOneTimeCheckout).toHaveBeenCalledTimes(1)
+      expect(MockHitPayClient).not.toHaveBeenCalled()
+      const [row] = await subRows()
+      expect(row?.pspProvider).toBe("stripe")
+      expect(row?.pspPaymentRequestId).toBe("cs_brand_1")
+    })
   })
 
   it("unauthenticated → redirects to sign-in", async () => {

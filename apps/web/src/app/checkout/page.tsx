@@ -5,6 +5,8 @@ import { PageHeading } from "@/components/page-heading"
 import { Stepper } from "@/components/ui/stepper"
 
 import { listAddresses } from "../account/addresses/actions"
+import { orderCheckoutPsp } from "@/lib/payments-enabled"
+
 import { readCheckoutEnabled } from "./actions"
 import { CheckoutForm } from "./_form"
 import { CHECKOUT_STEPS } from "./steps"
@@ -41,6 +43,9 @@ export default async function CheckoutPage() {
     }
     throw err
   }
+  // Same provider check as initiateCheckout, so the page never looks open while the action
+  // refuses (unknown or unconfigured active_psp). Independent of subscriptions_enabled.
+  if (enabled) enabled = (await orderCheckoutPsp()) !== null
   if (!enabled) {
     return (
       <PageMain narrow>

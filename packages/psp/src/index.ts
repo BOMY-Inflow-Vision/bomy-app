@@ -1,5 +1,6 @@
 export {
   PSP_PROVIDER_IDS,
+  isPspProvider,
   type OneTimeCheckoutInput,
   type PaymentFee,
   type PaymentKind,
@@ -10,6 +11,7 @@ export {
 } from "./types.js"
 export { getProvider, resetProviders, setProviderOverride } from "./registry.js"
 export { HitPayProvider, type HitPayProviderOptions } from "./hitpay/provider.js"
+export { StripeProvider } from "./stripe/provider.js"
 export {
   PspRequestError,
   PspUnsupportedError,

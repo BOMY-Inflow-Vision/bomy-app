@@ -15,9 +15,22 @@ import { randomUUID } from "node:crypto"
 
 import { makeDb, schema, withAdmin } from "@bomy/db"
 import { eq } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it, vi, type Mock } from "vitest"
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+  type Mock,
+} from "vitest"
 
 vi.mock("next/navigation", () => ({
+  notFound: vi.fn(() => {
+    throw Object.assign(new Error("NOT_FOUND"), { name: "NotFoundError" })
+  }),
   redirect: vi.fn((url: string) => {
     throw Object.assign(new Error(`REDIRECT:${url}`), { name: "RedirectError" })
   }),
@@ -38,12 +51,14 @@ import { auth } from "@/auth"
 import { flashToast } from "@/lib/flash-toast-server"
 import { HitPayClient } from "@bomy/hitpay"
 import type * as HitPayModule from "@bomy/hitpay"
+import { resetProviders, setProviderOverride, type PaymentProvider } from "@bomy/psp"
 import {
   abandonPendingMembership,
   cancelMembership,
   joinMembership,
 } from "../../src/app/(marketing)/membership/actions"
 import { PENDING_GRACE_MS } from "../../src/lib/membership"
+import { setPaymentFlags } from "../helpers/payment-flags"
 
 const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001"
 
@@ -72,6 +87,7 @@ function expectRedirect(fn: () => Promise<unknown>): Promise<string> {
 describe.skipIf(!shouldRun)("membership actions", () => {
   let testDb: ReturnType<typeof makeDb>
   let userId: string
+  let restoreFlags: () => Promise<void>
 
   beforeAll(async () => {
     // Forward DATABASE_APP_URL into DATABASE_URL so actions.ts → makeDb() resolves it.
@@ -84,6 +100,11 @@ describe.skipIf(!shouldRun)("membership actions", () => {
 
     testDb = makeDb({ url: DATABASE_URL as string })
     userId = randomUUID()
+    // 0039 seeds subscriptions_enabled=false; open the gate for this suite, restore after.
+    restoreFlags = await setPaymentFlags(testDb.db, {
+      subscriptions_enabled: true,
+      active_psp: "hitpay",
+    })
 
     await withAdmin(testDb.db, { userId: SYSTEM_ACTOR, reason: "test seed" }, async (tx) => {
       await tx
@@ -107,6 +128,7 @@ describe.skipIf(!shouldRun)("membership actions", () => {
         .delete(schema.memberSubscriptions)
         .where(eq(schema.memberSubscriptions.userId, userId))
     })
+    await restoreFlags()
     await testDb.close()
   })
 
@@ -529,6 +551,142 @@ describe.skipIf(!shouldRun)("membership actions", () => {
       await withAdmin(testDb.db, { userId, reason: "test cleanup" }, async (tx) => {
         await tx.delete(schema.memberSubscriptions).where(eq(schema.memberSubscriptions.id, subId))
       })
+    })
+  })
+  // ── Payments gate + provider pinning (Stripe design PR 3) ───────────────
+
+  describe("payments gate (subscriptions_enabled × active_psp)", () => {
+    function memberRows() {
+      return withAdmin(testDb.db, { userId, reason: "test assert" }, async (tx) =>
+        tx
+          .select({
+            id: schema.memberSubscriptions.id,
+            status: schema.memberSubscriptions.status,
+            pspProvider: schema.memberSubscriptions.pspProvider,
+            pspRecurringId: schema.memberSubscriptions.pspRecurringId,
+            hitpayRecurringId: schema.memberSubscriptions.hitpayRecurringId,
+          })
+          .from(schema.memberSubscriptions)
+          .where(eq(schema.memberSubscriptions.userId, userId)),
+      )
+    }
+
+    async function clearRows() {
+      await withAdmin(testDb.db, { userId, reason: "test cleanup" }, async (tx) => {
+        await tx
+          .delete(schema.memberSubscriptions)
+          .where(eq(schema.memberSubscriptions.userId, userId))
+      })
+    }
+
+    beforeEach(() => {
+      MockHitPayClient.mockReset()
+    })
+
+    afterEach(async () => {
+      resetProviders()
+      MockHitPayClient.mockReset()
+      await clearRows()
+    })
+
+    it("subscriptions_enabled=false → notFound before any PSP call or row insert", async () => {
+      mockAuth.mockResolvedValue({ user: { id: userId, role: "buyer", email: "t@test.bomy" } })
+      const restore = await setPaymentFlags(testDb.db, { subscriptions_enabled: false })
+      try {
+        await expect(joinMembership()).rejects.toThrow("NOT_FOUND")
+      } finally {
+        await restore()
+      }
+      expect(MockHitPayClient).not.toHaveBeenCalled()
+      expect(await memberRows()).toHaveLength(0)
+    })
+
+    it("active_psp=stripe (PR 3 placeholder, not configured) → notFound, nothing written", async () => {
+      mockAuth.mockResolvedValue({ user: { id: userId, role: "buyer", email: "t@test.bomy" } })
+      const restore = await setPaymentFlags(testDb.db, { active_psp: "stripe" })
+      try {
+        await expect(joinMembership()).rejects.toThrow("NOT_FOUND")
+      } finally {
+        await restore()
+      }
+      expect(MockHitPayClient).not.toHaveBeenCalled()
+      expect(await memberRows()).toHaveLength(0)
+    })
+
+    it("pins the ACTIVE provider on the new row and calls that provider (not the 'hitpay' default)", async () => {
+      mockAuth.mockResolvedValue({ user: { id: userId, role: "buyer", email: "t@test.bomy" } })
+      const createRecurringCheckout = vi.fn().mockResolvedValue({
+        pspRequestId: "cs_test_1",
+        pspRecurringId: "sub_test_1",
+        redirectUrl: "https://checkout.stripe.test/cs_test_1",
+      })
+      setProviderOverride("stripe", {
+        id: "stripe",
+        isConfigured: () => true,
+        createRecurringCheckout,
+      } as unknown as PaymentProvider)
+      const restore = await setPaymentFlags(testDb.db, { active_psp: "stripe" })
+      let url: string
+      try {
+        url = await expectRedirect(joinMembership)
+      } finally {
+        await restore()
+      }
+      expect(url).toBe("https://checkout.stripe.test/cs_test_1")
+      expect(createRecurringCheckout).toHaveBeenCalledTimes(1)
+      expect(MockHitPayClient).not.toHaveBeenCalled()
+      const [row] = await memberRows()
+      expect(row?.status).toBe("pending")
+      expect(row?.pspProvider).toBe("stripe")
+    })
+
+    it("existing member can still cancel while subscriptions_enabled=false, on the ROW's provider", async () => {
+      mockAuth.mockResolvedValue({ user: { id: userId, role: "buyer", email: "t@test.bomy" } })
+      const cancelRecurringBilling = vi.fn().mockResolvedValue(undefined)
+      MockHitPayClient.mockImplementation(() => ({ cancelRecurringBilling }))
+      const stripeCancel = vi.fn().mockResolvedValue(undefined)
+      setProviderOverride("stripe", {
+        id: "stripe",
+        isConfigured: () => true,
+        cancelRecurring: stripeCancel,
+      } as unknown as PaymentProvider)
+
+      const subId = randomUUID()
+      await withAdmin(testDb.db, { userId, reason: "test seed" }, async (tx) => {
+        await tx.insert(schema.memberSubscriptions).values({
+          id: subId,
+          userId,
+          status: "active",
+          pspProvider: "hitpay",
+          priceMyrSen: 7500n,
+          periodStart: new Date(),
+          periodEnd: new Date(Date.now() + 365 * 86400 * 1000),
+          hitpayRecurringId: "recurring-gate",
+          pspRecurringId: "recurring-gate",
+        })
+      })
+
+      // Gate closed AND the active provider switched away from the row's provider.
+      const restore = await setPaymentFlags(testDb.db, {
+        subscriptions_enabled: false,
+        active_psp: "stripe",
+      })
+      let url: string
+      try {
+        url = await expectRedirect(cancelMembership)
+      } finally {
+        await restore()
+      }
+      expect(url).toBe("/membership/manage")
+      expect(cancelRecurringBilling).toHaveBeenCalledWith("recurring-gate")
+      expect(stripeCancel).not.toHaveBeenCalled()
+      const cancelled = await withAdmin(testDb.db, { userId, reason: "test assert" }, async (tx) =>
+        tx
+          .select({ cancelledAt: schema.memberSubscriptions.cancelledAt })
+          .from(schema.memberSubscriptions)
+          .where(eq(schema.memberSubscriptions.id, subId)),
+      )
+      expect(cancelled[0]?.cancelledAt).not.toBeNull()
     })
   })
 })

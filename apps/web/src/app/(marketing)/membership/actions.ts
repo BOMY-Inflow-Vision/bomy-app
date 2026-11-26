@@ -5,12 +5,12 @@ import { and, desc, eq, inArray, isNull } from "drizzle-orm"
 import { notFound, redirect } from "next/navigation"
 
 import { makeDb, schema, withAdmin, withTenant } from "@bomy/db"
-import { getProvider, pspRef } from "@bomy/psp"
+import { getProvider, pspRef, type PspProvider } from "@bomy/psp"
 
 import { auth } from "@/auth"
 import { flashToast } from "@/lib/flash-toast-server"
 import { isPendingAbandoned } from "@/lib/membership"
-import { paymentsEnabled } from "@/lib/payments-enabled"
+import { subscriptionPsp } from "@/lib/payments-enabled"
 
 // Lazy DB singleton — module is importable without DATABASE_URL at startup
 let _client: ReturnType<typeof makeDb> | null = null
@@ -19,17 +19,17 @@ function getDb() {
   return _client.db
 }
 
-// Provider for new memberships. Still HitPay-only: PR 3 replaces this with the
-// platform_config `active_psp` read, pinned on the row at creation.
-const PINNED_PSP = "hitpay" as const
-
 /**
- * HitPay dual-write (Stripe design §4.1): the recurring id goes into hitpay_recurring_id (the
- * HitPay webhook still correlates on it, and a code rollback still finds it) AND the
- * provider-neutral psp_recurring_id.
+ * Recurring id columns for the row's PINNED provider. HitPay dual-writes (Stripe design §4.1):
+ * hitpay_recurring_id (the HitPay webhook still correlates on it, and a code rollback still
+ * finds it) AND the provider-neutral psp_recurring_id. Any other provider writes psp_* only.
  */
-function recurringIdColumns(recurringId: string) {
-  return { hitpayRecurringId: recurringId, pspRecurringId: recurringId, updatedAt: new Date() }
+function recurringIdColumns(psp: PspProvider, recurringId: string) {
+  return {
+    ...(psp === "hitpay" ? { hitpayRecurringId: recurringId } : {}),
+    pspRecurringId: recurringId,
+    updatedAt: new Date(),
+  }
 }
 
 function addOneYear(d: Date): Date {
@@ -50,8 +50,10 @@ function isUniqueViolation(err: unknown): boolean {
 export async function joinMembership() {
   // PR #39 defence-in-depth guard: page-level CTA gating is primary; this
   // short-circuits direct invocation (stale page cache, manual curl, race)
-  // BEFORE any HitPayClient construction or auth/DB work.
-  if (!paymentsEnabled()) notFound()
+  // BEFORE any PSP call or user DB work. The provider resolved here is the one
+  // PINNED on the new row and used for the outbound call (Stripe design §3.4).
+  const psp = await subscriptionPsp()
+  if (!psp) notFound()
 
   const session = await auth()
   if (!session) redirect("/auth/sign-in?callbackUrl=/membership")
@@ -179,7 +181,7 @@ export async function joinMembership() {
           id: subId,
           userId: session.user.id,
           status: "pending",
-          pspProvider: PINNED_PSP,
+          pspProvider: psp,
           priceMyrSen: priceSen,
           periodStart: now,
           periodEnd: addOneYear(now),
@@ -193,7 +195,7 @@ export async function joinMembership() {
 
   // Create the recurring checkout — track it so we can cancel it if DB correlation fails.
   // HitPay returns the recurring billing id straight away (pspRecurringId === pspRequestId).
-  const provider = getProvider(PINNED_PSP)
+  const provider = getProvider(psp)
   let billing: { recurringId: string; url: string | null } | null = null
   // Set only once the id is stored AND HitPay gave a usable URL; never "undefined".
   let checkoutUrl: string | null = null
@@ -223,7 +225,7 @@ export async function joinMembership() {
       async (tx) => {
         await tx
           .update(schema.memberSubscriptions)
-          .set(recurringIdColumns(billing!.recurringId))
+          .set(recurringIdColumns(psp, billing!.recurringId))
           .where(
             and(
               eq(schema.memberSubscriptions.id, subId),
@@ -267,7 +269,7 @@ export async function joinMembership() {
             async (tx) => {
               await tx
                 .update(schema.memberSubscriptions)
-                .set(recurringIdColumns(billing!.recurringId))
+                .set(recurringIdColumns(psp, billing!.recurringId))
                 .where(
                   and(
                     eq(schema.memberSubscriptions.id, subId),

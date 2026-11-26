@@ -5,13 +5,18 @@
 import { renderToStaticMarkup } from "react-dom/server"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const { getStorePage, getBrandSubscriberAvatars } = vi.hoisted(() => ({
+const { getStorePage, getBrandSubscriberAvatars, paymentsEnabled, withAdmin } = vi.hoisted(() => ({
   getStorePage: vi.fn(),
   getBrandSubscriberAvatars: vi.fn(),
+  paymentsEnabled: vi.fn(),
+  withAdmin: vi.fn(),
 }))
 vi.mock("@/auth", () => ({ auth: () => Promise.resolve(null) }))
 vi.mock("next/navigation", () => ({ notFound: () => Promise.reject(new Error("NOT_FOUND")) }))
 vi.mock("@/app/brands/[slug]/queries", () => ({ getStorePage, getBrandSubscriberAvatars }))
+// Tripwires: the storefront must not read platform_config flags (no audit row per view).
+vi.mock("@/lib/payments-enabled", () => ({ paymentsEnabled }))
+vi.mock("@bomy/db", () => ({ withAdmin, withPublicRead: vi.fn(), schema: {} }))
 
 import StorePage from "@/app/brands/[slug]/page"
 
@@ -47,6 +52,8 @@ const has = (el: Element | null, tokens: string[]) => {
 beforeEach(() => {
   getStorePage.mockReset()
   getBrandSubscriberAvatars.mockReset()
+  paymentsEnabled.mockReset()
+  withAdmin.mockReset()
 })
 
 describe("brand store page section header with a long category name", () => {
@@ -159,7 +166,14 @@ describe("brand store page top grid (R5a)", () => {
     has(column, ["min-w-0", "flex", "flex-col"])
   })
 
-  it("the Subscribe link always shows; the video column child only with a videoId", async () => {
+  it("a plain Subscription plans link, with no flag read or admin bypass on the page", async () => {
+    const d = await renderStore({ bodyHtml: null })
+    expect(subscribe(d).textContent).toBe("Subscription plans")
+    expect(paymentsEnabled).not.toHaveBeenCalled()
+    expect(withAdmin).not.toHaveBeenCalled()
+  })
+
+  it("the Subscription plans link always shows; the video column child only with a videoId", async () => {
     const without = await renderStore({ bodyHtml: null })
     expect(subscribe(without).parentElement!.children).toHaveLength(1)
     const withVideo = await renderStore({ bodyHtml: null, videoId: "dQw4w9WgXcQ" })

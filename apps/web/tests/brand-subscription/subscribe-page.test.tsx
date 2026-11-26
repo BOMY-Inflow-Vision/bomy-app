@@ -156,6 +156,17 @@ describe("subscribe page: the three CTAs", () => {
     expect(d.querySelector('a[href^="/auth/sign-in"]')).toBeNull()
   })
 
+  it("payments off, signed in: closed notice and no purchase form or Subscribe button", async () => {
+    paymentsEnabled.mockReturnValue(false)
+    auth.mockResolvedValue({ user: { id: "u1", role: "buyer" } })
+    getStorePlans.mockResolvedValue({ store: STORE, plans: [plan()] })
+    const d = await render()
+    expect(d.querySelector('[role="status"]')!.textContent).toBe("Subscriptions will reopen soon")
+    expect(d.querySelector("form")).toBeNull()
+    expect(d.querySelector('button[type="submit"]')).toBeNull()
+    expect(subscribeToBrand).not.toHaveBeenCalled()
+  })
+
   it("payments on, signed out: a sign-in link with the callback", async () => {
     getStorePlans.mockResolvedValue({ store: STORE, plans: [plan()] })
     const d = await render()

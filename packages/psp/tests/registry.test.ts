@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest"
 
-import { PspUnsupportedError } from "../src/errors.js"
 import { HitPayProvider } from "../src/hitpay/provider.js"
+import { StripeProvider } from "../src/stripe/provider.js"
 import { getProvider, resetProviders, setProviderOverride } from "../src/registry.js"
 import type { PaymentProvider } from "../src/types.js"
 
@@ -26,8 +26,11 @@ describe("getProvider", () => {
     expect(getProvider("hitpay")).not.toBe(first)
   })
 
-  it("throws PspUnsupportedError for 'stripe' (no Stripe provider until PR 4)", () => {
-    expect(() => getProvider("stripe")).toThrow(PspUnsupportedError)
+  it("returns the Stripe placeholder for 'stripe': never configured (real adapter in PR 4)", () => {
+    const p = getProvider("stripe")
+    expect(p).toBeInstanceOf(StripeProvider)
+    expect(p.id).toBe("stripe")
+    expect(p.isConfigured()).toBe(false)
   })
 
   it("throws for an id outside the union (e.g. a corrupt DB value)", () => {

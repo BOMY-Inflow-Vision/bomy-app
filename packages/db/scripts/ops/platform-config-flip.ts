@@ -18,8 +18,9 @@ const USAGE = `Usage: pnpm ops:platform-config:set \\
   --reason "<short human-readable reason>"
 
 All four arguments are required. The actor must exist and have role
-in bomy_ops / bomy_admin / bomy_finance. The key must already exist
-in platform_config — this script does not create new keys.`
+in bomy_ops / bomy_admin / bomy_finance (active_psp: bomy_admin /
+bomy_finance only, value "hitpay" or "stripe"). The key must already
+exist in platform_config — this script does not create new keys.`
 
 async function main(): Promise<number> {
   let args
