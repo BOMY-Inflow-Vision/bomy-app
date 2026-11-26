@@ -251,6 +251,9 @@ describe("cancelMembership — HitPay cancel handling", () => {
     id: "cccccccc-cccc-cccc-cccc-cccccccccccc",
     userId: USER_ID,
     status: "active" as const,
+    // Pre-dual-write row shape: psp_recurring_id empty, so cancel falls back to hitpay_*.
+    pspProvider: "hitpay" as const,
+    pspRecurringId: null,
     hitpayRecurringId: "rec-live",
     periodEnd: PERIOD_END,
   }

@@ -133,6 +133,30 @@ describe.skipIf(!shouldRun)("expireAbandonedPendingMemberships", () => {
     await cleanupUser(userId, subId)
   })
 
+  it("does not expire a pending row whose payment id is only in psp_payment_id", async () => {
+    const userId = await seedUser()
+    const subId = randomUUID()
+    const now = new Date()
+
+    await withAdmin(testDb.db, { userId, reason: "test seed" }, async (tx) => {
+      await tx.insert(schema.memberSubscriptions).values({
+        id: subId,
+        userId,
+        status: "pending",
+        priceMyrSen: 7500n,
+        periodStart: now,
+        periodEnd: new Date(now.getTime() + 365 * 86400 * 1000),
+        createdAt: new Date(now.getTime() - PENDING_GRACE_MS - 60_000),
+        pspPaymentId: "pay_psp_only",
+      })
+    })
+
+    await expireAbandonedPendingMemberships(testDb.db, now)
+    expect(await statusOf(subId)).toBe("pending")
+
+    await cleanupUser(userId, subId)
+  })
+
   it("does not touch active rows", async () => {
     const userId = await seedUser()
     const subId = randomUUID()

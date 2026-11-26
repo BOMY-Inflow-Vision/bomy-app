@@ -42,6 +42,7 @@ export default async function BrandSubscribeSuccessPage({ params }: Props) {
       const rows = await tx
         .select({
           status: schema.brandSubscriptions.status,
+          pspPaymentId: schema.brandSubscriptions.pspPaymentId,
           hitpayPaymentId: schema.brandSubscriptions.hitpayPaymentId,
           createdAt: schema.brandSubscriptions.createdAt,
         })

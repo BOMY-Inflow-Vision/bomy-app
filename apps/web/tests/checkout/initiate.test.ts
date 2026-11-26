@@ -1056,6 +1056,84 @@ describe.skipIf(!shouldRun)("initiateCheckout", () => {
     expect(compRows).toHaveLength(1)
   })
 
+  // ─── 26b: Bob #208 — HitPay returns an id but no URL ─────────────────
+  //
+  // The id is stored (a late webhook still correlates), the session is compensated, and the
+  // buyer gets PAYMENT_INIT_FAILED with no redirect URL — never "undefined".
+  it("HitPay returns an id but no url → id kept on the cancelled session, PAYMENT_INIT_FAILED, no redirect", async () => {
+    asBuyer(buyerAId)
+    const createPaymentRequest = vi.fn().mockResolvedValue({ id: "pr-order-nourl" })
+    MockHitPayClient.mockImplementation(() => ({ createPaymentRequest }))
+
+    const r = await initiateCheckout({
+      items: [{ variantId, quantity: 1 }],
+      voucherId: null,
+      shippingAddress: VALID_ADDRESS,
+    })
+    expect(r).toEqual({ ok: false, error: "PAYMENT_INIT_FAILED" })
+
+    const sessionId = await latestSessionIdFor(buyerAId)
+    const [sess] = await withAdmin(
+      testDb.db,
+      { userId: SYSTEM_ACTOR, reason: "test read session" },
+      async (tx) =>
+        tx.select().from(schema.checkoutSessions).where(eq(schema.checkoutSessions.id, sessionId)),
+    )
+    expect(sess!.status).toBe("cancelled")
+    expect(sess!.pspPaymentRequestId).toBe("pr-order-nourl")
+    expect(sess!.pspPaymentUrl).toBeNull()
+
+    const variantRows = await withAdmin(
+      testDb.db,
+      { userId: SYSTEM_ACTOR, reason: "test read variant" },
+      async (tx) =>
+        tx.select().from(schema.productVariants).where(eq(schema.productVariants.id, variantId)),
+    )
+    expect(variantRows[0]!.stockCount).toBe(10)
+
+    const compRows = await withAdmin(
+      testDb.db,
+      { userId: SYSTEM_ACTOR, reason: "test find compensation audit" },
+      async (tx) =>
+        tx
+          .select()
+          .from(schema.adminBypassAudit)
+          .where(
+            eq(
+              schema.adminBypassAudit.reason,
+              `checkout_compensation:hitpay_create_failed:no_checkout_url:${sessionId}`,
+            ),
+          ),
+    )
+    expect(compRows).toHaveLength(1)
+  })
+
+  it("HitPay returns a url but no id → compensated, nothing stored, no redirect", async () => {
+    asBuyer(buyerAId)
+    const createPaymentRequest = vi
+      .fn()
+      .mockResolvedValue({ url: "https://securecheckout.hit-pay.com/x" })
+    MockHitPayClient.mockImplementation(() => ({ createPaymentRequest }))
+
+    const r = await initiateCheckout({
+      items: [{ variantId, quantity: 1 }],
+      voucherId: null,
+      shippingAddress: VALID_ADDRESS,
+    })
+    expect(r).toEqual({ ok: false, error: "PAYMENT_INIT_FAILED" })
+
+    const sessionId = await latestSessionIdFor(buyerAId)
+    const [sess] = await withAdmin(
+      testDb.db,
+      { userId: SYSTEM_ACTOR, reason: "test read session" },
+      async (tx) =>
+        tx.select().from(schema.checkoutSessions).where(eq(schema.checkoutSessions.id, sessionId)),
+    )
+    expect(sess!.status).toBe("cancelled")
+    expect(sess!.pspPaymentRequestId).toBeNull()
+    expect(sess!.pspPaymentUrl).toBeNull()
+  })
+
   // ─── 27: PSP-ref UPDATE returns 0 rows → compensation runs (no-op) ───
   //
   // Models a concurrent cancellation (e.g. expiry job, buyer cancel) that

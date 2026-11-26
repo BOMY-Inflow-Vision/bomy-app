@@ -4,11 +4,10 @@ import { and, eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 
 import { schema, withAdmin } from "@bomy/db"
-import { HitPayClient, HitPayError } from "@bomy/hitpay"
+import { getProvider, isPspRejection, pspErrorCode, pspRef } from "@bomy/psp"
 
 import { requireAdminId } from "@/lib/auth"
 import { getDb } from "@/lib/db"
-import { senToMyr } from "@/lib/money"
 
 const PAYOUT_ROLES = ["bomy_admin", "bomy_finance"] as const
 
@@ -25,13 +24,9 @@ type Result =
         | "REFUND_OUTCOME_UNKNOWN"
     }
 
-function hitpayClient(): HitPayClient {
-  const apiKey = process.env["HITPAY_API_KEY"]
-  const apiUrl = process.env["HITPAY_API_URL"]
-  if (!apiKey) throw new Error("HITPAY_API_KEY is required")
-  if (!apiUrl) throw new Error("HITPAY_API_URL is required")
-  return new HitPayClient({ apiKey, baseUrl: apiUrl })
-}
+// Duplicate charges are refunded on the provider that took the payment (design Invariant 2).
+// Only HitPay rows exist until PR 4; a non-HitPay row is released untouched below.
+const REFUND_PSP = "hitpay" as const
 
 export async function refundDuplicateCharge(id: string): Promise<Result> {
   let adminId: string
@@ -43,9 +38,12 @@ export async function refundDuplicateCharge(id: string): Promise<Result> {
     return { ok: false, error: "UNAUTHENTICATED" }
   }
 
-  // Construct the HitPay client BEFORE the CAS so a missing-env error leaves the
-  // row untouched (stays 'detected') instead of claiming it with no way to contact HitPay.
-  const client = hitpayClient()
+  // Check the provider is configured BEFORE the CAS so a missing-env error leaves the
+  // row untouched (stays 'detected') instead of claiming it with no way to contact the PSP.
+  const provider = getProvider(REFUND_PSP)
+  if (!provider.isConfigured()) {
+    throw new Error("HITPAY_API_KEY and HITPAY_API_URL are required")
+  }
 
   // CAS the row to refund_pending BEFORE any external call. Closes the
   // double-click / double-refund window: only one caller can flip detected→pending.
@@ -61,6 +59,8 @@ export async function refundDuplicateCharge(id: string): Promise<Result> {
         )
         .returning({
           id: schema.duplicateCharges.id,
+          pspProvider: schema.duplicateCharges.pspProvider,
+          pspPaymentId: schema.duplicateCharges.pspPaymentId,
           hitpayPaymentId: schema.duplicateCharges.hitpayPaymentId,
           amountSen: schema.duplicateCharges.amountSen,
         }),
@@ -82,11 +82,14 @@ export async function refundDuplicateCharge(id: string): Promise<Result> {
   }
 
   const row = claimed[0]!
-  const hitpayPaymentId = row.hitpayPaymentId
-  if (hitpayPaymentId === null) {
-    // Migration 0039 made hitpay_payment_id nullable for future non-HitPay (Stripe) rows, which
-    // this HitPay-only refund cannot handle. Unreachable until Stripe duplicates exist (every
-    // HitPay row carries the id); release the claim untouched so nothing is stuck in refund_pending.
+  const paymentId =
+    row.pspProvider === REFUND_PSP
+      ? pspRef(row.pspProvider, row.pspPaymentId, row.hitpayPaymentId)
+      : null
+  if (paymentId === null) {
+    // A non-HitPay (Stripe) row, or one with no payment id, cannot be refunded here yet.
+    // Unreachable until Stripe duplicates exist (every HitPay row carries the id); release the
+    // claim untouched so nothing is stuck in refund_pending.
     await withAdmin(
       getDb(),
       { userId: adminId, reason: "revert duplicate charge refund (no HitPay payment id)" },
@@ -104,10 +107,11 @@ export async function refundDuplicateCharge(id: string): Promise<Result> {
     return { ok: false, error: "REFUND_FAILED" }
   }
   try {
-    const refund = await client.createRefund({
-      payment_id: hitpayPaymentId,
-      amount: senToMyr(row.amountSen),
+    const refund = await provider.refund({
+      pspPaymentId: paymentId,
+      amountSen: row.amountSen,
       reason: "Duplicate subscription charge",
+      idempotencyKey: `dup_refund:${row.id}`,
     })
     await withAdmin(
       getDb(),
@@ -115,7 +119,9 @@ export async function refundDuplicateCharge(id: string): Promise<Result> {
       async (tx) =>
         tx
           .update(schema.duplicateCharges)
-          .set({ hitpayRefundId: refund.id })
+          // HitPay dual-write (design §4.1): the HitPay webhook still correlates on
+          // hitpay_refund_id; psp_refund_id is the provider-neutral copy.
+          .set({ hitpayRefundId: refund.pspRefundId, pspRefundId: refund.pspRefundId })
           .where(
             and(
               eq(schema.duplicateCharges.id, row.id),
@@ -126,11 +132,19 @@ export async function refundDuplicateCharge(id: string): Promise<Result> {
     revalidatePath("/payouts/reconciliation")
     return { ok: true }
   } catch (err) {
-    if (err instanceof HitPayError) {
-      // Definite API rejection — the refund was NOT issued. Revert so an admin can retry.
+    // Audit token, e.g. "hitpay_refund_failed:validation" or "hitpay_refund_failed:error".
+    // Same codes as the checkout compensation reason; "unknown" for a non-PSP error.
+    const auditCode = `${provider.id}_refund_failed:${pspErrorCode(err)}`
+    if (isPspRejection(err)) {
+      // PROVEN rejection (a 4xx other than 408/409/425) — the refund was NOT issued. Revert so
+      // an admin can retry. Only a proven rejection may revert: HitPay takes no idempotency
+      // key, so a retry after a refund that did go through would refund the buyer twice.
       await withAdmin(
         getDb(),
-        { userId: adminId, reason: "revert duplicate charge refund (HitPay rejected)" },
+        {
+          userId: adminId,
+          reason: `revert duplicate charge refund (HitPay rejected) ${auditCode} dup=${row.id}`,
+        },
         async (tx) =>
           tx
             .update(schema.duplicateCharges)
@@ -144,10 +158,33 @@ export async function refundDuplicateCharge(id: string): Promise<Result> {
       )
       return { ok: false, error: "REFUND_FAILED" }
     }
-    // Unknown/network error — outcome indeterminate. Leave it refund_pending for
-    // manual verification; do NOT revert (we cannot prove no charge was refunded).
-    // Return (do not throw) so the client button shows an error instead of crashing.
-    console.error("refundDuplicateCharge: HitPay refund outcome unknown", { id: row.id, err })
+    // Outcome unknown — a 5xx/408/409/425, an unusable 2xx body, a timeout, a network failure,
+    // or our own write of the refund id failing after HitPay accepted it. The refund may have
+    // gone through, so the row stays refund_pending: the CAS (status = 'detected') then refuses
+    // any retry, and HitPay's charge.updated webhook marks it refunded if it did happen.
+    // Return (do not throw) so the client button shows a warning instead of crashing.
+    console.error("refundDuplicateCharge: HitPay refund outcome unknown", {
+      id: row.id,
+      auditCode,
+      err,
+    })
+    // Durable trail of WHY the row is stuck (admin_bypass_audit, written by withAdmin itself).
+    // Best effort: a failure here must not change the answer to the operator.
+    try {
+      await withAdmin(
+        getDb(),
+        {
+          userId: adminId,
+          reason: `duplicate charge refund outcome unknown (kept refund_pending) ${auditCode} dup=${row.id}`,
+        },
+        () => Promise.resolve(),
+      )
+    } catch (auditErr) {
+      console.error("refundDuplicateCharge: could not record unknown-outcome audit row", {
+        id: row.id,
+        auditErr,
+      })
+    }
     revalidatePath("/payouts/reconciliation")
     return { ok: false, error: "REFUND_OUTCOME_UNKNOWN" }
   }

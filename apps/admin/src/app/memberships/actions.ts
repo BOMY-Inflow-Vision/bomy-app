@@ -4,7 +4,7 @@ import { and, eq, isNull } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 
 import { schema, withAdmin } from "@bomy/db"
-import { HitPayClient } from "@bomy/hitpay"
+import { getProvider, pspRef } from "@bomy/psp"
 
 import { authorizeAdminAction } from "@/lib/admin-action"
 import { getDb } from "@/lib/db"
@@ -63,14 +63,6 @@ export async function updateRenewalNotificationDays(formData: FormData): Promise
   await flashToast("success", "Renewal notification days updated.")
 }
 
-function hitpayClient() {
-  const apiKey = process.env["HITPAY_API_KEY"]
-  const apiUrl = process.env["HITPAY_API_URL"]
-  if (!apiKey) throw new Error("HITPAY_API_KEY is required")
-  if (!apiUrl) throw new Error("HITPAY_API_URL is required")
-  return new HitPayClient({ apiKey, baseUrl: apiUrl })
-}
-
 // Server-form trigger — flashes every outcome instead of throwing.
 export async function cancelMembership(subId: string): Promise<void> {
   const authz = await authorizeAdminAction()
@@ -91,6 +83,8 @@ export async function cancelMembership(subId: string): Promise<void> {
           id: schema.memberSubscriptions.id,
           status: schema.memberSubscriptions.status,
           cancelledAt: schema.memberSubscriptions.cancelledAt,
+          pspProvider: schema.memberSubscriptions.pspProvider,
+          pspRecurringId: schema.memberSubscriptions.pspRecurringId,
           hitpayRecurringId: schema.memberSubscriptions.hitpayRecurringId,
           periodEnd: schema.memberSubscriptions.periodEnd,
         })
@@ -112,9 +106,11 @@ export async function cancelMembership(subId: string): Promise<void> {
     return
   }
 
-  if (sub.hitpayRecurringId) {
+  // Cancel on the provider pinned on the row, never the active one (design Invariant 2).
+  const recurringId = pspRef(sub.pspProvider, sub.pspRecurringId, sub.hitpayRecurringId)
+  if (recurringId) {
     try {
-      await hitpayClient().cancelRecurringBilling(sub.hitpayRecurringId)
+      await getProvider(sub.pspProvider).cancelRecurring(recurringId, { atPeriodEnd: true })
     } catch (err) {
       // Renewal is still live at HitPay, so don't record the cancellation; the admin can retry.
       console.error("[admin cancelMembership] HitPay cancel failed", err)

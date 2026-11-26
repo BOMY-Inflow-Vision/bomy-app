@@ -15,6 +15,7 @@
     "@auth/drizzle-adapter": "^1.7.4",
     "@bomy/db": "workspace:*",
     "@bomy/hitpay": "workspace:*",
+    "@bomy/psp": "workspace:*",
     "@bomy/mailer": "workspace:*",
     "@bomy/shared": "workspace:*",
     "@bomy/ui": "workspace:*",

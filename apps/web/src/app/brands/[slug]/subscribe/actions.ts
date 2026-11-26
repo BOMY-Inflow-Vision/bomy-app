@@ -5,7 +5,7 @@ import { and, desc, eq, gt, inArray, isNull } from "drizzle-orm"
 import { notFound, redirect } from "next/navigation"
 
 import { makeDb, schema, withAdmin, withPublicRead, withTenant, type UserRole } from "@bomy/db"
-import { HitPayClient, type PaymentRequestResponse } from "@bomy/hitpay"
+import { getProvider } from "@bomy/psp"
 
 import { auth } from "@/auth"
 import { flashToast } from "@/lib/flash-toast-server"
@@ -18,18 +18,21 @@ function getDb() {
   return _client.db
 }
 
-function hitpayClient() {
-  const apiKey = process.env["HITPAY_API_KEY"]
-  const apiUrl = process.env["HITPAY_API_URL"]
-  if (!apiKey) throw new Error("HITPAY_API_KEY is required")
-  if (!apiUrl) throw new Error("HITPAY_API_URL is required")
-  return new HitPayClient({ apiKey, baseUrl: apiUrl })
-}
+// Provider for new brand subscriptions. Still HitPay-only: PR 3 replaces this with the
+// platform_config `active_psp` read, pinned on the row at creation.
+const PINNED_PSP = "hitpay" as const
 
-function senToMyr(sen: bigint): string {
-  const whole = sen / 100n
-  const frac = String(sen % 100n).padStart(2, "0")
-  return `${whole}.${frac}`
+/**
+ * HitPay dual-write (Stripe design §4.1): the request id goes into hitpay_payment_request_id
+ * (the HitPay webhook still correlates on it, and a code rollback still finds it) AND the
+ * provider-neutral psp_payment_request_id.
+ */
+function requestIdColumns(pspRequestId: string) {
+  return {
+    hitpayPaymentRequestId: pspRequestId,
+    pspPaymentRequestId: pspRequestId,
+    updatedAt: new Date(),
+  }
 }
 
 function addMonths(d: Date, months: number): Date {
@@ -129,6 +132,7 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
         .select({
           id: schema.brandSubscriptions.id,
           status: schema.brandSubscriptions.status,
+          pspPaymentId: schema.brandSubscriptions.pspPaymentId,
           hitpayPaymentId: schema.brandSubscriptions.hitpayPaymentId,
           createdAt: schema.brandSubscriptions.createdAt,
         })
@@ -155,8 +159,10 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
       //
       // Compare-and-swap: a delayed webhook may have activated (and paid) this
       // exact row between the read above and now. Guard the UPDATE on
-      // status='pending' AND hitpay_payment_id IS NULL so we never clobber a paid
-      // subscription back to expired. (Mirrors joinMembership + the webhook guard.)
+      // status='pending' AND no payment id so we never clobber a paid subscription back to
+      // expired. (Mirrors joinMembership + the webhook guard.) Both payment-id columns are
+      // checked until the contract PR: a row paid by pre-dual-write webhook code carries only
+      // hitpay_payment_id.
       const expired = await withAdmin(
         getDb(),
         {
@@ -173,6 +179,7 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
                 eq(schema.brandSubscriptions.userId, session.user.id),
                 eq(schema.brandSubscriptions.storeId, store.id),
                 eq(schema.brandSubscriptions.status, "pending"),
+                isNull(schema.brandSubscriptions.pspPaymentId),
                 isNull(schema.brandSubscriptions.hitpayPaymentId),
               ),
             )
@@ -227,6 +234,7 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
           storeId: store.id,
           planId: plan.id,
           status: "pending",
+          pspProvider: PINNED_PSP,
           priceMyrSen: plan.priceMyrSen,
           discountPct: plan.discountPct,
           periodStart: now,
@@ -241,18 +249,19 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
     throw err
   }
 
-  // Call HitPay createPaymentRequest.
-  let paymentRequest: PaymentRequestResponse | null = null
+  // Create the hosted checkout on the provider pinned on the row.
+  let paymentRequest: { pspRequestId: string; redirectUrl: string | null } | null = null
   try {
-    paymentRequest = await hitpayClient().createPaymentRequest({
-      amount: senToMyr(plan.priceMyrSen),
+    paymentRequest = await getProvider(PINNED_PSP).createOneTimeCheckout({
+      kind: "brand_subscription",
+      bomyRefId: subId,
+      amountSen: plan.priceMyrSen,
       currency: "MYR",
-      email: session.user.email ?? "",
-      purpose: `${store.name} Brand Subscription (${plan.termMonths}mo)`,
-      redirect_url: `${appUrl}/brands/${store.slug}/subscribe/success`,
-      reference_number: subId,
-      allow_repeated_payments: false,
-      ...(webhookUrl ? { webhook: webhookUrl } : {}),
+      customerEmail: session.user.email ?? "",
+      description: `${store.name} Brand Subscription (${plan.termMonths}mo)`,
+      successUrl: `${appUrl}/brands/${store.slug}/subscribe/success`,
+      webhookUrl,
+      idempotencyKey: `brand_sub:${subId}`,
     })
 
     // Store payment request ID so webhook can correlate on completion.
@@ -265,7 +274,7 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
       async (tx) => {
         await tx
           .update(schema.brandSubscriptions)
-          .set({ hitpayPaymentRequestId: paymentRequest!.id, updatedAt: new Date() })
+          .set(requestIdColumns(paymentRequest!.pspRequestId))
           .where(
             and(
               eq(schema.brandSubscriptions.id, subId),
@@ -291,7 +300,7 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
           async (tx) => {
             await tx
               .update(schema.brandSubscriptions)
-              .set({ hitpayPaymentRequestId: paymentRequest!.id, updatedAt: new Date() })
+              .set(requestIdColumns(paymentRequest!.pspRequestId))
               .where(
                 and(
                   eq(schema.brandSubscriptions.id, subId),
@@ -325,11 +334,12 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
           // Leave row in place for manual reconciliation.
         }
       }
-      if (fallbackSaved) {
+      if (fallbackSaved && paymentRequest.redirectUrl !== null) {
         // Row has the payment request ID — redirect to checkout.
         // The user can complete payment; the webhook will activate the subscription.
-        redirect(paymentRequest.url)
+        redirect(paymentRequest.redirectUrl)
       }
+      // Saved but HitPay gave no URL: keep the row + reference (below), show the error.
     } else {
       // HitPay was never called — remove orphan row so user can retry.
       try {
@@ -363,14 +373,30 @@ export async function subscribeToBrand(planId: string, _formData?: FormData) {
     redirect(`/brands/${store.slug}/subscribe`)
   }
 
-  redirect(paymentRequest.url)
+  if (paymentRequest.redirectUrl === null) {
+    // HitPay created the payment request (its id is stored above, so a webhook still
+    // correlates) but returned no URL to send the buyer to. Keep the pending row and its
+    // reference — never redirect to a missing URL. allow_repeated_payments=false and the
+    // missing URL mean nobody can pay it; the row is abandoned after the grace window.
+    console.error("[subscribeToBrand] HitPay payment request has no checkout URL", {
+      subId,
+      pspRequestId: paymentRequest.pspRequestId,
+    })
+    await flashToast(
+      "error",
+      "We couldn't start your brand subscription checkout. Please try again in a moment.",
+    )
+    redirect(`/brands/${store.slug}/subscribe`)
+  }
+  redirect(paymentRequest.redirectUrl)
 }
 
 /**
  * Escape hatch for the success page: the user gave up waiting / never paid for a
  * brand subscription. Mark any abandoned pending row for this store expired so
  * the partial unique index no longer blocks a fresh checkout and they can start
- * over. Guarded on hitpay_payment_id IS NULL so a row a webhook has already paid
+ * over. Guarded on "no payment id" (psp_payment_id and, until the contract PR,
+ * hitpay_payment_id) so a row a webhook has already paid
  * is never clobbered back to expired — that delayed webhook (or a re-read on the
  * subscribe page) still routes the user to the active subscription.
  */
@@ -405,6 +431,7 @@ export async function abandonPendingBrandSubscription(slug: string) {
             eq(schema.brandSubscriptions.userId, session.user.id),
             eq(schema.brandSubscriptions.storeId, store.id),
             eq(schema.brandSubscriptions.status, "pending"),
+            isNull(schema.brandSubscriptions.pspPaymentId),
             isNull(schema.brandSubscriptions.hitpayPaymentId),
           ),
         )

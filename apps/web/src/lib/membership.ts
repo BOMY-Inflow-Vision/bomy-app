@@ -9,6 +9,11 @@ export const PENDING_GRACE_MS = 30 * 60 * 1000
 
 interface PendingCandidate {
   status: string
+  pspPaymentId: string | null
+  /**
+   * Transition (until the contract PR drops hitpay_*): a row paid by pre-dual-write webhook
+   * code carries only hitpay_payment_id, so either column proves payment.
+   */
   hitpayPaymentId: string | null
   createdAt: Date
 }
@@ -20,9 +25,9 @@ interface PendingCandidate {
  * fresh join.
  */
 export function isPendingAbandoned(row: PendingCandidate, now: Date): boolean {
+  // `?? null`: a missing column (undefined) counts as "no payment id", never as paid-and-unknown.
+  const paid = (row.pspPaymentId ?? null) !== null || (row.hitpayPaymentId ?? null) !== null
   return (
-    row.status === "pending" &&
-    row.hitpayPaymentId === null &&
-    row.createdAt.getTime() <= now.getTime() - PENDING_GRACE_MS
+    row.status === "pending" && !paid && row.createdAt.getTime() <= now.getTime() - PENDING_GRACE_MS
   )
 }

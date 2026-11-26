@@ -25,6 +25,20 @@ const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001" as const
 // books the inflow to a liability account. Idempotent: ON CONFLICT on the unique
 // hitpay_payment_id means a retried webhook neither double-inserts nor
 // double-credits. Returns true when this call created the record.
+/**
+ * HitPay dual-write (Stripe design §4.1, expand phase): every HitPay id this webhook stores goes
+ * into BOTH the legacy hitpay_* column (which correlation below still reads, and which a code
+ * rollback still needs) and the provider-neutral psp_* column (which shared readers now read).
+ * The contract PR drops the hitpay_* half.
+ */
+function paymentIdColumns(paymentId: string) {
+  return { hitpayPaymentId: paymentId, pspPaymentId: paymentId }
+}
+
+function refundIdColumns(refundId: string | null) {
+  return { hitpayRefundId: refundId, pspRefundId: refundId }
+}
+
 async function recordDuplicateCharge(
   tx: Parameters<Parameters<typeof withAdmin>[2]>[0],
   args: {
@@ -41,7 +55,11 @@ async function recordDuplicateCharge(
       subscriptionType: args.subscriptionType,
       subscriptionId: args.subscriptionId,
       userId: args.userId,
+      // HitPay dual-write (Stripe design §4.1). The conflict target stays hitpay_payment_id:
+      // it always carries the same value, and pre-dual-write rows only have that column.
       hitpayPaymentId: args.paymentId,
+      pspProvider: "hitpay",
+      pspPaymentId: args.paymentId,
       amountSen: args.amountSen,
       currency: "MYR",
     })
@@ -350,7 +368,7 @@ async function handleMembershipCharge({
             // do not create a second active row or a revenue ledger leg.
             await tx
               .update(schema.memberSubscriptions)
-              .set({ hitpayPaymentId: paymentId, updatedAt: now })
+              .set({ ...paymentIdColumns(paymentId), updatedAt: now })
               .where(eq(schema.memberSubscriptions.id, sub.id))
             await recordDuplicateCharge(tx, {
               subscriptionType: "member_subscription",
@@ -377,7 +395,7 @@ async function handleMembershipCharge({
           if (sub.status === "pending") {
             await tx
               .update(schema.memberSubscriptions)
-              .set({ status: "active", hitpayPaymentId: paymentId, updatedAt: now })
+              .set({ status: "active", ...paymentIdColumns(paymentId), updatedAt: now })
               .where(eq(schema.memberSubscriptions.id, sub.id))
           } else {
             const periodEnd = new Date(now)
@@ -386,7 +404,7 @@ async function handleMembershipCharge({
               .update(schema.memberSubscriptions)
               .set({
                 status: "active",
-                hitpayPaymentId: paymentId,
+                ...paymentIdColumns(paymentId),
                 periodStart: now,
                 periodEnd,
                 updatedAt: now,
@@ -449,7 +467,9 @@ async function handleMembershipCharge({
           status: "active",
           priceMyrSen: sub.priceMyrSen,
           hitpayRecurringId: recurringBillingId,
-          hitpayPaymentId: paymentId,
+          pspProvider: "hitpay",
+          pspRecurringId: recurringBillingId,
+          ...paymentIdColumns(paymentId),
           periodStart,
           periodEnd,
         })
@@ -481,7 +501,7 @@ async function handleMembershipCharge({
           .update(schema.memberSubscriptions)
           .set({
             status: "payment_failed",
-            ...(paymentId ? { hitpayPaymentId: paymentId } : {}),
+            ...(paymentId ? paymentIdColumns(paymentId) : {}),
             updatedAt: now,
           })
           .where(eq(schema.memberSubscriptions.id, sub.id))
@@ -502,7 +522,7 @@ async function handleMembershipCharge({
             .set({
               status: "cancelled",
               cancelledAt: sub.cancelledAt ?? now,
-              ...(paymentId ? { hitpayPaymentId: paymentId } : {}),
+              ...(paymentId ? paymentIdColumns(paymentId) : {}),
               updatedAt: now,
             })
             .where(eq(schema.memberSubscriptions.id, sub.id))
@@ -511,7 +531,7 @@ async function handleMembershipCharge({
             .update(schema.memberSubscriptions)
             .set({
               cancelledAt: sub.cancelledAt ?? now,
-              ...(paymentId ? { hitpayPaymentId: paymentId } : {}),
+              ...(paymentId ? paymentIdColumns(paymentId) : {}),
               updatedAt: now,
             })
             .where(eq(schema.memberSubscriptions.id, sub.id))
@@ -636,8 +656,10 @@ async function handleBrandSubscriptionPayment({
           .update(schema.brandSubscriptions)
           .set({
             status: "active",
-            hitpayPaymentId: paymentId,
+            ...paymentIdColumns(paymentId),
+            // Both fee columns: brand_subscriptions_fee_sync_chk requires them equal.
             hitpayFeeSen: feeSen,
+            pspFeeSen: feeSen,
             bomyCommissionSen,
             brandPayoutSen,
             updatedAt: now,
@@ -672,7 +694,7 @@ async function handleBrandSubscriptionPayment({
           if (sub.hitpayPaymentId === null) {
             const stamped = await tx
               .update(schema.brandSubscriptions)
-              .set({ hitpayPaymentId: paymentId, updatedAt: now })
+              .set({ ...paymentIdColumns(paymentId), updatedAt: now })
               .where(
                 and(
                   eq(schema.brandSubscriptions.id, sub.id),
@@ -875,7 +897,7 @@ async function handleRefund({
           .set({
             status: "refunded",
             resolvedAt: new Date(),
-            hitpayRefundId: dup.hitpayRefundId ?? refundId,
+            ...refundIdColumns(dup.hitpayRefundId ?? refundId),
           })
           .where(eq(schema.duplicateCharges.id, dup.id))
         app.log.info(

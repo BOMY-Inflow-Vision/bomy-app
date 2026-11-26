@@ -30,6 +30,7 @@ vi.mock("@/lib/flash-toast-server", () => ({ flashToast: vi.fn() }))
 vi.mock("@bomy/hitpay", () => ({ HitPayClient: vi.fn() }))
 
 import { auth } from "@/auth"
+import { flashToast } from "@/lib/flash-toast-server"
 import { HitPayClient } from "@bomy/hitpay"
 import {
   abandonPendingBrandSubscription,
@@ -311,6 +312,66 @@ describe.skipIf(!shouldRun)("subscribeToBrand", () => {
         .where(eq(schema.brandSubscriptions.userId, userId)),
     )
     expect(rows).toHaveLength(0)
+  })
+
+  // Bob #208 regression: HitPay created the payment request (id returned) but gave no URL.
+  // The reference must be kept so a webhook still correlates; the buyer sees an error and is
+  // never redirected to a missing URL.
+  describe("HitPay returns an id but no checkout URL", () => {
+    const mockFlash = flashToast as unknown as Mock
+    const subRows = () =>
+      withAdmin(testDb.db, { userId, reason: "test assert" }, async (tx) =>
+        tx
+          .select({
+            status: schema.brandSubscriptions.status,
+            hitpayPaymentRequestId: schema.brandSubscriptions.hitpayPaymentRequestId,
+            pspPaymentRequestId: schema.brandSubscriptions.pspPaymentRequestId,
+          })
+          .from(schema.brandSubscriptions)
+          .where(eq(schema.brandSubscriptions.userId, userId)),
+      )
+    const cleanup = () =>
+      withAdmin(testDb.db, { userId: ownerId, reason: "test cleanup" }, async (tx) => {
+        await tx
+          .delete(schema.brandSubscriptions)
+          .where(eq(schema.brandSubscriptions.userId, userId))
+      })
+
+    it("keeps the pending row + payment request reference, shows an error, no HitPay redirect", async () => {
+      mockAuth.mockResolvedValue({ user: { id: userId, role: "buyer", email: "t@test.bomy" } })
+      mockFlash.mockClear()
+      const createPaymentRequest = vi.fn().mockResolvedValue({ id: "pr-nourl-1" })
+      MockHitPayClient.mockImplementation(() => ({ createPaymentRequest }))
+      try {
+        const url = await expectRedirect(() => subscribeToBrand(planId))
+        expect(url).toMatch(/^\/brands\/[^/]+\/subscribe$/)
+        expect(mockFlash).toHaveBeenCalledWith("error", expect.any(String))
+        expect(await subRows()).toEqual([
+          {
+            status: "pending",
+            hitpayPaymentRequestId: "pr-nourl-1",
+            pspPaymentRequestId: "pr-nourl-1",
+          },
+        ])
+      } finally {
+        await cleanup()
+      }
+    })
+
+    it("url but no id → nothing to keep: row deleted, never redirects to the url", async () => {
+      mockAuth.mockResolvedValue({ user: { id: userId, role: "buyer", email: "t@test.bomy" } })
+      const createPaymentRequest = vi
+        .fn()
+        .mockResolvedValue({ url: "https://securecheckout.hit-pay.com/pr-x" })
+      MockHitPayClient.mockImplementation(() => ({ createPaymentRequest }))
+      try {
+        const url = await expectRedirect(() => subscribeToBrand(planId))
+        expect(url).toMatch(/^\/brands\/[^/]+\/subscribe$/)
+        expect(await subRows()).toHaveLength(0)
+      } finally {
+        await cleanup()
+      }
+    })
   })
 
   // DB correlation failure compensation paths are covered in actions.unit.test.ts

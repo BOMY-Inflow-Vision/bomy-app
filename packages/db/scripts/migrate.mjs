@@ -196,6 +196,10 @@ const MIGRATIONS = [
     name: "0039_psp_provider_columns",
     file: join(__dirname, "../drizzle/0039_psp_provider_columns.sql"),
   },
+  {
+    name: "0040_psp_rebackfill",
+    file: join(__dirname, "../drizzle/0040_psp_rebackfill.sql"),
+  },
 ]
 
 try {

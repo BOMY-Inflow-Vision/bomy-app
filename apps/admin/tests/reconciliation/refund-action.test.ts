@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto"
 
-import { eq } from "drizzle-orm"
+import { and, eq, like } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, type Mock, vi } from "vitest"
 
 import { makeDb, schema, withAdmin } from "@bomy/db"
@@ -126,6 +126,81 @@ describe.skipIf(!shouldRun)("refundDuplicateCharge", () => {
     const res = await refundDuplicateCharge(id)
     expect(res).toEqual({ ok: false, error: "REFUND_FAILED" })
     expect((await read(id))?.status).toBe("detected")
+  })
+
+  function auditReasons(dupId: string) {
+    return withAdmin(db.db, { userId: SYSTEM_ACTOR, reason: "read audit" }, async (tx) =>
+      (
+        await tx
+          .select({ reason: schema.adminBypassAudit.reason })
+          .from(schema.adminBypassAudit)
+          .where(
+            and(
+              eq(schema.adminBypassAudit.actorUserId, adminId),
+              like(schema.adminBypassAudit.reason, `%dup=${dupId}%`),
+            ),
+          )
+      ).map((r) => r.reason),
+    )
+  }
+
+  it("a proven rejection records its audit code", async () => {
+    vi.clearAllMocks()
+    mockAuth.mockResolvedValue({ user: { id: adminId, role: "bomy_admin" } })
+    createRefund.mockRejectedValue(new HitPayError("rejected", 422, {}))
+    const { id } = await seedDup()
+    expect(await refundDuplicateCharge(id)).toEqual({ ok: false, error: "REFUND_FAILED" })
+    expect(await auditReasons(id)).toEqual([
+      `revert duplicate charge refund (HitPay rejected) hitpay_refund_failed:error dup=${id}`,
+    ])
+  })
+
+  // Bob #208 review (Medium): HitPay takes no idempotency key, so any answer that does not PROVE
+  // the refund was refused must keep the row refund_pending — never let an operator retry.
+  it.each([
+    ["HTTP 500", () => new HitPayError("HitPay API error (500)", 500, {}), "error"],
+    ["HTTP 503", () => new HitPayError("HitPay API error (503)", 503, {}), "error"],
+    ["HTTP 408", () => new HitPayError("HitPay API error (408)", 408, {}), "error"],
+    ["network failure", () => new TypeError("fetch failed"), "unknown"],
+  ])(
+    "%s → REFUND_OUTCOME_UNKNOWN, stays refund_pending, audit code kept, retry cannot call HitPay",
+    async (_label, makeErr, code) => {
+      vi.clearAllMocks()
+      mockAuth.mockResolvedValue({ user: { id: adminId, role: "bomy_admin" } })
+      createRefund.mockRejectedValue(makeErr())
+      const { id } = await seedDup()
+
+      const res = await refundDuplicateCharge(id)
+      expect(res).toEqual({ ok: false, error: "REFUND_OUTCOME_UNKNOWN" })
+      const row = await read(id)
+      expect(row?.status).toBe("refund_pending")
+      expect(row?.resolvedBy).toBe(adminId)
+      expect(row?.hitpayRefundId).toBeNull()
+      expect(await auditReasons(id)).toEqual([
+        `duplicate charge refund outcome unknown (kept refund_pending) hitpay_refund_failed:${code} dup=${id}`,
+      ])
+
+      // The operator clicks again: the detected→refund_pending CAS refuses, HitPay is not called.
+      const retry = await refundDuplicateCharge(id)
+      expect(retry).toEqual({ ok: false, error: "ALREADY_PROCESSING" })
+      expect(createRefund).toHaveBeenCalledTimes(1)
+      expect((await read(id))?.status).toBe("refund_pending")
+    },
+  )
+
+  it("2xx without a refund id → REFUND_OUTCOME_UNKNOWN (invalid_response), stays refund_pending", async () => {
+    vi.clearAllMocks()
+    mockAuth.mockResolvedValue({ user: { id: adminId, role: "bomy_admin" } })
+    createRefund.mockResolvedValue({ status: "pending" })
+    const { id } = await seedDup()
+    expect(await refundDuplicateCharge(id)).toEqual({
+      ok: false,
+      error: "REFUND_OUTCOME_UNKNOWN",
+    })
+    expect((await read(id))?.status).toBe("refund_pending")
+    expect(await auditReasons(id)).toEqual([
+      `duplicate charge refund outcome unknown (kept refund_pending) hitpay_refund_failed:invalid_response dup=${id}`,
+    ])
   })
 
   it("row without a HitPay payment id (non-HitPay, migration 0039) → REFUND_FAILED, never calls HitPay, stays detected", async () => {
