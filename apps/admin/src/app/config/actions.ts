@@ -24,15 +24,18 @@ type Outcome =
  *
  * - Server-side role gate: `requireAdminId` (via authorizeAdminAction; fails closed on a stale
  *   or unrefreshable role), then the actor's role is re-read from `users` inside the write
- *   transaction, so a demotion inside the 5-minute JWT refresh window is still refused.
+ *   transaction and that row is held FOR SHARE until commit, so a demotion inside the 5-minute
+ *   JWT refresh window, or one racing this write, is refused or serialised after it.
  * - old→new audit: `SELECT … FOR UPDATE` → `UPDATE` → `INSERT platform_config_audit` in ONE
  *   `withAdmin` transaction, copying `platform-config-flip-core.ts`. A no-op (same value)
  *   writes no config audit row.
  * - Only `active_psp` is written. `checkout_enabled` and `subscriptions_enabled` are never
  *   touched here; they stay runbook flips.
- * - A provider whose adapter is not configured on admin cannot be selected: admin needs that
- *   provider's credentials to cancel and refund the rows created under it. The Stripe
- *   placeholder is never configured, so Stripe cannot be selected until PR 4.
+ * - A provider whose adapter is not configured on admin cannot be ENABLED here: admin needs
+ *   that provider's credentials to cancel and refund the rows created under it. The Stripe
+ *   placeholder is never configured, so Stripe cannot be selected until PR 4. The emergency
+ *   switch back to a dormant HitPay (design §11 kill switch) is the audited ops CLI, see
+ *   docs/runbooks/active-psp-switch.md; payments then fail closed.
  * - Existing rows keep their own `psp_provider`; nothing here rewrites them.
  */
 export async function setActivePsp(formData: FormData): Promise<void> {
@@ -62,10 +65,17 @@ export async function setActivePsp(formData: FormData): Promise<void> {
       getDb(),
       { userId: adminId, reason: `admin set active_psp -> ${next}` },
       async (tx): Promise<Outcome> => {
+        // Lock order (deadlock-safe, same as the ops CLI): actor's users row FOR SHARE first,
+        // then the config row FOR UPDATE. FOR SHARE blocks a concurrent role UPDATE until this
+        // transaction ends, so the role checked here is still the role when active_psp is
+        // written, even if we wait on the config lock. A demotion either commits first (we see
+        // it and refuse) or waits for us (serialised after the switch). Role updates touch only
+        // the users row, so no lock cycle is possible.
         const [actor] = await tx
           .select({ role: schema.users.role })
           .from(schema.users)
           .where(eq(schema.users.id, adminId))
+          .for("share")
         if (!actor || !(PSP_SWITCH_ROLES as readonly UserRole[]).includes(actor.role)) {
           return { kind: "forbidden" }
         }

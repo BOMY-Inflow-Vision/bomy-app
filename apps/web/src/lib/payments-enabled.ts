@@ -2,6 +2,17 @@ import { getProvider, type PspProvider } from "@bomy/psp"
 
 import { readPaymentFlags } from "@/lib/active-psp"
 
+/** `active` if it is a provider configured in this deployment, else null (fails closed). */
+function configuredOrNull(active: PspProvider | null, caller: string): PspProvider | null {
+  if (active === null) return null
+  try {
+    return getProvider(active).isConfigured() ? active : null
+  } catch (err) {
+    console.error(`[${caller}] provider lookup failed; payments fail closed`, err)
+    return null
+  }
+}
+
 /**
  * The provider a NEW membership or brand subscription is created on, or null when those flows
  * are closed. Server-only (reads platform_config and process.env).
@@ -14,23 +25,30 @@ import { readPaymentFlags } from "@/lib/active-psp"
  *
  * Callers PIN the returned provider on the row they create and use it for the outbound call.
  * Follow-up calls on an existing row (cancel, refund, webhook) use the row's own
- * `psp_provider`, never this function. Order checkout is gated by `checkout_enabled`, not here.
+ * `psp_provider`, never this function.
  */
 export async function subscriptionPsp(): Promise<PspProvider | null> {
   const { activePsp, subscriptionsEnabled } = await readPaymentFlags()
-  if (!subscriptionsEnabled || activePsp === null) return null
-  try {
-    return getProvider(activePsp).isConfigured() ? activePsp : null
-  } catch (err) {
-    console.error("[subscriptionPsp] provider lookup failed; payments fail closed", err)
-    return null
-  }
+  if (!subscriptionsEnabled) return null
+  return configuredOrNull(activePsp, "subscriptionPsp")
 }
 
 /**
- * Gate for the /membership and /brands/[slug]/subscribe payment CTAs and the matching
- * server actions (defence in depth). Replaces the PR #39 HitPay env sniff.
+ * Gate for every NEW membership / brand-subscription entry point: the /membership and
+ * /brands/[slug]/subscribe CTAs, the brand storefront Subscribe link, the account Renew link,
+ * and the matching server actions (defence in depth). Replaces the PR #39 HitPay env sniff.
  */
 export async function paymentsEnabled(): Promise<boolean> {
   return (await subscriptionPsp()) !== null
+}
+
+/**
+ * The provider a NEW order checkout session is created on, or null when the active provider is
+ * unknown or not configured here. Shared by the /checkout page and `initiateCheckout`, so the
+ * page never looks open while the action refuses. Independent of `subscriptions_enabled`; the
+ * order gate itself stays `checkout_enabled`, which callers check first.
+ */
+export async function orderCheckoutPsp(): Promise<PspProvider | null> {
+  const { activePsp } = await readPaymentFlags()
+  return configuredOrNull(activePsp, "orderCheckoutPsp")
 }

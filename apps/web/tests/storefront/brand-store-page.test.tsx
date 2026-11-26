@@ -5,13 +5,15 @@
 import { renderToStaticMarkup } from "react-dom/server"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const { getStorePage, getBrandSubscriberAvatars } = vi.hoisted(() => ({
+const { getStorePage, getBrandSubscriberAvatars, paymentsEnabled } = vi.hoisted(() => ({
   getStorePage: vi.fn(),
   getBrandSubscriberAvatars: vi.fn(),
+  paymentsEnabled: vi.fn(),
 }))
 vi.mock("@/auth", () => ({ auth: () => Promise.resolve(null) }))
 vi.mock("next/navigation", () => ({ notFound: () => Promise.reject(new Error("NOT_FOUND")) }))
 vi.mock("@/app/brands/[slug]/queries", () => ({ getStorePage, getBrandSubscriberAvatars }))
+vi.mock("@/lib/payments-enabled", () => ({ paymentsEnabled }))
 
 import StorePage from "@/app/brands/[slug]/page"
 
@@ -47,6 +49,8 @@ const has = (el: Element | null, tokens: string[]) => {
 beforeEach(() => {
   getStorePage.mockReset()
   getBrandSubscriberAvatars.mockReset()
+  paymentsEnabled.mockReset()
+  paymentsEnabled.mockResolvedValue(true)
 })
 
 describe("brand store page section header with a long category name", () => {
@@ -159,7 +163,14 @@ describe("brand store page top grid (R5a)", () => {
     has(column, ["min-w-0", "flex", "flex-col"])
   })
 
-  it("the Subscribe link always shows; the video column child only with a videoId", async () => {
+  it("hides the Subscribe link while new brand subscriptions are closed", async () => {
+    paymentsEnabled.mockResolvedValue(false)
+    const d = await renderStore({ bodyHtml: null })
+    expect(d.querySelector('a[href="/brands/acme/subscribe"]')).toBeNull()
+    expect(paymentsEnabled).toHaveBeenCalledTimes(1)
+  })
+
+  it("the Subscribe link shows when open; the video column child only with a videoId", async () => {
     const without = await renderStore({ bodyHtml: null })
     expect(subscribe(without).parentElement!.children).toHaveLength(1)
     const withVideo = await renderStore({ bodyHtml: null, videoId: "dQw4w9WgXcQ" })

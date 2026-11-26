@@ -113,6 +113,13 @@ export default async function ConfigPage() {
                   </li>
                 )
               })}
+              {active !== "hitpay" && !getProvider("hitpay").isConfigured() ? (
+                <li className="text-sm text-muted-foreground">
+                  To stop new payments while HitPay isn&apos;t set up here, use the emergency switch
+                  in <code className="font-mono text-xs">docs/runbooks/active-psp-switch.md</code>.
+                  Payments then stay off until a provider is set up.
+                </li>
+              ) : null}
             </ul>
           ) : (
             <p className="text-sm text-muted-foreground">

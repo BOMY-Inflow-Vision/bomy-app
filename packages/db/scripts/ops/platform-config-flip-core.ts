@@ -22,6 +22,41 @@ function isAdminRole(role: UserRole): role is AdminRole {
   return (BOMY_ADMIN_ROLES as readonly UserRole[]).includes(role)
 }
 
+/**
+ * Per-key rules on top of the general staff-role check. Only keys with a documented rule are
+ * listed; do not add one without a design/runbook decision.
+ *
+ * - `active_psp`: bomy_admin + bomy_finance only (Stripe design §13 decision 6, same as the
+ *   admin /config switch) and the value must be a known provider id. There is deliberately NO
+ *   credential check here: this CLI is the audited emergency path to switch back to a dormant
+ *   HitPay (design §11 kill switch; docs/runbooks/active-psp-switch.md). Payments then fail
+ *   closed because web only opens them for a configured provider.
+ * - `checkout_enabled` / `subscriptions_enabled`: no extra rule (runbook allows all three
+ *   staff roles).
+ */
+const PSP_IDS = ["hitpay", "stripe"] as const
+const KEY_RULES: Record<string, { roles: readonly AdminRole[]; value?: (v: unknown) => boolean }> =
+  {
+    active_psp: {
+      roles: ["bomy_admin", "bomy_finance"],
+      value: (v) => typeof v === "string" && (PSP_IDS as readonly string[]).includes(v),
+    },
+  }
+
+/** Throws ActorError / UsageError when `key` has a rule that `role` or `value` breaks. */
+export function assertKeyRules(key: string, role: AdminRole, value: unknown): void {
+  const rule = KEY_RULES[key]
+  if (!rule) return
+  if (!rule.roles.includes(role)) {
+    throw new ActorError(
+      `--key '${key}' can only be changed by ${rule.roles.join(" / ")}; actor has role '${role}'.`,
+    )
+  }
+  if (rule.value && !rule.value(value)) {
+    throw new UsageError(`--value ${JSON.stringify(value)} is not allowed for --key '${key}'.`)
+  }
+}
+
 export interface FlipResult {
   actor: { id: string; email: string; role: AdminRole }
   key: string
@@ -73,6 +108,7 @@ export async function runPlatformConfigFlip(db: Database, args: Args): Promise<F
     )
   }
   const actor = { id: actorRow.id, email: actorRow.email, role: actorRow.role }
+  assertKeyRules(args.key, actor.role, newValue)
 
   // 3. Key pre-read under withTenant using the actor's real role.
   // Confirms the key exists AND that the actor can see platform_config under RLS.
@@ -93,6 +129,19 @@ export async function runPlatformConfigFlip(db: Database, args: Args): Promise<F
   // 4. Write under withAdmin — updates platform_config, writes platform_config_audit.
   //    withAdmin itself writes admin_bypass_audit in the same transaction.
   const writeResult = await withAdmin(db, { userId: actor.id, reason: args.reason }, async (tx) => {
+    // Re-check the actor's role inside the write transaction and hold the users row FOR SHARE
+    // until commit (lock order users -> platform_config, same as the admin /config switch), so a
+    // demotion racing this flip is either seen here or serialised after it.
+    const [current] = await tx
+      .select({ role: schema.users.role })
+      .from(schema.users)
+      .where(eq(schema.users.id, actor.id))
+      .for("share")
+    if (!current || !isAdminRole(current.role)) {
+      throw new ActorError(`--actor ${actor.id} is no longer staff; nothing was changed.`)
+    }
+    assertKeyRules(args.key, current.role, newValue)
+
     // Re-read inside the transaction with FOR UPDATE to lock the row against
     // concurrent writers between Step 3's check and the UPDATE below. The audit
     // row's old_value MUST reflect the actual state at the moment of UPDATE.

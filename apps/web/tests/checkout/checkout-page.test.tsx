@@ -4,10 +4,11 @@
 import { renderToStaticMarkup } from "react-dom/server"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const { auth, readCheckoutEnabled, listAddresses } = vi.hoisted(() => ({
+const { auth, readCheckoutEnabled, listAddresses, orderCheckoutPsp } = vi.hoisted(() => ({
   auth: vi.fn(),
   readCheckoutEnabled: vi.fn(),
   listAddresses: vi.fn(),
+  orderCheckoutPsp: vi.fn(),
 }))
 vi.mock("@/auth", () => ({ auth }))
 vi.mock("next/navigation", () => ({
@@ -17,6 +18,7 @@ vi.mock("next/navigation", () => ({
 }))
 vi.mock("@/app/checkout/actions", () => ({ readCheckoutEnabled }))
 vi.mock("@/app/account/addresses/actions", () => ({ listAddresses }))
+vi.mock("@/lib/payments-enabled", () => ({ orderCheckoutPsp }))
 vi.mock("@/app/checkout/_form", () => ({
   CheckoutForm: (p: { savedAddresses: { id: string; line1: string }[] }) => (
     <div
@@ -51,6 +53,8 @@ beforeEach(() => {
   auth.mockReset()
   readCheckoutEnabled.mockReset()
   listAddresses.mockReset()
+  orderCheckoutPsp.mockReset()
+  orderCheckoutPsp.mockResolvedValue("hitpay")
 })
 
 describe("CheckoutPage gating and structure", () => {
@@ -76,6 +80,23 @@ describe("CheckoutPage gating and structure", () => {
     expect(d.body.textContent).toContain("Checkout is paused. We'll let you know when it's back.")
     expect(d.querySelector('[data-testid="form"]')).toBeNull()
     expect(listAddresses).not.toHaveBeenCalled()
+  })
+
+  it("checkout_enabled on but the active provider unusable: paused, same check as the action", async () => {
+    auth.mockResolvedValue({ user: { id: "u1" } })
+    readCheckoutEnabled.mockResolvedValue(true)
+    orderCheckoutPsp.mockResolvedValue(null)
+    const d = await render()
+    expect(d.body.textContent).toContain("Checkout is paused. We'll let you know when it's back.")
+    expect(d.querySelector('[data-testid="form"]')).toBeNull()
+    expect(listAddresses).not.toHaveBeenCalled()
+  })
+
+  it("checkout_enabled off never reads the provider", async () => {
+    auth.mockResolvedValue({ user: { id: "u1" } })
+    readCheckoutEnabled.mockResolvedValue(false)
+    await render()
+    expect(orderCheckoutPsp).not.toHaveBeenCalled()
   })
 
   it("enabled shows the stepper at step 1 and the form with the mapped saved addresses", async () => {

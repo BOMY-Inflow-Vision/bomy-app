@@ -17,7 +17,7 @@ import * as dbModule from "@bomy/db"
 import { resetProviders, setProviderOverride, type PaymentProvider } from "@bomy/psp"
 
 import { getActivePsp, readPaymentFlags } from "@/lib/active-psp"
-import { paymentsEnabled, subscriptionPsp } from "@/lib/payments-enabled"
+import { orderCheckoutPsp, paymentsEnabled, subscriptionPsp } from "@/lib/payments-enabled"
 
 const withAdmin = dbModule.withAdmin as unknown as Mock
 
@@ -166,5 +166,42 @@ describe("paymentsEnabled / subscriptionPsp — active × configured × subscrip
     setProviderOverride("hitpay", throwing)
     flags("hitpay", true)
     await expect(paymentsEnabled()).resolves.toBe(false)
+  })
+})
+
+describe("orderCheckoutPsp — shared by the /checkout page and initiateCheckout", () => {
+  const originalEnv = { ...process.env }
+
+  beforeEach(() => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined)
+    process.env["HITPAY_API_KEY"] = "test-key"
+    process.env["HITPAY_API_URL"] = "https://api.sandbox.hit-pay.com"
+  })
+
+  afterEach(() => {
+    process.env = { ...originalEnv }
+    resetProviders()
+    vi.clearAllMocks()
+    vi.restoreAllMocks()
+  })
+
+  it("ignores subscriptions_enabled: hitpay configured → 'hitpay' even with it false", async () => {
+    flags("hitpay", false)
+    await expect(orderCheckoutPsp()).resolves.toBe("hitpay")
+  })
+
+  it("null when HitPay is not configured (dormant) — fails closed", async () => {
+    delete process.env["HITPAY_API_KEY"]
+    flags("hitpay", true)
+    await expect(orderCheckoutPsp()).resolves.toBeNull()
+  })
+
+  it("null for the stripe placeholder, unknown values and DB errors", async () => {
+    flags("stripe", true)
+    await expect(orderCheckoutPsp()).resolves.toBeNull()
+    flags("paypal", true)
+    await expect(orderCheckoutPsp()).resolves.toBeNull()
+    withAdmin.mockRejectedValueOnce(new Error("boom"))
+    await expect(orderCheckoutPsp()).resolves.toBeNull()
   })
 })

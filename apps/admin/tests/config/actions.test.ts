@@ -56,6 +56,7 @@ describe.skipIf(!shouldRun)("setActivePsp", () => {
     ops: randomUUID(),
     buyer: randomUUID(),
     demoted: randomUUID(),
+    racer: randomUUID(),
   }
   type Snapshot = { value: unknown; updatedBy: string | null; updatedAt: Date }
   const snapshots = new Map<string, Snapshot>()
@@ -119,6 +120,8 @@ describe.skipIf(!shouldRun)("setActivePsp", () => {
         { id: ids.buyer, email: `${ids.buyer}@test.bomy`, role: "buyer" },
         // Demoted in the DB, but the session (JWT) still says bomy_admin.
         { id: ids.demoted, email: `${ids.demoted}@test.bomy`, role: "bomy_ops" },
+        // Demoted WHILE its switch waits on the config lock (concurrency test).
+        { id: ids.racer, email: `${ids.racer}@test.bomy`, role: "bomy_admin" },
       ]),
     )
     for (const key of ["active_psp", "checkout_enabled", "subscriptions_enabled"]) {
@@ -301,5 +304,78 @@ describe.skipIf(!shouldRun)("setActivePsp", () => {
     )
     const audit = await auditRowsBy([ids.finance])
     expect(audit.at(-1)).toMatchObject({ oldValue: "paypal", newValue: "hitpay" })
+  })
+
+  // ── Concurrency: role re-check holds through the config write ───────────
+
+  /** Resolve once a backend is waiting on a heavyweight lock running SQL that matches `re`. */
+  async function waitForLockWait(re: RegExp, timeoutMs = 5000): Promise<void> {
+    const deadline = Date.now() + timeoutMs
+    while (Date.now() < deadline) {
+      const waiting = await sys((tx) =>
+        tx.execute<{ query: string }>(
+          sql`SELECT query FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND pid <> pg_backend_pid()`,
+        ),
+      )
+      if (Array.from(waiting).some((r) => re.test(r.query))) return
+      await new Promise((r) => setTimeout(r, 25))
+    }
+    throw new Error(`no backend waiting on a lock for ${re}`)
+  }
+
+  it("a demotion racing a switch that waits on the config lock is serialised after it", async () => {
+    setProviderOverride("stripe", configuredStripe)
+    as(ids.racer, "bomy_admin")
+
+    // 1. Another writer holds the active_psp row lock.
+    let release!: () => void
+    const gate = new Promise<void>((r) => (release = r))
+    let lockedResolve!: () => void
+    const locked = new Promise<void>((r) => (lockedResolve = r))
+    const blocker = sys(async (tx) => {
+      await tx
+        .select({ id: schema.platformConfig.id })
+        .from(schema.platformConfig)
+        .where(eq(schema.platformConfig.key, "active_psp"))
+        .for("update")
+      lockedResolve()
+      await gate
+    })
+    await locked
+
+    // 2. The switch passes its role check (users row FOR SHARE), then waits on the config lock.
+    const action = setActivePsp(form("stripe"))
+    await waitForLockWait(/platform_config[\s\S]*for update/i)
+
+    // 3. A demotion now has to wait for the switch's FOR SHARE lock on the users row.
+    let demoted = false
+    const demotion = sys((tx) =>
+      tx.update(schema.users).set({ role: "bomy_ops" }).where(eq(schema.users.id, ids.racer)),
+    ).then(() => {
+      demoted = true
+    })
+    await waitForLockWait(/update "users"/i)
+    expect(demoted).toBe(false)
+
+    // 4. Release: the switch commits first (under the role it checked), then the demotion.
+    release()
+    await blocker
+    await action
+    await demotion
+    expect(mockFlash).toHaveBeenLastCalledWith(
+      "success",
+      "New payments now use Stripe (was HitPay). Existing payments stay on their own provider.",
+    )
+    expect(await auditRowsBy([ids.racer])).toEqual([
+      expect.objectContaining({ oldValue: "hitpay", newValue: "stripe", changedBy: ids.racer }),
+    ])
+
+    // 5. After the demotion commits, the same stale JWT is refused.
+    await setValue("hitpay")
+    mockFlash.mockReset()
+    await setActivePsp(form("stripe"))
+    expect(mockFlash).toHaveBeenCalledWith("error", "You don't have permission to do that.")
+    expect((await readRow("active_psp"))?.value).toBe("hitpay")
+    expect(await auditRowsBy([ids.racer])).toHaveLength(1)
   })
 })

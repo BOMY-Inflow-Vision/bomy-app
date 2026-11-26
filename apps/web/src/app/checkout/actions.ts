@@ -15,7 +15,7 @@ import {
 import { getProvider, pspErrorCode } from "@bomy/psp"
 
 import { auth } from "@/auth"
-import { getActivePsp } from "@/lib/active-psp"
+import { orderCheckoutPsp } from "@/lib/payments-enabled"
 import { CheckoutError, type CheckoutErrorCode } from "@/lib/checkout-errors"
 import { ACTION_RATE_LIMITS } from "@/lib/rate-limits"
 import { validateShippingAddress } from "@/lib/shipping-address-schema"
@@ -244,13 +244,12 @@ export async function initiateCheckout(input: {
   }
 
   // Provider for this order, resolved ONCE and pinned on the session row below (Stripe design
-  // §3.4). Checked before Phase 1 so an unresolvable or unconfigured active_psp mutates no
+  // §3.4) with the same check as the /checkout page. Checked before Phase 1 so an unresolvable
+  // or unconfigured active_psp mutates no
   // stock, reservation or voucher state. checkout_enabled stays the order gate;
   // subscriptions_enabled does not apply to orders.
-  const pinnedPsp = await getActivePsp()
-  if (pinnedPsp === null || !getProvider(pinnedPsp).isConfigured()) {
-    return { ok: false, error: "CHECKOUT_DISABLED" }
-  }
+  const pinnedPsp = await orderCheckoutPsp()
+  if (pinnedPsp === null) return { ok: false, error: "CHECKOUT_DISABLED" }
 
   if (input.items.length === 0) return { ok: false, error: "EMPTY_CART" }
 

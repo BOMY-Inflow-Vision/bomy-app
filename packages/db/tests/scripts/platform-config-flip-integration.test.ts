@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto"
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest"
 
 import { makeDb, schema, withAdmin, withTenant } from "../../src/index.js"
-import { eq, and } from "drizzle-orm"
+import { eq, and, sql } from "drizzle-orm"
 
 import { runPlatformConfigFlip } from "../../scripts/ops/platform-config-flip-core.js"
 
@@ -148,6 +148,112 @@ describe.skipIf(!shouldRun)("runPlatformConfigFlip — integration", () => {
           ),
         )
       expect(bypassRows).toHaveLength(1)
+    })
+  })
+
+  // ── active_psp rules (Stripe design PR 3 review) ────────────────────────
+  // Uses the REAL active_psp row. Value is never changed away from its current value, because
+  // other files in this package assert the 0039 seed ("hitpay") in parallel; updated_by and
+  // updated_at are restored exactly afterwards.
+  describe("active_psp", () => {
+    const SYSTEM = "00000000-0000-0000-0000-000000000001"
+    let snapshot: { value: unknown; updatedBy: string | null; updatedAtText: string }
+
+    async function setRole(role: "bomy_ops" | "bomy_finance") {
+      await withAdmin(ownerDb.db, { userId: SYSTEM, reason: "test set role" }, (tx) =>
+        tx.update(schema.users).set({ role }).where(eq(schema.users.id, testActorId)),
+      )
+    }
+
+    beforeEach(async () => {
+      const [row] = await withAdmin(ownerDb.db, { userId: SYSTEM, reason: "test snapshot" }, (tx) =>
+        tx
+          .select({
+            value: schema.platformConfig.value,
+            updatedBy: schema.platformConfig.updatedBy,
+            updatedAtText: sql<string>`${schema.platformConfig.updatedAt}::text`,
+          })
+          .from(schema.platformConfig)
+          .where(eq(schema.platformConfig.key, "active_psp")),
+      )
+      if (!row) throw new Error("active_psp must be seeded (0039)")
+      snapshot = row
+    })
+
+    afterEach(async () => {
+      await withAdmin(ownerDb.db, { userId: SYSTEM, reason: "test restore active_psp" }, (tx) =>
+        tx
+          .update(schema.platformConfig)
+          .set({
+            value: snapshot.value,
+            updatedBy: snapshot.updatedBy,
+            updatedAt: sql`${snapshot.updatedAtText}::timestamptz`,
+          })
+          .where(eq(schema.platformConfig.key, "active_psp")),
+      )
+    })
+
+    it("bomy_ops is refused before any write", async () => {
+      await setRole("bomy_ops")
+      await expect(
+        runPlatformConfigFlip(appDb.db, {
+          key: "active_psp",
+          value: JSON.stringify(snapshot.value),
+          actor: testActorId,
+          reason: testReason,
+        }),
+      ).rejects.toThrow(/bomy_admin \/ bomy_finance/)
+      const audit = await withTenant(
+        appDb.db,
+        { userId: testActorId, userRole: "bomy_ops" },
+        (tx) =>
+          tx
+            .select({ id: schema.platformConfigAudit.id })
+            .from(schema.platformConfigAudit)
+            .where(eq(schema.platformConfigAudit.changedBy, testActorId)),
+      )
+      expect(audit).toHaveLength(0)
+    })
+
+    it("an unknown provider value is refused", async () => {
+      await expect(
+        runPlatformConfigFlip(appDb.db, {
+          key: "active_psp",
+          value: '"paypal"',
+          actor: testActorId,
+          reason: testReason,
+        }),
+      ).rejects.toThrow(/not allowed/)
+    })
+
+    it("bomy_finance can write it, audited, with no credential check (emergency path)", async () => {
+      await setRole("bomy_finance")
+      // No HITPAY_* env in this process: the CLI must still succeed (design §11 kill switch).
+      const result = await runPlatformConfigFlip(appDb.db, {
+        key: "active_psp",
+        value: JSON.stringify(snapshot.value),
+        actor: testActorId,
+        reason: testReason,
+      })
+      expect(result.actor.role).toBe("bomy_finance")
+      expect(result.newValue).toEqual(snapshot.value)
+      await withTenant(appDb.db, { userId: testActorId, userRole: "bomy_finance" }, async (tx) => {
+        const audit = await tx
+          .select({ key: schema.platformConfigAudit.key })
+          .from(schema.platformConfigAudit)
+          .where(eq(schema.platformConfigAudit.changedBy, testActorId))
+        expect(audit).toEqual([{ key: "active_psp" }])
+        const bypass = await tx
+          .select({ id: schema.adminBypassAudit.id })
+          .from(schema.adminBypassAudit)
+          .where(
+            and(
+              eq(schema.adminBypassAudit.actorUserId, testActorId),
+              eq(schema.adminBypassAudit.reason, testReason),
+            ),
+          )
+        expect(bypass).toHaveLength(1)
+      })
     })
   })
 })
