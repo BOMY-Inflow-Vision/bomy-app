@@ -5,28 +5,12 @@ import { PageHeading } from "@/components/page-heading"
 import { Stepper } from "@/components/ui/stepper"
 
 import { listAddresses } from "../account/addresses/actions"
+import { readCheckoutEnabled } from "@/lib/active-psp"
 import { orderCheckoutPsp } from "@/lib/payments-enabled"
 
-import { readCheckoutEnabled } from "./actions"
 import { CheckoutForm } from "./_form"
 import { CHECKOUT_STEPS } from "./steps"
 import { PageMain } from "@/components/page-main"
-
-// A JWT session survives up to 30 days (see CLAUDE.md auth notes) and isn't re-validated
-// against the DB on every request, so a deleted/orphaned account can still present a
-// "signed in" session. readCheckoutEnabled's admin-audit insert is the first write that
-// would hit this — surface it as a stale session instead of a raw 500.
-function isMissingSessionActor(err: unknown): boolean {
-  return (
-    err !== null &&
-    typeof err === "object" &&
-    "code" in err &&
-    (err as { code: unknown }).code === "23503" &&
-    "constraint_name" in err &&
-    (err as { constraint_name: unknown }).constraint_name ===
-      "admin_bypass_audit_actor_user_id_fkey"
-  )
-}
 
 export default async function CheckoutPage() {
   const session = await auth()
@@ -34,15 +18,10 @@ export default async function CheckoutPage() {
     redirect("/auth/sign-in?callbackUrl=/checkout")
   }
 
-  let enabled: boolean
-  try {
-    enabled = await readCheckoutEnabled(session.user.id)
-  } catch (err) {
-    if (isMissingSessionActor(err)) {
-      redirect("/auth/sign-in?callbackUrl=/checkout")
-    }
-    throw err
-  }
+  // Read-only public-flag lookup (migration 0041): writes nothing, fails closed. It no longer
+  // inserts an admin_bypass_audit row, so a stale JWT for a deleted account cannot surface here
+  // as an audit FK error any more (that redirect was removed with the audited read).
+  let enabled = await readCheckoutEnabled()
   // Same provider check as initiateCheckout, so the page never looks open while the action
   // refuses (unknown or unconfigured active_psp). Independent of subscriptions_enabled.
   if (enabled) enabled = (await orderCheckoutPsp()) !== null

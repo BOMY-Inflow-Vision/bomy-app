@@ -16,7 +16,9 @@ vi.mock("next/navigation", () => ({
     throw new Error(`REDIRECT:${to}`)
   },
 }))
-vi.mock("@/app/checkout/actions", () => ({ readCheckoutEnabled }))
+vi.mock("@/lib/active-psp", () => ({ readCheckoutEnabled }))
+// Tripwire: the page's flag read must never go through the audited admin bypass.
+vi.mock("@/app/checkout/actions", () => ({}))
 vi.mock("@/app/account/addresses/actions", () => ({ listAddresses }))
 vi.mock("@/lib/payments-enabled", () => ({ orderCheckoutPsp }))
 vi.mock("@/app/checkout/_form", () => ({
@@ -63,13 +65,12 @@ describe("CheckoutPage gating and structure", () => {
     await expect(CheckoutPage()).rejects.toThrow("REDIRECT:/auth/sign-in?callbackUrl=/checkout")
   })
 
-  it("a stale session (missing audit actor) redirects to sign-in too", async () => {
+  it("reads checkout_enabled through the read-only lookup with no actor argument", async () => {
     auth.mockResolvedValue({ user: { id: "u1" } })
-    readCheckoutEnabled.mockRejectedValue({
-      code: "23503",
-      constraint_name: "admin_bypass_audit_actor_user_id_fkey",
-    })
-    await expect(CheckoutPage()).rejects.toThrow("REDIRECT:/auth/sign-in?callbackUrl=/checkout")
+    readCheckoutEnabled.mockResolvedValue(false)
+    await render()
+    expect(readCheckoutEnabled).toHaveBeenCalledTimes(1)
+    expect(readCheckoutEnabled).toHaveBeenCalledWith()
   })
 
   it("disabled shows the paused text and no form", async () => {

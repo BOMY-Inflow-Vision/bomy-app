@@ -14,7 +14,8 @@ const { getStorePage, getBrandSubscriberAvatars, paymentsEnabled, withAdmin } = 
 vi.mock("@/auth", () => ({ auth: () => Promise.resolve(null) }))
 vi.mock("next/navigation", () => ({ notFound: () => Promise.reject(new Error("NOT_FOUND")) }))
 vi.mock("@/app/brands/[slug]/queries", () => ({ getStorePage, getBrandSubscriberAvatars }))
-// Tripwires: the storefront must not read platform_config flags (no audit row per view).
+// The Subscription plans link is gated by paymentsEnabled() (read-only public-flag lookup,
+// migration 0041). withAdmin is a tripwire: no flag read on this page may use the audited bypass.
 vi.mock("@/lib/payments-enabled", () => ({ paymentsEnabled }))
 vi.mock("@bomy/db", () => ({ withAdmin, withPublicRead: vi.fn(), schema: {} }))
 
@@ -53,6 +54,8 @@ beforeEach(() => {
   getStorePage.mockReset()
   getBrandSubscriberAvatars.mockReset()
   paymentsEnabled.mockReset()
+  // Default: plans open, so the layout tests below see the full right column.
+  paymentsEnabled.mockResolvedValue(true)
   withAdmin.mockReset()
 })
 
@@ -166,14 +169,40 @@ describe("brand store page top grid (R5a)", () => {
     has(column, ["min-w-0", "flex", "flex-col"])
   })
 
-  it("a plain Subscription plans link, with no flag read or admin bypass on the page", async () => {
+  it("plans open: shows the Subscription plans link, one flag read, no admin bypass", async () => {
     const d = await renderStore({ bodyHtml: null })
     expect(subscribe(d).textContent).toBe("Subscription plans")
-    expect(paymentsEnabled).not.toHaveBeenCalled()
+    expect(paymentsEnabled).toHaveBeenCalledTimes(1)
     expect(withAdmin).not.toHaveBeenCalled()
   })
 
-  it("the Subscription plans link always shows; the video column child only with a videoId", async () => {
+  it("plans closed (or the flag read failed closed): no Subscription plans link", async () => {
+    paymentsEnabled.mockResolvedValue(false)
+    const d = await renderStore({ bodyHtml: null, videoId: "dQw4w9WgXcQ" })
+    expect(d.querySelector('a[href="/brands/acme/subscribe"]')).toBeNull()
+    expect(d.body.textContent).not.toContain("Subscription plans")
+    expect(withAdmin).not.toHaveBeenCalled()
+  })
+
+  it("plans closed with a story and nothing else on the right: the story takes the full row", async () => {
+    paymentsEnabled.mockResolvedValue(false)
+    const d = await renderStore({ bodyHtml: "<p>Hello</p>" })
+    const grid = d.querySelector("main > .grid")!
+    expect(grid.classList.contains("md:grid-cols-2")).toBe(false)
+    expect(grid.children).toHaveLength(1)
+    expect(grid.textContent).toContain("Our Story")
+  })
+
+  it("plans closed, no story, no video: no empty right column is rendered", async () => {
+    paymentsEnabled.mockResolvedValue(false)
+    const d = await renderStore({ bodyHtml: null })
+    const main = d.querySelector("main")!
+    expect(
+      Array.from(main.children).some((c) => c.children.length === 0 && c.tagName === "DIV"),
+    ).toBe(false)
+  })
+
+  it("plans open: the link column holds only the link; the video column child only with a videoId", async () => {
     const without = await renderStore({ bodyHtml: null })
     expect(subscribe(without).parentElement!.children).toHaveLength(1)
     const withVideo = await renderStore({ bodyHtml: null, videoId: "dQw4w9WgXcQ" })

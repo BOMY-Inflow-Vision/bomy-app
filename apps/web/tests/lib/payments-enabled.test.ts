@@ -2,7 +2,8 @@
  * Unit truth table — payments gate (Stripe design PR 3, §3.4 / §13 decision 3).
  *
  * `@bomy/db` is mocked so each case controls exactly what platform_config returns (or that the
- * read throws). The real-DB path is covered by the action-level integration
+ * read throws). Since migration 0041 the read is `withPublicRead` (read-only, no audit row);
+ * `withAdmin` is a tripwire that must never be called. The real-DB path is covered by the action-level integration
  * suites (membership/actions, brand-subscription/actions, checkout/initiate).
  */
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest"
@@ -11,18 +12,20 @@ vi.mock("@bomy/db", () => ({
   makeDb: vi.fn().mockReturnValue({ db: {}, close: vi.fn() }),
   schema: { platformConfig: { key: "key", value: "value" } },
   withAdmin: vi.fn(),
+  withPublicRead: vi.fn(),
 }))
 
 import * as dbModule from "@bomy/db"
 import { resetProviders, setProviderOverride, type PaymentProvider } from "@bomy/psp"
 
-import { getActivePsp, readPaymentFlags } from "@/lib/active-psp"
+import { getActivePsp, readCheckoutEnabled, readPaymentFlags } from "@/lib/active-psp"
 import { orderCheckoutPsp, paymentsEnabled, subscriptionPsp } from "@/lib/payments-enabled"
 
 const withAdmin = dbModule.withAdmin as unknown as Mock
+const withPublicRead = dbModule.withPublicRead as unknown as Mock
 
 function rows(r: Array<{ key: string; value: unknown }>) {
-  withAdmin.mockResolvedValueOnce(r)
+  withPublicRead.mockResolvedValueOnce(r)
 }
 
 function flags(active: unknown, subs: unknown) {
@@ -43,13 +46,41 @@ describe("readPaymentFlags / getActivePsp — fail closed", () => {
     vi.restoreAllMocks()
   })
 
-  it("reads both keys in ONE withAdmin call", async () => {
-    flags("hitpay", true)
+  it("reads all three keys in ONE withPublicRead call and never uses withAdmin", async () => {
+    rows([
+      { key: "checkout_enabled", value: true },
+      { key: "active_psp", value: "hitpay" },
+      { key: "subscriptions_enabled", value: true },
+    ])
     await expect(readPaymentFlags()).resolves.toEqual({
+      checkoutEnabled: true,
       activePsp: "hitpay",
       subscriptionsEnabled: true,
     })
-    expect(withAdmin).toHaveBeenCalledTimes(1)
+    expect(withPublicRead).toHaveBeenCalledTimes(1)
+    expect(withAdmin).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ["true", true, true],
+    ["false", false, false],
+    ["string 'true'", "true", false],
+    ["number 1", 1, false],
+    ["null", null, false],
+  ])("checkout_enabled = %s → %s (only JSON true opens)", async (_label, value, expected) => {
+    rows([{ key: "checkout_enabled", value }])
+    await expect(readCheckoutEnabled()).resolves.toBe(expected)
+  })
+
+  it("checkout_enabled missing (e.g. 0041 not applied: RLS returns no rows) → false", async () => {
+    rows([])
+    await expect(readCheckoutEnabled()).resolves.toBe(false)
+  })
+
+  it("checkout_enabled read error → false, never throws", async () => {
+    withPublicRead.mockRejectedValueOnce(new Error("connection refused"))
+    await expect(readCheckoutEnabled()).resolves.toBe(false)
+    expect(withAdmin).not.toHaveBeenCalled()
   })
 
   it("accepts 'stripe' as a known provider id", async () => {
@@ -79,17 +110,19 @@ describe("readPaymentFlags / getActivePsp — fail closed", () => {
     expect((await readPaymentFlags()).subscriptionsEnabled).toBe(false)
   })
 
-  it("missing rows → { activePsp: null, subscriptionsEnabled: false }", async () => {
+  it("missing rows → everything off", async () => {
     rows([])
     await expect(readPaymentFlags()).resolves.toEqual({
+      checkoutEnabled: false,
       activePsp: null,
       subscriptionsEnabled: false,
     })
   })
 
   it("DB error → closed, never throws", async () => {
-    withAdmin.mockRejectedValueOnce(new Error("connection refused"))
+    withPublicRead.mockRejectedValueOnce(new Error("connection refused"))
     await expect(readPaymentFlags()).resolves.toEqual({
+      checkoutEnabled: false,
       activePsp: null,
       subscriptionsEnabled: false,
     })
@@ -152,7 +185,7 @@ describe("paymentsEnabled / subscriptionPsp — active × configured × subscrip
   })
 
   it("closed: DB error", async () => {
-    withAdmin.mockRejectedValueOnce(new Error("boom"))
+    withPublicRead.mockRejectedValueOnce(new Error("boom"))
     await expect(paymentsEnabled()).resolves.toBe(false)
   })
 
@@ -201,7 +234,7 @@ describe("orderCheckoutPsp — shared by the /checkout page and initiateCheckout
     await expect(orderCheckoutPsp()).resolves.toBeNull()
     flags("paypal", true)
     await expect(orderCheckoutPsp()).resolves.toBeNull()
-    withAdmin.mockRejectedValueOnce(new Error("boom"))
+    withPublicRead.mockRejectedValueOnce(new Error("boom"))
     await expect(orderCheckoutPsp()).resolves.toBeNull()
   })
 })

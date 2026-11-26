@@ -11,6 +11,7 @@ import { ProductCard, toneFor } from "@/components/product-card"
 import { AvatarGroup } from "@/components/ui/avatar-group"
 import { Button } from "@bomy/ui/button"
 import { VideoEmbed } from "@/components/video-embed"
+import { paymentsEnabled } from "@/lib/payments-enabled"
 import { cn } from "@/lib/utils"
 
 import { getBrandSubscriberAvatars, getStorePage } from "./queries"
@@ -62,16 +63,22 @@ export default async function StorePage({ params }: Props) {
     ? await getBrandSubscriberAvatars(store.id)
     : { avatars: [], total: 0 }
 
+  // Same gate as the plans page and subscribeToBrand (subscriptions_enabled + a configured
+  // active_psp). A read-only public-flag lookup (withPublicRead, migration 0041): it writes
+  // nothing, so it is safe on this high-traffic anonymous page. Fails closed (link hidden).
+  // The page renders per request (root layout force-dynamic), so a flag change shows on the
+  // next view.
+  const plansOpen = await paymentsEnabled()
+  const hasActions = Boolean(store.videoId) || plansOpen || subscriberAvatars.length > 0
+
   const actions = (
     <div className="flex min-w-0 flex-col gap-4">
       {store.videoId && <VideoEmbed videoId={store.videoId} title={`${store.name} video`} />}
-      {/* Plain navigation, NO platform_config read: this is the highest-traffic public page and
-          a flag read here would write an admin_bypass_audit row per view. The plans page shows
-          the closed state and its purchase button + subscribeToBrand are gated. Gate this link
-          once migration 0041 adds a read-only public-flag lookup (design §3.4). */}
-      <Button asChild icon={<CreditCard />} className="self-start">
-        <Link href={`/brands/${store.slug}/subscribe`}>Subscription plans</Link>
-      </Button>
+      {plansOpen && (
+        <Button asChild icon={<CreditCard />} className="self-start">
+          <Link href={`/brands/${store.slug}/subscribe`}>Subscription plans</Link>
+        </Button>
+      )}
       {subscriberAvatars.length > 0 && (
         <div className="flex items-center gap-3">
           <AvatarGroup avatars={subscriberAvatars} total={subscriberCount} />
@@ -111,17 +118,19 @@ export default async function StorePage({ params }: Props) {
       <PageHeading title={store.name} align="center" />
 
       {store.bodyHtml ? (
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+        // With nothing in the right column (no video, plans closed, no avatars) the story takes
+        // the full row instead of leaving an empty half.
+        <div className={cn("grid grid-cols-1 gap-8", hasActions && "md:grid-cols-2")}>
           <div className="min-w-0 rounded-bento border border-border bg-card p-6">
             <h2 className="mb-4 text-lg font-semibold text-foreground">Our Story</h2>
             <div className="prose prose-sm min-w-0 max-w-none break-words dark:prose-invert [&_img]:h-auto [&_img]:max-w-full">
               <BodyRenderer html={store.bodyHtml} />
             </div>
           </div>
-          {actions}
+          {hasActions && actions}
         </div>
       ) : (
-        actions
+        hasActions && actions
       )}
 
       {categorySections.length === 0 && uncategorized.products.length === 0 ? (

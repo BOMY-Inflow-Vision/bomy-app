@@ -15,6 +15,7 @@ import {
 import { getProvider, pspErrorCode } from "@bomy/psp"
 
 import { auth } from "@/auth"
+import { readCheckoutEnabled } from "@/lib/active-psp"
 import { orderCheckoutPsp } from "@/lib/payments-enabled"
 import { CheckoutError, type CheckoutErrorCode } from "@/lib/checkout-errors"
 import { ACTION_RATE_LIMITS } from "@/lib/rate-limits"
@@ -29,8 +30,6 @@ import {
   type AvailableVoucher,
   type InvalidLineReason,
 } from "./queries"
-
-const SYSTEM_ACTOR = "00000000-0000-0000-0000-000000000001" as const
 
 let _client: ReturnType<typeof makeDb> | null = null
 function getDb() {
@@ -171,30 +170,6 @@ export async function priceCheckoutPreview(input: {
 }
 
 // ───────────────────────────────────────────────────────────────────────
-// readPlatformConfig — staff-only RLS, so we use withAdmin (audit per call)
-// matches apps/web/src/app/(marketing)/membership/page.tsx pattern.
-// Exported for reuse by /checkout server component shell.
-// ───────────────────────────────────────────────────────────────────────
-
-export async function readCheckoutEnabled(actorUserId?: string): Promise<boolean> {
-  const db = getDb()
-  const rows = await withAdmin(
-    db,
-    {
-      userId: actorUserId ?? SYSTEM_ACTOR,
-      reason: "read checkout_enabled gate",
-    },
-    async (tx) =>
-      tx
-        .select({ value: schema.platformConfig.value })
-        .from(schema.platformConfig)
-        .where(eq(schema.platformConfig.key, "checkout_enabled"))
-        .limit(1),
-  )
-  return rows[0]?.value === true
-}
-
-// ───────────────────────────────────────────────────────────────────────
 // initiateCheckout — Phase 1 (Task 11) + Phase 1b (Task 12).
 //
 // Pre-txn guards: auth → checkout_enabled gate → non-empty cart →
@@ -239,7 +214,8 @@ export async function initiateCheckout(input: {
   )
   if (!limit.allowed) return { ok: false, error: "RATE_LIMITED" }
 
-  if (!(await readCheckoutEnabled(buyerId))) {
+  // Read-only public-flag lookup (migration 0041): no audit row, fails closed.
+  if (!(await readCheckoutEnabled())) {
     return { ok: false, error: "CHECKOUT_DISABLED" }
   }
 

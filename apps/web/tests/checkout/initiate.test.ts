@@ -483,7 +483,7 @@ describe.skipIf(!shouldRun)("initiateCheckout", () => {
     expect(voucherRows[0]!.reservedAt).not.toBeNull()
     expect(voucherRows[0]!.redeemedAt).toBeNull()
 
-    // At least one new audit row (checkout_enabled read + initiation = 2)
+    // At least one new audit row (the initiation; the checkout_enabled read is read-only since 0041)
     const auditAfter = await withAdmin(
       testDb.db,
       { userId: SYSTEM_ACTOR, reason: "test count audit" },
