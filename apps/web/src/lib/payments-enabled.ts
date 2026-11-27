@@ -35,10 +35,10 @@ export async function subscriptionPsp(): Promise<PspProvider | null> {
 
 /**
  * Gate for NEW membership / brand-subscription purchases: the /membership and
- * /brands/[slug]/subscribe CTAs, the account Renew link, and the matching server actions
- * (defence in depth). Replaces the PR #39 HitPay env sniff. The brand storefront's
- * "Subscription plans" link is deliberately NOT gated (no audited read per public view) until
- * migration 0041 adds a read-only public-flag lookup.
+ * /brands/[slug]/subscribe CTAs, the account Renew link, the brand storefront's
+ * "Subscription plans" link, and the matching server actions (defence in depth). Replaces the
+ * PR #39 HitPay env sniff. The flag read is read-only (`withPublicRead`, migration 0041), so it
+ * is safe on anonymous high-traffic pages.
  */
 export async function paymentsEnabled(): Promise<boolean> {
   return (await subscriptionPsp()) !== null

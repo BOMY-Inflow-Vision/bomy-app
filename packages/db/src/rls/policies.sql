@@ -266,6 +266,14 @@ CREATE POLICY platform_config_staff_write ON platform_config
   USING (app.is_bomy_staff() OR app.is_admin_bypass())
   WITH CHECK (app.is_bomy_staff() OR app.is_admin_bypass());
 
+-- Migration 0041: the three payment on/off flags are readable by any context that passes
+-- platform_config_default_deny (withPublicRead's nil UUID, any withTenant user). SELECT only:
+-- writes and row locks stay staff-only through platform_config_staff_write. RLS cannot hide
+-- columns, so callers select key + value only (see 0041 header).
+CREATE POLICY platform_config_public_flags_read ON platform_config
+  FOR SELECT
+  USING (key IN ('checkout_enabled', 'active_psp', 'subscriptions_enabled'));
+
 CREATE POLICY platform_config_audit_staff_read ON platform_config_audit
   FOR SELECT
   USING (app.is_bomy_staff() OR app.is_admin_bypass());

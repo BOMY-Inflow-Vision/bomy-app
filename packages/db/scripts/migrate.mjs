@@ -200,6 +200,10 @@ const MIGRATIONS = [
     name: "0040_psp_rebackfill",
     file: join(__dirname, "../drizzle/0040_psp_rebackfill.sql"),
   },
+  {
+    name: "0041_platform_config_public_flags_read",
+    file: join(__dirname, "../drizzle/0041_platform_config_public_flags_read.sql"),
+  },
 ]
 
 try {

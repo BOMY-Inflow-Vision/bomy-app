@@ -79,8 +79,10 @@ pnpm ops:platform-config:set \
    ```
    shows both keys → `false` with your UUID.
 3. On the storefront: `/membership` shows "Memberships will reopen soon", a brand's
+   storefront `/brands/<slug>` no longer shows the "Subscription plans" button, its
    `/brands/<slug>/subscribe` page shows "Subscriptions will reopen soon" with no Subscribe
-   button, and `/checkout` shows "Checkout is paused".
+   button, and `/checkout` shows "Checkout is paused". The storefront reads these flags through a
+   read-only lookup (migration 0041), so the change shows on the next page view.
 
 **Step 4 (optional) — move new payments off the failing provider**, only after Step 3 is green.
 Use §1 if admin offers HitPay. If HitPay is dormant on admin, use the CLI (no credential check by

@@ -2,15 +2,19 @@
 
 **Audience:** BOMY staff (`bomy_ops` / `bomy_admin` / `bomy_finance`) executing a `checkout_enabled` flip on local or staging. Production is OUT OF SCOPE until a separate production-cutover runbook lands.
 
+> **Emergency stop in production: use [`active-psp-switch.md` §2](./active-psp-switch.md#2-emergency-stop-of-all-new-payments), not this runbook.**
+> Setting `checkout_enabled` (and `subscriptions_enabled`) to **`false`** is the fail-closed direction and is **allowed on any environment, production included**, by any staff role, through the same audited `pnpm ops:platform-config:set` CLI. That runbook gives the order (record values → checkout off → subscriptions off → verify → optional `active_psp` move) and the restore steps.
+> **Re-enabling (`--value true`) in production is NOT covered by that exception:** it still requires every launch gate in this runbook (§0 pre-flight, the §1 hard gate, §3–§4 evidence) **and** the production-cutover runbook in §9. Until §9 exists, no production `checkout_enabled=true` flip is authorised.
+
 **Spec:** [`docs/superpowers/specs/2026-05-27-pr36-checkout-enabled-flip-runbook.md`](../superpowers/specs/2026-05-27-pr36-checkout-enabled-flip-runbook.md)
 **Owner:** Charlie (Stage 5; revisit when ops handoff happens in Stage 6+).
-**Last revised:** 2026-05-27
+**Last revised:** 2026-11-26 (emergency-stop cross-link)
 
 ---
 
 ## §0. Pre-flight (do once per actor, per environment)
 
-- Confirm target env (local or staging-template). If `DATABASE_URL` host smells like prod (`*.brandsofmalaysia.com`, `*.production.*`), **stop** — this runbook is not for prod.
+- Confirm target env (local or staging-template). If `DATABASE_URL` host smells like prod (`*.brandsofmalaysia.com`, `*.production.*`), **stop** — this runbook is not for prod. (Exception: turning the flag **off** in prod as an emergency stop is allowed; follow [`active-psp-switch.md` §2](./active-psp-switch.md#2-emergency-stop-of-all-new-payments).)
 - **If you are working on production, read this first:** this runbook is not the production flip, but a production-only setting can trip it. To let the idle Neon database sleep, prod may run the API with `INVENTORY_EXPIRY_CRON` set to a slow schedule (each run of `inventory-reservation-expiry` wakes the database). **Before `checkout_enabled` goes `true` in production, remove that variable on Railway (or set it to `*/10 * * * *`), redeploy the API, and check the log line `jobs: inventory-reservation-expiry schedule "…"` shows `*/10 * * * *`.** Reserving stock takes it off the product immediately, and only this job gives the stock and the reserved voucher back, so with a slow schedule an abandoned checkout keeps that stock and voucher unavailable for up to the schedule gap (about 6 hours for `0 */6 * * *`): no money is lost, but sales are. The same step is in `public-deployment-cutover.md` Step 17 and in `.andy/handoff.md` under the HitPay blocker.
 - Look up your admin user UUID. This one-off lookup uses the **owner-role** connection (`DATABASE_URL`), NOT `DATABASE_APP_URL`. Under the limited `bomy_app` role no RLS context is set in an ad-hoc `psql` session, so the query would return empty.
   ```sql
@@ -175,7 +179,7 @@ Each is a small DB query or UI walkthrough. **Failures here do NOT trigger rollb
 
 ## §6. Rollback
 
-Same script, `--value false`, with a `--reason` explaining the trigger:
+Same script, `--value false`, with a `--reason` explaining the trigger. (Rolling back is the fail-closed direction; in production, or when all new payments must stop, use the emergency stop in [`active-psp-switch.md` §2](./active-psp-switch.md#2-emergency-stop-of-all-new-payments), which also turns `subscriptions_enabled` off.)
 
 ```bash
 pnpm ops:platform-config:set \
@@ -270,4 +274,6 @@ Same outline as local. Replace these placeholders when staging exists:
 
 ## §9. Production section (intentionally absent)
 
-Production is out of scope of this runbook. A separate production-cutover runbook will be authored when prod infra exists. Named dependencies it will need to address: real domain + DNS, HitPay live keys (not sandbox), monitoring + alerting, defined rollback authority, support coverage windows. Until that runbook lands, **no prod flip is authorised by this runbook.**
+Production is out of scope of this runbook. A separate production-cutover runbook will be authored when prod infra exists. Named dependencies it will need to address: real domain + DNS, HitPay live keys (not sandbox), monitoring + alerting, defined rollback authority, support coverage windows. Until that runbook lands, **no prod flip to `true` is authorised by this runbook.**
+
+The one production action that is authorised today is the **emergency stop** (flags to `false`): [`active-psp-switch.md` §2](./active-psp-switch.md#2-emergency-stop-of-all-new-payments). Re-enabling afterwards goes back through the launch gates above; the emergency-stop runbook's restore step 3 points here for that reason.
