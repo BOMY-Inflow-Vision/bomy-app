@@ -17,6 +17,7 @@ import { getProvider, pspErrorCode } from "@bomy/psp"
 import { auth } from "@/auth"
 import { readCheckoutEnabled } from "@/lib/active-psp"
 import { orderCheckoutPsp } from "@/lib/payments-enabled"
+import { sessionAccountExists } from "@/lib/session-account"
 import { CheckoutError, type CheckoutErrorCode } from "@/lib/checkout-errors"
 import { ACTION_RATE_LIMITS } from "@/lib/rate-limits"
 import { validateShippingAddress } from "@/lib/shipping-address-schema"
@@ -103,6 +104,9 @@ export async function priceCheckoutPreview(input: {
 }): Promise<PreviewResult> {
   const session = await auth()
   if (!session?.user?.id) return { ok: false, error: "UNAUTHENTICATED" }
+  // Before the rate limiter: its upsert FKs users.id, so a deleted account's JWT would
+  // otherwise surface as an FK error. Read-only check; a DB error throws.
+  if (!(await sessionAccountExists(session.user))) return { ok: false, error: "UNAUTHENTICATED" }
 
   const db = getDb()
   const limit = await checkActionRateLimit(
@@ -205,6 +209,10 @@ export async function initiateCheckout(input: {
   const session = await auth()
   if (!session?.user?.id) return { ok: false, error: "UNAUTHENTICATED" }
   const buyerId = session.user.id
+  // Deleted account behind a still-valid JWT → UNAUTHENTICATED, checked before the rate limiter
+  // (users.id FK) and before any audited write (admin_bypass_audit actor FK). Read-only; a DB
+  // error throws.
+  if (!(await sessionAccountExists(session.user))) return { ok: false, error: "UNAUTHENTICATED" }
 
   const limit = await checkActionRateLimit(
     getDb(),
@@ -528,6 +536,11 @@ export async function cancelPendingCheckout(
   // and Postgres would 500 on a non-UUID literal, so we short-circuit
   // before the DB sees it.
   if (!isUuid(sessionId)) return { ok: true }
+
+  // compensateInitiation runs withAdmin with the buyer as audit actor (users.id FK). A deleted
+  // account cannot own a session (checkout_sessions.user_id is ON DELETE RESTRICT), so refuse it
+  // as signed out rather than letting the audit insert fail. Read-only; a DB error throws.
+  if (!(await sessionAccountExists(session.user))) return { ok: false, error: "UNAUTHENTICATED" }
 
   await compensateInitiation(getDb(), {
     sessionId,

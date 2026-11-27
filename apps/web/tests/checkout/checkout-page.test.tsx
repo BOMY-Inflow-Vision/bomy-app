@@ -4,12 +4,14 @@
 import { renderToStaticMarkup } from "react-dom/server"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const { auth, readCheckoutEnabled, listAddresses, orderCheckoutPsp } = vi.hoisted(() => ({
-  auth: vi.fn(),
-  readCheckoutEnabled: vi.fn(),
-  listAddresses: vi.fn(),
-  orderCheckoutPsp: vi.fn(),
-}))
+const { auth, readCheckoutEnabled, listAddresses, orderCheckoutPsp, sessionAccountExists } =
+  vi.hoisted(() => ({
+    auth: vi.fn(),
+    readCheckoutEnabled: vi.fn(),
+    listAddresses: vi.fn(),
+    orderCheckoutPsp: vi.fn(),
+    sessionAccountExists: vi.fn(),
+  }))
 vi.mock("@/auth", () => ({ auth }))
 vi.mock("next/navigation", () => ({
   redirect: (to: string) => {
@@ -21,6 +23,7 @@ vi.mock("@/lib/active-psp", () => ({ readCheckoutEnabled }))
 vi.mock("@/app/checkout/actions", () => ({}))
 vi.mock("@/app/account/addresses/actions", () => ({ listAddresses }))
 vi.mock("@/lib/payments-enabled", () => ({ orderCheckoutPsp }))
+vi.mock("@/lib/session-account", () => ({ sessionAccountExists }))
 vi.mock("@/app/checkout/_form", () => ({
   CheckoutForm: (p: { savedAddresses: { id: string; line1: string }[] }) => (
     <div
@@ -57,12 +60,31 @@ beforeEach(() => {
   listAddresses.mockReset()
   orderCheckoutPsp.mockReset()
   orderCheckoutPsp.mockResolvedValue("hitpay")
+  sessionAccountExists.mockReset()
+  sessionAccountExists.mockResolvedValue(true)
 })
 
 describe("CheckoutPage gating and structure", () => {
   it("signed out redirects to sign-in with the checkout callback", async () => {
     auth.mockResolvedValue(null)
     await expect(CheckoutPage()).rejects.toThrow("REDIRECT:/auth/sign-in?callbackUrl=/checkout")
+  })
+
+  it("a stale session for a deleted account redirects to sign-in before any flag read", async () => {
+    auth.mockResolvedValue({ user: { id: "u1", role: "buyer" } })
+    sessionAccountExists.mockResolvedValue(false)
+    await expect(CheckoutPage()).rejects.toThrow("REDIRECT:/auth/sign-in?callbackUrl=/checkout")
+    expect(sessionAccountExists).toHaveBeenCalledWith({ id: "u1", role: "buyer" })
+    expect(readCheckoutEnabled).not.toHaveBeenCalled()
+    expect(listAddresses).not.toHaveBeenCalled()
+  })
+
+  it("a DB error in the account check is not treated as signed in (throws, no form)", async () => {
+    auth.mockResolvedValue({ user: { id: "u1", role: "buyer" } })
+    sessionAccountExists.mockRejectedValue(new Error("connection refused"))
+    await expect(CheckoutPage()).rejects.toThrow("connection refused")
+    expect(readCheckoutEnabled).not.toHaveBeenCalled()
+    expect(listAddresses).not.toHaveBeenCalled()
   })
 
   it("reads checkout_enabled through the read-only lookup with no actor argument", async () => {

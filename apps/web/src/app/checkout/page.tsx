@@ -7,6 +7,7 @@ import { Stepper } from "@/components/ui/stepper"
 import { listAddresses } from "../account/addresses/actions"
 import { readCheckoutEnabled } from "@/lib/active-psp"
 import { orderCheckoutPsp } from "@/lib/payments-enabled"
+import { sessionAccountExists } from "@/lib/session-account"
 
 import { CheckoutForm } from "./_form"
 import { CHECKOUT_STEPS } from "./steps"
@@ -18,9 +19,14 @@ export default async function CheckoutPage() {
     redirect("/auth/sign-in?callbackUrl=/checkout")
   }
 
-  // Read-only public-flag lookup (migration 0041): writes nothing, fails closed. It no longer
-  // inserts an admin_bypass_audit row, so a stale JWT for a deleted account cannot surface here
-  // as an audit FK error any more (that redirect was removed with the audited read).
+  // A JWT session survives up to 30 days and is not re-validated per request, so a deleted
+  // account can still look signed in. Send it to sign-in instead of rendering checkout (the old
+  // audited flag read did this implicitly through its actor FK). Read-only; a DB error throws.
+  if (!(await sessionAccountExists(session.user))) {
+    redirect("/auth/sign-in?callbackUrl=/checkout")
+  }
+
+  // Read-only public-flag lookup (migration 0041): writes nothing, fails closed.
   let enabled = await readCheckoutEnabled()
   // Same provider check as initiateCheckout, so the page never looks open while the action
   // refuses (unknown or unconfigured active_psp). Independent of subscriptions_enabled.
